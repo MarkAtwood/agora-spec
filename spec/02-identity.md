@@ -77,6 +77,12 @@ The `keyAgreement` key is the source material for MLS KeyPackage generation. The
 
 A single user identity can span multiple physical devices. MLS handles multi-device membership natively: each device is a separate MLS leaf node in every group the user belongs to. For `did:webvh` and `did:plc`, the user's DID document lists all active device verification keys as separate `verificationMethod` entries, and this section applies. A `did:key` identity has no device list: every device holds the same identity key, and a device cannot be revoked (§2.1).
 
+Each device signs with its own Ed25519 device key: its MLS leaf signatures, its KeyPackages and its JWS signatures (§13.1.1). A WebAuthn credential (passkey) is not a device key and MUST NOT be listed as a device `verificationMethod`, because an authenticator signs only `authenticatorData || SHA-256(clientDataJSON)` and cannot produce MLS signatures, JWS signatures, `did:webvh` log proofs or PLC operations. Passkeys serve only to authenticate the user to the identity host (the employer's provisioning service, §2.5, or the host the user chose, §2.1) when a device is registered, and to protect a stored browser device key (below). Only the identity host parses WebAuthn; no other Agora component verifies WebAuthn assertions.
+
+Native apps SHOULD hold the device key in hardware-backed storage (§12.6). Browser clients generate the device key with WebCrypto Ed25519 and sign only through a non-extractable `CryptoKey`, so everyday signing needs no user gesture. A browser client SHOULD store its device key wrapped under a key derived from a passkey through the WebAuthn PRF extension and unwrap it once per session (§12.6); a copied browser profile is then useless without the passkey. WebCrypto Ed25519 is available in Firefox 129, Safari 17 and Chrome 137 and later; a browser without it MAY use a reviewed JavaScript or WebAssembly Ed25519 implementation, which holds key bytes in page memory and is weaker. This paragraph does not apply to `did:key`, whose identity key is exportable by design (§2.1).
+
+A device whose stored key is lost, for example when browser storage is cleared, registers a new device key as a new device, and the user SHOULD revoke the old device as below. A stolen device is revoked as below, by removing its key from the DID document.
+
 Revoking a device means removing its leaf node from all relevant MLS trees with an MLS `Remove` proposal for that device's leaf, committed by a member permitted to commit (any of the user's other devices, or another member authorized under Space state), and removing the corresponding `verificationMethod` from the DID document. An `Update` commit refreshes only the committer's own leaf and MUST NOT be used to revoke another device. Both operations must be performed for full revocation; removing only one leaves residual access.
 
 ## 2.3 User Display Profile
@@ -310,7 +316,7 @@ When Alice installs the Agora client on a new device, the client performs the fo
 - Ed25519 keypair for `authentication` (signing)
 - X25519 keypair for `keyAgreement` (MLS key packages, HPKE)
 
-Neither private key leaves the secure enclave. The client holds only the public keys for transmission.
+Neither private key leaves the secure enclave. The client holds only the public keys for transmission. A browser client generates its Ed25519 device key as a non-extractable WebCrypto key (§2.2, §12.6) and sets `secureEnclaveAttested` to `false`. If the user authenticates with a passkey during Step 2, the WebAuthn exchange is between the user and the IdP or the provisioning service; the passkey never becomes a device key (§2.2).
 
 **Step 2: IdP authentication.** The client initiates an SAML 2.0 or OIDC authentication flow against the organization's IdP. The user authenticates (password + MFA) and the client receives an IdP token.
 
@@ -443,14 +449,14 @@ The provisioning service itself is a DID-bearing principal:
 ```json
 {
   "@context": "https://www.w3.org/ns/did/v1",
-  "id": "did:web:acme.com:agora:provisioning",
+  "id": "did:webvh:QmSCID...:acme.com:agora:provisioning",
   "verificationMethod": [{
-    "id": "did:web:acme.com:agora:provisioning#signing-1",
+    "id": "did:webvh:QmSCID...:acme.com:agora:provisioning#signing-1",
     "type": "Ed25519VerificationKey2020",
-    "controller": "did:web:acme.com:agora:provisioning",
+    "controller": "did:webvh:QmSCID...:acme.com:agora:provisioning",
     "publicKeyMultibase": "z..."
   }],
-  "authentication": ["did:web:acme.com:agora:provisioning#signing-1"]
+  "authentication": ["did:webvh:QmSCID...:acme.com:agora:provisioning#signing-1"]
 }
 ```
 

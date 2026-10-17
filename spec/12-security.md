@@ -75,7 +75,14 @@ All private key operations in Agora (signing, key agreement, MLS leaf operations
 | Android | StrongBox / TEE | `AndroidKeyStore` with `PURPOSE_SIGN` / `PURPOSE_AGREE_KEY` |
 | Linux server | TPM 2.0 or hardware HSM | PKCS#11 (`opensc-pkcs11`, `SoftHSM2` for dev), or `tpm2-pkcs11` |
 | YubiKey / hardware security key | Secure element | PKCS#11, PIV, or OpenPGP card interface |
-| Browser | Platform Authenticator | WebAuthn `PRF` extension (for key derivation); `SubtleCrypto` with non-extractable `CryptoKey` (`extractable: false`) |
+| Browser | Browser key store (not hardware-backed) | WebCrypto Ed25519 with non-extractable `CryptoKey`; WebAuthn PRF extension to derive the wrapping key |
+
+**Browser clients.** A browser has no hardware boundary that can sign arbitrary payloads: a WebAuthn authenticator signs only WebAuthn assertion structures, so a passkey cannot be the device key (§2.2). A browser client holds its Ed25519 device key in WebCrypto and signs only through a non-extractable `CryptoKey` (`extractable: false`); for browser clients that `CryptoKey` is the secure boundary this section refers to. A browser client SHOULD protect the stored key with a passkey through the WebAuthn PRF extension:
+
+1. At registration, the client generates the Ed25519 key with `extractable: true`, wraps it with `wrapKey` under an AES key derived by HKDF from the PRF output of the user's passkey, stores only the wrapped key, and drops the original `CryptoKey`. The client MUST NOT call `exportKey` on it.
+2. Once per session, the client obtains the PRF output with a WebAuthn assertion, derives the AES key, and calls `unwrapKey` with `extractable: false`. It signs with the resulting key until the session ends.
+
+Where the authenticator does not support PRF, the client generates the key with `extractable: false` and stores the `CryptoKey` object itself in IndexedDB. Clearing browser storage destroys the device key; recovery is registering a new device (§2.2). A browser without WebCrypto Ed25519 MAY use a reviewed JavaScript or WebAssembly implementation, which exposes key bytes to page memory and is weaker than the paths above.
 
 **Conformance requirements by operation:**
 

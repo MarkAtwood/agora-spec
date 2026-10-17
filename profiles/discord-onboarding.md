@@ -14,7 +14,7 @@
 
 Two delivery targets are supported:
 
-- **Browser app** (`enroll.agora.example.com` or self-hosted): zero install, WebAuthn-primary, covers the majority of users.
+- **Browser app** (`enroll.agora.example.com` or self-hosted): zero install, WebCrypto device key protected by a passkey, covers the majority of users.
 - **CLI binary** (`agora-enroll`): for operators, power users, and users who require explicit keystore control.
 
 Both targets share the same backend protocol; the browser and CLI are different frontends to the same enrollment flow.
@@ -71,7 +71,7 @@ Both browser and CLI follow the same logical sequence:
 6. **KeyPackage upload**: the tool uploads an initial batch of MLS KeyPackages and one last-resort KeyPackage to the user's `KeyPackageEndpoint` (spec §5.2.1.1). KeyPackages never go to a relay or to the Enrollment Service.
 7. **Registration**: the tool POSTs the DID and a signed proof-of-possession to the Enrollment Service (§8).
 8. **MLS Add**: the enrollment agent fetches a KeyPackage from the user's `KeyPackageEndpoint`, commits the Add, and POSTs the Welcome to that endpoint (§8.2).
-9. **Keyfile export**: the tool produces the encrypted device-key and state backup file for the user to save. It never contains the recovery private key.
+9. **Keyfile export**: the tool produces the encrypted key and state backup file for the user to save (§7). It never contains the recovery private key.
 10. **Confirmation**: the tool displays the space URI and the user's DID.
 
 ### 3.1 DID Method Choice
@@ -88,7 +88,7 @@ The user picks one of the three user DID methods of spec §2.1. The tool MUST of
 
 **`did:plc`.** Intended for users who already have a Bluesky identity. The tool adds the device verification method and a `KeyPackageEndpoint` service entry by an ordinary PLC operation, signed by a rotation key the user controls (for an existing identity, this may require the user's PDS to sign). A new `did:plc` identity uses the device key and the recovery public key as rotation keys.
 
-**`did:key`.** Before creating a `did:key` identity, the tool MUST show the warning required by spec §2.1: losing the key loses the identity permanently, a lost or stolen device cannot be revoked, and there is no recovery beyond the user's own encrypted backup. The user confirms explicitly. The tool then publishes the user's Pkarr pointer record (spec §2.1, §10.3.4.6) with `_kp._agora.` set to the `KeyPackageEndpoint` URL at the host the user picked; the record MUST NOT name a relay. The client re-publishes the record every 2 hours (spec §10.3.4.6). `did:key` is CLI-only because the Pkarr record must be signed by the raw Ed25519 identity key and the identity key must be exportable to reach the user's other devices (spec §2.1); a WebAuthn credential satisfies neither. The CLI offers `did:key` only with the encrypted file or OS keychain backend, or with PKCS#11 if the user accepts a single-device identity.
+**`did:key`.** Before creating a `did:key` identity, the tool MUST show the warning required by spec §2.1: losing the key loses the identity permanently, a lost or stolen device cannot be revoked, and there is no recovery beyond the user's own encrypted backup. The user confirms explicitly. The tool then publishes the user's Pkarr pointer record (spec §2.1, §10.3.4.6) with `_kp._agora.` set to the `KeyPackageEndpoint` URL at the host the user picked; the record MUST NOT name a relay. The client re-publishes the record every 2 hours (spec §10.3.4.6). `did:key` is CLI-only because the identity key must be exportable to reach the user's other devices (spec §2.1), and the browser device key is not (§5.1). The CLI offers `did:key` only with the encrypted file or OS keychain backend, or with PKCS#11 if the user accepts a single-device identity.
 
 ---
 
@@ -129,46 +129,47 @@ Discord explicitly permits loopback redirect URIs for installed applications. Th
 
 ---
 
-## 5. Key Generation: Browser Path (WebAuthn-Primary)
+## 5. Key Generation: Browser Path (WebCrypto Device Key)
 
-### 5.1 Authenticator-Bound Key
+### 5.1 Device Key and Passkey
 
-The browser uses the WebAuthn API to create a credential bound to the user's hardware authenticator (security key, platform authenticator via Touch ID, Windows Hello, etc.):
+The browser generates the device key with WebCrypto Ed25519 and signs only through a non-extractable `CryptoKey` (spec §2.2, §12.6). The key signs the `did:webvh` genesis log entry or `did:plc` genesis operation, the KeyPackages and the registration proof (§8) without user interaction. Because the key never leaves the origin's storage, the browser app MUST be served from the origin of the Agora web client that will use the key, or be part of that client.
+
+```javascript
+// extractable only so that wrapKey can wrap it (spec §12.6); exportKey is never called on the private key
+const deviceKey = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
+const rawPublicKey = await crypto.subtle.exportKey("raw", deviceKey.publicKey);
+const publicKeyMultibase = multibaseEncode('ed25519-pub', new Uint8Array(rawPublicKey));
+```
+
+The app then creates a passkey for its origin and requests the WebAuthn PRF extension:
 
 ```javascript
 const credential = await navigator.credentials.create({
   publicKey: {
-    challenge: enrollmentChallenge,      // 32 bytes from Enrollment Service
-    rp: { name: "Agora Enrollment", id: rpId },
+    challenge: crypto.getRandomValues(new Uint8Array(32)),
+    rp: { name: "Agora", id: rpId },
     user: {
       id: discordUserIdBytes,            // Discord user ID as bytes
       name: discordUsername,
       displayName: discordUsername
     },
     pubKeyCredParams: [
-      { type: "public-key", alg: -8 },   // Ed25519 (preferred)
-      { type: "public-key", alg: -7 }    // P-256 (fallback)
+      { type: "public-key", alg: -8 },
+      { type: "public-key", alg: -7 }
     ],
     authenticatorSelection: {
       residentKey: "preferred",
       userVerification: "required"
     },
-    attestation: "none"
+    extensions: { prf: { eval: { first: prfSalt } } }
   }
 });
 ```
 
-Ed25519 (`alg: -8`) is preferred because Agora uses Ed25519 natively. P-256 (`alg: -7`) is the fallback for authenticators that do not support Ed25519 (most platform authenticators on Windows and older Android). When P-256 is used, the DID document uses a `P-256` verification method type instead of `Ed25519VerificationKey2020`; all other protocol behavior is identical.
+If the creation response carries no PRF result, the app obtains it with a `navigator.credentials.get` assertion carrying the same `prf` input. The app wraps the device key under a key derived from the PRF output, stores only the wrapped key with the credential ID and `prfSalt`, and drops the original `CryptoKey` (spec §12.6). In later sessions the Agora web client unwraps the key once per session as non-extractable. If the authenticator does not support PRF, the app stores a non-extractable device key unwrapped, as spec §12.6 allows, and warns that the stored key is not protected by the passkey.
 
-The WebAuthn public key becomes the device's `authentication` verification method in the DID document (§5.3):
-
-```javascript
-const publicKeyBytes = credential.response.getPublicKey(); // COSE-encoded
-const rawPublicKey = coseToRaw(publicKeyBytes);            // strip COSE wrapper
-const publicKeyMultibase = multibaseEncode('ed25519-pub', rawPublicKey);
-```
-
-The private key never exists in JavaScript. The DID itself is not derived from this key: a `did:webvh` DID embeds the SCID of its genesis log entry, and a `did:plc` DID comes from its genesis operation (§3.1). The browser path does not offer `did:key` (§3.1).
+The passkey is not a device key and does not appear in the DID document (spec §2.2). Its assertions never leave the browser; the Enrollment Service does not parse WebAuthn. The DID itself is not derived from the device key: a `did:webvh` DID embeds the SCID of its genesis log entry, and a `did:plc` DID comes from its genesis operation (§3.1). The browser path does not offer `did:key` (§3.1).
 
 ### 5.2 Recovery Key (Offline)
 
@@ -182,7 +183,7 @@ A `did:webvh` or `did:plc` user MAY skip this step. The DID document then omits 
 
 ### 5.3 DID Document Assembly
 
-For `did:webvh`, the DID document in the genesis log entry combines the WebAuthn-bound device key, the user-supplied recovery public key and the `KeyPackageEndpoint` at the chosen host:
+For `did:webvh`, the DID document in the genesis log entry combines the WebCrypto device key (§5.1), the user-supplied recovery public key and the `KeyPackageEndpoint` at the chosen host:
 
 ```json
 {
@@ -213,7 +214,7 @@ For `did:webvh`, the DID document in the genesis log entry combines the WebAuthn
 }
 ```
 
-The `authentication` key is the WebAuthn-bound key. The `recoverableIdentity` key is the offline-generated recovery public key (§5.2); the log's parameters list it, with the device key, as an update key. The `keyAgreement` key is a fresh X25519 keypair generated by the browser (WebCrypto, extractable, included in the keyfile). A `did:plc` document carries the same verification methods and service entry; the recovery key appears as a rotation key instead of in `recoverableIdentity`.
+The `authentication` key is the device key (§5.1). The `recoverableIdentity` key is the offline-generated recovery public key (§5.2); the log's parameters list it, with the device key, as an update key. The `keyAgreement` key is a fresh X25519 keypair generated by the browser (WebCrypto, extractable, included in the keyfile). A `did:plc` document carries the same verification methods and service entry; the recovery key appears as a rotation key instead of in `recoverableIdentity`.
 
 ### 5.4 Enrollment Challenge
 
@@ -224,7 +225,7 @@ GET /v1/enroll/challenge?discord_user_id=<id>
 → { "challenge": "<32-byte-base64url>", "expires": "<iso8601>", "space": "<agora-uri>" }
 ```
 
-The challenge is used as the WebAuthn `challenge` field, binding the credential creation to this specific enrollment session. The Enrollment Service MUST verify the challenge on registration. Challenges expire in 5 minutes and are single-use; the service MUST mark a challenge consumed on first use.
+The challenge is included in the proof payload (§8), binding the registration to this specific enrollment session. The Enrollment Service MUST verify the challenge on registration. Challenges expire in 5 minutes and are single-use; the service MUST mark a challenge consumed on first use.
 
 ---
 
@@ -331,12 +332,12 @@ Both browser and CLI produce a single downloadable keyfile, the user's backup ar
     "backupType": "stateOnly",
     "encryptedState": "<base64url-AES256GCM-ciphertext>"
   },
-  "primaryKeyType": "webauthn",
-  "primaryKeyCredentialId": "<base64url>",
-  "primaryKeyPublicMultibase": "z6Mk...",
-  "rpId": "enroll.agora.example.com"
+  "primaryKeyType": "webcrypto",
+  "primaryKeyPublicMultibase": "z6Mk..."
 }
 ```
+
+For the browser, `primaryKeyType` is `"webcrypto"` and `primaryKeypair` is omitted: the device key stays in the browser's storage (§5.1). If that storage is cleared, the user registers a new device from another device or, with none left, through recovery (spec §2.2, §2.4).
 
 For the CLI with an extractable keystore backend, `primaryKeyType` is `"software"` and the file additionally includes:
 
@@ -369,7 +370,6 @@ Content-Type: application/json
   "discordUserId": "123456789012345678",
   "challenge": "<challenge from §5.4>",
   "proofOfPossession": "<signature over the proof payload, see below>",
-  "webauthnAssertion": { ... },   // present only in browser/WebAuthn path
   "spaceURI": "agora://bafyrei.../"
 }
 ```
@@ -386,7 +386,7 @@ Content-Type: application/json
 }
 ```
 
-In the WebAuthn path, `proofOfPossession` is the WebAuthn assertion signature (the authenticator signs the challenge), and `webauthnAssertion` carries the full assertion object for verification. In the CLI path, `proofOfPossession` is a JWS over the proof payload signed by the device key (spec §13.1.1).
+In both the browser and the CLI path, `proofOfPossession` is a JWS over the proof payload signed by the device key (spec §13.1.1).
 
 The request carries no KeyPackage. The client has already uploaded its KeyPackages to its own `KeyPackageEndpoint` (§3 step 6), and the enrollment agent fetches one from there (§8.2).
 
@@ -399,12 +399,11 @@ On receipt of a registration request, the Enrollment Service MUST:
 3. Look up `discordUserId` in the provisional member list; return 404 if not found.
 4. Check the provisional record's `status` field; if `"enrolled"`, return 409 with the existing DID (idempotent re-enrollment is allowed, but the DID MUST NOT change).
 5. Resolve the DID (for `did:webvh`, verifying the full log; spec §2.1) and verify `proofOfPossession` against its `authentication` verification method.
-6. In the WebAuthn path, additionally verify the WebAuthn assertion against the RP origin and the challenge.
-7. Locate the user's `KeyPackageEndpoint`: the DID document service entry, or the `_kp._agora.` field of the verified Pkarr record for `did:key` (spec §2.1).
-8. Mark the challenge consumed.
-9. Update the provisional member record: `did = <did>`, `status = "enrolled"`.
-10. Add the member to the Space's MLS groups (§8.2).
-11. Return success with the space URI. The Welcome is delivered to the user's `KeyPackageEndpoint`, not in this response.
+6. Locate the user's `KeyPackageEndpoint`: the DID document service entry, or the `_kp._agora.` field of the verified Pkarr record for `did:key` (spec §2.1).
+7. Mark the challenge consumed.
+8. Update the provisional member record: `did = <did>`, `status = "enrolled"`.
+9. Add the member to the Space's MLS groups (§8.2).
+10. Return success with the space URI. The Welcome is delivered to the user's `KeyPackageEndpoint`, not in this response.
 
 ### 8.2 MLS Add Commit
 
@@ -434,7 +433,7 @@ A user who already has a DID (from a prior enrollment or manual setup) can updat
 - At step 4 of §8.1: if the provisional record already has a DID, the service MUST verify that the new registration's DID matches the existing one. A DID change is not permitted through this flow. Loss of device keys is handled by recovery, which keeps the DID (Agora spec §2.4); a `did:key` identity has no recovery beyond its backup.
 - Adding a new device (second hardware key, new phone) uses the standard Agora multi-device enrollment flow from the existing device, not this tool. For `did:key`, the user copies the identity key to the new device from the keyfile (spec §2.1).
 
-The update path's primary use case is a user who enrolled but lost their keyfile and needs to re-download it. The tool re-generates the keyfile from the existing registered keypair if it is still accessible via the user's authenticator or CLI keystore.
+The update path's primary use case is a user who enrolled but lost their keyfile and needs to re-download it. The tool re-generates the keyfile from the existing registered keypair if it is still accessible in the browser's storage or the CLI keystore.
 
 ---
 
@@ -445,8 +444,8 @@ The update path's primary use case is a user who enrolled but lost their keyfile
 | Discord user not in provisional list | "Your Discord account (@username) isn't on the list for this space. Ask the space admin to run the enrollment sync." | Same message; exit 1 |
 | Already enrolled, same DID | "You're already enrolled. Here's your space link: [uri]. Re-download your keyfile?" | Prompt to re-export keyfile |
 | Already enrolled, DID mismatch | "This Discord account is already enrolled with a different identity. Contact your space admin." | Same message; exit 1 |
-| WebAuthn not supported | Fall back to software key generation with a prominent security warning | N/A |
-| WebAuthn cancelled by user | "Enrollment paused. Come back when you have your security key ready." | N/A |
+| WebCrypto Ed25519 not supported | Fall back to a reviewed JavaScript or WebAssembly Ed25519 implementation with a prominent security warning (spec §2.2) | N/A |
+| Passkey creation cancelled by user | "Enrollment paused. Come back when you're ready to create a passkey." | N/A |
 | Challenge expired | Re-fetch challenge automatically and retry once; display error on second failure | Same |
 | Relay unreachable | "Your identity was created but couldn't be registered with the space yet. Your keyfile is safe. Try again later." | Same |
 | Identity host unreachable | "Your identity host (host.example) isn't responding, so the space can't fetch your keys. Try again later or choose another host." | Same |
@@ -477,8 +476,6 @@ space_uri             = "agora://bafyrei.../"
 relay_url             = "wss://relay.example.com"
 provisional_members   = "/data/provisional-members.json"
 admin_key             = "/secrets/enrollment-agent.key"
-rp_id                 = "enroll.agora.example.com"
-rp_origin             = "https://enroll.agora.example.com"
 challenge_ttl_seconds = 300
 ```
 
@@ -492,9 +489,9 @@ challenge_ttl_seconds = 300
 
 **WebCrypto availability:** Required. The app MUST check `window.crypto.subtle` on load and MUST display a hard error if absent (this only occurs on non-HTTPS origins, which MUST NOT occur in production).
 
-**WebAuthn availability:** The app checks `window.PublicKeyCredential` and `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()`. If WebAuthn is unavailable or the user has no platform authenticator, the app falls back to software key generation using `crypto.subtle.generateKey` with `extractable: true`, with a visible warning banner: "Your keys are software-generated and less secure than a hardware authenticator. Consider enrolling again with a security key."
+**Ed25519 and passkey availability:** The app checks for WebCrypto Ed25519 by attempting `crypto.subtle.generateKey({ name: "Ed25519" }, ...)`. If it fails, the app uses a reviewed JavaScript or WebAssembly Ed25519 implementation (spec §2.2) with a visible warning banner: "Your browser cannot protect your signing key. Consider enrolling with a current browser or the CLI." The app checks `window.PublicKeyCredential` before creating the passkey (§5.1).
 
-**Key material lifetime:** All private key material the app generates (the X25519 keypair, and the software primary key in the fallback above) is held only in `CryptoKey` objects with `extractable: true`. Material MUST be exported to the keyfile immediately after generation, and all references MUST be dropped after the keyfile download is initiated. The app MUST NOT retain key material beyond keyfile export.
+**Key material lifetime:** The device key is held as described in §5.1 and is never exported. The X25519 keypair is held in a `CryptoKey` with `extractable: true`; it MUST be exported to the keyfile immediately after generation, and all references to the extractable object MUST be dropped after the keyfile download is initiated.
 
 **Service worker restrictions:** The enrollment page MUST NOT be served with a service worker that could cache responses containing key material. CSP headers MUST include `Cache-Control: no-store` on all enrollment API responses.
 
@@ -543,8 +540,8 @@ challenge_ttl_seconds = 300
 
 3. **Passphrase recovery.** If a user loses their keyfile passphrase, the keyfile contents are inaccessible; the offline recovery key (§5.2) is unaffected. There is no protocol-level remedy for the keyfile itself. Operators SHOULD communicate this clearly during enrollment. A Shamir-based guardian recovery scheme (Agora spec §2.4.2) is a natural extension but is out of scope for this tool.
 
-4. **WebAuthn credential ID storage.** The keyfile stores the WebAuthn credential ID (`primaryKeyCredentialId`). A user who loses the keyfile retains their authenticator but may not know which credential to use if multiple are present. A credential hint stored via the authenticator's `residentKey` (if `residentKey: "preferred"` was honored) mitigates this.
+4. **WebAuthn credential ID storage.** Resolved by §5.1: the keyfile holds no WebAuthn credential ID. The passkey's credential ID is stored beside the wrapped device key in browser storage, and the two are lost together.
 
 5. **Platform authenticator sync behavior.** Platform authenticators on Windows (Hello) and macOS/iOS (iCloud Keychain) may sync credentials across devices via the platform. This is both a feature (multi-device from day one) and a concern (credentials leave the device). The app SHOULD inform users of this behavior and SHOULD recommend a FIDO2 roaming authenticator (YubiKey, etc.) for higher-assurance deployments.
 
-6. **WebAuthn signatures as protocol signatures.** A WebAuthn authenticator signs `authenticatorData || SHA-256(clientDataJSON)`, not an arbitrary payload. It therefore cannot directly produce the `did:webvh` log proofs, PLC operations or JWS signatures (spec §13.1.1) that a device `authentication` key makes. The browser path as written depends on resolving this, either by a WebAuthn-compatible signature profile or by generating a separate software Ed25519 device key in the browser.
+6. **WebAuthn signatures as protocol signatures.** Resolved (spec §2.2, §12.6). A WebAuthn authenticator signs only `authenticatorData || SHA-256(clientDataJSON)`, so a passkey cannot be the device key. The browser signs with a non-extractable WebCrypto Ed25519 device key, and the passkey only protects the stored key through the PRF extension (§5.1).

@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.14",
   "title": "No default MLS ciphersuite outside MIMI",
   "description": "SPEC names a ciphersuite (0x0001) only in the MIMI section (l.3439). Core protocol has no mandatory-to-implement suite. Fix: specify MTI ciphersuite(s) in the core MLS section. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:22:55.098066449Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:22:55.098066449Z",
+  "updated_at": "2026-10-17T05:29:06.506706239Z",
+  "closed_at": "2026-10-17T05:29:06.506706239Z",
+  "close_reason": "Resolved or verified in P2 errata pass 2026-10-16",
   "labels": [
     "spec",
     "mls"

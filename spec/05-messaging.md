@@ -114,7 +114,7 @@ A **passive member** is an MLS group member that holds a leaf credential and par
 
 **Use cases in Agora.** Compliance loggers (§7) and VTC recorders (§6.12) are passive members. Both hold leaf credentials, receive all application messages in their admitted groups, and never modify group state.
 
-**KeyPackages.** Passive members require KeyPackages to receive Welcome messages. Because passive members never initiate group operations, they SHOULD publish last-resort KeyPackages (`draft-ietf-mls-extensions-09`, §last-resort-keypackage), KeyPackages marked for reuse when the single-use supply is exhausted, rather than maintaining a large single-use supply. The passive member's `KeyPackageEndpoint` host serves the last-resort KeyPackage when no single-use packages remain (§5.2.1.1).
+**KeyPackages.** Passive members require KeyPackages to receive Welcome messages, and the single-use rule of §5.2.1.1 applies to them without exception. A compliance logger or recorder is added to many groups, so serving it a reused last-resort KeyPackage would give all of those groups the same HPKE init key. It runs as an always-on service whose `KeyPackageEndpoint` is hosted by its own CO, which can keep its single-use supply replenished; its endpoint MUST return a fresh, unused KeyPackage on every fetch (§7.8.2).
 
 **Idle eviction.** Passive members MUST NOT be subject to idle eviction (§5.2.1.2). A passive member generates no traffic by design; evicting one on that basis would silently break the compliance capture chain.
 
@@ -372,7 +372,7 @@ Pinned Messages are **exempt from relay retention expiry**. A relay cannot read 
 - The `expiryHint` on the original envelope
 - Storage pressure
 
-The relay MUST continue to serve pinned CIDs via IPFS until it receives a valid unpin instruction. If a relay is running low on storage, it MUST evict unpinned content before considering eviction of pinned content, and MUST alert the CO party to the `RelayServiceAgreement` before evicting any pinned CID.
+The relay MUST continue to serve pinned CIDs from its blob endpoints (§10.4.4) until it receives a valid unpin instruction. If a relay is running low on storage, it MUST evict unpinned content before considering eviction of pinned content, and MUST alert the CO party to the `RelayServiceAgreement` before evicting any pinned CID.
 
 The retention exemption applies only to the pinned CID itself, not to the full IPLD history DAG. Because a relay cannot see what a pinned envelope references, the pinning client sends pin instructions for the envelope CID and for its directly referenced content (e.g., the `blobId` CIDs of the Message's attachments).
 

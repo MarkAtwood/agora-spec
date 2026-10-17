@@ -128,8 +128,10 @@ A production Agora relay deployment has these components:
 
 **Blob access.** Blobs are reachable through exactly two public interfaces, both on the client-facing port:
 
-- `GET /v1/agora/blob/{cid}`: the CAS read endpoint (spec §10.3.4.5). Unauthenticated and rate-limited per network address (spec §11.6). The content is either ciphertext that only group members can decrypt or a record the CO chose to publish.
-- JMAP upload and download (`/jmap/upload/{accountId}`, `/jmap/download/{accountId}/{blobId}/{name}`, spec §11.8.1). Downloads follow the same rules as the CAS endpoint. Uploads are accepted only for a registered access-key chain, count against that chain's agreement storage quota, and are retained under pin instructions authorized by the epoch access proof (spec §10.4.3, ARCHITECTURE §6.2).
+- `GET /v1/agora/blob/{cid}`: the CAS read endpoint (spec §10.4.4). Unauthenticated, rate-limited per network address (spec §11.6), and served with `Access-Control-Allow-Origin: *` so browser clients can fetch directly. The content is either ciphertext that only group members can decrypt or a record the CO chose to publish.
+- JMAP upload and download (`/v1/agora/jmap/upload/{accountId}`, `/v1/agora/jmap/download/{accountId}/{blobId}/{name}`, paths under `endpoints.jmapSync`, spec §11.8.1). Downloads follow the same rules as the CAS endpoint. Uploads are accepted only for a registered access-key chain, count against that chain's agreement storage quota, and are retained under pin instructions authorized by the epoch access proof (spec §10.4.3, ARCHITECTURE §6.2).
+
+The relay runs no IPFS node and does not join the IPFS DHT or speak Bitswap; these two HTTPS interfaces are the fetch path for every blob, including `ipfs://` URIs (spec §10.4.4). "Pinning" means retention in the local blob store under a pin instruction, not pinning on the public IPFS network.
 
 There is no admin blob read endpoint. The Admin API has one blob operation, `DELETE /admin/blobs/{cid}` (§5.2), used for takedown, behind the same bearer-token authentication as every other admin endpoint.
 

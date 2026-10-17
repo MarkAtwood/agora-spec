@@ -624,7 +624,7 @@ A Workday `TERMINATE` event always overrides a concurrent LDAP `REACTIVATE`, whi
 
 ## 8. Enrollment Authentication
 
-Device key registration follows spec §2.5.4: the Agora client authenticates the user against the organization's IdP by OIDC or SAML 2.0 and presents the resulting token to the sidecar's `POST /v1/register-device-key`. No separate enrollment tool is involved. (`agora-enroll` in `profiles/discord-onboarding.md` serves individuals migrating from Discord and is not used in employer deployments.)
+Device key registration follows spec §2.5.4: the Agora client authenticates the user against the organization's IdP by OIDC or SAML 2.0 and presents the resulting token to the sidecar's `POST /v1/register-device-key`. No separate enrollment tool is involved. (The enrollment tool in `profiles/discord-onboarding.md` serves individuals migrating from Discord and is not used in employer deployments.)
 
 The sign-in protocol and the JML source are independent configurations. An org MAY use SAML for sign-in while LDAP drives JML. The sidecar links the sign-in token to the user record by the IdP's immutable user ID, never by email, UPN or `userName`, which can change (spec §2.5.2):
 

@@ -47,7 +47,7 @@ Tor proxies TCP only. This has the following protocol-level consequences:
 
 **Rate limiting.** A Relay receiving connections from Tor exit nodes sees the exit node's IP address, not the client's IP. Relays MUST use per-`channelToken` rate limits and PoW requirements as the primary spam control mechanism. Per-IP limits MUST NOT be the sole mechanism.
 
-**Hidden service Relays.** A Relay operating as a Tor v3 hidden service publishes its `.onion` address in its `RelayAd.relayHints`. Clients with Tor available SHOULD prefer `.onion` endpoints when available; they provide end-to-end Tor routing without depending on an exit node.
+**Hidden service Relays.** A Relay operating as a Tor v3 hidden service publishes its `.onion` address in its manifest and `RelayAd` as `endpoints.onion` (§10.2.1, §10.5.1). Clients with Tor available SHOULD prefer `.onion` endpoints when available; they provide end-to-end Tor routing without depending on an exit node.
 
 ## 11.4 Frame Format
 
@@ -262,15 +262,17 @@ JMAP ([RFC 8620](https://jmap.io)) is used at two layers that run on different o
 
 ### 11.8.1 Endpoints
 
-A Relay that declares the `jmap-sync-v1` capability MUST expose the following endpoints under the base URL declared in `endpoints.jmapSync` in its manifest:
+A Relay that declares the `jmap-sync-v1` capability MUST expose the following endpoints under the base URL declared in `endpoints.jmapSync` in its manifest. Paths are relative to that base; with the base `https://relay.example.com/v1/agora/jmap`, the Session object is at `https://relay.example.com/v1/agora/jmap/.well-known/jmap`.
 
 ```
-GET  /.well-known/jmap                           Session object (unauthenticated)
-POST /jmap/api                                   JMAP request/response
-GET  /jmap/events                                EventSource push stream
-POST /jmap/upload/{accountId}                    Blob upload
-GET  /jmap/download/{accountId}/{blobId}/{name}  Blob download
+GET  {base}/.well-known/jmap                      Session object (unauthenticated)
+POST {base}/api                                   JMAP request/response
+GET  {base}/events                                EventSource push stream
+POST {base}/upload/{accountId}                    Blob upload
+GET  {base}/download/{accountId}/{blobId}/{name}  Blob download
 ```
+
+Clients locate the Session object from `endpoints.jmapSync`, not by RFC 8620 autodiscovery at the origin's `/.well-known/jmap`.
 
 ### 11.8.2 Authentication
 
@@ -282,7 +284,7 @@ Relays never authenticate client identity on JMAP requests (§11.6). Envelope hi
 
 Every JMAP request MUST include `"urn:ietf:params:jmap:core"` and `"urn:agora:v1"` in the `using` array.
 
-The Session object returned by `GET /.well-known/jmap`:
+The Session object returned by `GET {base}/.well-known/jmap`:
 
 ```json
 {
@@ -312,10 +314,10 @@ The Session object returned by `GET /.well-known/jmap`:
   },
   "primaryAccounts": { "urn:agora:v1": "a-relay" },
   "username": "",
-  "apiUrl": "https://relay.example.com/jmap/api",
-  "downloadUrl": "https://relay.example.com/jmap/download/{accountId}/{blobId}/{name}?accept={type}",
-  "uploadUrl": "https://relay.example.com/jmap/upload/{accountId}",
-  "eventSourceUrl": "https://relay.example.com/jmap/events?types={types}&closeafter={closeafter}&ping={ping}",
+  "apiUrl": "https://relay.example.com/v1/agora/jmap/api",
+  "downloadUrl": "https://relay.example.com/v1/agora/jmap/download/{accountId}/{blobId}/{name}?accept={type}",
+  "uploadUrl": "https://relay.example.com/v1/agora/jmap/upload/{accountId}",
+  "eventSourceUrl": "https://relay.example.com/v1/agora/jmap/events?types={types}&closeafter={closeafter}&ping={ping}",
   "state": "s-1"
 }
 ```

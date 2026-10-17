@@ -149,7 +149,7 @@ The document is signed per §13.1.1 by the Space owner's authentication key or a
 
 Space state reaches members from the CO, never from a Relay topic. No gossipsub topic, Relay API or other IO-visible address carries a Space CID, MLS group ID or other Space identifier (ARCHITECTURE S1).
 
-**Space endpoint.** Every Space has one or more **Space endpoints**: HTTPS services operated by the CO (ARCHITECTURE §2.2) that serve the signed Space state chain (§3.3) and every record it references by CID, including moderation records (§4.5), `ChannelShareAgreement` and `ChannelShareRevocation` records (§8), and the compliance configuration (§7.2). A Space endpoint is a CO component: it knows membership and authenticates members. It serves:
+**Space endpoint.** Every Space has one or more **Space endpoints**: HTTPS services operated by the CO (ARCHITECTURE §2.2) that serve the signed Space state chain (§3.3) and every record it references by CID, including moderation records (§4.5), `InviteRevocation` records (§4.3), `ChannelShareAgreement` and `ChannelShareRevocation` records (§8), and the compliance configuration (§7.2). A Space endpoint is a CO component: it knows membership and authenticates members. It serves:
 
 ```
 GET <spaceEndpoint>/head     → CID of the current Space state document
@@ -180,7 +180,7 @@ GET <spaceEndpoint>/broadcast-key/<channelCID>/<keyEpoch>   → BroadcastKey of 
 
 **Locating the endpoint.** The CO lists its Space endpoint URLs in the `spaceEndpoint` array of each `SpaceInvite` (§4.3) and `SpaceAd` (§10.3.2), and MAY list them as an `AgoraSpaceEndpoint` service entry in the Space owner's DID document. A CO changes endpoints by publishing new URLs through these same records; Space identity (genesis CID) is unaffected.
 
-**Access control.** For a private Space, the endpoint MUST serve state only to clients that authenticate as current members (by DID authentication to the CO) or that present an unexpired `SpaceInvite` naming them or an open-link invite token. For a public Space, the endpoint serves non-members the access-controlled view of §4.4, signed by the owner or a delegated admin; it is a separate signed document and is never a substitute for the members' chain. Because the endpoint is the CO, its knowledge of who fetches state is not an IO observation.
+**Access control.** For a private Space, the endpoint MUST serve state only to clients that authenticate as current members (by DID authentication to the CO) or that present an unexpired, unrevoked (§4.3) `SpaceInvite` naming them or an open-link invite token. For a public Space, the endpoint serves non-members the access-controlled view of §4.4, signed by the owner or a delegated admin; it is a separate signed document and is never a substitute for the members' chain. Because the endpoint is the CO, its knowledge of who fetches state is not an IO observation.
 
 **Real-time notification.** When Space state changes, the signer SHOULD send the new head CID to members as an MLS application message of type `SpaceStateHead` (field `stateCID`) in the Space's MLS group (`mlsGroupID`, §3.3) and MAY send it in channel groups. Recipients fetch and verify the new state from the Space endpoint. The notification needs no signature of its own because the state it points to is signed. Clients SHOULD also poll `/head` on reconnect.
 

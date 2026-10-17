@@ -528,7 +528,7 @@ A conformant Relay MUST:
 - Maintain heartbeat polling of peer relays (§10.2.6).
 - Route messages by `channelToken` only; never attempt to resolve tokens to identities.
 - Cache message envelopes up to the lesser of: configured retention window (default 30 days) or the envelope's `expiryHint`.
-- Pin IPFS content stored under a `RelayServiceAgreement` within the agreement's retention window.
+- Retain and serve blobs stored under a `RelayServiceAgreement` within the agreement's retention window (§10.4.4).
 - Store only ciphertext envelopes, blobs addressed by CID that it cannot interpret (including group-encrypted blobs, §3.4), and records a CO explicitly publishes (such as SpaceAds, directory documents and public Space state).
 - Honor pin and unpin instructions authorized by the epoch access proof, retaining pinned CIDs regardless of retention window or `expiryHint` until unpinned (ARCHITECTURE §6.2).
 - Enforce the storage and bandwidth quotas set by each `RelayServiceAgreement` (§10.5.1), keyed to the agreement and never to member identity.
@@ -559,6 +559,16 @@ A conformant Relay SHOULD:
 - Implement gossipsub peer scoring to limit amplification attacks.
 
 Relay federation is permissionless. Any Relay that speaks the protocol may join the mesh.
+
+### 10.4.4 Blob Storage and Retrieval
+
+A Relay stores blobs in a content-addressed store keyed by CIDv1 (§5.2.5). "Pin" in this specification means retention in that store under a pin instruction (ARCHITECTURE §6.2); it does not mean pinning on the public IPFS network.
+
+A conformant Relay MUST serve every blob it holds over HTTPS at `GET /v1/agora/blob/{cid}` on the origin of its manifest (§10.2.1). The endpoint is unauthenticated and rate-limited per network address (§11.6), and it MUST send `Access-Control-Allow-Origin: *` so that browser clients can fetch from it directly. A Relay that declares `jmap-sync-v1` also serves the same bytes through JMAP download (§11.8.1). These are the fetch paths for blobs, including `ipfs://` URIs (§10.3.4.5); a client needs no IPFS node or public IPFS gateway.
+
+A client MUST verify that the bytes it receives hash to the requested CID and MUST discard them otherwise. Because every blob is either ciphertext the Relay cannot read or a record a CO chose to publish (§10.4.3), a Relay can serve blobs to any requester without learning anything beyond the ARCHITECTURE §5 observation budget.
+
+A Relay is not required to run an IPFS node, join the IPFS DHT or speak Bitswap. A Relay MAY mirror to the public IPFS network only records a CO has chosen to publish (§10.3.2); it MUST NOT publish other blobs there.
 
 ---
 
@@ -621,7 +631,12 @@ Relays publish their service tiers in their `RelayAd`:
 {
   "@type": "RelayAd",
   "did": "did:key:z6MkRelay...",
-  "endpoint": "https://relay.example.com",
+  "manifestURL": "https://relay.example.com/.well-known/agora-relay",
+  "endpoints": {
+    "webTransport": "https://relay.example.com/v1/agora/wt",
+    "webSocket":    "wss://relay.example.com/v1/agora/ws",
+    "onion":        "ws://examplerelay3xyzabc.onion/v1/agora/ws"
+  },
   "serviceTiers": [
     {
       "id": "hobbyist",
@@ -643,7 +658,7 @@ Relays publish their service tiers in their `RelayAd`:
 }
 ```
 
-A `RelayAd` is signed per §13.1.1 by the Relay (`did`).
+A `RelayAd` carries exactly these members. `did` is the manifest's `relayDID`. `manifestURL` is where the Relay Manifest (§10.2.1) is served. `endpoints` has the same members as the manifest's `endpoints` and MUST list every client-facing endpoint the manifest lists, including `.onion` and overlay-internal URIs (§10.1). `serviceTiers` lists the tiers the Relay offers under `RelayServiceAgreement`s. `ts` is the publication time. Where a `RelayAd` and the manifest disagree, the manifest governs. A `RelayAd` is signed per §13.1.1 by the Relay (`did`).
 
 ### 10.5.2 Proof-of-Work Spam Deterrence
 

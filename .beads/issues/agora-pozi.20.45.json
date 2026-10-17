@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.45",
   "title": "Specify IPFS fetch path; ops guide lacks IPFS section",
   "description": "From nie-xm4w (missed by us): no IPFS section in relay ops guide; no browser fetch path; nie decision says relays MUST run IPFS node. Decide normatively.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:45:00.819703994Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:45:00.819703994Z",
+  "updated_at": "2026-10-17T05:29:06.630225382Z",
+  "closed_at": "2026-10-17T05:29:06.630225382Z",
+  "close_reason": "Resolved or verified in P2 errata pass 2026-10-16",
   "dependencies": [
     {
       "issue_id": "agora-pozi.20.45",

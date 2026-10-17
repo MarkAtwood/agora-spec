@@ -124,6 +124,7 @@ Participants map SFU-forwarded streams to DIDs using information exchanged among
 
 The SFU terminates each client's DTLS-SRTP hop, so SRTP alone does not hide media from it. Media payloads sent through an SFU are therefore always SFrame-encrypted with keys the SFU does not hold (§6.9), and the SFU cannot read audio or video content. It CAN observe:
 - Which connections are sending media (RTP SSRC → connection mapping, not → DID)
+- The SFrame KID, which holds an MLS leaf index and low epoch bits and no DID
 - Packet timing and sizes (traffic analysis)
 - Whether a stream is active or silent
 
@@ -158,10 +159,11 @@ Screen share tracks use a separate simulcast configuration from camera video: ty
 Because an SFU terminates DTLS-SRTP, it would see plaintext media without a second encryption layer, which would make it a CO component (ARCHITECTURE §2.3). E2EE media is therefore REQUIRED whenever media transits an SFU: clients MUST encrypt media payloads with SFrame (RFC 9605) via **WebRTC Insertable Streams** (W3C Encoded Transform) using participant-held keys, and MUST NOT send media to an SFU without it. In mesh topology, DTLS-SRTP is already end-to-end between participants and E2EE media is OPTIONAL.
 
 In this mode:
-- Each participant derives a media encryption key via the MLS exporter interface: `MLS-Exporter("agora-media-key", participantDID, 32)` (RFC 9420 §11.5).
+- Keys are derived with the MLS-based key management of RFC 9605 Section 5.2, using the exporter label `"agora-media-key"` in place of the label given there: the SFrame epoch secret is exported from the channel's MLS group in each epoch, each sender's base key is derived from it and the sender's MLS leaf index, and the SFrame key identifier (KID) is built from the leaf index and the low bits of the MLS epoch as RFC 9605 Section 5.2 specifies, with E = 4 epoch bits (16 concurrent epochs). The KID carries no DID.
+- The SFrame cipher suite is `AES_128_GCM_SHA256_128`, which uses the AEAD and hash of the group's MLS ciphersuite (§5.2.1).
 - Outgoing media is encrypted by the sender's Insertable Streams transform before entering the RTP stack.
 - The SFU forwards encrypted RTP packets opaquely.
-- Each receiving participant's Insertable Streams transform decrypts using the sender's exported media key.
+- Each receiving participant's Insertable Streams transform decrypts with the key it derives for the sender and epoch named by the KID.
 
 Media keys rotate with MLS epochs. A participant whose MLS leaf is removed loses their media key derivation capability for subsequent epochs. Media keys MUST NOT be disclosed to an SFU, TURN server, or any other IO component (ARCHITECTURE S3).
 
@@ -411,7 +413,7 @@ Participants in a call MAY exchange application data over WebRTC data channels (
 
 **Payloads.** Each data channel message carries exactly one typed envelope (§13.1) as its plaintext. The envelope has no `sig`. Compact content types such as `application/cbor` are RECOMMENDED for high-rate types. Receivers MUST ignore envelopes whose `type` they do not recognize.
 
-**Encryption.** Every data channel message MUST be encrypted end to end with SFrame (RFC 9605), in mesh and SFU topology alike. Keys are derived with the MLS-based key management of RFC 9605 Section 5.2, using the exporter label `"agora data channel"` in place of the label given there; because this label differs from the media label (§6.9), data keys and media keys are independent. The cipher suite is `AES_128_GCM_SHA256_128`. The SFrame ciphertext is the data channel message. Data keys rotate with MLS epochs as media keys do (§6.9) and MUST NOT be disclosed to an SFU, TURN server or any other IO component (ARCHITECTURE S3). Receivers MUST discard a message that fails SFrame decryption.
+**Encryption.** Every data channel message MUST be encrypted end to end with SFrame (RFC 9605), in mesh and SFU topology alike. Keys are derived with the MLS-based key management of RFC 9605 Section 5.2, using the exporter label `"agora data channel"` in place of the label given there; because this label differs from the media label (§6.9), data keys and media keys are independent. The cipher suite is `AES_128_GCM_SHA256_128`. The SFrame ciphertext is the data channel message. Data keys rotate with MLS epochs as media keys do (§6.9) and MUST NOT be disclosed to an SFU, TURN server or any other IO component (ARCHITECTURE S3). Receivers MUST discard a message that fails SFrame decryption. The KID uses E = 4 epoch bits, as for media (§6.9).
 
 Every member can derive every sender's data key, so a data message is authenticated as coming from a current member of the group, and not from a particular member. A payload whose receiver acts on the identity of its sender MUST be sent as an MLS application message instead.
 
