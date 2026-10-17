@@ -661,6 +661,8 @@ Replication adds nothing to what a Relay knows: a Relay that replicates or pulls
 
 **Public IPFS.** Agora is IPFS-compatible, not IPFS-dependent. A Relay or client MAY run an IPFS node, and none is required to. Relays, clients and the CO MUST NOT announce on, provide to or request from the public IPFS network (its DHT, public Bitswap peers or public gateways) any blob other than public content: records a CO publishes (§3.4, §10.3.2), and the envelopes and blobs of a broadcast channel whose `keyAccess` is `public` in a public Space (§5.2.1.4). Requesting a CID there discloses interest in it to unknown parties, so private ciphertext is neither announced nor requested. Bitswap MAY be used for private ciphertext only between known peers: Relays carrying the same token under the CO's agreements (above), the CO archive, and a user's own devices, which find each other through the self-group (§2.6). Public content MAY be published to the public IPFS network by the CO, a member or a Relay holding it (ARCHITECTURE §9).
 
+**No member-to-member exchange.** A client fetches blobs only from Relays, the CO archive and its own user's devices. Devices of different members MUST NOT exchange blobs directly, and clients MUST NOT announce themselves or their content on a local network (for example by mDNS). Disconnected operation is out of scope for this version except through a radio-mesh gateway (profiles/radio-mesh-gateway.md).
+
 ### 10.4.5 Takedown Requests
 
 A Relay may receive a takedown request (a legal demand, or a report from a third party) naming a CID it stores. The Relay cannot read the blob or envelope, so it cannot judge the content, and it MUST NOT attempt to decrypt it.
