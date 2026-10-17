@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.32.5",
+  "title": "C5: Corundum operator may run relays (decided)",
+  "description": "DECIDED (Mark 2026-10-16), option A: allowed under ARCHITECTURE §2.4 with distinct keys/principals. Add accepted cost to ARCHITECTURE §9: a party running both a social/identity service and relays can link its own users to the COs whose traffic they use (never content, channel or Space); users and communities may choose other relays.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T06:42:39.602739677Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T06:42:39.602739677Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.32.5",
+      "depends_on_id": "agora-pozi.32",
+      "type": "parent-child",
+      "created_at": "2026-10-17T06:42:39.616005349Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

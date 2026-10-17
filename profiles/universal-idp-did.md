@@ -19,7 +19,9 @@ This specification extends the DID Sidecar's `IdentityProvider` interface to cov
 
 All four categories produce the same output: a `did:webvh` identity `did:webvh:{SCID}:did.example.com:users:{localIdentifier}` whose DID log is served at `https://did.example.com/users/{localIdentifier}/did.jsonl` (spec §2.1, §2.5.2), triggered by the same sidecar event handler introduced in the Google Workspace spec. The categories differ only in which `IdentityProvider` implementation feeds that handler and which JML source drives user lifecycle events.
 
-**The sidecar is the organization's DID Provisioning Service** (spec §2.5.2), a CO component. It holds an update key for every DID log it creates. Each organizational change to a document (stub creation, device key addition or removal, suspension, deactivation) is a log entry signed with that update key and is visible to every resolver in the DID history (spec §2.5.1). It also hosts each user's KeyPackages: at stub creation it adds a `KeyPackageEndpoint` service entry pointing at itself (spec §2.5.3), stores the KeyPackages the user's devices upload (spec §2.5.4 step 7, §5.2.1.1), and accepts Welcomes by POST at the same endpoint (spec §4.6). Relays play no part in provisioning: they never see IdP tokens, DID logs or KeyPackages.
+**The sidecar is the organization's DID Provisioning Service** (spec §2.5.2), a CO component. It holds an update key for every DID log it creates. Each organizational change to a document (stub creation, device key addition or removal, suspension, deactivation) is a log entry signed with that update key and is visible to every resolver in the DID history (spec §2.5.1). It also hosts each user's KeyPackages: at stub creation it adds a `KeyPackageEndpoint` service entry of type `AgoraKeyPackageEndpoint` pointing at itself (spec §2.5.3), stores the KeyPackages the user's devices upload (spec §2.5.4 Step 6, §5.2.1.1), and accepts Welcomes by POST at the same endpoint (spec §4.6, §5.2.1.1).
+
+**Witnesses.** These are CO-provisioned `did:webvh` identities, so spec §2.1 requires did:webvh witnesses: each DID's `witness` parameter lists at least one witness DID that the organization does not control, with a threshold that makes every accepted log entry carry a proof from at least one such witness. The sidecar therefore publishes a log entry only once it holds the required witness proofs, and clients reject an entry that lacks them (spec §2.1, §2.5.2). The witnesses are what stop the sidecar, which holds every update key, from serving different logs to different resolvers or rolling a log back. Which witnesses to use is the organization's choice; this profile names none. Relays play no part in provisioning: they never see IdP tokens, DID logs or KeyPackages.
 
 **DID path rule (all categories).** The `localIdentifier` follows spec §2.5.2 and O365 spec §2: stable, never reassigned, and never derived from a name, email, UPN or `userName`. The recommended default is a random lowercase base32 value minted by the sidecar at provisioning (e.g. `k7f3qd2m`). The source's immutable user ID (Okta `id`, SCIM `externalId` or `id`, AD `objectGUID`, HR employee ID) is an allowed alternative. Either way, the sidecar keys its private user record on that source ID (`stableID`) and maps it to the `localIdentifier`; the mapping is never published. A sidecar-minted value is preferred because it survives a change of IdP or JML source. Renames and email or UPN changes update only the private record and credential claims, never the DID. A move of the DID host keeps the SCID: the sidecar creates DIDs with did:webvh portability enabled, so the log continues at the new domain and records the previous DID in `alsoKnownAs` (spec §2.5.2).
 
@@ -41,7 +43,7 @@ Every source's events reduce to five normalized actions. Each source section bel
 | `REACTIVATE` | Restore the device keys removed at suspension. | Re-issue | `ACTIVE` (or `STUB` if no keys were held) |
 | `TERMINATE` | Remove all device keys and deactivate the DID (spec §2.5.6). | Revoke | `DEACTIVATED` |
 
-For `SUSPEND` and `TERMINATE` the sidecar also stops serving the user's KeyPackages and notifies the CO's Enrollment Service, which issues MLS Remove commits for the user's leaves (spec §2.5.5). `TERMINATE` additionally deletes stored KeyPackages. It is final: the log stays resolvable and is never deleted, so archived compliance records keep resolving (spec §2.5.6), and the `localIdentifier` is never reassigned. A returning employee gets a new DID.
+For `SUSPEND` and `TERMINATE` the sidecar also stops serving the user's KeyPackages and notifies the CO's Enrollment Service, which issues MLS Remove commits for the user's leaves in the organization's groups. Members of groups outside the organization's control Remove those leaves when they next resolve the DID (spec §2.5.5, §2.5.6). `TERMINATE` additionally deletes stored KeyPackages. It is final: the log stays resolvable and is never deleted, so archived compliance records keep resolving (spec §2.5.6), and the `localIdentifier` is never reassigned. A returning employee gets a new DID.
 
 ```toml
 # enrollment.toml
@@ -56,6 +58,10 @@ update_key_type  = "file"
 update_key_path  = "/secrets/did-log-update-ed25519.pem"   # did:webvh update key; signs DID log entries only
 provisioning_signing_key_type = "file"
 provisioning_signing_key_path = "/secrets/provisioning-ed25519.pem"   # sidecar's own DID key (spec §2.5.7)
+# did:webvh witnesses (spec §2.1): at least one DID the organization does not control.
+# With only such witnesses listed, a threshold of 1 meets the requirement.
+witnesses         = ["did:key:z6Mk..."]
+witness_threshold = 1
 
 [identity_provider]
 type = "okta"                        # okta | jumpcloud | ping | onelogin | scim | saml | ldap
@@ -631,7 +637,7 @@ A Workday `TERMINATE` event always overrides a concurrent LDAP `REACTIVATE`, whi
 
 ## 8. Enrollment Authentication
 
-Device key registration follows spec §2.5.4: the Agora client authenticates the user against the organization's IdP by OIDC or SAML 2.0 and presents the resulting token to the sidecar's `POST /v1/register-device-key`. No separate enrollment tool is involved. (The enrollment tool in `profiles/discord-onboarding.md` serves individuals migrating from Discord and is not used in employer deployments.)
+Device key registration follows spec §2.5.4: the Agora client authenticates the user against the organization's IdP by OIDC or SAML 2.0 and sends the resulting token as `idpToken` in a `DeviceKeyRegistrationRequest` to `POST {prov}/devices`. This profile sets `{prov}`, the `AgoraProvisioning` service endpoint (spec §2.5.3), to `https://did.example.com/v1`, so the path is `POST /v1/devices`. The request is signed by the new device key, and for every device after the first also by a currently registered device key (spec §2.5.4 Step 3). Once the key is in the log, the new device publishes KeyPackages to the sidecar and the user's existing devices add it to the user's self-group and to each of the user's groups (spec §2.5.4 Steps 6 and 7, §2.6). No separate enrollment tool is involved. (The enrollment tool in `profiles/discord-onboarding.md` serves individuals migrating from Discord and is not used in employer deployments.)
 
 The sign-in protocol and the JML source are independent configurations. An org MAY use SAML for sign-in while LDAP drives JML. The sidecar links the sign-in token to the user record by the IdP's immutable user ID, never by email, UPN or `userName`, which can change (spec §2.5.2):
 
@@ -677,11 +683,12 @@ For on-prem deployments (Cat 3 and Cat 4), the PKCS#11 and HashiCorp Vault backe
 For hybrid deployments (Cat 3 + Cat 4: SAML auth from cloud IdP, LDAP from on-prem AD), the sidecar runs on-prem with a reverse proxy exposing only the public endpoints to the internet. The LDAP connection remains on the internal network.
 
 ```
-Internet → [Reverse Proxy] → /v1/register-device-key  (device enrollment, spec §2.5.4)
+Internet → [Reverse Proxy] → /v1/devices              (device enrollment, spec §2.5.4)
+                           → /v1/revocations          (user-initiated device revocation, spec §2.5.5)
                            → /v1/notify               (IdP webhook)
                            → /v1/hr-event             (HR webhook)
                            → /users/*/did.jsonl       (DID log serving)
-                           → /users/*/keypackages     (KeyPackageEndpoint: GET fetch, POST publish or Welcome)
+                           → /v1/agora/kp/*           (KeyPackageEndpoint, spec §5.2.1.1: fetch, publish, Welcome, auth)
 
 Internal only:
   LDAP polling  → DC on port 636

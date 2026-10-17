@@ -1,0 +1,7 @@
+{
+  "id": "1792217351298424517-1",
+  "issue_id": "agora-pozi.31.146",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: passive members (compliance logger, recorder) MAY and SHOULD issue a scheduled self-update Commit (empty Commit with UpdatePath rotating only their own leaf), e.g. weekly; all other proposals/commits remain forbidden; 07:199 unchanged. State residual risk window in §12.2.",
+  "created_at": "2026-10-17T06:09:11.298424517Z"
+}

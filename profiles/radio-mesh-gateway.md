@@ -12,10 +12,10 @@
 
 ## 1. Summary
 
-IRONWEED (VHF/UHF land mobile) and LICHEN (LoRa) are IPv6 radio meshes with their own identities, OSCORE security and per-group keys. Agora cannot run over either radio. An Agora message costs roughly 400 B before payload: two Ed25519 signatures (`accessSig` and the MLS signature), two AEAD tags (the sealed envelope and MLS), `channelToken`, `epoch`, the envelope `id` (a CID), `ts`, `expiryHint`, MLS framing with its encrypted sender data, and the inner envelope's `type`, `contentType` and `seq` (estimate from spec §5.2.2 assuming a compact binary encoding, which Agora does not yet define; the JSON form is larger).
+IRONWEED (VHF/UHF land mobile) and LICHEN (LoRa) are IPv6 radio meshes with their own identities, OSCORE security and per-group keys. Agora cannot run over either radio. An Agora message costs roughly 470 B before payload. The CBOR routing envelope (spec §5.2.2) takes about 210 B: its `signed` field holds `ctx`, the 32-byte `channelToken`, `ts` and `expiryHint` with their text keys, and `admissionSig` adds a 64-byte Ed25519 signature. The sealed envelope adds a 12-byte nonce and a 16-byte AEAD tag. The MLS `PrivateMessage` adds about 95 B of framing (32-byte `group_id`, epoch, encrypted sender data with its own tag, and the content tag) and a 64-byte MLS signature. The inner envelope's `type`, `contentType` and `seq` add about 70 B. The envelope `id` and the epoch are not carried, and the sealed wrapper has no sender DID, ephemeral key or signature of its own. Spec §5.2.1 recommends padding MLS content to a multiple of 256 bytes, which brings a short message to about 590 B. These are estimates from the CDDL and RFC 9420 framing, not measurements.
 
-- **LICHEN:** about 165 B of application room per 255 B frame, so one Agora message is 3-4 frames and 7-9 s of airtime at SF10. The dense EU duty budget is 0.5%, or 18 s per hour (02a §2a.9.1). That allows about two Agora messages per node per hour, before relaying, Commits, Welcomes or KeyPackage fetches.
-- **IRONWEED:** 450 B is at least 0.4 s of airtime at the 9.6 kbps C4FM raw rate, more after FEC, on a channel shared with voice (SPEC §4.1, §7.3). It would also duplicate IRONWEED's own link encryption and Group OSCORE, and add dependencies (relays, DID resolution, the CO registration service) that IRONWEED's disconnected-operations design removes (SPEC §6.5.2).
+- **LICHEN:** about 165 B of application room per 255 B frame, so one Agora message is 3-4 frames, or 4 with the recommended padding, and 7-9 s of airtime at SF10. The dense EU duty budget is 0.5%, or 18 s per hour (02a §2a.9.1). That allows about two Agora messages per node per hour, before relaying, Commits, Welcomes or KeyPackage fetches.
+- **IRONWEED:** 470 B is at least 0.4 s of airtime at the 9.6 kbps C4FM raw rate, more after FEC, on a channel shared with voice (SPEC §4.1, §7.3). It would also duplicate IRONWEED's own link encryption and Group OSCORE, and add dependencies (relays, DID resolution, the CO registration service) that IRONWEED's disconnected-operations design removes (SPEC §6.5.2).
 
 Radios therefore never join Agora. Agora is the encrypted backhaul between the places that have IP: command posts, dispatch centers, agencies, and the people working there. A gateway at the radio edge carries mesh traffic into Agora channels as typed envelopes inside MLS application messages, and carries permitted traffic back.
 
@@ -78,7 +78,7 @@ Rejected alternative: put the radio media type in the envelope `contentType` and
 
 ### 5.2 Batching and padding
 
-Relays see per-channel size and timing (ARCHITECTURE §5). Bridged position beacons produce a periodic pattern that reveals beacon cadence and, by count, roughly how many radios are on the net. The gateway should send one envelope per type per fixed interval, sent whether or not anything changed, and pad to fixed size buckets using MLS PrivateMessage padding (RFC 9420 §6.3.1). The cost is added latency up to one interval. Distress and broadcast items bypass the batch and leak by timing; that trade is accepted.
+Relays see per-channel size and timing (ARCHITECTURE §5). Bridged position beacons produce a periodic pattern that reveals beacon cadence and, by count, roughly how many radios are on the net. The gateway should send one envelope per type per fixed interval, sent whether or not anything changed, and pad each `PrivateMessage` (RFC 9420 §6.3.1). Spec §5.2.1 recommends a multiple of 256 bytes; the gateway may pad to larger fixed buckets. The cost is added latency up to one interval. Distress and broadcast items bypass the batch and leak by timing; that trade is accepted.
 
 ## 6. Voice
 
@@ -104,7 +104,8 @@ Agora has no anonymous-inbound path, and this profile does not add one. Distress
 
 IRONWEED BROADCAST (SPEC §5.5.3) maps to an Agora `broadcast` channel with `keyAccess: public` (§5.2.1.4). The content key is public Space state, so anyone can read; IOs still see only the routing envelope.
 
-- The gateway holds a role in the channel's `broadcasterRoles` and is the poster. §13.1 requires `sig` on a broadcast payload, so the gateway signs the envelope.
+- The gateway holds a role in the channel's `broadcasterRoles`, so the Space endpoint serves it the channel admission key with its private key, and it is the poster (§5.2.1.4).
+- A broadcast payload is always a `urn:agora:type:BroadcastMessage` carrying a JMAP Chat `Message`, signed by the poster (§5.2.1.4, §13.1). The gateway puts a readable rendering of the broadcast in the `Message` text and attaches the original `urn:ironweed:Broadcast` frame (§5) as an encrypted blob, so receivers that understand IRONWEED can check `osig`.
 - The original mesh signature and source mesh CA certificate travel in the frame (`osig`, and `p` verbatim). Receivers keep "verified source" versus "source unverified" from the mesh signature, not from the gateway's JWS. The gateway's signature says only "this gateway relayed it".
 - The gateway never presents itself as the originating mesh. Clients should display the mesh identity, the verification result and the expiry, and should not act automatically (SPEC §5.5.3).
 - Broadcast channels have no MLS forward secrecy (§5.2.1.4). That is acceptable for public information.
@@ -119,7 +120,7 @@ IRONWEED BROADCAST (SPEC §5.5.3) maps to an Agora `broadcast` channel with `key
 
 ## 10. Open questions
 
-1. Agora defines no envelope padding mechanism. §5.2 relies on MLS PrivateMessage padding alone. Should Agora name bucket sizes?
+1. Spec §5.2.1 recommends padding MLS content to a multiple of 256 bytes. Is that enough to hide beacon counts, or should this profile name larger buckets?
 2. Group OSCORE citations in both radio specs look wrong. IRONWEED SPEC §6.4 and §7.2 cite RFC 9594, which covers ACE key provisioning for groups. LICHEN 12-apps §18.8 and §18.8.5 cite RFC 9203, the ACE OSCORE profile. Group OSCORE itself is draft-ietf-core-oscore-groupcomm. Flag for the radio authors.
 3. Versioning of `urn:ironweed:` and `urn:lichen:` names: per §13.1 a breaking change defines a new name. Confirm both projects accept that rule.
 4. Redundant gateways on one net will deliver duplicates. Dedupe by (`src`, hash of `p`), or allow only one active gateway per channel?
@@ -143,7 +144,7 @@ IRONWEED BROADCAST (SPEC §5.5.3) maps to an Agora `broadcast` channel with `key
 | Overlay (SPEC §10.1) | `urn:ironweed:Overlay` | `application/geo+json` | single-author, LWW per overlay version | slow |
 | MAYDAY (SPEC §5.5.1) | `urn:ironweed:Mayday` | `application/cbor` | single-author | slow, unbatched |
 | HAIL (SPEC §5.5.2) | `urn:ironweed:Hail` | `application/cbor` | single-author | slow, unbatched |
-| BROADCAST (SPEC §5.5.3) | `urn:ironweed:Broadcast` | `application/cbor` | broadcast channel (§8) | slow, unbatched |
+| BROADCAST (SPEC §5.5.3) | `urn:ironweed:Broadcast`, attached to a `BroadcastMessage` (§8) | `application/cbor` | broadcast channel (§8) | slow, unbatched |
 | Voice (SPEC §7) | none; Agora call media | Codec2 to Opus | none | fast (§6) |
 | Org tree, net membership (SPEC §10.2) | none; Space and channel configuration | | | |
 | PTT floor (SPEC §7.2) | none; local to the gateway | | | |

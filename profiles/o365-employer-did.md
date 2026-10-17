@@ -12,7 +12,7 @@ This specification defines how an organization using Microsoft 365 / Entra ID ma
 
 Two components perform this work.
 
-**The DID Sidecar** is the organization's DID Provisioning Service (spec §2.5.2), a CO component, here a lightweight HTTPS service registered as an Entra application. It owns the namespace `https://did.example.com/users/{localIdentifier}/` and serves each user's `did:webvh` log (`did.jsonl`). It holds the update key for every employee log, receives provisioning events from Graph Lifecycle Workflows via a Logic App bridge, accepts authenticated device key registration requests from employees during Agora enrollment, and hosts each employee's `KeyPackageEndpoint` (spec §5.2.1.1). It is the only component that writes DID log entries.
+**The DID Sidecar** is the organization's DID Provisioning Service (spec §2.5.2), a CO component, here a lightweight HTTPS service registered as an Entra application. It owns the namespace `https://did.example.com/users/{localIdentifier}/` and serves each user's `did:webvh` log (`did.jsonl`). It holds the update key for every employee log, receives provisioning events from Graph Lifecycle Workflows via a Logic App bridge, accepts authenticated device key registration requests from employees during Agora enrollment, and hosts each employee's `KeyPackageEndpoint` (spec §5.2.1.1). It is the only component that writes DID log entries, and every entry it writes carries a proof from at least one witness the organization does not control (spec §2.1, §6.6 below). As each employee's identity host, it also issues the admission keys of the DM groups its employees start and of each employee's self-group (spec §4.6, §6.7 below).
 
 **Entra Verified ID** issues a signed `EmployeeCredential` verifiable credential to each enrolled employee's wallet (Microsoft Authenticator). The VC is the organization's cryptographic attestation that the holder is a current employee with specific claims (department, role, clearance level). It is issued after the first device key is registered (§4.2), and Spaces MAY require it for admission (§4.3). VC revocation blocks future Space admissions (§4.3) without writing a DID log entry. It does not cut off access the employee already has: membership in the MLS group is the only access control, so access ends when the Enrollment Service issues the MLS Remove commits (§5.4, Action C).
 
@@ -30,6 +30,7 @@ These two components are intentionally independent and address different concern
 | Access cut-off in existing Spaces                     | Enrollment Service (MLS Remove commits)                          |
 | Specific device revocation (lost device)              | DID Sidecar (log entry removing one `verificationMethod`)        |
 | KeyPackage hosting and Welcome delivery               | DID Sidecar (`KeyPackageEndpoint`)                               |
+| Admission keys for DM groups and self-groups          | DID Sidecar (identity host, spec §4.6)                           |
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -54,10 +55,11 @@ These two components are intentionally independent and address different concern
 │                                                                     │
 │  GET  /users/{id}/did.jsonl       Serve DID log (public)           │
 │  POST /v1/provision               JML event receiver                │
-│  POST /v1/register-device-key     Device key registration           │
+│  POST /v1/devices                 Device key registration           │
 │  POST /v1/revoke-device-key       Device key removal (IT/MDM)       │
 │  POST /v1/tombstone               DID deactivation                  │
-│  *    /v1/keypackages/{id}        KeyPackageEndpoint                │
+│  *    /v1/agora/kp/{id}           KeyPackageEndpoint                │
+│  *    /v1/admission-key/{groupID} DM and self-group admission keys  │
 │                                                                     │
 │  Storage: per-user DID logs in Azure Blob or Postgres               │
 │  Keys: log update key in Azure Key Vault (HSM)                      │
@@ -110,7 +112,7 @@ Resolvers fetch the whole log and verify it (spec §2.1); the DID document is th
 
 ### 3.1 Document States
 
-Each user's DID log moves through the following states. Every transition is a new log entry signed with the sidecar's update key.
+Each user's DID log moves through the following states. Every transition is a new log entry signed with the sidecar's update key and co-signed by witnesses (§6.6).
 
 ```
 [not exist] → STUB → ACTIVE → SUSPENDED → DEACTIVATED
@@ -131,7 +133,7 @@ Each user's DID log moves through the following states. Every transition is a ne
 
 The log is always served with `200` and stays resolvable after deactivation for the regulatory retention period and beyond (spec §2.5.6). Because every transition is a log entry, suspension and re-activation are visible in the history; a suspension cannot be hidden by stripping keys from a served response.
 
-The stub document contains no organization key: an org key listed as a `verificationMethod` in a user's document would let the org sign as that user. The org's authority over the document is the update key in the log `parameters` (§3.2). Agora clients that resolve this DID during a Space Add operation will find no usable authentication key; the Add commit MUST fail gracefully and prompt enrollment.
+The stub document contains no organization key: an org key listed as a `verificationMethod` in a user's document would let the org sign as that user. The org's authority over the document is the update key in the log `parameters` (§3.2). A client that tries to add this DID to a group finds no KeyPackage at its `KeyPackageEndpoint` (spec §5.2.1.1 returns HTTP 404) and no `authentication` key, so it cannot complete the Add; it should queue the Add (spec §5.2.1.1, KeyPackage Exhaustion) and tell the user the person has not enrolled yet.
 
 ### 3.2 Stub Document (Pre-Enrollment)
 
@@ -145,7 +147,11 @@ The genesis log entry, created at Joiner time (spec §2.5.3). One line of `did.j
     "method": "did:webvh:1.0",
     "scid": "QmSCIDa...",
     "updateKeys": ["z6MkSIDECAR_UPDATE_KEY..."],
-    "portable": true
+    "portable": true,
+    "witness": {
+      "threshold": 1,
+      "witnesses": [{ "id": "did:key:z6MkWITNESS..." }]
+    }
   },
   "state": {
     "@context": "https://www.w3.org/ns/did/v1",
@@ -157,7 +163,12 @@ The genesis log entry, created at Joiner time (spec §2.5.3). One line of `did.j
       {
         "id": "did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m#keypackages",
         "type": "AgoraKeyPackageEndpoint",
-        "serviceEndpoint": "https://did.example.com/v1/keypackages/k7f3qd2m"
+        "serviceEndpoint": "https://did.example.com/v1/agora/kp/k7f3qd2m"
+      },
+      {
+        "id": "did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m#provisioning",
+        "type": "AgoraProvisioning",
+        "serviceEndpoint": "https://did.example.com/v1"
       },
       {
         "id": "did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m#enrollment",
@@ -176,7 +187,7 @@ The genesis log entry, created at Joiner time (spec §2.5.3). One line of `did.j
 }
 ```
 
-`portable: true` MUST be set in the genesis entry, because `did:webvh` allows portability only when enabled at creation; it is what lets the identity survive a domain change (§6.4, spec §2.5.2). The `KeyPackageEndpoint` entry is present before the first device enrolls, as spec §2.5.3 requires. The document names no relay or other IO.
+`portable: true` MUST be set in the genesis entry, because `did:webvh` allows portability only when enabled at creation; it is what lets the identity survive a domain change (§6.4, spec §2.5.2). The `KeyPackageEndpoint` and `AgoraProvisioning` entries are present before the first device enrolls, as spec §2.5.3 requires; the `AgoraProvisioning` value is the base URL `{prov}` under which the sidecar serves `POST {prov}/devices` and `POST {prov}/revocations` (spec §2.5.4, §2.5.5). The `witness` parameter is required for a CO-provisioned DID (spec §2.1, §6.6). The document names no relay or other IO.
 
 The document has no `controller` property naming the organization. With `did:webvh`, authority to change the document comes from the `updateKeys` parameter of the log, not from the DID Core `controller` property. Listing the org's DID as `controller` would add nothing for updates and, under DID Core, could let verification methods in the org's own DID document be accepted as acting for the user, a power spec §2.5.1 does not grant. Each `verificationMethod` names the user's DID as its `controller`.
 
@@ -199,7 +210,7 @@ The `state` of the latest log entry after two devices and a recovery key are reg
       "meta": {
         "deviceLabel": "Alice's MacBook Pro",
         "registeredAt": "2026-03-13T00:00:00Z",
-        "registeredVia": "webauthn"
+        "registeredVia": "entra-step-up"
       }
     },
     {
@@ -210,7 +221,7 @@ The `state` of the latest log entry after two devices and a recovery key are reg
       "meta": {
         "deviceLabel": "Alice's iPhone 16",
         "registeredAt": "2026-03-13T06:00:00Z",
-        "registeredVia": "webauthn"
+        "registeredVia": "entra-step-up"
       }
     },
     {
@@ -237,12 +248,12 @@ The `state` of the latest log entry after two devices and a recovery key are reg
     {
       "id": "...#keypackages",
       "type": "AgoraKeyPackageEndpoint",
-      "serviceEndpoint": "https://did.example.com/v1/keypackages/k7f3qd2m"
+      "serviceEndpoint": "https://did.example.com/v1/agora/kp/k7f3qd2m"
     },
     {
       "id": "...#profile",
       "type": "AgoraProfile",
-      "serviceEndpoint": "ipfs://bafyrei..."
+      "serviceEndpoint": "ipfs://bafkrei..."
     }
   ]
 }
@@ -302,10 +313,10 @@ The credential names the employee's DID as its subject, and that DID has no keys
 1. **Joiner (§5.2).** The sidecar writes the genesis log entry (§3.2). No VC exists yet.
 2. **First device key registration (§5.6).** The client authenticates to Entra with step-up MFA and registers its device key with a proof of possession. No VC is presented or required. The sidecar writes a log entry adding the key.
 3. **VC issuance.** The sidecar requests issuance of the `EmployeeCredential` to the now-active DID (below).
-4. **KeyPackage upload.** The client uploads its initial KeyPackages to the sidecar's `KeyPackageEndpoint` (spec §2.5.4 Step 7).
+4. **KeyPackage upload.** The client uploads its initial KeyPackages to the sidecar's `KeyPackageEndpoint` (spec §2.5.4 Step 6).
 5. **Space admission.** The Enrollment Service checks the VC if the Space requires it (§4.3) and then issues the MLS Add commit.
 
-Later devices register with a request signed by an existing device key (§5.6); the org MAY additionally require a VC presentation for them, since by then the employee holds one.
+Later devices register with a request signed by an existing device key (§5.6); the org MAY additionally require a VC presentation for them, since by then the employee holds one. A later device needs no new Space admission: once its key is in the log, one of the employee's existing devices adds it to the employee's self-group and to every group the employee belongs to by an own-device Add (spec §2.5.4 Step 7, §2.6).
 
 The sidecar calls the Verified ID Request Service issuance API. Verify the path and request schema against current Microsoft documentation (written 2026-10, not re-verified):
 
@@ -407,7 +418,7 @@ The `ProvisionAgoraDID` Logic App payload:
   "jobTitle": "Senior Engineer",
   "officeLocation": "Seattle",
   "agoraRoles": ["member", "engineer"],
-  "spaceURI": "agora://bafyrei.../"
+  "spaceURI": "agora://bafkrei.../"
 }
 ```
 
@@ -476,7 +487,7 @@ Three actions execute in parallel:
 }
 ```
 
-The log stays resolvable with this entry as its last (spec §2.5.6). Agora clients that resolve a deactivated DID MUST treat the identity as permanently invalid and issue MLS Remove commits for its leaves in all groups they share with it. The reason and initiator are recorded in the sidecar's audit log, not in the public document. The sidecar gossips a `DeviceRevocation` for the removed keys, signed by its own key (spec §2.5.5).
+The log stays resolvable with this entry as its last (spec §2.5.6). Members of groups outside the organization's control Remove the user's leaves when they next resolve the DID and find no `authentication` keys (spec §2.5.5, §2.5.6, §2.7). The reason and initiator are recorded in the sidecar's audit log, not in the public document. Nothing is gossiped: DID document changes are distributed only by the log (spec §2.5.7, §2.7).
 
 **Action C: MLS Removal (the access cut-off, via Enrollment Service):** The sidecar notifies the Enrollment Service, which issues MLS Remove commits for the user from all spaces they belong to. After these commits propagate, the user's device keys cannot decrypt new messages even if the private key is retained.
 
@@ -517,7 +528,7 @@ The sidecar (spec §2.5.5):
 
 1. Appends a log entry, signed with its update key, that removes the `verificationMethod` entry and its references in `authentication` and `keyAgreement`
 2. Logs the revocation with timestamp, reason, and revoking admin identity
-3. Gossips a `DeviceRevocation` signed by its own key
+3. Sends no announcement: the user's remaining devices send an `IdentityChanged` notice (spec §2.7) to the user's groups when they see the new log entry, and other members learn of the revocation when they resolve the DID (spec §2.5.5)
 4. Notifies the Enrollment Service, which issues MLS Remove commits for that device's leaf in all groups (an `Update` commit cannot remove another device's leaf; spec §2.2)
 
 Other device keys (the user's phone, recovery key) are unaffected. The user retains access via remaining enrolled devices and can re-enroll the lost device after obtaining a replacement.
@@ -531,14 +542,14 @@ Device key registration (the moment a new device public key is written to the DI
 The DID Sidecar enforces this with a Conditional Access authentication context. The organization defines an authentication context (for example `c1`, labelled "Agora device registration") and a Conditional Access policy that requires the phishing-resistant MFA authentication strength (Windows Hello for Business, FIDO2 security key, or certificate-based authentication) for that context. The sidecar requires a short-lived Entra access token whose `acrs` claim contains that context ID. If the token lacks it, the sidecar returns a claims challenge naming the context, and the client re-authenticates. Clients signal that they can handle claims challenges with the `xms_cc` client capability. The sidecar does not rely on `acr` (in Entra access tokens it is only `0` or `1`, and only in v1.0 tokens) or on specific `amr` values, since Entra's documented `amr` values do not distinguish phishing-resistant methods. Verify the claim names and the claims-challenge flow against current Entra documentation (checked 2026-10).
 
 ```http
-POST /v1/register-device-key
+POST /v1/devices
 Authorization: Bearer <step-up-token>
 Content-Type: application/cbor
 
 <encoded typed payload envelope (spec §13.1)>
 ```
 
-The envelope has `type` `urn:agora:type:DeviceKeyRegistrationRequest`, `contentType` `application/json`, and a `body` that is the spec §2.5.4 Step 3 request, with one profile field added (`registeredVia`):
+This is `POST {prov}/devices` of spec §2.5.4 Step 3, with `{prov}` the `AgoraProvisioning` base URL (§3.2). The envelope has `type` `urn:agora:type:DeviceKeyRegistrationRequest`, `contentType` `application/json`, and a `body` that is the spec §2.5.4 Step 3 request without `idpToken`:
 
 ```json
 {
@@ -549,14 +560,13 @@ The envelope has `type` `urn:agora:type:DeviceKeyRegistrationRequest`, `contentT
   "deviceX25519PublicKey": "base64url(X25519 pubkey)",
   "platform": "macOS",
   "secureEnclaveAttested": true,
-  "ts": "2026-03-12T12:00:00.000Z",
-  "registeredVia": "webauthn"
+  "ts": "2026-03-12T12:00:00.000Z"
 }
 ```
 
 This profile carries the step-up token in the `Authorization` header instead of the body's `idpToken` member; the header token takes the place of `idpToken` for the checks of spec §2.5.4 Step 4.
 
-The envelope `sig` (spec §13.1.1) carries the signatures. For the first device it holds one entry, by the new `deviceEd25519PublicKey`, as proof of possession. For every later device it also holds an entry by a currently registered device key (spec §2.5.4 Step 3).
+The envelope `sig` (spec §13.1.1) carries the signatures. For the first device it holds one entry, by the new `deviceEd25519PublicKey`, as proof of possession. This is a device-key signature, not a WebAuthn assertion: a passkey or FIDO2 key that the user presents to Entra during step-up never becomes a device key (spec §2.2). For every later device it also holds an entry by a currently registered device key (spec §2.5.4 Step 3).
 
 The sidecar MUST validate all of the following before writing the key:
 
@@ -569,7 +579,7 @@ The sidecar MUST validate all of the following before writing the key:
 
 No VC is required for the first device (§4.2). If org policy requires a VC for later devices, the request also carries a `vcPresentation`, validated as in §4.3.
 
-On success the sidecar appends a log entry adding the key, signed with its update key, gossips the update announcement signed by its own key (spec §2.5.4 Step 6, §2.5.7), and, for the first device, starts VC issuance (§4.2).
+On success the sidecar appends a log entry adding the key, signed with its update key and co-signed by witnesses (§6.6), and, for the first device, starts VC issuance (§4.2). Nothing is gossiped (spec §2.5.7). The new device then uploads its KeyPackages (spec §2.5.4 Step 6), and for a later device the employee's existing devices add it to the self-group and every group the employee belongs to (spec §2.5.4 Step 7, §2.6).
 
 ---
 
@@ -583,13 +593,21 @@ GET    /users/{localIdentifier}/did.jsonl  Serve DID log
 GET    /users/{localIdentifier}/did.json   Parallel did:web document (optional, §2)
 
 # KeyPackageEndpoint (spec §5.2.1.1)
-POST   /v1/keypackages/{localIdentifier}          Device uploads KeyPackages (signed by a device key in the log)
-GET    /v1/keypackages/{localIdentifier}          Committer fetches one KeyPackage (consumed atomically, rate-limited)
-POST   /v1/keypackages/{localIdentifier}/welcome  Committer delivers an MLS Welcome
+POST   /v1/agora/kp/{localIdentifier}          Device publishes KeyPackages (signed by a device key in the log)
+GET    /v1/agora/kp/{localIdentifier}          Committer fetches one KeyPackage per device (consumed atomically, rate-limited)
+GET    /v1/agora/kp/{localIdentifier}?leaf=    Existing device fetches a KeyPackage of one new device (spec §2.6)
+POST   /v1/agora/kp/{localIdentifier}/welcome  Committer delivers an MLS Welcome
+POST   /v1/agora/kp/{localIdentifier}/auth     Caller authentication, if fetches are gated by sender (spec §3.5, §4.6.3)
 
-# Enrollment (Entra OIDC token, step-up MFA required)
-POST   /v1/register-device-key           Register a new device key
-DELETE /v1/device-key/{keyId}            Self-service device key removal
+# Admission keys for DM groups and self-groups (spec §4.6, §6.7)
+GET    /v1/admission-key/{groupID}             Current ChannelAdmissionKey (members only, spec §3.5)
+GET    /v1/admission-key/{groupID}/{keyEpoch}  ChannelAdmissionKey of that keyEpoch
+PUT    /v1/admission-key/{groupID}/members     Replace the member list (DMMembers)
+POST   /v1/auth                                Member authentication (spec §3.5)
+
+# Device registration and user revocation ({prov} = /v1, spec §2.5.4, §2.5.5)
+POST   /v1/devices                       Register a new device key (Entra step-up token)
+POST   /v1/revocations                   Self-service device key removal (signed by a surviving device key)
 
 # Admin (Entra admin token, Authentication Policy Administrator role)
 POST   /v1/provision                     JML event receiver (from Logic App)
@@ -605,7 +623,7 @@ POST   /v1/internal/enrollment-complete  Called by Enrollment Service post-MLS-A
 POST   /v1/internal/mls-remove-ack       Acknowledgment of MLS Remove commit
 ```
 
-The KeyPackage and Welcome endpoints are the only ones other Agora clients call. Relays never call the sidecar and hold no KeyPackages.
+The KeyPackage, Welcome and admission-key endpoints are the only ones other Agora clients call. Relays never call the sidecar and hold no KeyPackages; the sidecar calls relays only to register admission keys (§6.7).
 
 ### 6.2 Authentication
 
@@ -613,8 +631,10 @@ The KeyPackage and Welcome endpoints are the only ones other Agora clients call.
 | --------------------------- | --------------------------------- | ------------------------------------------------------------------- |
 | Public DID logs             | None                              | None                                                                |
 | KeyPackage upload           | Signature by a device key in the user's verified log | None                                             |
-| KeyPackage fetch, Welcome   | None (rate-limited)               | None                                                                |
+| KeyPackage fetch, Welcome   | None (rate-limited); a §3.5 bearer token if the org gates by sender (spec §4.6.3) | None                                |
+| Admission-key endpoints     | Spec §3.5 bearer token            | Caller's DID is on the group's member list (spec §4.6)              |
 | Device key registration     | Entra access token                | `acrs` contains the authentication context ID, `oid` maps to the DID |
+| User device revocation      | Spec §13.1.1 signature by a surviving device key of the DID | None                                     |
 | Admin operations            | Entra bearer token                | `Authentication Policy Administrator` role or `AgoraDIDAdmin` app role |
 | Logic App bridge            | Entra managed identity token      | `AgoraDIDProvisioner` app role                                      |
 | Enrollment Service webhook  | mTLS with pre-shared cert         | None                                                                |
@@ -639,14 +659,24 @@ The DID string changes only when the organization moves the DID host (e.g. `did.
 
 1. **The sidecar moves its own identity first.** The sidecar's DID is itself a portable `did:webvh` (§6.5). It appends an entry to its own log that changes its DID to the new domain with the same SCID and lists the old DID in `alsoKnownAs`, signed with its current update key.
 2. **The sidecar moves each user's log.** For each user it appends an entry, signed with the user log's update key, that changes the DID to `did:webvh:<same SCID>:did.example.net:users:<same localIdentifier>` and adds the old DID to `alsoKnownAs`. Keys, service entries and history carry over; the `KeyPackageEndpoint` URL is updated to the new host in the same entry.
-3. **It publishes and announces.** The new host serves the continued log; the sidecar gossips the update announcements on `v1/agora/discovery` and records the migration in the audit log.
+3. **It publishes.** The new host serves the continued log, with its witness proofs (§6.6), and the sidecar records the migration in the audit log. Nothing is gossiped: each employee's devices send an `IdentityChanged` notice (spec §2.7) when they see the migration entry, and other members pick up the move when they next resolve the DID.
 4. **The old host keeps answering.** The old URL keeps serving the log, or an HTTP redirect to the new location, for at least the regulatory retention period (spec §2.5.6), so archived references still resolve.
 
 Clients MUST treat the old and new DIDs as one identity when they share the SCID and form one continuous verified log (spec §2.5.2). This replaces the earlier cross-signature check between two hosts: continuity is a property of the log. The migration entry verifies only if it is signed by an update key authorized in the preceding entry, so no one but the holder of that key can move an identity, and the same check applied to the sidecar's own log shows that the post-migration sidecar is the same provisioning service. Device keys do not need to be re-registered, and Space state entries naming the old DID remain valid; the CO MAY update them to the new form at its next routine Space state update.
 
 ### 6.5 Sidecar DID
 
-The sidecar is a DID-bearing principal (spec §2.5.7). This profile gives it a portable `did:webvh`, e.g. `did:webvh:QmSCIDp...:did.example.com:agora:provisioning`, so that its identity survives a domain change through its own log (§6.4). Its document lists the signing key that signs gossiped update announcements and `DeviceRevocation` messages per spec §13.1.1. The update keys of the user logs are separate keys, also listed in each user log's `parameters`, and are not listed as verification methods in any user document (§3.2).
+The sidecar is a DID-bearing principal (spec §2.5.7). This profile gives it a portable `did:webvh`, e.g. `did:webvh:QmSCIDp...:did.example.com:agora:provisioning`, so that its identity survives a domain change through its own log (§6.4). As spec §2.5.7 requires, the update key of the user logs is a verification method of this DID; it is also listed in each user log's `updateKeys` parameter and is never a verification method in any user document (§3.2). Its own log uses witnesses like the user logs (§6.6).
+
+### 6.6 Witnesses
+
+Spec §2.1 requires every CO-provisioned `did:webvh` DID to use did:webvh witnesses. The sidecar therefore publishes witness-co-signed log updates: each user log, and the sidecar's own log, declares in its `witness` parameter at least one witness DID that the organization does not control, with a threshold such that every entry carries a proof from at least one such witness. The sidecar obtains the witness proofs for an entry before it serves that entry, and serves them beside `did.jsonl` as the did:webvh specification defines. Agora clients verify those proofs and reject an entry that lacks the proofs its parameters require (spec §2.1).
+
+The organization chooses its witnesses. What matters is that the organization does not control them: a witness run by the organization itself adds nothing, because the purpose is to stop the holder of the update key from showing different logs to different resolvers, or an old log to one of them, without a second party noticing (spec §2.1, §2.5.1). If the witnesses are unreachable, the sidecar cannot publish new entries; device registrations, revocations and deactivations wait until a proof is obtained, so the organization should name more than one witness and set the threshold below their number.
+
+### 6.7 Admission Keys for DM Groups and Self-Groups
+
+The sidecar hosts each employee's `KeyPackageEndpoint`, so it is the employee's identity host in the sense of spec §4.6 and plays the CO's part for admission of every DM group an employee initiates and of each employee's self-group (spec §2.6). For each such group it generates the admission key, registers it by `AdmissionKeyRegistration` with every relay the organization holds a `ServiceAgreement` with, rotates it when a `DMMembers` replacement drops a DID, and deregisters old keys (spec §10.5.3). Registrations are signed by the organization's billing DID (spec §10.5.1), so the sidecar needs a signing path to that key, for example through the CO's registration service; it never signs them with its own DID. Its base URL `<host>`, which the initiating client puts in the group's `agora_admission_host` extension (spec §4.6), is `https://did.example.com/v1`, the same base under which it serves the §6.1 admission-key endpoints and `POST /v1/auth`. It serves the current key only to DIDs on the group's member list after the spec §3.5 exchange, and in doing so learns the member DIDs of DM groups its employees start (spec §4.6). Relays learn neither the group nor the members.
 
 ---
 

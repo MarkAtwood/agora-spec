@@ -1,0 +1,7 @@
+{
+  "id": "1792216744649532438-1",
+  "issue_id": "agora-pozi.31.3",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16): option A (sequencers treated exactly like relays: billing-DID IO agreement, registered chains, learns CO not Space; CO SHOULD use one sequencer across its Spaces; public Space naming its sequencer is a chosen disclosure) PLUS: a CO SHOULD designate a relay it already has an agreement with as its sequencer, so sequencing adds no new observer. D2 wording 'per-community' becomes 'designated by the CO'.",
+  "created_at": "2026-10-17T05:59:04.649532438Z"
+}

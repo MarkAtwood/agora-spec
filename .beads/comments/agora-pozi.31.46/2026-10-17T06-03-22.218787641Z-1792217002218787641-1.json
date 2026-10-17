@@ -1,0 +1,7 @@
+{
+  "id": "1792217002218787641-1",
+  "issue_id": "agora-pozi.31.46",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: exporter contexts use the MLS group_id (channels and DMs alike); channels are named in records and Space state by a random 16-byte channelID fixed at creation (survives renames); DMs named by MLS group ID; the term channelCID is removed from the spec.",
+  "created_at": "2026-10-17T06:03:22.218787641Z"
+}

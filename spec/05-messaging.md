@@ -10,9 +10,9 @@
 
 Agora uses **best-effort causal ordering**. Gossipsub does not guarantee total message order and does not need to. The requirement is that messages arrive in approximately the right order on average, with clients able to reconstruct causal order locally.
 
-Each inner payload carries a `seq` (monotonically increasing integer per sender per channel), inside the ciphertext (§5.2.2). A JMAP Chat `Message` (§5.2.3) refers to earlier Messages by `senderMsgId` in `replyTo` and `threadRootId`, and edits, deletions and reactions name their target Message the same way (§5.2.2). This gives clients enough information to:
+Each non-ephemeral inner payload carries a `seq` inside the ciphertext (§5.2.2). `seq` is counted per sending device (MLS leaf) per channel: it starts at 0 when the device's leaf joins the group, increases by one with each non-ephemeral message the device sends in that group, is not reset when the epoch changes, and stays below 2^53. Ephemeral events (§5.2.3) carry no `seq` and do not consume a value. A JMAP Chat `Message` (§5.2.3) refers to earlier Messages by `senderMsgId` in `replyTo` and `threadRootId`, and edits, deletions and reactions name their target Message the same way (§5.2.2). This gives clients enough information to:
 
-- Detect gaps (missing `seq` values from a given sender)
+- Detect gaps (missing `seq` values from a given sending device)
 - Buffer out-of-order arrivals and flush the buffer when gaps close
 - Detect and display causal relationships for reply threading and reaction targets
 
@@ -20,7 +20,14 @@ Clients order Messages by this model. `sentAt` is the sender's claim and MUST NO
 
 Clients SHOULD buffer messages for up to 500ms waiting for a gap to close before rendering out-of-order. After 500ms, the client should display what is available and backfill visually when the missing message eventually arrives.
 
-**MLS Commit ordering.** MLS Commits (which advance the group epoch) require stricter ordering than application messages. Clients MUST buffer application messages from a new epoch until the Commit that opened that epoch has been received and processed. Relays MAY provide **sequence attestations** (signed sequence numbers over a channel's message stream) as an optional ordering anchor for clients that require it.
+**MLS Commit ordering.** MLS Commits (which advance the group epoch) require stricter ordering than application messages. Clients MUST buffer application messages from a new epoch until the Commit that opened that epoch has been received and processed.
+
+**Canonical Commit.** RFC 9420 §14 requires an established way to resolve conflicting Commits for the same epoch. When more than one Commit targets the same MLS epoch of a group, exactly one wins, chosen as follows:
+
+- **Space with a sequencer.** If the group is a channel of a Space whose state designates a `sequencer` (§14.4.1), the Commit the sequencer stamps first wins. Before publishing a Commit, the committer submits it per §14.4.3 steps 2 and 3, with `stream` set to the channel's **commit stream**, `SHA-256("agora/commits/v1" || channelToken)`, and `op` set to the exact bytes of the `sealedEnvelope` that will carry the Commit (§5.2.2). It then fetches that stream's log up to its own position (§14.4.3). If an earlier position holds an `op` that opens under the same epoch's sealing key and associated data (§5.2.2) to a Commit, its Commit has lost. Otherwise it publishes the Commit with the encoded stamp envelope in the `commitStamp` field of the routing envelope's `signed` map. A member MUST NOT apply such a channel's Commit unless `commitStamp` verifies per §13.1.1 as signed by the `sequencer` DID in the Space state the member holds, its `stream` is the channel's commit stream, and its `opHash` is SHA-256 of the envelope's `sealedEnvelope` bytes. Of two such Commits for one epoch, the one whose stamp has the lower `n` wins; a member keeps its epoch N state for 5 seconds after applying a stamped Commit for epoch N, so that it can switch to one with a lower `n` that arrives in that time. If the sequencer is unreachable, the committer waits; it MUST NOT publish an unstamped Commit to such a channel.
+- **No sequencer.** Otherwise, including in every DM group, a member that receives a Commit for epoch N keeps its epoch N state and collects every Commit for epoch N that arrives within 5 seconds of the first. It then applies the Commit whose envelope `id` (§5.2.2) is lowest, compared as bytes, and discards Commits for epoch N that arrive later. The committer applies the same rule to its own Commit, counting from when it published it. A Commit delayed by more than the window at some members but not others splits the group; members left on the losing branch cannot process later traffic and must be removed and re-added. A Space avoids this by designating a sequencer.
+
+A committer MUST NOT deliver the Welcome for an Add in its Commit until that Commit has won (RFC 9420 §14). A client whose Commit lost discards it and its pending state, and, if the change is still wanted, re-proposes it as a new Commit for the winning epoch.
 
 **Space state ordering.** Space state is one signed chain (§3.3), and each state document carries a `seq` field. Two valid state documents that name the same `prevStateCID` fork the chain. Every client resolves a fork by the same rule, applied to the two documents that follow the fork point: the one with the higher `seq` wins; on equal `seq`, the one signed by the owner wins over one signed by an admin; otherwise the one whose CID is lower, compared as bytes, wins. Clients follow the winning branch, and the Space endpoint serves its head (§3.4). State on the losing branch has no effect. A signer whose mutation lost re-signs it, if it is still wanted, as a new state document on top of the winning head. Clients MUST NOT merge two branches into one state, since a merged state has no signer (§3.3).
 
@@ -33,13 +40,13 @@ Clients SHOULD buffer messages for up to 500ms waiting for a gap to close before
 
 ### 5.2.1 MLS Group Structure
 
-Each channel's encryption model is determined by its **mode** (§3.2). `interactive` and `community` channels each have their own MLS group; a `broadcast` channel has an MLS group of its authorized posters only (the publisher group) and carries content encrypted under a CO-distributed channel content key. In all cases, space membership does not imply channel membership; each channel manages its own state independently.
+Each channel's encryption model is determined by its **mode** (§3.2). `interactive` and `community` channels each have their own MLS group; a `broadcast` channel has no MLS group and carries content encrypted under a CO-distributed channel content key. In all cases, space membership does not imply channel membership; each channel manages its own state independently.
 
 This section covers `interactive` and `community` channels. `broadcast` channels are specified in §5.2.1.4.
 
 **`interactive` mode** (§3.2): full MLS group, all channel members hold leaves. Maximum 200 members. Standard §5.2.1 behavior applies without modification.
 
-**`community` mode** (§3.2): MLS group limited to active speakers. Space members outside the speaker group cannot follow the channel's envelopes, because they do not hold the exporter-derived `channelToken`, until admitted. See §5.2.1.2.
+**`community` mode** (§3.2): MLS group limited to active speakers. Space members outside the speaker group cannot follow the channel's envelopes until admitted, because the CO serves the channel's admission key, from which the `channelToken` is derived, only to members of the speaker group (§5.2.2). See §5.2.1.2.
 
 Each channel manages its own MLS epoch independently. This enables per-channel access control (e.g., private channels within a public space) without any additional mechanism; it is a direct consequence of the MLS design.
 
@@ -47,12 +54,22 @@ Each channel manages its own MLS epoch independently. This enables per-channel a
 
 MLS operations follow RFC 9420 exactly:
 
-- **`KeyPackage`:** published to the user's `KeyPackageEndpoint` (§5.2.1.1); single-use, and rotated on each new device session and after each use.
+- **`KeyPackage`:** published to the user's `KeyPackageEndpoint` (§5.2.1.1); single-use, and rotated on each new device session and after each use. Each KeyPackage's `init_key` and its leaf `encryption_key` are fresh X25519 key pairs generated for that KeyPackage alone, distinct from each other (RFC 9420 §10.1). They MUST NOT be derived from, or equal to, the DID's `keyAgreement` key or any other long-term key; the `keyAgreement` key serves only out-of-group HPKE.
 - **`Welcome`:** delivered by POST to the new member's `KeyPackageEndpoint` (§4.6); never on a gossip topic. A Welcome MUST include the `ratchet_tree` extension (RFC 9420 §12.4.3.3) carrying the full ratchet tree. A joiner MUST obtain the ratchet tree only from that extension and MUST NOT fetch it from a relay or any other IO; no IO stores or serves ratchet trees or other MLS group state. A joiner MUST reject a Welcome that lacks the `ratchet_tree` extension.
-- **`Commit`:** a state-advancing operation (Add, Remove, Update); gossiped to all current group members.
+- **`Commit`:** a state-advancing operation (Add, Remove, Update); published on the channel's topic in a routing envelope (§5.2.2) and resolved against concurrent Commits by the canonical Commit rule (§5.1.1).
 - **`Proposal`:** a pre-commit operation that may be included in a subsequent Commit by any authorized member.
 
-The **Delivery Service** role (as defined in RFC 9420 §10.3) is performed by the gossipsub mesh in combination with each user's `KeyPackageEndpoint` (§5.2.1.1). The **Authentication Service** role is performed by DID verification: MLS leaf node credentials are bound to DID verification keys, so verifying an MLS credential means verifying a DID.
+**Group configuration.** Every Agora MLS group uses these settings:
+
+- `group_id` is 32 random bytes chosen by the group's creator.
+- A group has at most 4096 leaves. A committer MUST NOT issue a Commit that would exceed it, and members MUST reject one that does. The limit bounds the use of the sealing key (§5.2.2).
+- All handshake and application messages are sent as `PrivateMessage`. Members MUST reject a `PublicMessage`.
+- External joins and external senders are not used. Members MUST reject a Commit or Proposal whose sender type is `new_member_commit`, `new_member_proposal` or `external` (RFC 9420 §6), MUST NOT include the `external_senders` extension in a GroupContext, and MUST NOT publish a GroupInfo carrying `external_pub`.
+- A KeyPackage's `lifetime` spans at most 90 days.
+- Senders SHOULD pad each `PrivateMessage` (RFC 9420 §6.3.1) so that its content length is a multiple of 256 bytes.
+- A member keeps the decryption keys of at least 32 generations behind the newest it has used for each sender in an epoch, and accepts messages up to 1000 generations ahead.
+
+The **Delivery Service** role (RFC 9750) is performed by the relays in combination with each user's `KeyPackageEndpoint` (§5.2.1.1). The **Authentication Service** role (RFC 9750) is performed by DID verification. Each leaf carries a `basic` credential (RFC 9420 §5.3) whose `identity` is the UTF-8 encoding of the member's DID. For `did:webvh` and `did:plc`, its `signature_key` MUST be the raw 32-byte Ed25519 public key of a verification method listed under `authentication` in that DID's current DID document, which is the device key of §2.2. For `did:key`, the `signature_key` is a key the device generated for itself and MUST NOT be the identity key, because RFC 9420 requires each leaf's signature key to be unique within a group and every device of a `did:key` user holds the same identity key (§2.1). Such a leaf MUST carry the `agora_device_binding` LeafNode extension, extension type 0xF0A1 from the RFC 9420 private-use range, whose data is the 64-byte Ed25519 signature (RFC 8032), made with the identity key, over the UTF-8 bytes of `agora/v1/device-binding` followed by the 32-byte `signature_key`; the signature verifies under the key the DID encodes. The leaf signature covers the extension. Every Agora client lists 0xF0A1 in its leaf `capabilities`. A device binding cannot be revoked (§2.1). A member MUST check this binding for the leaf of every KeyPackage it adds, for every leaf in an Update or UpdatePath it processes, and, as a joiner, for every leaf in the ratchet tree of a Welcome. A leaf that fails the check makes the carrying KeyPackage, Commit or Welcome invalid.
 
 **Reference implementations for MLS (RFC 9420):**
 - Rust: [`openmls`](https://github.com/openmls/openmls) (the most complete open-source implementation)
@@ -73,12 +90,14 @@ The host MUST make a fetch atomically consume the returned KeyPackage, and MUST 
 For `did:webvh` and `did:plc`, the `KeyPackageEndpoint` is the DID document service entry whose `type` is `AgoraKeyPackageEndpoint` (§2.1). For `did:key` it is the `url` value of the `_kp._agora` record (§10.3.4.6). In both cases it is an HTTPS URL for one DID, with a path that begins with `/v1/agora/kp/` (§13.2). Relative to that URL, written `{kp}`:
 
 ```
-GET  {kp}           fetch one KeyPackage, consumed atomically
-POST {kp}           publish KeyPackages
-POST {kp}/welcome   deliver a Welcome
+GET  {kp}                 fetch one KeyPackage per device, consumed atomically
+GET  {kp}?leaf=<key>      fetch one KeyPackage of one device, consumed atomically
+POST {kp}                 publish KeyPackages
+POST {kp}/welcome         deliver a Welcome
+POST {kp}/auth            authenticate the caller (§3.5), where the host requires it
 ```
 
-- **Fetch.** The request carries no caller identity. The response body is one `MLSMessage` with `wire_format` `mls_key_package` (RFC 9420 §6), media type `message/mls` (RFC 9420 §17.10). The host returns a single-use KeyPackage if one remains, otherwise a last-resort KeyPackage, otherwise HTTP 404. A rate-limited caller receives HTTP 429.
+- **Fetch.** The request carries no caller identity, unless the host gates fetches by sender (§4.6.3): such a host answers an unauthenticated fetch or Welcome POST with HTTP 401, and the caller authenticates by the §3.5 exchange at `{kp}/auth` and repeats the request with the bearer token. Each of the DID's devices is a separate leaf (§2.2), so one fetch returns one KeyPackage for each device that has any supply: for each device, a single-use KeyPackage if one remains, otherwise that device's last-resort KeyPackage. The response body, media type `application/cbor`, is a CBOR array of byte strings, each one `MLSMessage` with `wire_format` `mls_key_package` (RFC 9420 §6). A committer adding the user adds every returned KeyPackage. If no device has supply the host returns HTTP 404. A rate-limited caller receives HTTP 429. With the `leaf` query parameter, the unpadded base64url of a leaf `signature_key`, the host returns a one-element array holding a KeyPackage of only the device whose leaf carries that key, and HTTP 404 if that device has no supply; an existing device uses this to add a new device of the same user (§2.6) without consuming the KeyPackages of the user's other devices.
 - **Publish.** The request body is a typed payload envelope (§13.1) of type `urn:agora:type:KeyPackagePublish`, signed per §13.1.1 by a device key of the endpoint's DID (for `did:key`, the identity key). Its body is:
 
 ```json
@@ -89,7 +108,7 @@ POST {kp}/welcome   deliver a Welcome
 }
 ```
 
-`keyPackages` are encoded `MLSMessage` KeyPackages added to the single-use supply. `lastResort` is optional; it replaces the last-resort KeyPackage of the device whose leaf it carries. The host MUST reject a request whose `ts` differs from its clock by more than 300 seconds, MUST reject any KeyPackage it has stored before, so that a replayed request cannot restore consumed KeyPackages, and MUST apply the checks above to each KeyPackage. It returns HTTP 204 on success.
+`keyPackages` are encoded `MLSMessage` KeyPackages added to the single-use supply, each in base64url without padding (RFC 4648 §5), as is `lastResort`. `lastResort` is optional; it replaces the last-resort KeyPackage of the device whose leaf it carries. The host MUST reject a request whose `ts` differs from its clock by more than 300 seconds, MUST reject any KeyPackage it has stored before, so that a replayed request cannot restore consumed KeyPackages, and MUST apply the checks above to each KeyPackage. It returns HTTP 204 on success.
 - **Welcome.** The request body is one `MLSMessage` with `wire_format` `mls_welcome`, media type `message/mls`. The host returns HTTP 202 and holds the Welcome for the DID's devices. How a device collects Welcomes from its own host is a matter between the device and the host.
 
 ##### KeyPackage Exhaustion
@@ -98,18 +117,18 @@ The host rate-limits fetches to prevent a caller from draining a user's supply, 
 
 ##### KeyPackage Validation
 
-Recipients of a Welcome MUST validate the KeyPackage used to construct it:
+A committer MUST validate each KeyPackage before adding it (RFC 9420 §10.1), and every member processing the Commit MUST validate the KeyPackages it adds:
 
-- The signature verifies against the KeyPackage owner's DID authentication key.
-- `KeyPackage.leaf_node.credential` contains a valid DID matching the KeyPackage owner (the recipient's own DID).
-- The KeyPackage has not expired (`leaf_node.lifetime.not_after`).
+- The KeyPackage signature verifies under its leaf `signature_key`, and the leaf credential binds that key to the DID whose `KeyPackageEndpoint` served it (§5.2.1).
+- The KeyPackage is within its `leaf_node.lifetime`.
 - The ciphersuite matches the group's declared ciphersuite.
+- `init_key` differs from `leaf_node.encryption_key`.
 
-A Welcome constructed with an invalid or expired KeyPackage MUST be rejected.
+A member MUST reject a Commit that adds a KeyPackage failing these checks. A joiner MUST validate the ratchet tree of a Welcome as RFC 9420 §12.4.3.1 requires, including the credential binding for every leaf, and MUST reject the Welcome if it fails.
 
 #### 5.2.1.2 Community Channel Mode
 
-A `community` channel has a bounded MLS group called the **speaker group**. Only members of the speaker group can post or decrypt messages. Space members outside the speaker group do not hold the channel's exporter-derived `channelToken` and cannot follow or decrypt its traffic until they are admitted.
+A `community` channel has a bounded MLS group called the **speaker group**. Only members of the speaker group can post or decrypt messages. Space members outside the speaker group are not served the channel's admission key (§5.2.2), so they hold no `channelToken` for it and cannot follow or decrypt its traffic until they are admitted.
 
 **Speaker group bounds.** The `speakerCap` field in the channel state (default 200, maximum 500) is the hard upper limit on simultaneous MLS group members. A channel admin MUST NOT issue an Add commit that would push membership above `speakerCap`.
 
@@ -119,12 +138,12 @@ A `community` channel has a bounded MLS group called the **speaker group**. Only
 
 ```json
 {
-  "channelCID": "bafyrei...",
+  "channelID": "base64url...",
   "ts": "2026-04-22T09:00:00Z"
 }
 ```
 
-The SpeakerBot or a channel admin responds by issuing a standard MLS Add commit using a KeyPackage fetched from the requester's `KeyPackageEndpoint` (§5.2.1.1). If the speaker group is at capacity, the SpeakerBot SHOULD first evict the longest-idle current speaker before adding the requester.
+`channelID` is the channel's 16-byte identifier from Space state (§3.3), in base64url without padding (RFC 4648 §5). The SpeakerBot or a channel admin responds by issuing a standard MLS Add commit using a KeyPackage fetched from the requester's `KeyPackageEndpoint` (§5.2.1.1). If the speaker group is at capacity, the SpeakerBot SHOULD first evict the longest-idle current speaker before adding the requester.
 
 **Admission latency.** Admission requires one round of MLS Add + Welcome delivery. Clients in `community` channels SHOULD display a "waiting to join" indicator if the user tries to post before their Welcome has been processed.
 
@@ -134,15 +153,17 @@ The SpeakerBot or a channel admin responds by issuing a standard MLS Add commit 
 
 #### 5.2.1.3 Passive Members
 
-A **passive member** is an MLS group member that holds a leaf credential and participates in epoch ratchets (receiving all application messages and group state updates) but MUST NOT issue Commits or Proposals. Passive members are indistinguishable from standard members at the MLS wire protocol layer; the constraint is behavioral, not cryptographic.
+A **passive member** is an MLS group member that holds a leaf credential and participates in epoch ratchets (receiving all application messages and group state updates) but MUST NOT issue Proposals or any Commit other than the scheduled self-update below. Passive members are indistinguishable from standard members at the MLS wire protocol layer; the constraint is behavioral, not cryptographic.
 
-**Use cases in Agora.** Compliance loggers (§7) and VTC recorders (§6.12) are passive members. Both hold leaf credentials, receive all application messages in their admitted groups, and never modify group state.
+**Use cases in Agora.** Compliance loggers (§7) and VTC recorders (§6.12) are passive members. Both hold leaf credentials, receive all application messages in their admitted groups, and never change group membership.
+
+**Scheduled self-update.** A passive member SHOULD issue a self-update Commit in each of its groups on a fixed schedule, for example weekly. A self-update Commit is a Commit with no proposals and with an UpdatePath (RFC 9420 §12.4), so it changes the passive member's own leaf and nothing else. It always replaces the leaf HPKE key, and it MAY also replace the leaf signature key when the logger or recorder rotates that key (§7.9); the new signature key MUST satisfy the credential binding of §5.2.1. Without it, a passive member's leaf HPKE key would never change, and one compromise of that key would expose the path secrets of every later Commit in every group it belongs to; the self-update restores post-compromise security for its leaf (§12.2). The self-update is subject to the canonical Commit rule (§5.1.1) like any Commit.
 
 **KeyPackages.** Passive members require KeyPackages to receive Welcome messages, and the single-use rule of §5.2.1.1 applies to them without exception. A compliance logger or recorder is added to many groups, so serving it a reused last-resort KeyPackage would give all of those groups the same HPKE init key. It runs as an always-on service whose `KeyPackageEndpoint` is hosted by its own CO, which can keep its single-use supply replenished; its endpoint MUST return a fresh, unused KeyPackage on every fetch (§7.8.2).
 
 **Idle eviction.** Passive members MUST NOT be subject to idle eviction (§5.2.1.2). A passive member generates no traffic by design; evicting one on that basis would silently break the compliance capture chain.
 
-**Future standard alignment.** This concept anticipates `draft-ietf-mls-partial-00` ("Partial MLS"), which defines an MLS extension allowing receive-only participants to carry only membership proofs rather than the full ratchet tree, reducing overhead for large groups. That draft expired without a successor. When a partial client standard is published, Agora implementations SHOULD upgrade passive member implementations to native partial client support; the behavioral contract (no Commits, no Proposals, full message receipt) is identical.
+**Future standard alignment.** This concept anticipates `draft-ietf-mls-partial-00` ("Partial MLS"), which defines an MLS extension allowing receive-only participants to carry only membership proofs rather than the full ratchet tree, reducing overhead for large groups. That draft expired without a successor. When a partial client standard is published, Agora implementations SHOULD upgrade passive member implementations to native partial client support; the behavioral contract (no Proposals, no Commits other than scheduled self-updates, full message receipt) is identical.
 
 #### 5.2.1.4 Broadcast Channel Mode
 
@@ -150,16 +171,9 @@ A `broadcast` channel is a one-to-many CO publication. Posts are encrypted under
 
 **Authorized posters.** The set of authorized posters for a broadcast channel is determined by space role: any space member holding a role listed in the channel state's `broadcasterRoles` array may post. Typically this is a dedicated `broadcaster` role held by admins or a bot.
 
-**Publisher group.** The authorized posters form the channel's MLS group, the **publisher group**. Channel admins Add each DID that holds a role in `broadcasterRoles` and Remove it when the role is revoked. Subscribers are not members of the publisher group and consume no KeyPackages. The publisher group provides the epoch access proof (§5.2.2) unchanged: the access key chain is registered and announced as for any channel, and relays admit only envelopes signed with the current epoch access key, so only current posters can publish. The publisher group does not carry the content key: the CO issues it, and posters fetch it from the Space endpoint (§3.4) as subscribers do.
+**Keys.** A broadcast channel has no MLS group. It uses the channel admission mechanism of §5.2.2 with one addition, the content key, and the CO issues the two together: each rotation produces a `ChannelAdmissionKey` and a `BroadcastKey` (§3.4) with the same `keyEpoch`, both served by the Space endpoint. The Space endpoint serves the complete `ChannelAdmissionKey`, including its private key, only to holders of a role in `broadcasterRoles`, so only posters can sign envelopes that relays admit. To subscribers it serves the `ChannelAdmissionKey` without the private key: this form carries the `channelToken` and lets a subscriber follow the channel but not post to it. For a channel with `keyAccess: public`, the `BroadcastKey` and the subscriber form of the `ChannelAdmissionKey` are public Space state, so whether a broadcast channel is private or public is an access policy on the same mechanism. A poster MUST encrypt under the `BroadcastKey` with the highest `keyEpoch` whose `notBefore` has passed (§12.9) and MUST sign the envelope with the admission key of the same `keyEpoch`. Posters and subscribers fetch both keys whenever §5.2.2 requires a member to fetch the admission key.
 
-**Content key.** Each broadcast channel has a sequence of content keys, each a `BroadcastKey` record (§3.4) numbered by `keyEpoch`. Subscribers and posters obtain the current key from the Space endpoint; for a channel with `keyAccess: public` the key is public Space state, so whether a broadcast channel is private or public is an access policy on the same mechanism. A poster MUST encrypt under the `BroadcastKey` with the highest `keyEpoch` whose `notBefore` has passed. Clients SHOULD fetch the current `BroadcastKey` on reconnect and MUST fetch it when they see an `accessKeyAnnouncement` whose `channelToken` they cannot derive.
-
-**Broadcast channel token.** A broadcast channel's `channelToken` is derived from the content key, not from the MLS exporter: `channelToken = HKDF-SHA256(IKM = key, salt = "" (zero-length), info = "agora broadcast token" || keyEpoch, L = 32)`, with `keyEpoch` as a big-endian uint64. Subscribers compute it from the `BroadcastKey`. It rotates whenever the key rotates and does not change on publisher group Commits; tokens of different key epochs are unlinkable without the keys. The access key chain carries the token change:
-
-- On a publisher group Commit, the committer's `accessKeyAnnouncement` carries the new MLS `epoch`, the new access public key and the `channelToken` of the current content key, and is countersigned with `billingSig` (§5.2.2).
-- On a key rotation without a Commit, the first poster to post under the new `keyEpoch` first sends, on the previous `channelToken`, an envelope carrying an `accessKeyAnnouncement` with the unchanged `epoch` and access public key and the new `channelToken`, signed with the current epoch's access private key and countersigned with `billingSig` (§5.2.2). The relay follows the chain from token to token as for any channel.
-
-**Message structure.** Broadcast messages use the standard outer routing envelope (§5.2.2), whose `epoch` and `accessSig` are those of the publisher group. In place of `sealedEnvelope`, the envelope carries a `broadcastPayload` field:
+**Message structure.** Broadcast messages use the routing envelope of §5.2.2. Its `signed` map carries `broadcastPayload` in place of `sealedEnvelope`:
 
 ```
 broadcastPayload = nonce || AEAD-Seal(key, nonce, plaintext, aad = "agora/broadcast/v1" || channelToken)
@@ -169,7 +183,7 @@ The AEAD is that of the default ciphersuite (§5.2.1), AES-128-GCM. `nonce` is 1
 
 ```json
 {
-  "channelCID": "bafyrei...",
+  "channelID": "base64url...",
   "keyEpoch": 7,
   "senderDID": "did:key:z6Mk...",
   "seq": 311,
@@ -182,17 +196,17 @@ The AEAD is that of the default ciphersuite (§5.2.1), AES-128-GCM. `nonce` is 1
 }
 ```
 
-`seq` is the poster's per-channel sequence number (§5.1.1). `message` carries the fields of a new Message as defined in §5.2.2. Subscribers are not members of the publisher group, so no MLS sender signature covers the payload; `sig` is the poster's JWS, signed per §13.1.1. Recipients MUST verify `sig` per §13.1.1 with the DID of its `kid` equal to `senderDID` before displaying the message, MUST verify that `channelCID` and `keyEpoch` match the key used to decrypt, and MUST verify that `senderDID` holds a space role listed in `broadcasterRoles`.
+`channelID` is the channel's identifier (§3.3) in base64url without padding (RFC 4648 §5). `seq` is the poster's per-channel sequence number (§5.1.1), counted per signing device key (the `kid` of `sig`) because a broadcast channel has no leaves. `message` carries the fields of a new Message as defined in §5.2.2. There is no MLS group, so no MLS sender signature covers the payload; `sig` is the poster's JWS, signed per §13.1.1. Recipients MUST verify `sig` per §13.1.1 with the DID of its `kid` equal to `senderDID` before displaying the message, MUST verify that `channelID` and `keyEpoch` match the key used to decrypt, and MUST verify that `senderDID` holds a space role listed in `broadcasterRoles`.
 
-**Relay handling.** The Relay stores broadcast messages as ciphertext blobs, identical to any other channel message. It learns a `channelToken`, the publisher group's epoch access signature, a timestamp and an opaque blob, and nothing about who posted. Clients MUST display a visible indicator (e.g., a megaphone icon) on broadcast channels to make clear to users that the channel has the weaker properties stated below.
+**Relay handling.** The Relay stores broadcast messages as ciphertext blobs, identical to any other channel message. It learns a `channelToken`, an admission signature that does not identify the signer, a timestamp and an opaque blob, and nothing about who posted. Clients MUST display a visible indicator (e.g., a megaphone icon, with a text equivalent per §12.10) on broadcast channels to make clear to users that the channel has the weaker properties stated below.
 
-**Rotation and removal.** To remove a subscriber, the CO publishes a new `BroadcastKey` with `keyEpoch` incremented and stops serving keys to the removed subscriber (§3.4). The CO SHOULD also rotate the key at least every 30 days, and MUST rotate it before 2^32 messages have been encrypted under one key (the AES-GCM limit for random nonces).
+**Rotation and removal.** To remove a subscriber or a poster, the CO issues a new `BroadcastKey` and `ChannelAdmissionKey` with `keyEpoch` incremented, registers the new admission key with its relays and deregisters the old one (§10.5.3), and stops serving keys to the removed party (§3.4). The CO SHOULD also rotate at least every 30 days, and MUST rotate before 2^32 messages have been encrypted under one content key (the AES-GCM limit for random nonces).
 
-**Security properties.** A broadcast channel provides confidentiality against IOs and non-members, and sender authenticity through the inner signature. It is weaker than MLS: there is no forward secrecy or post-compromise security within a key epoch, since one key protects every message of that epoch; a removed subscriber retains the keys of the epochs it held and can read their messages; and any key holder can decrypt the whole epoch. Only the inner signature, not possession of the key, authorizes a post. This is appropriate for one-to-many announcements; channels that need MLS properties MUST use `community` or `interactive` mode.
+**Security properties.** A broadcast channel provides confidentiality against IOs and non-members, and sender authenticity through the inner signature. It is weaker than MLS: there is no forward secrecy or post-compromise security within a key epoch, since one key protects every message of that epoch; a removed subscriber retains the keys of the epochs it held and can read their messages; and any key holder can decrypt the whole epoch. The admission key only gets a poster's envelopes past relays; the inner signature, checked against `broadcasterRoles`, is what authorizes a post to recipients. This is appropriate for one-to-many announcements; channels that need MLS properties MUST use `community` or `interactive` mode.
 
-**KeyPackage consumption.** Only publisher group changes consume KeyPackages, and only those of posters. Posting consumes no recipient's KeyPackage, and subscribers receive no Welcome or Commit messages.
+**KeyPackage consumption.** A broadcast channel consumes no KeyPackages: it has no MLS group, and no poster or subscriber receives a Welcome or Commit for it.
 
-**Compliance logging.** The compliance logger needs no publisher group admission. It obtains each `BroadcastKey` from the Space endpoint as a member (§3.4), follows the channel's tokens, and decrypts. For FINRA/MiFID purposes, broadcast messages in a space with compliance logging enabled are automatically captured to the compliance archive.
+**Compliance logging.** The compliance logger needs no group admission. It obtains each `BroadcastKey` and the subscriber form of each `ChannelAdmissionKey` from the Space endpoint as a member (§3.4), follows the channel's tokens, and decrypts. For FINRA/MiFID purposes, broadcast messages in a space with compliance logging enabled are automatically captured to the compliance archive.
 
 ### 5.2.2 Message Format
 
@@ -200,54 +214,77 @@ All messages use a two-layer structure: an outer **routing envelope** visible to
 
 #### Outer Routing Envelope
 
-The outer envelope contains only what Relays strictly need for delivery routing. It does not contain the sender's DID.
+The routing envelope contains only what Relays need to admit and route a message. It does not contain the sender's DID. It is a CBOR map (RFC 8949) with two required members and one optional member. `signed` is a byte string holding the CBOR encoding of the routing fields, and `admissionSig` signs exactly those bytes. `powProof` carries a per-envelope proof of work where one is required (§10.5.2). No party re-encodes anything to verify the signature or to compute the envelope's `id`. The routing envelope has no JSON form; every transport carries it as CBOR (§11).
 
-```json
-{
-  "@type": "RoutingEnvelope",
-  "id": "urn:agora:msg:bafyrei...",
-  "channelToken": "base64url...",
-  "epoch": 17,
-  "ts": "2026-03-12T12:00:00.000Z",
-  "expiryHint": "2026-03-19T12:00:00.000Z",
-  "sealedEnvelope": "base64url...",
-  "accessSig": "base64url..."
+```cddl
+RoutingEnvelope = {
+  "signed": bstr .cbor SignedFields,
+  "admissionSig": bstr .size 64,
+  ? "powProof": PowProof,        ; §10.5.2
+}
+
+SignedFields = {
+  "ctx": "agora/envelope/v1",
+  "channelToken": bstr .size 32,
+  "ts": uint,
+  ? "expiryHint": uint,
+  ? "commitStamp": bstr,
+  ( "sealedEnvelope": bstr // "broadcastPayload": bstr ),
 }
 ```
 
-`channelToken` is derived from the MLS exporter of the channel's group: `MLS-Exporter("agora channel token", channelCID, 32)`. It rotates with every epoch. Relays use it for topic routing without learning the channel identifier or any member identity.
+- `ctx` is a fixed string that separates envelope signatures from anything else signed with an admission key.
+- `channelToken` is the channel's routing token for the current admission key (Channel Admission, below). Relays route by it without learning the channel identifier or any member identity.
+- `ts` is the sender's clock in milliseconds since the Unix epoch. Relays use it for TTL enforcement. `admissionSig` covers it, so a relay knows that some holder of the admission key set it, but not which member did; clients MUST NOT use it for application-level ordering (use the inner `seq`, §5.1.1).
+- `expiryHint`, in milliseconds since the Unix epoch, is set by the sender to match the `senderExpiresAt` of the inner `Message` (§5.2.4). Relays use it as a cache TTL hint only. It is authenticated in the same weak sense as `ts`.
+- `commitStamp` is present only on an envelope that carries a Commit for a channel whose Space designates a sequencer: the encoded `SequenceStamp` envelope (§14.4.2) obtained under the canonical Commit rule (§5.1.1).
+- `sealedEnvelope` is the sealed MLS message (Sealed Envelope, below). `broadcastPayload` replaces it in `broadcast` channels (§5.2.1.4).
+- `admissionSig` is an Ed25519 signature (RFC 8032) under the channel's admission private key over the exact bytes of `signed`.
+- `powProof` is present when the Relay's `minPowDifficulty` or the channel's `powPolicy` requires proof of work (§10.5.2). It lies outside `signed` because it is computed over the `signed` bytes; the envelope `id` covers it.
 
-`id` is the CID of the canonical outer envelope, used for deduplication and history indexing. `ts` is present for gossipsub ordering and relay-side TTL enforcement only; it is not authenticated at the outer layer and MUST NOT be trusted for application-level ordering (use the inner `seq` for that, §5.1.1). `expiryHint` is set by the sender to match the `senderExpiresAt` of the inner `Message` (§5.2.4); Relays use it as a cache TTL hint (§5.2.4). `accessSig` is the epoch access proof defined below.
+A relay verifies `admissionSig` over the `signed` bytes with the admission public key registered for the `channelToken` those bytes carry, and admits or drops the envelope by the rule of §10.5.4. Relays MUST store and forward the encoded routing envelope exactly as received.
 
-#### Epoch Access Proof
+The envelope **`id`** is the CIDv1 of the complete encoded `RoutingEnvelope`, using the `raw` codec (0x55) and a SHA2-256 multihash. It is not carried in the envelope. Every party computes it from the bytes it received, and because relays forward those bytes unchanged, every holder computes the same `id`. It is used for deduplication, history indexing (§5.2.5), pin instructions (§5.2.6) and the canonical Commit rule (§5.1.1). Where an `id` is written as text, it is in CID text form (§13.1).
 
-Relays admit an envelope only if it comes from a current member of the channel's MLS group, without learning which member (ARCHITECTURE §6.2).
+#### Channel Admission
 
-- **Epoch access key.** Each epoch, every member derives `accessSeed = MLS-Exporter("agora access", channelCID, 32)` and uses it as an Ed25519 private key (RFC 8032 seed). All members of the epoch hold the same access key pair.
-- **Announcement.** The committer, after creating a Commit, derives the new epoch's access public key and `channelToken`, and attaches to the routing envelope carrying the Commit an `accessKeyAnnouncement` containing the new `epoch`, the new `channelToken`, and the new access public key, signed with the previous epoch's access private key. The relay thereby follows the chain from token to token without learning the channel. The access public key of the group's first epoch is registered with the relay by the CO's registration service in an `AccessChainRegistration` under the CO's `RelayServiceAgreement` (§10.5.1); the registration identifies neither the Space nor the channel.
-- **Countersignature.** Every `accessKeyAnnouncement` MUST also carry `billingSig`, a signature by the CO's registration service with the billing key of the agreement under which the chain is registered, signed per §13.1.1 over the announcement with `billingSig` omitted. The committer obtains it from the service before publishing the Commit. The service countersigns only an announcement requested by a DID it authenticates as a current member of the channel under Space state, and at most one announcement per chain and `epoch`. Relays MUST reject an announcement without a valid `billingSig` from that agreement's billing DID. The countersignature exists because the previous epoch's access private key is also held by a member being removed, who could otherwise announce a key only they know, keep relay access, and lock out the remaining members.
-- **Outage.** If the registration service is unreachable, relays keep accepting envelopes signed with the last countersigned access key, and members MUST retain that key and sign with the latest access key the relay accepts until a countersigned announcement for a later epoch is accepted. A member removed after the last countersigned epoch can write until then.
-- **Envelope signature.** `accessSig` is an Ed25519 signature under the current epoch's access private key over the routing envelope with `accessSig` omitted. Relays MUST verify `accessSig` against the access public key for the envelope's `channelToken` and `epoch` and MUST reject envelopes that fail verification.
+Relays admit an envelope only if it is signed with the channel's current admission key, which only current members hold, and they learn nothing about which member signed it (ARCHITECTURE §6.2).
 
-A removed member does not hold the next epoch's access key, so bans and removals take effect at the relay through the MLS Remove alone. Because the key is shared, a valid signature does not identify the signer.
+- **Admission key.** For each channel, the CO's registration service generates a random Ed25519 key pair, the **channel admission key**, numbered by `keyEpoch` from 0. It registers the public key and its `channelToken` with every relay and other IO that holds a `ServiceAgreement` (§10.5.1) with the CO, by an `AdmissionKeyRegistration`, and withdraws a key by an `AdmissionKeyDeregistration` (§10.5.3). Neither is gossiped. The Space endpoint serves the private key to authenticated current members of the channel (§3.5) as a `ChannelAdmissionKey` at `<spaceEndpoint>/admission-key/<channelID>` (§3.4). For a DM group, the initiator's identity host issues and registers the key and serves it at `<host>/admission-key/<groupID>` (§4.6). For a shared channel, the home Space's CO issues and registers it (§8). The admission key is independent of MLS: it does not change when the MLS epoch changes.
+- **Channel token.** `channelToken = HKDF-SHA256(IKM = seed, salt = "" (zero-length), info = "agora channel token" || keyEpoch, L = 32)`, where `seed` is the 32-byte Ed25519 private key seed (RFC 8032) of the admission key and `keyEpoch` is a big-endian uint64. Members compute it from the `ChannelAdmissionKey`; relays receive it in the registration. It changes when, and only when, the admission key rotates.
+- **Member duties.** A member signs every envelope it publishes to the channel with the admission key of the highest `keyEpoch` it holds, and subscribes (§11) to that key's `channelToken`. A client MUST fetch the current `ChannelAdmissionKey` when it joins the channel, on reconnect, after processing a Commit that removes a member, when a relay reports that a `channelToken` is no longer admitted (§11), and at least once an hour while connected. When it obtains a higher `keyEpoch`, it subscribes to the new token and keeps the previous subscription until the relay reports the old token withdrawn, so that it still receives envelopes from members who have not yet fetched the new key. A client retains the `channelToken`s of earlier key epochs in order to fetch history (§5.2.5).
+- **Rotation.** The CO rotates the admission key, incrementing `keyEpoch`, when it authorizes the removal of a member from the channel, and at other times of its choosing (periodically, or on suspected compromise). It does not rotate on MLS epochs. It registers the new key before it deregisters the old one (§10.5.3); the interval between the two is the window in which a removed member can still have envelopes admitted. When the CO enters into or renews a `ServiceAgreement`, it registers the current key with that IO.
+- **Outage.** If the Space endpoint or the registration service is unreachable, relays keep accepting the last registered key and members keep using it. A member removed during the outage can still have envelopes admitted until the CO rotates the key, but it cannot read anything sent after its MLS removal, and its envelopes fail MLS processing at every member.
 
-> **Open (agora-pozi.8):** the epoch access proof awaits external cryptographic review.
+Because the key is shared, a valid `admissionSig` does not identify the signer. Admission keeps non-members from using relay capacity; it does not authorize content. Recipients authorize content by the MLS sender signature (§13.1.1), and a removed member's envelopes carry none that verifies.
+
+> **Open (agora-pozi.8):** channel admission awaits external cryptographic review.
 
 #### Sealed Envelope (Sender-Sealed, Relay-Opaque)
 
-`sealedEnvelope` is one AEAD ciphertext over the complete serialized `MLSMessage` (a `PrivateMessage`, or a handshake message such as a Commit or Proposal), keyed from the channel's current MLS epoch. No Relay or non-member can open it.
+`sealedEnvelope` is one AEAD ciphertext over the complete serialized `MLSMessage` (a `PrivateMessage` carrying an application message, a Commit or a Proposal, §5.2.1), keyed from the channel's MLS epoch:
 
-The wrapper exists because MLS framing is visible in the clear: `group_id`, `epoch` and `content_type` precede the encrypted content. The wrapper hides the `group_id` value, which Space state carries as `mlsGroupID` (§3.3), so a Relay that saw it could map the group's traffic to a channel and Space. It also hides the sender fields of handshake messages and the content type of non-Commit traffic. It does not hide epoch boundaries or which envelopes carry Commits: the routing envelope carries `epoch` in the clear, and the epoch access-key chain lets a Relay link every epoch of one group (ARCHITECTURE §5 item 6).
+```
+sealedEnvelope = nonce || AEAD-Seal(key, nonce, MLSMessage, aad)
+key            = MLS-Exporter("agora sealed envelope", group_id, Nk)
+aad            = "agora/sealed/v1" || channelToken || epoch
+```
 
-The sealing key is `MLS-Exporter("agora sealed envelope", channelCID, Nk)`, used with the AEAD of the group's ciphersuite. The AEAD associated data MUST bind the recipient context: `"agora/sealed/v1" || channelToken || epoch` (epoch as a big-endian uint64). Implementations MUST NOT seal with empty associated data. A recipient MUST reject a sealed envelope whose associated data does not match the `channelToken` and `epoch` of the routing envelope it arrived in, which prevents re-targeting a sealed envelope to another channel or epoch.
+`MLS-Exporter` is the exporter of RFC 9420 §8.5 for the epoch in which the message is sent, and `group_id` is the MLS group ID of the channel or DM group, as its exporter context. The AEAD and `Nk` are those of the group's ciphersuite (AES-128-GCM, `Nk` = 16). `epoch` is the MLS epoch of the message as a big-endian uint64. Implementations MUST NOT seal with empty associated data.
+
+The routing envelope does not carry the epoch. A recipient opens a sealed envelope by trying the sealing keys of the epochs it holds, newest first, with each epoch's associated data; it keeps the previous epoch's sealing key for 60 seconds after advancing, for envelopes still in flight. An envelope that opens under no key is buffered until the recipient processes its next Commit (§5.1.1), then tried again, and dropped if it still does not open. A recipient MUST reject a sealed envelope that does not open with the `channelToken` of the routing envelope it arrived in, which prevents re-targeting a sealed envelope to another channel or epoch.
+
+**Nonce.** `nonce` is 12 bytes (96 bits) drawn from a cryptographically secure random number generator for every envelope. Every member of an epoch holds the same sealing key, so nonces must not collide across senders. Random nonces need no coordination; a counter or per-sender nonce would need either a shared counter, which members do not have, or a sender-specific value, which would identify the sender to relays in the clear nonce. With random 96-bit nonces, one AES-GCM key MUST NOT seal more than 2^32 messages (NIST SP 800-38D §8.3). No member can count the others' messages, so the limit is enforced per sender: a sending leaf MUST NOT seal more than 2^20 envelopes in one epoch, and a member whose leaf reaches that number MUST issue an Update Commit (for a passive member, its self-update, §5.2.1.3) before sealing more. A group has at most 4096 leaves (§5.2.1), so at most 4096 × 2^20 = 2^32 messages are sealed under one key.
+
+**What the wrapper hides.** MLS framing is visible in the clear: a `PrivateMessage` begins with `group_id`, `epoch` and `content_type`. The wrapper hides the `group_id` value, which Space state carries as `mlsGroupID` (§3.3), so that a relay cannot map the group's traffic to a channel and Space. It also hides the epoch number and the content type. A relay can still recognize envelopes that carry a stamped Commit by their `commitStamp`, and sees envelope sizes and timing.
 
 The plaintext is the serialized `MLSMessage` with no further structure. The wrapper carries no sender DID, ephemeral key or signature of its own: the sender is identified by the MLS sender data, which MLS encrypts, and authenticated by the MLS signature (§13.1.1).
 
-The idea of hiding the sender from the delivery service comes from Signal's Sealed Sender; the construction is different, since sender authentication here is entirely MLS's. A Relay processing this message learns: a `channelToken` (epoch-rotating, non-reversible without the group's exporter secret, and linked to the group's other epochs by the access-key chain), the epoch number, an epoch access signature that does not identify the signer, a timestamp, an expiry hint, and an opaque encrypted blob. It learns nothing about who sent the message.
+The idea of hiding the sender from the delivery service comes from Signal's Sealed Sender; the construction is different, since sender authentication here is entirely MLS's. A Relay processing this message learns: a `channelToken` (stable for one admission key epoch and not reversible to a channel), an admission signature that does not identify the signer, a timestamp, an expiry hint, the presence of a `commitStamp`, and an opaque encrypted blob. It may link successive key epochs of one channel by the timing of their registration and deregistration (ARCHITECTURE §5 item 6), but it cannot map them to a channel or Space. It learns nothing about who sent the message.
 
 #### Inner Payload (After MLS Decryption)
 
-The `application_data` of every MLS application message is exactly one typed payload envelope (§13.1). The envelope's `type` names the object (§5.2.3) and its `body` holds the object's exact bytes. Inside MLS the envelope carries one further member, `seq`, the sender's per-channel sequence number used for gap detection (§5.1.1). It is covered by the MLS signature and invisible to Relays.
+The `application_data` of every MLS application message is exactly one typed payload envelope (§13.1). The envelope's `type` names the object (§5.2.3) and its `body` holds the object's exact bytes. Inside MLS the envelope of a non-ephemeral message carries one further member, `seq`, the sending device's per-channel sequence number used for gap detection (§5.1.1). It is covered by the MLS signature and invisible to Relays.
 
 Objects carried inside MLS have no object-level signature and no sender field. The MLS sender signature authenticates the sender (§13.1.1), and the sender is the DID in the sending leaf's credential (§5.2.1). An object that is also verified outside the group carries `sig` per §13.1.1 so that it can be forwarded or archived byte-for-byte.
 
@@ -312,6 +349,7 @@ These types have no JMAP Chat equivalent and are defined by this specification:
 |---|---|
 | `urn:agora:type:SpeakRequest` | Request for admission to a `community` channel's speaker group, sent in a DM group (§5.2.1.2) |
 | `urn:agora:type:SpaceStateHead` | Notice of a new Space state head CID (§3.4) |
+| `urn:agora:type:IdentityChanged` | Notice, sent by a user to each of its groups, that its DID document or display profile has changed; members re-resolve the sender's DID and profile (§2.1, §2.3). The body is an empty JSON object; the MLS sender identifies the user |
 | `urn:agora:type:ClientCapabilities` | Ephemeral per-device list of renderable body types (§5.2.7.4) |
 | `urn:agora:type:SystemEvent` | Protocol-level event (member join, role change, gateway added (§9.3), etc.) |
 | `urn:agora:type:VoiceSignal` | WebRTC SDP offer/answer/ICE candidate, targeted to a specific DID (§6.4) |
@@ -323,11 +361,41 @@ These types have no JMAP Chat equivalent and are defined by this specification:
 | `urn:agora:type:SequencerFork` | Proof of sequencer equivocation: two conflicting stamps (§14.4.5) |
 | `urn:agora:type:DMGroupDescriptor` | Current membership and logger list of a DM group, sent by the committer of each change (§4.6) |
 | `urn:agora:type:ComplianceDisclosureNotice` | Notice that a compliance logger has been admitted to a DM group (§7.8.4) |
+| `urn:agora:type:AddApproval` | A member's approval of a pending Add Proposal in a DM group (§4.6.1) |
+| `urn:agora:type:AbuseReport` | Abuse report sent to a Space owner or admin in a DM group (§4.7) |
+| `urn:agora:type:SocialRecoveryConfig` | The user's social recovery configuration, kept in the self-group, with each guardian's entry sent in a DM group (§2.4.2) |
+| `urn:agora:type:HistoryTransfer` | Key and location of an encrypted history archive, sent in the self-group to a new device (§2.6) |
 | `urn:agora:type:CallRing`, `CallResponse`, `CallEnd`, `CallSchedule`, `LobbyDecision`, `CallPolicy`, `CallBreakout` | Call coordination (§6.14); each name is prefixed with `urn:agora:type:` |
 
-`urn:agora:type:BroadcastMessage` (§5.2.1.4) is carried only in a `broadcastPayload`, never in an MLS application message. `urn:agora:type:KeyPackagePublish` (§5.2.1.1) and `urn:agora:type:MemberAuth` (§3.5) are sent over HTTPS to a CO or identity host, never in an MLS application message. `urn:agora:type:SequenceStamp` (§14.4.2) is issued by the sequencer and carried only inside a `SequencedOp` body or returned by the sequencer's endpoint, never as an MLS application message by itself. Access key announcements travel in the routing envelope (§5.2.2), and compliance records (§7.4) are written by the logger; neither is an MLS application message.
-
 Ephemeral events (`ChatTypingEvent`, `ChatPresenceEvent`, `ParticipantState`) are MLS application messages sent as `PrivateMessage`, never as `PublicMessage` application data, and are excluded from history storage.
+
+#### Types carried outside MLS application messages
+
+The types below are never sent as an MLS application message. Each is named `urn:agora:type:` followed by the name shown (§13.1).
+
+| Type | Carried | Defined in |
+|---|---|---|
+| `BroadcastMessage` | Only inside a `broadcastPayload` | §5.2.1.4 |
+| `SequenceStamp` | Inside a `SequencedOp` body, in a routing envelope's `commitStamp` (§5.2.2), or returned by the sequencer's endpoint | §14.4.2 |
+| `KeyPackagePublish` | HTTPS to the user's `KeyPackageEndpoint` | §5.2.1.1 |
+| `MemberAuth` | HTTPS to a CO service | §3.5 |
+| `DMMembers` | HTTPS to a DM group's admission host | §4.6 |
+| `DeviceKeyRegistrationRequest`, `DeviceRevocationRequest`, `AdminRevocationRequest` | HTTPS to the provisioning service | §2.5.4, §2.5.5 |
+| `UserProfile`, `RecoveryAssertion` | Published with or through the user's DID document and log | §2.3, §2.4.1 |
+| `SpaceState`, `BanRecord`, `KickRecord`, `TimeoutRecord`, `SpaceInvite`, `InviteRevocation` | Served by the Space endpoint (§3.4); a `SpaceInvite` is also handed to its invitee | §3.3, §4.3, §4.5 |
+| `ChannelAdmissionKey`, `BroadcastKey` | Served by the Space endpoint or a DM group's admission host | §3.4, §4.6 |
+| `ChannelShareAgreement`, `ChannelShareRevocation`, `SharedChannelAlias` | Space state records | §8.3, §8.5, §8.7 |
+| `ComplianceLoggingConfig`, `ComplianceRecord`, `ComplianceGapEntry`, `DMComplianceAuditEntry`, `ArchiveResealEntry` | Compliance configuration, archive and audit chain | §7.2, §7.4, §7.8.8, §7.8.9, §7.9 |
+| `VTCComplianceConfig`, `VTCComplianceRecord`, `VTCComplianceAuditEntry` | Recording configuration, archive and audit chain | §6.12.4 to §6.12.6 |
+| `SFUDescriptor`, `TURNDescriptor` | Entries in Space state | §6.6, §6.11 |
+| `SfuDescription` | SFU signaling connection | §6.6 |
+| `GatewayDescriptor`, `MIMIInteropConfig` | Entries in a channel's Space state | §9.1, §9.2 |
+| `ServiceAgreement`, `AdmissionKeyRegistration`, `AdmissionKeyDeregistration` | HTTPS between CO and IO | §10.5.1, §10.5.3 |
+| `RelayManifest`, `RelayPeerAnnouncement` | Relay manifest location and relay-to-relay gossip | §10.2.1, §10.2.6 |
+| `SpaceAd`, `RelayAd` | Discovery topic | §10.3.2, §10.5.1 |
+| `RelayDirectory`, `SpaceDirectory`, `AgoraDirectory` | Published directories | §10.3.4.1 to §10.3.4.3 |
+
+Compliance records (§7.4) are written by the logger and are not MLS application messages.
 
 ### 5.2.4 Message Expiry
 
@@ -342,18 +410,17 @@ Expiry semantics:
 
 ### 5.2.5 Message History
 
-Message history is stored as an IPLD linked list. Each message envelope CID is appended to the channel's history DAG, and the channel state document tracks the latest history CID.
+Channel history comes from three sources. There is no history chain or index in Space state.
 
-Clients fetch history by walking the IPLD DAG backwards from the latest CID. Relays SHOULD pin recent history within the retention window set by the `RelayServiceAgreement` (§10.5.1). Long-term archival beyond the retention window is the responsibility of space operators or interested members.
+- **Relays.** A relay keeps the envelopes it has admitted for each `channelToken` for the retention period of its `ServiceAgreement` (§10.5.1) and serves them by `channelToken` through the JMAP sync API (§11.8). A client fetches from each `channelToken` it has held (§5.2.2).
+- **Members' stores.** Each member's client or daemon keeps the Messages it has received in its own JMAP store (§14.3), and a user's devices can pass history among themselves.
+- **CO archive.** A CO MAY archive its channels beyond relay retention, for example through its compliance logger (§7). Beyond that, long-term archival is the responsibility of space operators or interested members.
 
-History entries are envelope CIDs, while Messages refer to each other by `senderMsgId` (§5.2.2). A client records the envelope CID that carried each Message, so that it can resolve references and send relay pin instructions (§5.2.6) for a Message.
+A client can open a relay-held envelope only while it still holds the keys of that envelope's MLS epoch, so relay history serves catch-up after a client has been offline; older history comes from members' stores or the CO archive.
 
-IPFS provides content-addressed deduplication automatically: the same message stored at multiple Relays has the same CID.
+History is not chained. Its integrity rests on two properties: the MLS sender signature prevents forgery of any message, and the per-device `seq` (§5.1.1) exposes omission, since a missing message leaves a gap in its sender's `seq`. A history source can withhold envelopes but cannot alter or invent them, and a member detects withholding only through such gaps.
 
-**Reference implementations for IPFS/IPLD:**
-- Go: [`go-ipfs`](https://github.com/ipfs/go-ipfs), [`go-ipld-prime`](https://github.com/ipld/go-ipld-prime)
-- JS: [`helia`](https://github.com/ipfs/helia), [`@ipld/dag-cbor`](https://github.com/ipld/js-dag-cbor)
-- Rust: [`rust-ipfs`](https://github.com/rs-ipfs/rust-ipfs), [`libipld`](https://github.com/ipld/libipld)
+Messages refer to each other by `senderMsgId` (§5.2.2). A client records the envelope `id` (§5.2.2) that carried each Message, so that it can send relay pin instructions (§5.2.6) for that Message. The same envelope held by several relays has the same `id`.
 
 ### 5.2.6 Pinned Content
 
@@ -365,7 +432,7 @@ Only Messages can be pinned, as in the JMAP Chat specification. A file or an ext
 
 Pinning does not copy data. It records a reference that tells clients, and through pin instructions tells relays, that the Message must be retained and displayed prominently.
 
-#### Pin List in Channel IPLD State
+#### Pin List in Channel State
 
 Retired. The pin list is `Chat.pinnedMessageIds` in each member's JMAP store, changed by the pin updates below; channel state carries no `pins` array. Two Agora fields remain in CO-signed channel state (§3.3):
 
@@ -374,7 +441,7 @@ Retired. The pin list is `Chat.pinnedMessageIds` in each member's JMAP store, ch
 
 #### Authorization
 
-Who may change `pinnedMessageIds` is defined by the JMAP Chat specification: in a channel, members holding the `"pin"` Space permission; in a group chat, admins. Clients evaluate this against current signed Space and channel state (§3.3) and MUST ignore pin updates that fail it. Only current MLS group members can produce pin updates at all; relays admit them only with a valid epoch access proof (§5.2.2).
+Who may change `pinnedMessageIds` is defined by the JMAP Chat specification: in a channel, members holding the `"pin"` Space permission; in a group chat, admins. Clients evaluate this against current signed Space and channel state (§3.3) and MUST ignore pin updates that fail it. Only current MLS group members can produce pin updates at all; relays admit them only with a valid `admissionSig` (§5.2.2).
 
 #### PinEvent and UnpinEvent
 
@@ -394,19 +461,19 @@ Retired. A pin or unpin is a `JmapSet` patch (§14.3.2) on the channel's `Chat` 
 }
 ```
 
-The `update` key `chat` names the Chat of the group that carries the message (§14.3.2). A pin update MUST patch only `pinnedMessageIds`. Several members may write the list, so `Chat.pinnedMessageIds` is written under the `sequenced-v1` consistency model (§14.2.3) and ordered by the Space's blind sequencer (§14.4). A client MUST submit a pin update per §14.4.3, MUST apply pin updates only in the stamped order validated per §14.4.4, and runs the checks above on each; each valid update replaces the list. Pin updates are kept in the channel's history DAG, and the MLS sender signature on each records who changed the pin list and when.
+The `update` key `chat` names the Chat of the group that carries the message (§14.3.2). A pin update MUST patch only `pinnedMessageIds`. Several members may write the list, so `Chat.pinnedMessageIds` is written under the `sequenced-v1` consistency model (§14.2.3) and ordered by the Space's blind sequencer (§14.4). A client MUST submit a pin update per §14.4.3, MUST apply pin updates only in the stamped order validated per §14.4.4, and runs the checks above on each; each valid update replaces the list. Pin updates are part of channel history (§5.2.5), and the MLS sender signature on each records who changed the pin list and when.
 
 #### Retention Exemption
 
-Pinned Messages are **exempt from relay retention expiry**. A relay cannot read `pinnedMessageIds`. Instead, a client that has applied a pin update adding a Message sends the relay a pin instruction for the CID of the envelope that carried that Message (§5.2.5), carried with an epoch access proof (§5.2.2); a pin update removing a Message is mirrored by an unpin instruction the same way. Within the storage quota of its `RelayServiceAgreement` (§10.5.1), a relay MUST NOT evict a CID for which it holds a valid pin instruction, regardless of:
+Pinned Messages are **exempt from relay retention expiry**. A relay cannot read `pinnedMessageIds`. Instead, a client that has applied a pin update adding a Message sends the relay a `PinInstruction` (§11), signed with the channel's admission key, for the `id` of the envelope that carried that Message (§5.2.5); a pin update removing a Message is mirrored by an unpin instruction the same way. Within the storage quota of its `ServiceAgreement` (§10.5.1), a relay MUST NOT evict a CID for which it holds a valid pin instruction, regardless of:
 
 - The configured retention window
 - The `expiryHint` on the original envelope
 - Storage pressure
 
-The relay MUST continue to serve pinned CIDs from its blob endpoints (§10.4.4) until it receives a valid unpin instruction. If a relay is running low on storage, it MUST evict unpinned content before considering eviction of pinned content, and MUST alert the CO party to the `RelayServiceAgreement` before evicting any pinned CID.
+The relay MUST continue to serve pinned CIDs from its blob endpoints (§10.4.4) until it receives a valid unpin instruction. If a relay is running low on storage, it MUST evict unpinned content before considering eviction of pinned content, and MUST alert the CO party to the `ServiceAgreement` before evicting any pinned CID.
 
-The retention exemption applies only to the pinned CID itself, not to the full IPLD history DAG. Because a relay cannot see what a pinned envelope references, the pinning client sends pin instructions for the envelope CID and for its directly referenced content (e.g., the `blobId` CIDs of the Message's attachments).
+The retention exemption applies only to the pinned CID itself, not to other envelopes of the channel. Because a relay cannot see what a pinned envelope references, the pinning client sends pin instructions for the envelope CID and for its directly referenced content (e.g., the `blobId` CIDs of the Message's attachments).
 
 #### Message Expiry Interaction
 
@@ -552,14 +619,14 @@ Spaces MAY define custom emoji: space-specific images referenced by name. A cust
   {
     "id": "01J3XP0A1B2C3D4E5F6G7H8J9K",
     "name": "example_logo",
-    "blobId": "bafyrei...",
+    "blobId": "bafkrei...",
     "createdBy": "did:key:z6MkAdmin...",
     "createdAt": "2026-03-12T00:00:00Z"
   }
 ]
 ```
 
-`name` follows the JMAP Chat rules and on Agora MUST be at most 32 characters. `blobId` is the CID of the image file, which MUST be `image/png`, `image/gif`, or `image/webp`. Images SHOULD be square and SHOULD be 64×64 or 128×128 pixels.
+`name` follows the JMAP Chat rules and on Agora MUST be at most 32 Unicode scalar values. `blobId` is the CID of the image file, which MUST be `image/png`, `image/gif`, or `image/webp`. Images SHOULD be square and SHOULD be 64×64 or 128×128 pixels.
 
 **Custom emoji reactions:**
 

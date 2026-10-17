@@ -1,0 +1,7 @@
+{
+  "id": "1792217450522830494-1",
+  "issue_id": "agora-pozi.31.151",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16): (A) employer/CO-provisioned did:webvh identities MUST use did:webvh witnesses: every log update co-signed by at least one witness the org does not control; clients MUST verify witness proofs for such identities. (C) individuals MAY use witnesses; where they don't, the spec states the weaker guarantee (log prevents rewriting but not targeted split views/rollback). Fix overstated claims at 02:23, 02:255, 12:135.",
+  "created_at": "2026-10-17T06:10:50.522830494Z"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "1792217054909123297-1",
+  "issue_id": "agora-pozi.31.42",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: define a small fixed CBOR client-relay message set with CDDL (hello, subscribe, unsubscribe, publish, deliver, ack, error, plus control: pin instruction, push registration, PoW challenge), identical over WebTransport and WebSocket; JMAP remains for history sync only.",
+  "created_at": "2026-10-17T06:04:14.909123297Z"
+}

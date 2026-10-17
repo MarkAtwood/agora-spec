@@ -1,0 +1,7 @@
+{
+  "id": "1792217526957846154-1",
+  "issue_id": "agora-pozi.31.43",
+  "author": "agent",
+  "text": "Technical resolution (2026-10-16, follows D1): the routing envelope carries a nested byte-string field  holding the CBOR encoding of the signed routing fields; admissionSig covers exactly those bytes; envelope id is the CID of the complete encoded envelope; nothing is re-encoded for verification.",
+  "created_at": "2026-10-17T06:12:06.957846154Z"
+}

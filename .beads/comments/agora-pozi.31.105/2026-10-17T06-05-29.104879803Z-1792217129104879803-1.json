@@ -1,0 +1,7 @@
+{
+  "id": "1792217129104879803-1",
+  "issue_id": "agora-pozi.31.105",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: channel history = relay-held recent envelopes per channelToken (retention per agreement, read via sync API) plus members' own replicated stores and the CO archive; delete history DAG / 'channel state tracks latest history CID' language (05, 03, 04 tombstones, 06, 09, 14). Integrity: MLS signatures prevent forgery; inner per-sender seq exposes omission.",
+  "created_at": "2026-10-17T06:05:29.104879803Z"
+}

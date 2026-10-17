@@ -40,6 +40,7 @@ When compliance logging is enabled for a Space (your organization's Agora worksp
 - **Messages sent before the logger was admitted.** The logger's archive for each group begins at the MLS epoch when the logger joined it, and cannot capture earlier messages. If you enabled logging after your organization started using Agora, there is a gap.
 - **Messages in channels outside the configured scope.** If `scope` is a list of channel path globs (e.g., `["engineering/*"]`) rather than `all-channels`, messages in unscoped channels are not captured. Review your scope configuration carefully.
 - **Pre-join messages in DM groups.** The logger joins a DM group when the regulated employee does; messages sent before then are not retroactively accessible.
+- **Messages sent while a DM is a message request.** When someone the regulated employee has not accepted adds them to a DM group, the client holds it as a message request and sends nothing to the group until the employee accepts (spec §4.6.3). The logger is admitted no earlier than acceptance, so messages sent into the group before then are not captured (spec §7.8.2).
 - **Groups formed by tampered clients.** A modified or non-conformant client can create or join a group without the logger, and no infrastructure component will stop it (spec §7.8.9). Your controls are managed devices and audit reconciliation (Part 2).
 
 ### Archive Format
@@ -50,11 +51,12 @@ The logger stores every captured message as a `ComplianceRecord` (spec §7.4) in
 - The sender's DID (maps to a user identity)
 - Timestamp, channel identity, MLS epoch, and sequence number
 - The hash of the encrypted message as it travelled (`outerEnvelopeCID`)
+- Verification material: the sender's encrypted MLS message exactly as received (`senderMessage`), the keys that open that one message and no other (`messageKeys`), the group's MLS context for the epoch (`groupContext`), and the sender's MLS leaf with its signature key and credential (`senderLeaf`)
 - A link to the prior record in the chain (`prevRecordCID`). Verifying the chain hashes detects any alteration or deletion of a record.
 
 The archive is your organization's property, stored on infrastructure you control (or a contracted archiving vendor's infrastructure). Any copy placed on infrastructure-operator storage must be encrypted under a key you hold and they do not (spec §7.2). No third party holds a readable copy unless you have contracted one.
 
-**Authenticity verification.** The logger signs each `ComplianceRecord`, and the records form a hash-linked chain, so you can produce records in an eDiscovery proceeding and demonstrate that they have not been altered since capture. Conventional archiving solutions rely on access controls instead of cryptographic proof. Record chain heads at regular intervals in a system independent of the archive; the protocol does not do this for you, and examiners will ask for that log.
+**Authenticity verification.** The logger signs each `ComplianceRecord`, and the records form a hash-linked chain, so you can produce records in an eDiscovery proceeding and demonstrate that they have not been altered since capture. The verification material goes further: a party who does not trust your logger can check that a device key of the named sender signed the archived message (spec §7.4). That check does not show that anyone other than the logger received the message. Records signed before a rotation of the logger's key still verify against the logger's DID log (spec §7.9). Conventional archiving solutions rely on access controls instead of cryptographic proof. Record chain heads at regular intervals in a system independent of the archive; the protocol does not do this for you, and examiners will ask for that log.
 
 ---
 
@@ -121,9 +123,10 @@ Each removal attempt is recorded in the `removalAttempts` list of the group's `D
 Agora relays are designed to hold nothing about content or membership in response to a subpoena or legal demand. A demand on a relay operator yields only what falls within its observation budget (ARCHITECTURE §4-§5; spec §10.4.1):
 
 - Network-layer connection metadata (source address, timing, volume) for the retention period set in its service agreement with you and declared publicly in its relay manifest (spec §10.2.1)
-- Opaque ciphertext, its size and timing, and rotating routing tokens that cannot be linked to any channel, Space, or identity without group secrets the relay does not hold
-- The identity of each customer it holds a service agreement with (a billing DID), and quota counters per agreement
-- For push proxies, opaque device push handles and wake-up timing
+- Opaque ciphertext, its size and timing, and rotating routing tokens. The relay knows which tokens your organization registered under its agreement, but cannot link a token to any channel, Space, or person
+- The recent encrypted envelopes it holds for each of those tokens, for the retention period in your agreement (spec §10.4.6)
+- The identity of each customer it holds a service agreement with (a billing DID), which admission keys each customer registered and when, and quota counters per agreement
+- For push proxies, opaque device push handles and wake-up timing. A relay that serves push also knows which routing tokens wake the same device; users may turn push off (ARCHITECTURE §5 item 7)
 
 A relay can therefore say which network addresses used your organization's service. It cannot say which Space, channel, or sender any traffic belonged to: your agreement with it names no Space or channel, and your billing identity appears in no Space record (ARCHITECTURE §6.1). If you run several Spaces through one relay, the relay cannot tell them apart.
 
@@ -134,9 +137,15 @@ A relay cannot produce:
 - Group membership, or which users are regulated
 - The mapping from routing tokens to channel identities or member lists
 - User accounts (relays do not authenticate users)
-- Message history beyond what it has cached under its retention window
+- Message history older than the recent envelopes it holds under your agreement's retention period
 
 **Practical consequence for legal process.** If a relay operator serving your organization receives a third-party subpoena, the accurate response is that it holds encrypted data it cannot read, does not know who sent it, and holds connection metadata for its declared retention period. This describes what the relay holds; it is not a legal opinion. Whether this satisfies the subpoena depends on jurisdiction and the specific legal process; consult counsel.
+
+### Takedown Notices and Abuse Reports
+
+A relay that receives a takedown notice naming a stored CID cannot read the content. It forwards the notice, with the CID, to the contact named in its service agreement with you, and may stop serving and delete its own copy as a storage decision under its own policy and law (spec §10.4.5). Identifying the content and deciding what to do is your moderation process (spec §4.5, §4.7). Keep the agreement's contact address routed to staff who can act on legal notices.
+
+Members report abuse to a Space owner or admin with an `AbuseReport`, which carries the reported messages as the reporter's client decrypted them (spec §4.7). Agora has no message franking, so a third party cannot verify a report: you must trust the reporter's account or compare it with your own copy. Where the compliance logger was in the group, the archived `ComplianceRecord` for the same message can be checked independently (spec §7.4).
 
 ### What Your Organization Can Produce
 
@@ -147,6 +156,8 @@ Your organization's compliance archive is the authoritative source for legal hol
 - Timestamps and channel context
 - Edit history and deletion records (a deletion is a separate record; the original message record remains)
 - DM group compliance audit records, including any logger removal attempts and the logger's gap records
+
+Copies also exist outside the archive. Relays hold recent ciphertext. Each member's client keeps its own store of messages it received, and a user's devices pass private data and message history among themselves through the user's self-group (spec §2.6, §5.2.5). Those copies sit on the user's devices; on devices you manage, your device policy governs them. They are not the authoritative record.
 
 For eDiscovery, the compliance archive supports export by date range, channel, sender DID, or keyword. Keyword search runs against the `body` text of archived JMAP Chat `Message` objects, which is normally CommonMark: readable as-is, or easily stripped of markup.
 
@@ -160,7 +171,7 @@ When a legal hold is triggered:
 
 3. **Export the relevant records.** The compliance archive is an IPLD-structured, content-addressed dataset. Export tools should query by sender DID, channel, and date range, producing the signed `ComplianceRecord` envelopes exactly as stored, so their signatures still verify.
 
-4. **Verify chain integrity.** Before producing records, verify that the `prevRecordCID` chain is intact for the exported range and that each logger signature verifies. A broken chain indicates a record was altered or deleted; you must investigate and disclose it.
+4. **Verify chain integrity.** Before producing records, verify that the `prevRecordCID` chain is intact for the exported range and that each logger signature verifies against the logger's DID document version in effect when the record was signed (spec §7.9). A broken chain indicates a record was altered or deleted; you must investigate and disclose it. Where authorship of a message is disputed, run the sender-signature check of spec §7.4 on its record.
 
 5. **Preserve `DMComplianceAuditEntry` records** for any DM groups involving the relevant employees. These records document logger presence and any removal attempts.
 
@@ -216,6 +227,9 @@ Before deploying Agora in a regulated environment, verify the following.
 - [ ] The logger, recorder, and archive run on infrastructure under your control (or your contracted processor's), and not as part of any relay operator's service
 - [ ] The `logStore` archive is on infrastructure subject to your legal hold and data governance policies; any copy on infrastructure-operator storage is encrypted under a key you hold
 - [ ] The logger's DID document includes a `KeyPackageEndpoint` service entry and the endpoint is operational. If this endpoint is down, a conformant client cannot admit the logger to a new DM group and will not let the regulated employee send in it.
+- [ ] The logger issues its scheduled self-update in each group, for example weekly, so that a leaked old leaf key stops exposing later messages (spec §7.3)
+- [ ] A key management policy covers the logger's and recorder's signing, MLS leaf, and archive keys: planned rotation, compromise response, and keeping each old archive private key until every archive sealed to it has passed its retention period (spec §7.9)
+- [ ] If the logger's DID is a `did:webvh` DID you provision, its log names at least one witness you do not control, as spec §2.1 requires
 - [ ] The logger runs in a mode that prevents deletion of records within the retention period. The append-only chain structure helps, but operational controls must prevent administrative deletion of the underlying storage.
 
 **Audit and monitoring**
@@ -224,6 +238,10 @@ Before deploying Agora in a regulated environment, verify the following.
 - [ ] Archive integrity verification (chain hash and signature checks) runs on a schedule
 - [ ] Chain heads are recorded at regular intervals with an independent witness (suggested practice: `profiles/compliance-chain-witness.md`)
 - [ ] A process exists to map DID to employee name for eDiscovery production
+
+**Continuity and infrastructure agreements**
+- [ ] The Space is owned by an organization service DID rather than an individual's DID, and Space state names a `guardian` that can transfer ownership if the owner key is lost (spec §3.3, §4.1). Without one, losing the owner key means founding a new Space
+- [ ] Each relay `ServiceAgreement` sets a retention period you have reviewed and a `contact` that reaches staff who handle legal notices (spec §10.4.5, §10.5.1)
 
 **Disclosure**
 - [ ] `retentionNotice` text in the Space state is accurate and legally reviewed

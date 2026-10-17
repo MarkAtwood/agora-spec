@@ -9,7 +9,7 @@ Agora supports real-time group voice and video conferencing as a channel type. T
 
 ## 6.1 Voice Channel Type
 
-A channel with `"type": "voice"` is a VTC room. It has all the properties of a text channel (MLS group, channel CID, history) plus a persistent **call state**: a real-time record of who is currently in the call and their media states.
+A channel with `"type": "voice"` is a VTC room. It has all the properties of a text channel (an MLS group, a `channelID` (§3.3), a channel admission key (§5.2.2) and relay-held recent envelopes (§5.2.5)) plus a persistent **call state**: a real-time record of who is currently in the call and their media states.
 
 A voice channel is always "open"; there is no concept of starting or ending a call. Participants join and leave; the room exists as long as the channel exists.
 
@@ -20,12 +20,11 @@ A voice channel is always "open"; there is no concept of starting or ending a ca
 
 ## 6.2 Call State
 
-Call state is ephemeral, gossip-propagated, and not stored in IPLD history. It is maintained as a set of `ParticipantState` records, one per active participant, gossiped on `v1/agora/channel/<channelToken>`:
+Call state is ephemeral and is not kept in history (§5.2.5) or in any archive. It is a set of `ParticipantState` records, one per active participant, each sent as an MLS application message to the channel's group:
 
 ```json
 {
   "@type": "ParticipantState",
-  "channel": "agora://bafyrei.../voice/lounge",
   "status": "joined",
   "audioMuted": false,
   "videoEnabled": true,
@@ -38,13 +37,13 @@ Call state is ephemeral, gossip-propagated, and not stored in IPLD history. It i
 
 `status` values: `joined`, `left`, and `waiting` (lobby, §6.14.3). A client whose `ParticipantState` has not been refreshed within `ttl` seconds is considered to have left. Clients MUST re-publish their state at least every `ttl / 2` seconds while in a call.
 
-`audioMuted`, `videoEnabled`, `screenSharing`, and `handRaised` are advisory UI hints gossiped to other participants. They are not enforced at the media layer.
+`audioMuted`, `videoEnabled`, `screenSharing`, and `handRaised` are advisory UI hints sent to other participants. They are not enforced at the media layer.
 
 Call state events are delivered as MLS `PrivateMessage` application data, authenticated by the sender's MLS credentials and encrypted to the channel group. Relays and other IO components learn neither the sender nor who is in the call (ARCHITECTURE S1).
 
 ## 6.3 Join and Leave
 
-**Join**: a client sends a `ParticipantState` with `status: "joined"` to the channel gossip topic, then initiates WebRTC negotiation with existing participants or the SFU.
+**Join**: a client sends a `ParticipantState` with `status: "joined"` to the channel's group (§6.2), then initiates WebRTC negotiation with existing participants or the SFU.
 
 **Leave**: a client sends `ParticipantState` with `status: "left"` and closes its WebRTC connections. Clients that disconnect without sending a leave message (crash, network drop) are timed out by other participants after `ttl` seconds.
 
@@ -70,7 +69,7 @@ All WebRTC signaling (SDP offer/answer, ICE candidates) is delivered as `VoiceSi
 The consequences of MLS-encrypted signaling:
 - **E2EE signaling**: Relays cannot read SDP or ICE candidates.
 - **Authenticated signaling**: the MLS sender credential binds each signal to a verified DID.
-- **Authenticated DTLS fingerprint**: the DTLS-SRTP fingerprint in the SDP is authenticated by the MLS signature, closing the identity binding loop: a participant's media stream is cryptographically bound to their DID (see §6.10).
+- **Authenticated DTLS fingerprint**: the DTLS-SRTP fingerprint in the SDP is authenticated by the MLS signature. In mesh topology this binds a participant's media stream to their DID; through an SFU it does not (§6.10).
 
 ## 6.5 Topology: Mesh vs SFU
 
@@ -84,7 +83,7 @@ The threshold of 4 is a recommendation. Clients MAY negotiate mesh topology for 
 
 ### SFU Identity and Trust
 
-An SFU is an IO component (ARCHITECTURE §2.3). It has a DID, but it MUST NOT be an MLS member of any channel group, and no client may add it to one. An SFU is admitted only by an `SFUDescriptor` entry in the CO-signed Space state document (ARCHITECTURE S4), which binds the SFU's DID to its endpoint. A participant's client MUST verify, before sending media, that the SFU it connects to is listed in current Space state and that the SFU's signaling messages are signed by the DID in that entry; any other SFU MUST be rejected. MLS secrets, exporter outputs and media E2EE keys (§6.9) MUST NOT be sent to an SFU.
+An SFU is an IO component (ARCHITECTURE §2.3). It has a DID, but it MUST NOT be an MLS member of any channel group, and no client may add it to one. The CO engages an SFU under a `ServiceAgreement` with `serviceType` `sfu` (§10.5.1) and admits it to a Space by an `SFUDescriptor` entry in the CO-signed Space state document (ARCHITECTURE S4), which binds the SFU's DID to its endpoint. The CO registers with the SFU, by `AdmissionKeyRegistration` (§10.5.3), the channel admission key (§5.2.2) of each voice channel that may use it, so the SFU admits members without learning who they are. A participant's client MUST verify, before sending media, that the SFU it connects to is listed in current Space state and that the session descriptions the SFU sends are signed by the DID in that entry (SFU Signaling Protocol, below); any other SFU MUST be rejected. MLS secrets, exporter outputs and media E2EE keys (§6.9) MUST NOT be sent to an SFU. A client also MUST NOT send the channel admission private key to an SFU; it proves possession by signing a challenge.
 
 ### SFU Discovery
 
@@ -104,24 +103,88 @@ The Space owner (CO) publishes each admitted SFU's DID and WebRTC endpoint in th
 
 **Reference SFU implementations:** [`mediasoup`](https://mediasoup.org/) (Node.js/Rust), [`Pion SFU`](https://github.com/pion/ion-sfu) (Go), [`LiveKit`](https://github.com/livekit/livekit) (Go, open-source).
 
-### SFU Signaling Flow
+### SFU Signaling Protocol
 
-1. Client selects an `SFUDescriptor` from current Space state and opens a TLS WebSocket to its `endpoint`.
-2. Client presents the MLS-membership access proof for the voice channel's `channelToken` (ARCHITECTURE §6.2). The SFU uses the `channelToken` as its room key and never learns the channel CID, Space, or any participant's DID.
-3. Client sends its SDP offer; the SFU responds with an SDP answer signed by the SFU's DID key. The client verifies the signature against the DID in the `SFUDescriptor`.
-4. ICE candidates are exchanged over the same connection.
-5. DTLS handshake completes over the established ICE path; the fingerprint is the one carried in the signed SDP answer.
-6. SRTP media flows, with SFrame-encrypted payloads (§6.9).
+A client signals with the SFU over a WebSocket (RFC 6455) over TLS to the descriptor's `endpoint`, with the subprotocol `agora-sfu.v1`. Each WebSocket message is a binary message holding exactly one CBOR map (RFC 8949), which is one of the messages below (CDDL, RFC 8610). Receivers MUST ignore map keys they do not recognize, and MUST close the connection on a message that does not decode or whose `type` they do not recognize.
+
+```cddl
+sfu-message = sfu-challenge / sfu-challenge-request / sfu-join /
+              sfu-admitted / sfu-sdp-client / sfu-sdp-signed /
+              sfu-candidate / sfu-leave / sfu-error
+
+; SFU to client
+sfu-challenge = { "type": "challenge", "nonce": bstr .size 32 }
+
+; client to SFU
+sfu-challenge-request = { "type": "challenge-request" }
+
+; client to SFU
+sfu-join = {
+  "type": "join",
+  "signed": bstr,                  ; CBOR encoding of sfu-admission
+  "admissionSig": bstr .size 64,   ; Ed25519 over the bytes of "signed"
+  "clientNonce": bstr .size 32
+}
+
+sfu-admission = {
+  "ctx": "agora sfu admission",
+  "sfu": tstr,                     ; the SFU's DID from its SFUDescriptor
+  "nonce": bstr .size 32,          ; from the SFU's latest challenge
+  "channelToken": bstr .size 32,
+  "keyEpoch": uint
+}
+
+; SFU to client
+sfu-admitted = { "type": "admitted", "keyEpoch": uint }
+
+; client to SFU
+sfu-sdp-client = { "type": "sdp", "sdpType": "offer" / "answer", "sdp": tstr }
+
+; SFU to client; "envelope" is an encoded urn:agora:type:SfuDescription
+sfu-sdp-signed = { "type": "sdp", "envelope": bstr }
+
+; both directions; null ends the candidate list
+sfu-candidate = { "type": "candidate", "candidate": tstr / null }
+
+; client to SFU
+sfu-leave = { "type": "leave" }
+
+; SFU to client
+sfu-error = { "type": "error", "code": uint, "reason": tstr }
+
+; body of urn:agora:type:SfuDescription
+sfu-description = {
+  "sdpType": "offer" / "answer",
+  "sdp": tstr,
+  "clientNonce": bstr .size 32
+}
+```
+
+**Admission.** On connection the SFU sends a `challenge` with a fresh random `nonce`. The client replies with a `join` whose `signed` field holds the CBOR encoding of an `sfu-admission` for the channel's current `channelToken` and `keyEpoch` (§5.2.2), whose `admissionSig` is an Ed25519 signature (RFC 8032) with the channel admission private key over the exact bytes of `signed`, and whose `clientNonce` is fresh and random. The SFU MUST accept the `join` only if all of the following hold:
+
+1. `signed` decodes to an `sfu-admission` whose `ctx` is `agora sfu admission` and whose `sfu` is the SFU's own DID.
+2. `nonce` is that of the latest `challenge` on this connection, no earlier `join` used it, and the `challenge` was sent no more than 30 seconds earlier.
+3. `channelToken` and `keyEpoch` match an admission key registered with the SFU under a current `ServiceAgreement` and not deregistered (§10.5.3).
+4. `admissionSig` verifies under that key's public key.
+
+The SFU then replies `admitted` and places the connection in the room keyed by that `channelToken`. Before `admitted`, the SFU MUST ignore every message except `join`. The SFU learns that the connection belongs to a channel registered under the agreement. It never learns the channel's `channelID`, its Space, or any participant's DID. The `ctx` value keeps this signature distinct from routing envelope signatures made with the same key (§5.2.2).
+
+**Session descriptions.** The client sends its SDP offer in an `sdp` message and the SFU answers. Either side MAY later send a new offer to renegotiate, for example when tracks or data channels are added. Every SDP the SFU sends is carried in `envelope`: an encoded typed payload envelope (§13.1) of type `urn:agora:type:SfuDescription`, with `contentType` `application/cbor` and an `sfu-description` as `body`, signed per §13.1.1 by the DID in the `SFUDescriptor`. The client MUST verify the signature with that DID as the required signer, MUST check that `clientNonce` equals the value it sent in its latest `join` on this connection, and MUST close the connection if either check fails. The DTLS fingerprint in the signed SDP is the only one the client accepts in the DTLS handshake with the SFU (§6.10).
+
+**Candidates.** ICE candidates are exchanged in `candidate` messages, each carrying one candidate in the SDP `candidate` attribute syntax (RFC 8839). Candidates are not signed: the fingerprint in the signed SDP authenticates the SFU whatever path ICE selects. After DTLS completes, SRTP media flows with SFrame-encrypted payloads (§6.9).
+
+**Key epoch change.** When the channel's admission key is rotated (§5.2.2), a client in a call sends `challenge-request`, receives a new `challenge`, and sends a `join` for the new `channelToken` and `keyEpoch` on the same connection. The SFU then moves the connection to the new room. An SFU that receives an `AdmissionKeyDeregistration` (§10.5.3) for a key MUST close every connection whose latest accepted `join` used that key. Re-admission on one connection lets the SFU link the old and new `channelToken` of a room. A Relay links them in the same way through the CO's registrations (§12.3), and the link is within the IO observation budget (ARCHITECTURE §5).
+
+**Leaving and errors.** A client leaves by sending `leave` or closing the WebSocket, and the SFU then stops forwarding to and from that connection. Before it closes a connection for a protocol violation, the SFU sends `error`. `code` values are local to the SFU, and clients MUST NOT display `reason` as trusted text.
 
 Participants map SFU-forwarded streams to DIDs using information exchanged among themselves in MLS-encrypted messages; the SFU sees only connection-scoped stream identifiers.
-
-> **Open (agora-pozi.8):** the SFU admission proof in step 2 uses the epoch access proof (§5.2.2), which awaits external cryptographic review.
 
 ### SFU Media Opacity
 
 The SFU terminates each client's DTLS-SRTP hop, so SRTP alone does not hide media from it. Media payloads sent through an SFU are therefore always SFrame-encrypted with keys the SFU does not hold (§6.9), and the SFU cannot read audio or video content. It CAN observe:
 - Which connections are sending media (RTP SSRC → connection mapping, not → DID)
-- The SFrame KID, which holds an MLS leaf index and low epoch bits and no DID
+- The SFrame KID, which holds an MLS leaf index, low epoch bits and a context ID, and no DID
+- The `channelToken` of each room, and which tokens of successive key epochs belong to the same room
 - Packet timing and sizes (traffic analysis)
 - Whether a stream is active or silent
 
@@ -156,11 +219,17 @@ Screen share tracks use a separate simulcast configuration from camera video: ty
 Because an SFU terminates DTLS-SRTP, it would see plaintext media without a second encryption layer, which would make it a CO component (ARCHITECTURE §2.3). E2EE media is therefore REQUIRED whenever media transits an SFU: clients MUST encrypt media payloads with SFrame (RFC 9605) via **WebRTC Insertable Streams** (W3C Encoded Transform) using participant-held keys, and MUST NOT send media to an SFU without it. In mesh topology, DTLS-SRTP is already end-to-end between participants and E2EE media is OPTIONAL.
 
 In this mode:
-- Keys are derived with the MLS-based key management of RFC 9605 Section 5.2, using the exporter label `"agora-media-key"` in place of the label given there: the SFrame epoch secret is exported from the channel's MLS group in each epoch, each sender's base key is derived from it and the sender's MLS leaf index, and the SFrame key identifier (KID) is built from the leaf index and the low bits of the MLS epoch as RFC 9605 Section 5.2 specifies, with E = 4 epoch bits (16 concurrent epochs). The KID carries no DID.
+- Keys follow the MLS-based key management of RFC 9605 Section 5.2, with the exporter label `"agora-media-key"` in place of the label given there. In each MLS epoch every member computes one `base_key = MLS-Exporter("agora-media-key", "", AEAD.Nk)`, and the SFrame key and salt for each KID are derived from `base_key` and the KID as RFC 9605 Section 4.4.2 specifies. The KID is `(context << (S + E)) + (sender_index << E) + (epoch % (1 << E))` as in RFC 9605 Section 5.2, where `sender_index` is the sender's MLS leaf index, E = 4 epoch bits (16 concurrent epochs), S is the number of bits RFC 9605 Section 5.2 derives from the group's size, and `context` is a context ID chosen by the sender under the rules below. The KID carries no DID.
 - The SFrame cipher suite is `AES_128_GCM_SHA256_128`, which uses the AEAD and hash of the group's MLS ciphersuite (§5.2.1).
 - Outgoing media is encrypted by the sender's Insertable Streams transform before entering the RTP stack.
 - The SFU forwards encrypted RTP packets opaquely.
 - Each receiving participant's Insertable Streams transform decrypts with the key it derives for the sender and epoch named by the KID.
+
+**Nonce uniqueness.** RFC 9605 Section 9.1 requires that each (`base_key`, KID, CTR) combination is used for at most one encryption. A sender meets this as follows:
+
+- Each outbound media track, including each simulcast layer sent as its own stream, uses its own context ID, so no two tracks of one sender share a KID within an epoch. CTR starts at 0 for each KID and increases by one per frame.
+- The sender keeps, for each epoch, the next unused context ID, and MUST write it to durable storage with its MLS group state before it starts a track with that context ID. After a reload, crash or restart within the same epoch, the sender continues from the stored value, so a restarted track gets a new KID and its CTR can safely restart at 0. A sender MAY instead store each KID's next CTR value durably before using it, as RFC 9605 Section 9.1 describes, and resume each KID from its stored value.
+- A sender whose stored value may be stale, for example after its storage was restored from a snapshot, MUST NOT encrypt with SFrame in any epoch that the restored state already held. It waits for the next epoch, or commits an Update to start one.
 
 Media keys rotate with MLS epochs. A participant whose MLS leaf is removed loses their media key derivation capability for subsequent epochs. Media keys MUST NOT be disclosed to an SFU, TURN server, or any other IO component (ARCHITECTURE S3).
 
@@ -170,15 +239,15 @@ This mode requires browser/runtime support for Insertable Streams (available in 
 
 WebRTC media is encrypted with DTLS-SRTP. The DTLS handshake uses a self-signed certificate; the certificate fingerprint is included in the SDP offer and answer. In standard WebRTC, this fingerprint is unauthenticated.
 
-In Agora, the SDP carrying the fingerprint is delivered as a `VoiceSignal` inner payload, MLS-encrypted and signed with the sender's MLS leaf signature key, which the leaf's credential binds to the sender's DID (§5.2.1). Recipients verify the MLS sender signature before processing the SDP. This means:
+In Agora, the SDP carrying the fingerprint is delivered as a `VoiceSignal` inner payload, MLS-encrypted and signed with the sender's MLS leaf signature key, which the leaf's credential binds to the sender's DID (§5.2.1). Recipients verify the MLS sender signature before processing the SDP. In mesh topology, where each DTLS-SRTP connection runs between two participants, this means:
 
 - The DTLS fingerprint is authenticated as coming from the sender's DID, through the credential binding of the leaf signature key.
 - A Relay or network attacker cannot substitute a different certificate without breaking the MLS signature.
-- The media stream is cryptographically bound to the sending DID.
+- The media stream on that connection is cryptographically bound to the sending DID.
 
-This closes the identity binding loop without requiring any PKI or certificate authority. The MLS group membership proof IS the identity assertion for media.
+This closes the identity binding loop in mesh calls without requiring any PKI or certificate authority.
 
-Through an SFU, the DTLS hop ends at the SFU, whose fingerprint is authenticated by its signed SDP answer and its `SFUDescriptor` (§6.6). Participant-to-participant binding is then provided by the SFrame keys (§6.9), which only current MLS members can derive.
+Through an SFU, the DTLS hop ends at the SFU, whose fingerprint is authenticated by its signed session description and its `SFUDescriptor` (§6.6). Participant-to-participant protection then comes from SFrame (§6.9), and SFrame keys are group keys: every member can derive every sender's key, so a frame is authenticated as coming from a current member of the group and not from a particular member (RFC 9605 Section 7.2). The KID names a leaf index, but a malicious member can encrypt under another member's KID. Media through an SFU is therefore not bound to a sender's DID. Only mesh topology gives per-sender authentication of media.
 
 ## 6.11 TURN Server Integration
 
@@ -209,9 +278,9 @@ TURN servers are listed in the CO-signed Space state document (ARCHITECTURE S4):
 
 TURN credentials (`credentialScheme: "co-issued"`) are short-lived RFC 8489 long-term credentials issued to members by a CO-run credential service, using the TURN REST pattern:
 
-1. The TURN operator and the CO credential service share a secret. It is held only by those two parties and is never published.
+1. The TURN operator, which holds a `ServiceAgreement` with `serviceType` `turn` (§10.5.1), and the CO credential service share a secret. It is held only by those two parties and is never published.
 2. A member requests credentials from the CO credential service at the descriptor's `credentialEndpoint`, which issues them only to current members of the Space, authenticated per §3.5.
-3. The service returns `username = expiryUnixTime || ":" || randomNonce` and `password = HMAC(secret, username)`. The username MUST NOT contain a DID or any other persistent identifier.
+3. The service returns `username = expiryUnixTime || ":" || randomNonce` and `password = base64(HMAC-SHA1(secret, username))` (RFC 2104, base64 per RFC 4648 §4), the form TURN servers implementing the TURN REST pattern verify. `expiryUnixTime` is decimal Unix seconds and `randomNonce` is at least 128 random bits, base64url-encoded. The username MUST NOT contain a DID or any other persistent identifier.
 4. The TURN server verifies the HMAC and the expiry without learning the client's DID or any persistent identity.
 
 The TURN operator sees: a valid credential, a source IP, and opaque SRTP packets. It cannot link the session to a DID, channel, or space.
@@ -246,7 +315,7 @@ A channel Admin or the Space Owner issues a `RecordingGrant` as an MLS applicati
 ```json
 {
   "@type": "RecordingGrant",
-  "channelCID": "bafyrei...",
+  "channelID": "base64url...",
   "grantedTo": "did:webvh:QmSCID...:example.com:agora:recorder",
   "grantedBy": "did:key:z6MkAdmin...",
   "scope": "audio-video",
@@ -267,17 +336,17 @@ A `RecordingRevoke` terminates the grant early:
 ```json
 {
   "@type": "RecordingRevoke",
-  "grantCID": "bafyrei...",
+  "grantCID": "bafkrei...",
   "revokedBy": "did:key:z6MkAdmin...",
   "ts": "2026-03-12T14:00:00Z"
 }
 ```
 
-`RecordingRevoke` is signed per §13.1.1 by `revokedBy`, which MUST hold the Admin or Owner role in current Space state. Both `RecordingGrant` and `RecordingRevoke` are stored in the channel's IPLD history DAG, so the full grant and revocation history is permanently auditable.
+`RecordingRevoke` is signed per §13.1.1 by `revokedBy`, which MUST hold the Admin or Owner role in current Space state. `channelID` is the channel's identifier from Space state (§3.3). `grantCID` is the CID of the grant's encoded envelope (§13.1). Both records reach members as ordinary messages (§5.2.5). The recorder MUST keep every `RecordingGrant` and `RecordingRevoke` it receives, byte for byte with its `sig`, with its archive (§6.12.4), so the grant and revocation history is auditable from CO records.
 
 ### 6.12.2 Recorder Admission and Media Access
 
-**Admission.** The issuer of a `RecordingGrant`, or another Admin or Owner, adds `grantedTo` to the voice channel's MLS group with an ordinary Add Commit using a KeyPackage from the recorder's `KeyPackageEndpoint` (§7.8.2), in the same epoch as, or before, the grant is sent. The recorder is a passive member (§5.2.1.3): it never issues Commits or Proposals.
+**Admission.** The issuer of a `RecordingGrant`, or another Admin or Owner, adds `grantedTo` to the voice channel's MLS group with an ordinary Add Commit using a KeyPackage from the recorder's `KeyPackageEndpoint` (§7.8.2), in the same epoch as, or before, the grant is sent. The recorder is a passive member (§5.2.1.3): it issues no Proposals and no Commits other than its scheduled self-update (§7.3).
 
 **Media access.** The recorder joins the call (§6.3) as a receive-only participant and transmits no media. In SFU topology it subscribes through the SFU like any participant and removes SFrame (§6.9) with the senders' exporter-derived media keys; the SFU gains nothing (§6.6 SFU Recording). In mesh topology it is a mesh peer and decrypts SRTP on its own DTLS-SRTP connections (§6.10). No key is delivered to the recorder by any participant, and no participant action beyond normal call participation is required.
 
@@ -313,8 +382,8 @@ The recorder writes each recording to CO-controlled storage (ARCHITECTURE S8) an
 ```json
 {
   "@type": "VTCComplianceRecord",
-  "grantCID": "bafyrei...",
-  "channelCID": "bafyrei...",
+  "grantCID": "bafkrei...",
+  "channelID": "base64url...",
   "epoch": 17,
   "startTs": "2026-03-12T12:00:00Z",
   "endTs": "2026-03-12T12:45:00Z",
@@ -330,10 +399,11 @@ The recorder writes each recording to CO-controlled storage (ARCHITECTURE S8) an
       "leaveTs": "2026-03-12T12:45:00Z"
     }
   ],
-  "mediaCID": "bafyrei...",
+  "mediaCID": "bafkrei...",
   "mediaFormat": "video/webm;codecs=\"vp9,opus\"",
   "scope": "audio-video",
-  "prevRecordCID": "bafyrei..."
+  "sealedTo": "did:webvh:QmSCID...:example.com:agora:recorder#x25519-1",
+  "prevRecordCID": "bafkrei..."
 }
 ```
 
@@ -341,7 +411,7 @@ The recorder writes each recording to CO-controlled storage (ARCHITECTURE S8) an
 
 Media SHOULD be stored as Opus audio in an Ogg or WebM container (audio-only recordings) or VP8/VP9/AV1 video with Opus audio in a WebM container (audio-video recordings). The recorder decrypts SRTP and SFrame as a member (§6.12.2) and re-encodes to the archive format. Raw SRTP or SFrame packets MUST NOT be stored.
 
-**Encryption at rest.** Each media file MUST be sealed before it leaves the recorder process, using HPKE single-shot `Seal` (RFC 9180, DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM) to the X25519 `keyAgreement` key in the recorder's DID document, with `info = "agora-recording-archive-v1" || grantCID_bytes`. `mediaCID` addresses the sealed object. Plaintext media MUST NOT be written to any IO component; a sealed object MAY be replicated to IO blob or pinning storage, which then holds only ciphertext.
+**Encryption at rest.** Each media file MUST be sealed before it leaves the recorder process, using HPKE single-shot `Seal` (RFC 9180, DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM) to the X25519 `keyAgreement` key in the recorder's DID document, with `info = "agora-recording-archive-v1" || grantCID_bytes`. `sealedTo` is the DID URL of that `keyAgreement` verification method, so the key that opens an archive is known after the recorder rotates keys (§7.9). `mediaCID` addresses the sealed object. Plaintext media MUST NOT be written to any IO component; a sealed object MAY be replicated to IO blob or pinning storage, which then holds only ciphertext.
 
 Per-epoch media files are stored separately (one `mediaCID` per epoch) and linked by the `VTCComplianceRecord` chain.
 
@@ -368,7 +438,7 @@ The block carries no signature of its own; it is covered by the CO's signature o
 
 When `autoGrant` is `true`, the `RecordingGrant` is issued by the first Admin or Owner client that observes the call starting. The grant `expiresAt` is set to the call end plus a configurable grace period (default 5 minutes) to capture any reconnecting participants.
 
-The recorder operates as a passive member (§5.2.1.3) of each voice channel's MLS group, admitted as in §6.12.2: it holds a leaf credential, derives media keys like any member, and does not issue Commits or Proposals. The recorder whose DID is declared in `vtcCompliance.recorderDID` MUST have a `KeyPackageEndpoint` service entry in its DID document (same requirement as the text compliance logger, §7.8.2) and MUST publish an X25519 `keyAgreement` key in its DID document for archive encryption (§6.12.4). Auto-issued grants carry `retentionDays` from this block.
+The recorder operates as a passive member (§5.2.1.3) of each voice channel's MLS group, admitted as in §6.12.2: it holds a leaf credential, derives media keys like any member, and issues no Proposals and no Commits other than its scheduled self-update (§7.3). The recorder whose DID is declared in `vtcCompliance.recorderDID` MUST have a `KeyPackageEndpoint` service entry in its DID document (same requirement as the text compliance logger, §7.8.2) and MUST publish an X25519 `keyAgreement` key in its DID document for archive encryption (§6.12.4). Rotation of the recorder's keys follows §7.9. Auto-issued grants carry `retentionDays` from this block.
 
 ### 6.12.6 VTC Compliance Audit Entry
 
@@ -377,15 +447,15 @@ The space's IPLD compliance audit chain receives a `VTCComplianceAuditEntry` for
 ```json
 {
   "@type": "VTCComplianceAuditEntry",
-  "channelCID": "bafyrei...",
-  "grantCID": "bafyrei...",
+  "channelID": "base64url...",
+  "grantCID": "bafkrei...",
   "recorderDID": "did:webvh:QmSCID...:example.com:agora:recorder",
   "callStart": "2026-03-12T12:00:00Z",
   "callEnd": "2026-03-12T12:45:00Z",
   "epochsRecorded": [17, 18, 19],
   "epochsGapped": [],
   "participantCount": 4,
-  "vtcRecordCIDs": ["bafyrei...", "bafyrei..."]
+  "vtcRecordCIDs": ["bafkrei...", "bafkrei..."]
 }
 ```
 
@@ -406,13 +476,13 @@ Participants in a call MAY exchange application data over WebRTC data channels (
 
 **Payloads.** Each data channel message carries exactly one typed envelope (§13.1) as its plaintext. The envelope has no `sig`. Compact content types such as `application/cbor` are RECOMMENDED for high-rate types. Receivers MUST ignore envelopes whose `type` they do not recognize.
 
-**Encryption.** Every data channel message MUST be encrypted end to end with SFrame (RFC 9605), in mesh and SFU topology alike. Keys are derived with the MLS-based key management of RFC 9605 Section 5.2, using the exporter label `"agora data channel"` in place of the label given there; because this label differs from the media label (§6.9), data keys and media keys are independent. The cipher suite is `AES_128_GCM_SHA256_128`. The SFrame ciphertext is the data channel message. Data keys rotate with MLS epochs as media keys do (§6.9) and MUST NOT be disclosed to an SFU, TURN server or any other IO component (ARCHITECTURE S3). Receivers MUST discard a message that fails SFrame decryption. The KID uses E = 4 epoch bits, as for media (§6.9).
+**Encryption.** Every data channel message MUST be encrypted end to end with SFrame (RFC 9605), in mesh and SFU topology alike. Keys are derived as for media (§6.9), with the exporter label `"agora data channel"` in place of `"agora-media-key"`: each epoch has one data `base_key = MLS-Exporter("agora data channel", "", AEAD.Nk)`, independent of the media `base_key`, and per-KID keys are derived from it as RFC 9605 Section 4.4.2 specifies. The KID has the structure given in §6.9, with E = 4 epoch bits. Each data channel a sender opens uses its own context ID, and the nonce uniqueness rules of §6.9 apply to data channels under the data `base_key` exactly as they apply to media tracks under the media `base_key`. The cipher suite is `AES_128_GCM_SHA256_128`. The SFrame ciphertext is the data channel message. Data keys rotate with MLS epochs as media keys do (§6.9) and MUST NOT be disclosed to an SFU, TURN server or any other IO component (ARCHITECTURE S3). Receivers MUST discard a message that fails SFrame decryption.
 
 Every member can derive every sender's data key, so a data message is authenticated as coming from a current member of the group, and not from a particular member. A payload whose receiver acts on the identity of its sender MUST be sent as an MLS application message instead.
 
-**SFU forwarding.** An SFU forwards data channel messages among the connections in a room (keyed by `channelToken`, §6.6) without decrypting them. It is not an MLS member and holds no data key. It can observe message sizes and timing, the connection each message arrives on, and the SFrame key identifier, which holds an MLS leaf index and low epoch bits and no DID. These fall within the IO observation budget (ARCHITECTURE §5, items 1–2), as for media (§6.6 SFU Media Opacity). Data channel labels and protocol strings are visible to the SFU and MUST NOT contain a DID, channel CID or other persistent identifier.
+**SFU forwarding.** An SFU forwards data channel messages among the connections in a room (keyed by `channelToken`, §6.6) without decrypting them. It is not an MLS member and holds no data key. It can observe message sizes and timing, the connection each message arrives on, and the SFrame key identifier, which holds an MLS leaf index, low epoch bits and a context ID, and no DID. These fall within the IO observation budget (ARCHITECTURE §5, items 1–2), as for media (§6.6 SFU Media Opacity). Data channel labels and protocol strings are visible to the SFU and MUST NOT contain a DID, `channelID` or other persistent identifier.
 
-**Channel options.** Pose and input streams SHOULD use unordered, unreliable channels (`ordered: false` and `maxRetransmits: 0` in `RTCDataChannelInit`), so that a lost update is superseded by the next one instead of delaying it. A participant MAY open further channels with other reliability settings. Data channels are negotiated in the SDP carried by `VoiceSignal` (§6.4) or exchanged with the SFU (§6.6 SFU Signaling Flow).
+**Channel options.** Pose and input streams SHOULD use unordered, unreliable channels (`ordered: false` and `maxRetransmits: 0` in `RTCDataChannelInit`), so that a lost update is superseded by the next one instead of delaying it. A participant MAY open further channels with other reliability settings. Data channels are negotiated in the SDP carried by `VoiceSignal` (§6.4) or exchanged with the SFU (§6.6 SFU Signaling Protocol).
 
 ## 6.14 Call Coordination
 
@@ -524,7 +594,7 @@ A breakout room is a call in a separate group, so its media and data keys are in
   "callID": "QnE3dkNtWnJ0UkxhRWdMaQ",
   "rooms": [
     {
-      "channel": "agora://bafyrei.../voice/breakout-a",
+      "channelID": "base64url...",
       "subject": "Team A",
       "members": ["did:webvh:QmSCID...:example.com:alice", "did:webvh:QmSCID...:example.com:bob"]
     }
@@ -533,7 +603,7 @@ A breakout room is a call in a separate group, so its media and data keys are in
 }
 ```
 
-Each `channel` is a voice channel of the same Space, or a DM group (§4.6) when the parent call is held in a DM group. It MUST already exist with the listed members in its group; the moderator creates it or adds members by the ordinary procedures (§4.4, §4.6) before sending the `CallBreakout`. Clients of listed members prompt their user to leave the parent call and join the named channel's call (§6.3). At `endsAt`, or on a later `CallBreakout` from a moderator with the same `callID` and an empty `rooms` array, clients prompt those members to return to the parent call.
+Each room names its call's group with exactly one of `channelID`, a voice channel of the same Space (§3.3), or `mlsGroupID`, the MLS group ID of a DM group (§4.6), which is allowed only when the parent call is held in a DM group. The channel or DM group MUST already exist with the listed members in its group; the moderator creates it or adds members by the ordinary procedures (§4.4, §4.6) before sending the `CallBreakout`. Clients of listed members prompt their user to leave the parent call and join the named channel's call (§6.3). At `endsAt`, or on a later `CallBreakout` from a moderator with the same `callID` and an empty `rooms` array, clients prompt those members to return to the parent call.
 
 ---
 

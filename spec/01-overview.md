@@ -40,7 +40,7 @@ Agora is a decentralized, end-to-end encrypted, real-time group chat protocol. I
 | **RFC 9750 (MLS Architecture)** | Informational architecture reference for MLS deployment concepts |
 | **JSON (RFC 8259)** | Payload bodies in the typed envelope (§13.1); JSON-LD is an optional content type |
 | **libp2p gossipsub v1.1** | Peer discovery, room advertisement, live message fanout |
-| **IPLD** | Content-addressed data model (CIDv1 dag-cbor); relay-hosted CAS for blob storage |
+| **IPLD** | Content addressing: CIDv1, `raw` codec, sha2-256, over exact bytes (§13.1); relay-hosted CAS for blob storage |
 | **WebTransport (RFC 9000)** | Primary transport for browsers and native clients |
 | **WebSocket (RFC 6455)** | Fallback transport, and the only transport available over Tor |
 
@@ -80,9 +80,9 @@ An implementation claims conformance to one or more of the classes below. A conf
 | Calls profile | Member endpoint | Client, plus §6 except the recorder-side formats of §6.12.4 and §6.12.6 |
 | Regulated-member profile | Member endpoint, CO enforcement point | Client, plus every row of the §7.8 Conformance Summary that applies to the regulated member's client or the committing client; with the Calls profile, also §6.12.5 and §6.12.7 |
 | Relay | IO | §10.4.3 and the sections it cites, §10.4.4 |
-| Registration service | CO | §5.2.2 (Epoch Access Proof), §10.5.1, §12.8 |
-| Space endpoint | CO | §3.4, §3.5, §4.3 (invite checks), §4.4 (public view), §5.2.1.4 (`BroadcastKey` service), §12.8 |
-| KeyPackage host | CO | §2.1 (endpoint publication), §4.6 (Welcome intake), §5.2.1.1, §12.8 |
+| Registration service | CO | §5.2.2 (Channel Admission), §10.5.1, §10.5.3, §12.8 |
+| Space endpoint | CO | §3.4, §3.5, §4.3 (invite checks), §4.4 (public view), §5.2.1.4 (`ChannelAdmissionKey` and `BroadcastKey` service), §8.6 (guest eligibility), §12.8 |
+| KeyPackage host | CO | §2.1 (endpoint publication), §4.6 (Welcome intake; DM and self-group admission keys, which also makes it a registration service), §4.6.3, §5.2.1.1, §12.8 |
 | Provisioning service | CO | §2.5, the KeyPackage host class for the identities it runs (§5.2.1.1), §12.8 |
 | Compliance logger | CO | §5.2.1.3, §7.3, §7.4, §7.5, §7.8.2, §7.8.8, §7.8.9, the KeyPackage host class for its own DID, §12.8 |
 | Compliance recorder | CO | §6.12.1 to §6.12.6, §12.8 |

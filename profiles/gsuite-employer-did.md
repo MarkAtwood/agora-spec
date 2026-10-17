@@ -16,7 +16,7 @@ The Google Workspace architecture is structurally parallel to the O365 spec but 
 | Org attestation / VC issuance | Entra Verified ID | DID Sidecar (self-issued VC) |
 | JML lifecycle automation | Graph Lifecycle Workflows + Logic App | DID Sidecar (Directory API push + polling fallback) |
 
-As in the O365 profile, employee identities are `did:webvh` (spec §2.1, §2.5): the sidecar holds the update key of each employee's DID log, and every change it makes is a log entry visible to all resolvers (O365 spec §3). The sidecar also hosts each employee's `KeyPackageEndpoint` (spec §5.2.1.1). Relays play no part: they never receive or verify Google tokens, and hold no KeyPackages (spec §2.5.2).
+As in the O365 profile, employee identities are `did:webvh` (spec §2.1, §2.5): the sidecar holds the update key of each employee's DID log, and every change it makes is a log entry visible to all resolvers (O365 spec §3). Each entry is co-signed by at least one witness the organization does not control, which spec §2.1 requires for a CO-provisioned DID, and clients verify those proofs (O365 spec §6.6). The sidecar also hosts each employee's `KeyPackageEndpoint` (spec §5.2.1.1) and, as the employee's identity host, issues the admission keys of DM groups its employees start and of their self-groups (spec §4.6, O365 spec §6.7). Relays play no part in provisioning: they never receive or verify Google tokens (spec §2.5.2) and hold no KeyPackages (spec §5.2.1.1).
 
 The VC layer uses the W3C VC Data Model with the org's own `did:web` as issuer (§3.2). JML automation uses the Directory API push notification channel plus a daily reconciliation polling loop as a reliability backstop, because the push channel expires and has delivery lag.
 
@@ -37,11 +37,12 @@ The VC layer uses the W3C VC Data Model with the org's own `did:web` as issuer (
 │  DID Sidecar  (operator-hosted, registered as GCP OAuth app) │
 │                                                              │
 │  GET  /users/{id}/did.jsonl             Serve DID log        │
-│  *    /v1/keypackages/{id}              KeyPackageEndpoint   │
+│  *    /v1/agora/kp/{id}                 KeyPackageEndpoint   │
+│  *    /v1/admission-key/{groupID}       DM admission keys    │
 │  GET  /.well-known/did.json             Org root DID         │
 │  GET  /.well-known/did-configuration.json  Domain linkage    │
 │  POST /v1/notify                        Directory API push   │
-│  POST /v1/register-device-key           Device key reg       │
+│  POST /v1/devices                       Device key reg       │
 │  POST /v1/revoke-device-key             IT key removal        │
 │  POST /v1/tombstone                     DID deactivation      │
 │  POST /v1/suspend                       Suspend DID           │
@@ -122,7 +123,7 @@ The reconciliation poller is the reliability backstop, not the primary path. Wor
 
 ## 3. DID Document Structure
 
-The DID log and document structure, the absence of an org `controller`, and the lifecycle states (`STUB`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`) are identical to the O365 spec (§3), including the `KeyPackageEndpoint` service entry in the genesis entry and the optional parallel `did:web` document (O365 spec §2). The two differences follow.
+The DID log and document structure, the absence of an org `controller`, and the lifecycle states (`STUB`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`) are identical to the O365 spec (§3), including the `KeyPackageEndpoint` and `AgoraProvisioning` service entries and the `witness` parameter in the genesis entry, and the optional parallel `did:web` document (O365 spec §2). The two differences follow.
 
 ### 3.1 DID Naming
 
@@ -257,7 +258,7 @@ The DID log is not changed: the document carries no employment attributes (O365 
 
 Triggered by a push notification for a user with `suspended: true` (soft leaver) or a deleted user (hard leaver), or by the reconciliation poller finding a discrepancy.
 
-Google has no real-time termination trigger equivalent to Entra Lifecycle Workflows' on-demand execution, and the push notification channel has delivery lag. On receiving a suspension or deletion notification, the sidecar MUST immediately revoke the VC, which blocks future Space admissions, and notify the Enrollment Service. Membership in the MLS group is the only access control (ARCHITECTURE §6.2), so the MLS Remove commits in Phase 1 are what cut off the user's access to Spaces they already belong to. VC revocation alone does not.
+Google has no real-time termination trigger equivalent to Entra Lifecycle Workflows' on-demand execution, and the push notification channel has delivery lag. On receiving a suspension or deletion notification, the sidecar MUST immediately revoke the VC, which blocks future Space admissions, and notify the Enrollment Service. Membership in the MLS group is the only read access control (ARCHITECTURE §6.2), so the MLS Remove commits in Phase 1 are what cut off the user's access to Spaces they already belong to. VC revocation alone does not.
 
 **Phase 1: Immediate** (on notification receipt; target latency: <30 seconds):
 
@@ -280,7 +281,7 @@ Google has no real-time termination trigger equivalent to Entra Lifecycle Workfl
 
 ### 4.5 Lost Device
 
-Initiated directly by IT via the sidecar admin API, identical to O365 spec §5.5 (log entry removing the key, `DeviceRevocation` gossip, MLS Remove of the device's leaves):
+Initiated directly by IT via the sidecar admin API, identical to O365 spec §5.5: a witnessed log entry removing the key, no gossiped announcement (the user's remaining devices send an `IdentityChanged` notice, spec §2.7), and MLS Remove of the device's leaves:
 
 ```http
 POST /v1/revoke-device-key
@@ -414,19 +415,14 @@ Only the credential subject MAY fetch their own VC (the token `sub`, the Google 
 
 Google does not provide `acr`/`amr` claims in standard OAuth tokens for most Workspace tiers. The step-up enforcement mechanism varies by Workspace edition.
 
-**All tiers, Workspace sign-in policy:** The organization SHOULD enforce 2-Step Verification with security keys only for the users who enroll Agora devices, so that the Google sign-in that yields the enrollment OAuth token requires a hardware key. Google issues only Google-defined OAuth scopes, so the profile does not rely on a custom scope gated by Context-Aware Access. Enterprise Plus deployments MAY add Context-Aware Access rules that apply to the enrollment OAuth client, if their edition supports this. Verify both controls against current Google documentation (written 2026-10, not re-verified).
+Step-up for device key registration in this profile has two parts, on every Workspace edition:
 
-**Business Starter / Standard / Plus (no CAA):** The sidecar MUST enforce step-up via a challenge-response. On device key registration, the sidecar issues a 32-byte challenge, requires the user to sign it using their WebAuthn credential (browser path) or PKCS#11 key (CLI path), and verifies the signature before writing the key to the DID log. This is the same proof-of-possession check as O365 spec §5.6 and does not depend on the Google OAuth token carrying MFA claims.
+1. **Google-enforced 2-Step Verification with security keys.** The organization SHOULD enforce 2SV with security keys only for the users who enroll Agora devices, so that the Google sign-in that yields the enrollment OAuth token requires a hardware key. Google enforces this at sign-in; the token does not say which second factor was used, so the sidecar cannot check it, and the guarantee rests on the Workspace policy. Google issues only Google-defined OAuth scopes, so the profile does not rely on a custom scope gated by Context-Aware Access. Enterprise Plus deployments MAY add Context-Aware Access rules that apply to the enrollment OAuth client, if their edition supports this. Verify both controls against current Google documentation (written 2026-10, not re-verified).
+2. **Device-key signatures.** Every registration request is signed by the new device key as proof of possession, and every later device's request is also signed by a device key already in the verified log (spec §2.5.4 Step 3).
 
-The WebAuthn / PKCS#11 proof-of-possession check (O365 spec §5.6) applies in both cases. Workspace-enforced security-key 2SV is an additional layer outside the sidecar.
+The sidecar runs no WebAuthn or PKCS#11 challenge of its own. It has no enrolled credential to check one against, and a passkey is never a device key (spec §2.2). Business Starter, Standard and Plus have no Context-Aware Access, so for them the two parts above are the whole of step-up. An organization that does not enforce security-key 2SV gets, at first-device enrollment, only the strength of its ordinary Google sign-in policy; later devices still need a signature from an existing device.
 
-The remaining registration checks are those of O365 spec §5.6: the token `sub` maps in the private DB to the requested DID; the first device registers into a `STUB` DID with no existing-device signature and no VC; every later device's request carries a spec §13.1.1 signature by a device key in the current verified log (spec §2.5.4). On success the sidecar appends a log entry signed with its update key and, for the first device, issues the `EmployeeCredential` (§5).
-
-```toml
-[enrollment]
-mfa_enforcement = "webauthn-pop"   # always require WebAuthn proof-of-possession
-# mfa_enforcement = "security-key-2sv"   # also expect Workspace-enforced security-key 2SV + WebAuthn PoP
-```
+The remaining registration checks are those of O365 spec §5.6: the token `sub` maps in the private DB to the requested DID; the first device registers into a `STUB` DID with no existing-device signature and no VC; every later device's request carries a spec §13.1.1 signature by a device key in the current verified log (spec §2.5.4). On success the sidecar appends a log entry signed with its update key and co-signed by witnesses (O365 spec §6.6) and, for the first device, issues the `EmployeeCredential` (§5).
 
 ---
 
@@ -456,7 +452,7 @@ mfa_enforcement = "webauthn-pop"   # always require WebAuthn proof-of-possession
 - Key ring: `agora-did-keys`.
 - Key: `org-root-signing-key` (Ed25519, HSM-backed): VC issuer key (§3.2).
 - Key: `did-log-update-key` (Ed25519, HSM-backed): `did:webvh` update key for employee DID logs. Used only to sign log entries.
-- Key: `provisioning-signing-key` (Ed25519, HSM-backed): the sidecar's own DID signing key for gossiped update announcements and `DeviceRevocation` messages (spec §2.5.7).
+- Key: `provisioning-signing-key` (Ed25519, HSM-backed): `authentication` key of the sidecar's own DID (O365 spec §6.5). As spec §2.5.7 requires, `did-log-update-key` is also a verification method of that DID.
 - IAM: sidecar service account MUST have `roles/cloudkms.signerVerifier`.
 
 ### Secret Manager
@@ -511,7 +507,7 @@ spec:
 | Immediate termination | On-demand Lifecycle Workflow execution (seconds) | IT calls `/v1/tombstone` directly (manual step) |
 | VC issuance | Entra Verified ID (managed service, Authenticator wallet) | Sidecar self-issued VC, Agora client wallet |
 | Admission block speed (VC revocation) | StatusList2021 via Verified ID (seconds) | StatusList2021 served by sidecar (seconds, same) |
-| MFA step-up enforcement | Entra Conditional Access authentication context (`acrs` claim; requires Entra ID P1) | Workspace security-key 2SV, optional CAA (Enterprise Plus), WebAuthn PoP (all tiers) |
+| MFA step-up enforcement | Entra Conditional Access authentication context (`acrs` claim; requires Entra ID P1) | Google-enforced security-key 2SV (not visible to the sidecar), optional CAA (Enterprise Plus), plus device-key signatures (spec §2.5.4) |
 | Org signing key | Azure Key Vault (managed) | Google Cloud KMS (managed, equivalent) |
 | Hosting | Azure Container Apps / App Service | Cloud Run / GKE |
 | License cost | Entra ID P1 + Entra ID Governance | No extra license; Enterprise Plus only for optional CAA |

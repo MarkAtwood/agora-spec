@@ -1,6 +1,7 @@
 {
   "issue_prefix": "agora",
   "kv.memory.agora-broadcast-decision": "Agora broadcast channels (Mark 2026-10-16, option B unified): encrypted under CO-distributed channel content key via Space endpoint; public channels publish key in public Space state. Reason: no confidential large-audience channel existed (community mode caps 500, non-speakers can't read).",
+  "kv.memory.agora-channelid": "Agora channel identity (Mark 2026-10-16): exporter context = MLS group_id; records/Space state use random 16-byte channelID; DMs named by group ID; no channelCID.",
   "kv.memory.agora-d1-envelope": "Agora D1 (Mark 2026-10-16): payloads are typed bytes {type, contentType, body}; signatures over exact bytes; no JSON-LD canonicalization; JSON-LD is one content type among others.",
   "kv.memory.agora-d2-sequencer": "Agora D2 (Mark 2026-10-16): JMAP types are single-author (replicated per-member stores, no server) or sequenced (blind per-community sequencer stamps order on encrypted ops; clients validate). Sequencer reads nothing.",
   "kv.memory.agora-d3-realtime": "Agora D3 (Mark 2026-10-16): slow real-time updates via relays as MLS messages; fast (10-60 Hz) via WebRTC data channels on the call path, E2EE with exporter keys, SFU blind.",
@@ -9,6 +10,8 @@
   "kv.memory.agora-d6-jws": "Agora D6 (Mark 2026-10-16): out-of-group signatures are JWS detached/unencoded payload (RFC 7515 + 7797), Ed25519 (RFC 8037), over exact bytes.",
   "kv.memory.agora-d7-jmapchat": "Agora D7 (Mark 2026-10-16): jmap-chat Message objects are Agora's chat format; Agora keeps only plumbing types.",
   "kv.memory.agora-did-methods": "Agora DID methods (Mark 2026-10-16): did:webvh default; did:plc and did:key opt-in by individuals; did:key users copy key across devices, self-backup only, clients warn; did:key KP pointer via Pkarr; COs may restrict methods per Space.",
+  "kv.memory.agora-didkey-devices": "did:key multi-device (Mark 2026-10-16): copy identity key, but each device has its own MLS leaf key vouched by an identity-key-signed binding (RFC 9420 unique leaf keys); no per-device revocation.",
+  "kv.memory.agora-doorkey-B": "Agora door key (Mark 2026-10-16, option B): CO-issued random channel admission key, registered with agreement relays, served to authenticated members by the Space endpoint, rotated on removals; DMs via initiator's identity host; shared channels via home CO; replaces exporter-derived keys + countersign (Q1).",
   "kv.memory.agora-format-open": "Agora payload/package format is open to redesign (Mark 2026-10-16: 'we are still specwriting'); no compatibility constraints. Goal: carry any JSON-LD data and especially JMAP-shaped objects from Mark's draft-atwood-jmap-* family (plain JSON, no @context) in ~/PROJECT/jmap-chat-spec.",
   "kv.memory.agora-historical": "~/GIT/Agora (nie fork, prototype code) renamed to ~/GIT/Agora-historical on 2026-10-16. Frozen; Agora revival is spec-only in ~/PROJECT/agora. GitHub remote MarkAtwood/Agora unchanged.",
   "kv.memory.agora-no-payments": "Agora first ship: NO money or cryptocurrency handling (Mark, 2026-10-16) — distracting. Payment material lives in attic/relay-economics.md. RelayServiceAgreement stays (separation contract) minus price/fee fields. PoW spam deterrence kept as non-monetary.",

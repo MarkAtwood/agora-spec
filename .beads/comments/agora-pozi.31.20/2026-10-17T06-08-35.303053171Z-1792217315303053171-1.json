@@ -1,0 +1,7 @@
+{
+  "id": "1792217315303053171-1",
+  "issue_id": "agora-pozi.31.20",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: per-user MLS self-group containing only the user's devices, carrying private single-author types (ReadPosition, ChatContact, block list, drafts) and an optional history-transfer payload (encrypted archive blob + key) from an existing device to a new one. Also write as fixes: existing devices commit Adds of a new device's leaf to all the user's groups (exempt from DM consent); a restored MLS state backup MUST NOT be used while the source device remains active (replace-and-revoke, or rejoin as new leaf and use backup only to read old history).",
+  "created_at": "2026-10-17T06:08:35.303053171Z"
+}

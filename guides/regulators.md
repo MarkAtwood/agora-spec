@@ -82,19 +82,25 @@ The archive is a sequence of `ComplianceRecord` objects (spec §7.4) in a per-ch
 
 ```
 ComplianceRecord {
-  envelopeID         // identifier of the archived message
-  channel            // identifies the channel
+  channelID          // the channel's identifier from Space state
+                     // (for a DM group, mlsGroupID, the MLS group ID)
   senderDID          // the sender's cryptographic identifier
   epoch              // MLS group epoch at the time of the message
-  seq                // sender's sequence number within the channel
+  seq                // sending device's sequence number within the channel
   ts                 // UTC, millisecond precision
   plaintextPayload   // the decrypted message envelope, exact bytes as received
                      // (for chat, a JMAP Chat Message)
+  senderMessage      // the sender's encrypted MLS message, exact bytes as received
+  messageKeys        // the keys that open senderMessage and no other message
+  groupContext       // the MLS group context of the message's epoch
+  senderLeaf         // the sender's MLS leaf: its signature key and credential
   outerEnvelopeCID   // hash of the encrypted message as it travelled
   prevRecordCID      // hash of the immediately preceding record in the chain
 }
 sig                  // logger's JWS signature over the record bytes
 ```
+
+`senderMessage`, `messageKeys`, `groupContext` and `senderLeaf` are verification material. With them, a verifier who does not trust the logger can check that a device key of `senderDID` signed the archived message (spec §7.4; see Step 4 below). `messageKeys` open only the one message, whose plaintext the record already holds.
 
 The `prevRecordCID` field creates a hash-linked chain. Altering or deleting a record, or inserting one out of order, breaks the chain at that point. Chain verification requires only the chain head and the records themselves; no trusted third party is involved.
 
@@ -104,7 +110,9 @@ The `prevRecordCID` field creates a hash-linked chain. Altering or deleting a re
 
 **Step 2: Verify the chain.** Each record's CID is the hash of the signed record envelope as stored (spec §13.1). Starting from a recorded head, verify that each record's `prevRecordCID` equals the CID of the record before it. A complete chain from the oldest record to the head, with all hashes matching, shows that no record in that range was altered or deleted.
 
-**Step 3: Verify logger signatures.** Each record carries the compliance logger's JWS signature in its envelope (spec §13.1.1). The logger's public key is published in its DID document. A valid signature confirms the firm's logger produced the record and that nobody altered its bytes afterwards.
+**Step 3: Verify logger signatures.** Each record carries the compliance logger's JWS signature in its envelope (spec §13.1.1). The logger's public key is published in its DID document. Check each signature against the DID document version in effect when the record was signed: the firm rotates the logger's signing key from time to time, and the DID log keeps every earlier version, so older records still verify (spec §7.9). Where the logger's DID is a `did:webvh` DID the firm provisions, every log entry must carry a proof from at least one witness the firm does not control (spec §2.1), so the firm cannot show one key history to the examiner and another to someone else. A valid signature confirms the firm's logger produced the record and that nobody altered its bytes afterwards.
+
+**Step 4 (where authorship is disputed): Verify the sender's signature.** Spec §7.4 defines a check that does not rely on the logger: decrypt `senderMessage` with `messageKeys`, confirm the result equals `plaintextPayload`, and verify the sender's MLS signature with the signature key in `senderLeaf`, which must have been a device key of `senderDID` at the record's time according to the sender's DID log. A record that passes shows that the holder of that device key signed that message for that group and epoch. It does not show that the sender's leaf was in the group at that epoch, or that anyone other than the logger received the message.
 
 **What a broken chain means.** If the hash chain is broken between records at time T1 and T2, one of the following occurred: (a) a record was altered after archiving, (b) a record was deleted from the chain, or (c) records were inserted out of order. The firm is required to investigate and disclose a broken chain before producing records in a proceeding. Examiners should treat an unexplained chain break as a material compliance deficiency.
 
@@ -126,7 +134,7 @@ A standard Agora records request should include:
 
 3. **The chain integrity verification report.** A report, produced by tooling independent of the archive, that the `prevRecordCID` chain is intact and every logger signature verifies for the exported date range.
 
-4. **The logger's DID document.** The public key document for the compliance logger, needed to verify logger signatures on the records.
+4. **The logger's DID document and DID log.** The public key document for the compliance logger and its history, needed to verify logger signatures made before any key rotation (spec §7.9).
 
 5. **The log of recorded chain heads.** The firm's historical record of chain heads with timestamps. Cross-referencing archive content against this log confirms that no records were added, altered, or removed retroactively.
 
@@ -153,10 +161,13 @@ A relay operator's accurate response to a production request for message content
 A demand on a relay operator yields only what falls within its observation budget (ARCHITECTURE §4-§5):
 - Network-layer connection metadata (source address, timing, volume) for the retention period set in its service agreement with the firm and declared publicly in its relay manifest (`observationBudget.connectionLogRetentionDays`, spec §10.2.1)
 - Opaque ciphertext, its size and timing, and the rotating routing tokens it was addressed to
-- The identity of each customer it holds a service agreement with (the customer's billing DID), and quota counters per agreement
-- For push proxies, opaque device push handles and wake-up timing
+- The recent encrypted envelopes it holds for each routing token, kept for the retention period of the agreement under which the token is registered (spec §10.4.6)
+- The identity of each customer it holds a service agreement with (the customer's billing DID), which routing tokens and admission keys that customer registered and when, and quota counters per agreement (ARCHITECTURE §5 item 6)
+- For push proxies, opaque device push handles and wake-up timing. A relay that serves push also knows which routing tokens wake the same device; users may turn push off (ARCHITECTURE §5 item 7)
 
 From these a relay operator can say which network addresses used a given firm's service. It cannot say which Space, channel, or sender any traffic belonged to: the firm's agreement names no Space or channel, and the billing identity never appears in any Space record (ARCHITECTURE §6.1). If a firm runs several Spaces through one relay, the relay cannot tell them apart.
+
+**Takedown requests.** A relay that receives a takedown request naming a stored CID cannot read the content, so it cannot judge it. It forwards the request to the firm through the contact in its service agreement, and it may stop serving and delete its copy as a storage decision (spec §10.4.5). Deleting a relay copy does not touch the firm's archive.
 
 ---
 
@@ -190,6 +201,8 @@ For any DM group involving a regulated employee, the archive contains:
 **Gap: pre-join messages.** The compliance logger is added when the regulated employee joins the DM group. Messages sent in that group before then are not captured. This is inherent to MLS group encryption: the logger cannot decrypt messages from before it was a group member.
 
 **Gap: non-Agora applications.** DM compliance applies to conversations conducted via Agora (including bridged conversations where the counterparty uses Slack, Teams, or a MIMI-compatible platform). If the regulated employee conducts the same conversation via WhatsApp, iMessage, or another non-Agora application, Agora does not capture it.
+
+**Gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request and sends nothing to it until the employee accepts (spec §4.6.3). The logger is therefore admitted no earlier than acceptance, and its archive begins at the epoch of its admission (spec §7.8.2). Ask the firm how it captures messages sent into a group before the employee accepted the request.
 
 **Gap: tampered clients.** A modified client can join or create a DM group without the logger. Such a group is invisible to the logger. The firm's controls here are managed devices and reconciliation of audit records against the groups the logger actually holds (spec §7.8.9).
 
@@ -231,7 +244,7 @@ Each `ComplianceRecord` is a signed envelope: the compliance logger signs the ex
 - You can verify the signature without trusting the firm's archive infrastructure
 - A record whose signature does not verify against the logger's public key was either altered or produced by a different system
 
-The archived message inside each record also carries proof of where it came from: `outerEnvelopeCID` is the hash of the encrypted message as it travelled through the network.
+Each record also carries the sender's encrypted message and the keys that open only that message. With them, anyone can check the sender's own device signature on the archived message without trusting the logger (spec §7.4). That check shows who signed the message; it does not show who else received it.
 
 ### The Role of the Chain Heads
 
@@ -261,7 +274,7 @@ A firm with chain heads recorded in an independent system, and a chain that veri
 
 **Requirement summary.** Five-year retention (seven years where directed by competent authority) of communications related to transactions. Recording of telephone and electronic communications.
 
-**What Agora provides.** The compliance logger captures text, and the compliance recorder captures voice and video, into tamper-evident chains. Voice recordings include per-call metadata. The retention period can be configured to meet the seven-year requirement.
+**What Agora provides.** The compliance logger captures text, and the compliance recorder captures voice and video, into tamper-evident chains. Voice recordings include per-call metadata. The retention period can be set to seven years where the competent authority directs it.
 
 **Recording consent.** Agora distinguishes two kinds of call recording (spec §6.12.3). A compliance recording, configured by the firm for regulated employees, is disclosed to every participant before recording begins and cannot be vetoed; a participant who does not accept it can stay muted with camera off, or leave. An operational recording (any other purpose) requires each participant's explicit acknowledgement before that participant's audio or video is sent.
 
@@ -362,7 +375,7 @@ When examining a firm's Agora deployment:
 
 **MLS (Messaging Layer Security, RFC 9420).** The IETF standard for end-to-end encrypted group messaging, and Agora's sole key agreement mechanism. The sender's device encrypts each message; only group members hold decryption keys.
 
-**Passive member.** An MLS group member that holds full decryption rights and receives all messages but does not issue group management operations (commits or proposals). The compliance logger is a passive member. It cannot alter the group membership or message history.
+**Passive member.** An MLS group member that holds full decryption rights and receives all messages but sends no messages and issues no proposals. Its only group operation is a scheduled self-update that replaces its own keys (spec §7.3). The compliance logger is a passive member. It cannot alter the group membership or message history.
 
 **Regulated member.** An employee the firm lists by DID in `regulatedMembers` in its Space state. Only regulated members carry the DM capture obligation.
 

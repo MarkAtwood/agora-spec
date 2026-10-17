@@ -1,0 +1,7 @@
+{
+  "id": "1792217410324986657-1",
+  "issue_id": "agora-pozi.31.149",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: ComplianceRecord also archives the sender's original MLS-signed message as received (FramedContent/PrivateMessage plaintext form needed to verify), the GroupContext, and the sender leaf's signature key and credential, so a third party can verify the sender signature independently; specify the verification procedure; remove the nonexistent 'fingerprint in authenticated data' claim.",
+  "created_at": "2026-10-17T06:10:10.324986657Z"
+}

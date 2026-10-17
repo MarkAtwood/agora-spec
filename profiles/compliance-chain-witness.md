@@ -9,7 +9,12 @@
 
 Each `ComplianceRecord` (spec §7.4) names the previous record by
 `prevRecordCID`, so altering, inserting or deleting a record in the middle of a
-chain breaks every link after it. The chain proves internal consistency. It
+chain breaks every link after it. Each record also carries the sender's MLS
+message as received, the keys that open only that message, the epoch's
+`GroupContext` and the sender's leaf, so a third party can check that a device
+key of the sender signed the archived plaintext without trusting the logger
+(spec §7.4, "Third-party verification"). Those checks cover single records.
+The chain proves internal consistency. It
 does not prove that today's chain is the chain that existed last month: whoever
 controls the archive could rewrite everything after some point, or cut off the
 end, and the result would still verify.
@@ -30,11 +35,11 @@ signed per spec §13.1.1 by the logger DID.
 ```json
 {
   "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
-  "indexCID": "bafyrei...",
+  "indexCID": "bafkrei...",
   "recordCount": 1834201,
   "ts": "2026-10-16T00:00:00Z",
   "reason": "scheduled",
-  "prevHeadCID": "bafyrei..."
+  "prevHeadCID": "bafkrei..."
 }
 ```
 
@@ -56,7 +61,9 @@ nothing else.
   that lawful pruning is distinguishable from deletion (see §5).
 - When a legal hold begins (`reason: legal-hold`).
 - When the logger's signing key rotates (`reason: key-rotation`), signed with
-  the outgoing key.
+  the outgoing key while it is still in the logger's DID document. Spec §7.9
+  adds the new key to the DID document before removing the old one, so the
+  head falls inside that overlap.
 
 ## 4. Witnesses
 
@@ -97,7 +104,12 @@ legal hold is in force, the firm does not prune the held chains.
 3. Verify each envelope's JWS against the logger DID, and check the
    `prevHeadCID` links for gaps.
 4. For the archive as produced, recompute the Space-level index and each
-   channel chain (spec §7.4, `guides/regulators.md`).
+   channel chain, and verify sampled records by the third-party procedure of
+   spec §7.4 (`guides/regulators.md`). Verify each record's signature against
+   the logger DID document version in effect when it was signed, which the
+   DID log preserves across key rotation (spec §7.9). Where an archive object
+   was re-sealed after an archive-key compromise, an `ArchiveResealEntry`
+   maps the CID a record names to the object's new CID (spec §7.9).
 5. Confirm that every witnessed `indexCID` is reachable from the current
    archive by appending records, with any differences explained by signed
    prune records. A witnessed head that the current archive cannot extend is

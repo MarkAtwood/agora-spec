@@ -1,0 +1,7 @@
+{
+  "id": "1792216937612885707-1",
+  "issue_id": "agora-pozi.31.34",
+  "author": "agent",
+  "text": "Resolved by door-key decision B; implemented under agora-pozi.31.158. DECIDED (Mark 2026-10-16), door-key option B: replace MLS-exporter-derived epoch access keys + member announcements + CO countersignature with a CO-ISSUED channel admission key. CO registration service generates a random admission key pair per channel, registers the public key with relays holding an IO agreement (never on open gossip), serves the private key to authenticated current members via the Space endpoint (§3.5 auth; same path as BroadcastKey). Rotates on membership removal (CO-authorized), not every MLS epoch. New relay / renewed agreement: CO registers current key. Broadcast: unified with content key mechanism. DMs: initiator's identity host (employer service or user-chosen host, parallel to KeyPackage host) issues and serves the DM admission key and relay list. Shared channels: home CO issues. channelToken derived from the admission key and its key epoch. Canonical Commit per epoch: ordered by the sequencer (designated relay). Endpoint outage: old key keeps working; removed member can still post junk until rotation but cannot read. Reverses Q1's exporter design while keeping its goal.",
+  "created_at": "2026-10-17T06:02:17.612885707Z"
+}

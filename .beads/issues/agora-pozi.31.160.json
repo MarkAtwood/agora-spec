@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.31.160",
+  "title": "Message requests must not suppress compliance capture",
+  "description": "spec §4.6.3 (message requests) vs §7.8.7: messages received by a regulated member while a DM is in request state are never captured. Rule: a regulated member's client MUST still process the Welcome, admit the logger and capture per §7.8 while the DM is held in request state; only UI/notifications/read receipts are suppressed.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T06:46:23.192489259Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T06:46:23.192489259Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.160",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T06:46:23.206015779Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

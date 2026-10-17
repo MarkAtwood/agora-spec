@@ -29,7 +29,7 @@ Compliance logging is enabled in the Space state document by the space owner:
   "enabled": true,
   "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
   "loggerLabel": "Example Corp Compliance Archive",
-  "logStore": "ipfs://bafyrei...",
+  "logStore": "ipfs://bafkrei...",
   "retentionDays": 2555,
   "scope": "all-channels",
   "enabledBy": "did:key:z6MkOwner...",
@@ -37,7 +37,7 @@ Compliance logging is enabled in the Space state document by the space owner:
 }
 ```
 
-The block carries no signature of its own; it is covered by the space owner's signature on the Space state document (§13.1.1). `loggerDID` is the DID of the compliance logging principal. `logStore` is the IPFS CID root of the compliance log: a content-addressed, append-only IPLD structure. The compliance log and the compliance audit chain (§7.8.8) hold plaintext and member DIDs and are CO data (ARCHITECTURE S8); any copy stored on IO infrastructure MUST be encrypted under a key the CO holds and the IO does not. `retentionDays` is the minimum retention period the logger is obligated to maintain. `scope` is `all-channels` or a list of channel path globs.
+The block carries no signature of its own; it is covered by the space owner's signature on the Space state document (§13.1.1). `loggerDID` is the DID of the compliance logging principal. `logStore` is the IPFS CID root of the compliance log: a content-addressed, append-only IPLD structure. The compliance log and the compliance audit chain (§7.8.8) hold plaintext and member DIDs and are CO data (ARCHITECTURE S8); any copy stored on IO infrastructure MUST be encrypted under a key the CO holds and the IO does not (§7.9). `retentionDays` is the minimum retention period the logger is obligated to maintain. `scope` is `all-channels` or a list of channel path globs.
 
 The `scope` field governs which Space channels receive the logger. The value `"all-channels"` causes the logger to be added to every channel in the Space, including channels created after compliance logging is enabled. A glob list (e.g., `["engineering/*", "legal/*"]`) limits logging to matching channel paths.
 
@@ -57,7 +57,7 @@ Disabling compliance logging requires a signed Space state mutation by the space
 
 ## 7.3 Logger Principal
 
-The `ComplianceLogger` is a DID-identified principal operated by the space's compliance infrastructure, typically an on-premise archival system or a regulated third-party compliance service (e.g., a FINRA-registered archiving vendor).
+The `ComplianceLogger` is a DID-identified principal operated by the space's compliance infrastructure, typically an on-premise archival system or a regulated third-party compliance service (e.g., a qualified third-party archiving vendor).
 
 The logger is a CO component (ARCHITECTURE §2.3, S8). It MUST run under CO control, with its own DID and keys, and is never a function or configuration option of a relay or other IO component. Where it is co-located on IO hardware, that is a contract under which the IO acts as the CO's processor; the logger remains a CO principal.
 
@@ -78,14 +78,16 @@ The logger's DID document identifies it as a compliance logger:
     "type": "AgoraComplianceLogger",
     "serviceEndpoint": "https://archive.example.com/v1/agora/compliance",
     "operator": "Example Corp Legal",
-    "regulatoryFramework": ["FINRA 17a-4", "SEC 17a-4"]
+    "regulatoryFramework": ["SEC 17a-4", "FINRA 4511"]
   }]
 }
 ```
 
 `regulatoryFramework` is an informational array of the regulatory requirements under which the logger operates. Clients MAY display this to members who inspect the space's compliance configuration.
 
-The logger operates as a passive member (§5.2.1.3). It holds leaf credentials, participates in epoch ratchets, and receives a `Welcome` from the committing member when added to a group. Its only part in its own admission is supplying a `KeyPackage` (§7.8.2). It does not send messages, publish presence events, generate typing indicators, or issue Commits or Proposals.
+The logger operates as a passive member (§5.2.1.3). It holds leaf credentials, participates in epoch ratchets, and receives a `Welcome` from the committing member when added to a group. Its only part in its own admission is supplying a `KeyPackage` (§7.8.2). It does not send application messages, publish presence events, generate typing indicators, or issue Proposals.
+
+**Scheduled self-update.** The only Commit a logger issues is a self-update: an empty Commit with an UpdatePath (RFC 9420 §12.4), which replaces its leaf's HPKE key so that a compromise of an old leaf key stops exposing later epochs (§12.2). The logger SHOULD issue one in each group it belongs to on a fixed schedule, for example weekly. If another Commit for the same epoch wins under the canonical Commit rule (§5.1.1), the logger discards its own and issues a new one in a later epoch. To publish the Commit and to receive the group's envelopes, the logger obtains the channel admission key (§5.2.2) as any member does: from the Space endpoint after authenticating per §3.5, or for a DM group from the identity host that serves the group's admission key (§4.6). A compliance recorder (§6.12) follows the same rules.
 
 ## 7.4 Log Record Format
 
@@ -94,20 +96,54 @@ Every message received by the logger is written as a signed `ComplianceRecord` t
 ```json
 {
   "@type": "ComplianceRecord",
-  "channel": "agora://bafyrei.../engineering/backend",
+  "channelID": "base64url...",
   "senderDID": "did:key:z6MkSender...",
   "epoch": 17,
   "seq": 1042,
   "ts": "2026-03-12T12:00:00.000Z",
   "plaintextPayload": "base64url...",
-  "outerEnvelopeCID": "bafyrei...",
-  "prevRecordCID": "bafyrei..."
+  "senderMessage": "base64url...",
+  "messageKeys": {
+    "senderDataKey": "base64url...",
+    "senderDataNonce": "base64url...",
+    "contentKey": "base64url...",
+    "contentNonce": "base64url..."
+  },
+  "groupContext": "base64url...",
+  "senderLeaf": {
+    "leafIndex": 4,
+    "leafNode": "base64url..."
+  },
+  "outerEnvelopeCID": "bafkrei...",
+  "prevRecordCID": "bafkrei..."
 }
 ```
 
-`plaintextPayload` is the decrypted inner payload envelope (§13.1), for example a JMAP Chat `Message` (§5.2.3), base64url-encoded from the exact bytes received. `outerEnvelopeCID` links the compliance record to the tamper-evident message history. A `ComplianceRecord` is verified outside the MLS group, so it is signed per §13.1.1 by the logger DID: the JWS is carried in the record's envelope `sig`, not in the body. `prevRecordCID` chains records into a linked list, making the log append-only and tamper-evident: inserting or deleting a record breaks the chain.
+All byte-valued fields are base64url without padding (RFC 4648 §5).
 
-The log is organized as a per-channel IPLD DAG, with a space-level index mapping channel CIDs to their respective log chain heads.
+- `channelID` is the channel's identifier from Space state (§3.3). In a record for a DM group, `mlsGroupID`, the group's MLS group ID (§4.6), replaces `channelID`.
+- `plaintextPayload` is the decrypted inner payload envelope (§13.1), for example a JMAP Chat `Message` (§5.2.3), from the exact bytes received.
+- `senderMessage` is the `MLSMessage` (RFC 9420 §6) carrying the sender's `PrivateMessage`, exactly as the logger received it after removing the sealed envelope (§5.2.2).
+- `messageKeys` are the AEAD keys and nonces that open `senderMessage` and nothing else: the sender data key and nonce derived from its ciphertext sample (RFC 9420 §6.3.2), and the content key and nonce of the sender's generation, with the nonce given after `reuse_guard` is applied (RFC 9420 §6.3.1). Each is derived for one ciphertext sample or one generation, and none yields another key of the epoch, so disclosing them discloses only this message, whose plaintext the record already holds.
+- `groupContext` is the encoded `GroupContext` (RFC 9420 §8.1) of the epoch in which the message was sent.
+- `senderLeaf` gives the sender's leaf index and its encoded `LeafNode` (RFC 9420 §7.2), which holds the leaf's signature key and credential.
+- `outerEnvelopeCID` is the `id` of the routing envelope that carried the message (§5.2.2).
+- `prevRecordCID` chains records into a linked list, making the log append-only and tamper-evident: inserting or deleting a record breaks the chain.
+
+The logger MUST verify the MLS sender signature of a message (RFC 9420 §6.1) before writing its record. A `ComplianceRecord` is verified outside the MLS group, so it is signed per §13.1.1 by the logger DID: the JWS is carried in the record's envelope `sig`, not in the body. A gap in a sender's `seq` values within a channel shows a message the logger did not receive (§5.1.1).
+
+**Third-party verification.** A verifier who holds a `ComplianceRecord` and does not trust the logger checks that the message was signed by a device key of `senderDID` as follows, and MUST treat the record as unverified if any step fails:
+
+1. Verify the record's signature per §13.1.1 with the logger DID as the required signer, and the record's place in the chain (`prevRecordCID`).
+2. Decode `senderMessage` as an `MLSMessage` carrying a `PrivateMessage`. Check that its `group_id` and `epoch` equal those in `groupContext`, and that `epoch` equals the record's `epoch`.
+3. Decrypt its `encrypted_sender_data` with `senderDataKey` and `senderDataNonce` (RFC 9420 §6.3.2), and check that the resulting `leaf_index` equals `senderLeaf.leafIndex`.
+4. Decrypt its `ciphertext` with `contentKey` and `contentNonce` (RFC 9420 §6.3.1), and check that the `application_data` of the resulting `PrivateMessageContent` equals the bytes of `plaintextPayload`.
+5. Build the `FramedContent` from the `PrivateMessage` header and the decrypted content, with a sender of type `member` at `senderLeaf.leafIndex`, and the `FramedContentTBS` with wire format `mls_private_message` and `groupContext`. Verify the content's `signature` with the `signature_key` of `senderLeaf.leafNode` (RFC 9420 §6.1).
+6. Verify the `LeafNode` signature (RFC 9420 §7.2), check that its credential names `senderDID` (§5.2.1), and check that its `signature_key` was a device key of `senderDID` in the DID document version in effect at `ts`, using the DID log (§2.1).
+
+A record that passes shows that the holder of that device key signed `plaintextPayload` for that group and epoch. It does not show that the leaf was in the group's ratchet tree at that epoch, since the record does not carry the tree, nor that any recipient other than the logger received the message.
+
+The log is organized as a per-channel IPLD DAG, with a space-level index mapping each `channelID`, and each DM group's `mlsGroupID`, to the head of its log chain.
 
 ## 7.5 Ephemeral Message and Expiry Handling
 
@@ -213,11 +249,11 @@ Before any regulated member sends a message in a DM group with a compliance logg
 ```json
 {
   "@type": "ComplianceDisclosureNotice",
-  "dmGroupID": "urn:agora:dmgroup:<uuid>",
+  "mlsGroupID": "base64url...",
   "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
   "loggerLabel": "Example Corp Compliance Archive",
   "retentionDays": 2555,
-  "regulatoryFramework": ["FINRA 17a-4", "SEC 17a-4"],
+  "regulatoryFramework": ["SEC 17a-4", "FINRA 4511"],
   "ts": "2026-03-12T00:00:00Z"
 }
 ```
@@ -253,8 +289,8 @@ The regulated member's Space MUST record each DM group compliance logger admissi
 ```json
 {
   "@type": "DMComplianceAuditEntry",
-  "dmGroupID": "urn:agora:dmgroup:<uuid>",
-  "dmGroupDescriptorCID": "bafyrei...",
+  "mlsGroupID": "base64url...",
+  "dmGroupDescriptorCID": "bafkrei...",
   "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
   "admittedBy": "did:key:z6MkRegulatedMember...",
   "admittedAt": "2026-03-12T00:00:00Z",
@@ -276,7 +312,7 @@ DM compliance capture is enforced only at CO enforcement points (ARCHITECTURE §
 ```json
 {
   "@type": "ComplianceGapEntry",
-  "dmGroupID": "urn:agora:dmgroup:<uuid>",
+  "mlsGroupID": "base64url...",
   "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
   "removedAtEpoch": 41,
   "readmittedAtEpoch": 43,
@@ -284,7 +320,7 @@ DM compliance capture is enforced only at CO enforcement points (ARCHITECTURE §
 }
 ```
 
-For a Space channel, `channel` (the channel path URI, as in `ComplianceRecord`) replaces `dmGroupID`. `readmittedAtEpoch` is `null` while the logger has not been re-admitted.
+`mlsGroupID` is the DM group's MLS group ID (§4.6). For a Space channel, `channelID` (as in `ComplianceRecord`) replaces `mlsGroupID`. `readmittedAtEpoch` is `null` while the logger has not been re-admitted.
 - The CO's audit pipeline SHOULD reconcile `DMComplianceAuditEntry` records (§7.8.8) against the groups the logger actually holds and alert the compliance officer to discrepancies.
 
 **Accepted cost.** A modified or non-conformant client can create or join a DM group without the logger, and no infrastructure component will stop it; such groups are invisible to the logger. The mitigation is the managed endpoint, the same trust boundary regulated firms already rely on for every other channel (ARCHITECTURE §9).
@@ -309,6 +345,42 @@ The following table summarizes the conformance requirements for DM group complia
 | Accept `Welcome` by POST at the `KeyPackageEndpoint` | Compliance logger operator | MUST |
 | Record detectable capture gaps in the compliance audit chain | Compliance logger | MUST |
 | Use DM group for persistent named multi-party private conversation | Any user | SHOULD use private channel instead |
+
+## 7.9 Logger and Recorder Key Rotation
+
+*Binds: CO.*
+
+The compliance logger (§7.3) and the compliance recorder (§6.12) each hold three kinds of key:
+
+- **Signing key**: the Ed25519 `authentication` key of its DID, which signs compliance records, audit entries and gap entries (§13.1.1).
+- **Leaf keys**: the signature key and HPKE encryption key of its MLS leaf in each group. The leaf signature key is a device key of its DID (§2.2).
+- **Archive key**: the key under which its archive is encrypted at rest. For the recorder this is the X25519 `keyAgreement` key named by `sealedTo` (§6.12.4). For the logger it is the key under which copies of the compliance log stored on IO infrastructure are encrypted (§7.2).
+
+**Planned rotation.** The CO SHOULD rotate each key on a schedule set by its key management policy:
+
+1. **Signing key.** The CO adds the new key to the DID document in a DID log entry (§2.1), signs new records with it, and then removes the old key from the current document. Records signed earlier stay verifiable against the DID document version in effect when they were signed, which the DID log preserves.
+2. **Leaf keys.** The scheduled self-update (§7.3) replaces the HPKE key. To replace the leaf signature key, the logger or recorder sends the same self-update Commit with a `LeafNode` that carries the new signature key and a credential for the same DID (RFC 9420 §5.3.2). The new key MUST be a device key in the DID document before the Commit is sent.
+3. **Archive key.** The CO publishes the new key, seals new archives to it, and keeps the old private key offline until every archive sealed to it has passed its `retentionDays`. It then destroys the old private key. A planned rotation does not re-encrypt existing archives.
+
+**Compromise.** When the CO has reason to believe one of these keys is exposed:
+
+1. **Signing key.** The CO rotates it at once as above. The chain the CO holds stays authoritative: a record signed with the old key that is not in that chain (§7.4) is not part of the archive.
+2. **Leaf keys.** The logger or recorder sends, in every group it belongs to, a self-update Commit that replaces both its leaf HPKE key and its leaf signature key. Later epochs are protected again (§12.2). Epochs before the update stay exposed to whoever holds the old keys.
+3. **Archive key.** The CO re-encrypts. Inside CO infrastructure it opens each object sealed to the old key, seals it to a new key, and stores the new object. It deletes every copy of the old object that it controls, including copies replicated to IO storage, and then destroys the old private key.
+
+Re-sealing changes the CID of an object that a signed record names, such as a recorder's `mediaCID`, and the signed record cannot change. For each such object the logger or recorder writes an `ArchiveResealEntry` to the Space's compliance audit chain, signed per §13.1.1 by its DID:
+
+```json
+{
+  "@type": "ArchiveResealEntry",
+  "oldCID": "bafkrei...",
+  "newCID": "bafkrei...",
+  "sealedTo": "did:webvh:QmSCID...:example.com:agora:recorder#x25519-2",
+  "resealedAt": "2026-03-12T00:00:00Z"
+}
+```
+
+A verifier that follows a record to `oldCID` uses the entry to find `newCID`. Re-encryption protects only against a holder of the old key who does not yet have the ciphertext. Copies of the old object that left CO control before the re-seal stay readable by anyone who holds the old key.
 
 
 ---

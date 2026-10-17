@@ -1,0 +1,7 @@
+{
+  "id": "1792217526866425973-1",
+  "issue_id": "agora-pozi.31.122",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: Business tiers rely on Google-enforced 2SV with security keys plus the device-key signature; remove the decorative WebAuthn 'step-up' and the 'same proof-of-possession check' wording (gsuite 419-428, 514; o365 555).",
+  "created_at": "2026-10-17T06:12:06.866425973Z"
+}

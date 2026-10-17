@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.32.7",
+  "title": "C7: no curator integration in Agora (decided)",
+  "description": "DECIDED (Mark 2026-10-16), option C: no CORUNDUM curator integration in Agora. Agora communities moderate only with their own tools (§4.5, §4.7); no external judgment feeds are applied in encrypted groups, account-level or content-level.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T06:46:44.424229284Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T06:46:44.424229284Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.32.7",
+      "depends_on_id": "agora-pozi.32",
+      "type": "parent-child",
+      "created_at": "2026-10-17T06:46:44.43479391Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

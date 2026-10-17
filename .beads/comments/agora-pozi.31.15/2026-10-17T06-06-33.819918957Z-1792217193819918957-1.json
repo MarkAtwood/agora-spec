@@ -1,0 +1,7 @@
+{
+  "id": "1792217193819918957-1",
+  "issue_id": "agora-pozi.31.15",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16): (B) guidance: CO/enterprise Space owners SHOULD be organization service DIDs, not personal DIDs; plus (A) optional but RECOMMENDED (SHOULD): a Space guardian (backup DID or k-of-n quorum) fixed at genesis that can sign an ownership transfer after a waiting period (e.g. 72 h) during which the current owner may object; fallback (C) re-found the Space. Also write the non-decision incident procedures: logger/recorder key rotation and re-encryption, manifest status revoked, provisioning-key compromise bulk response.",
+  "created_at": "2026-10-17T06:06:33.819918957Z"
+}

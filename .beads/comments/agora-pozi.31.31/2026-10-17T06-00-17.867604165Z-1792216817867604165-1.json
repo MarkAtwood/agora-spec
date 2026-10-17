@@ -1,0 +1,7 @@
+{
+  "id": "1792216817867604165-1",
+  "issue_id": "agora-pozi.31.31",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: accept that a relay serving push learns which channel tokens wake the same device; declare it in ARCHITECTURE §5 item 7 and spec §11.7; users may disable push. Per-token handles rejected (moves linkage to proxy/APNs/FCM).",
+  "created_at": "2026-10-17T06:00:17.867604165Z"
+}

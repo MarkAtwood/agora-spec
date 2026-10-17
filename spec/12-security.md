@@ -13,53 +13,60 @@ MLS provides forward secrecy by design. Each epoch derives a new application sec
 
 MLS `Update` proposals (triggered by devices or by time-based policy) ratchet the ratchet tree forward, healing from key compromise. A member whose keys were compromised but who subsequently performs an `Update` commit regains security: the compromised old key material cannot decrypt new messages. Space operators SHOULD enforce periodic key rotation (recommended: 7-day maximum epoch lifetime for active channels).
 
+Passive members (the compliance logger and recorder, §5.2.1.3) send no ordinary Updates. Each SHOULD send a scheduled self-update Commit, for example weekly (§7.3). Until it does, a compromise of its leaf HPKE key exposes the path secrets of every UpdatePath encrypted to that leaf, in every group the passive member belongs to. Because one logger or recorder sits in many groups, its leaf keys are among the most exposed in a deployment; §7.9 gives the rotation and compromise procedure.
+
+The channel admission key (§5.2.2) is not an MLS secret and gets no forward secrecy or post-compromise security from MLS. Its compromise lets the holder have envelopes admitted and recognize the channel's traffic at a Relay until the CO rotates it (§12.4, §12.12); it gives no access to content.
+
 ## 12.3 Relay Trust and Legal Exposure
 
 Relays are untrusted for message content and blind to membership and sender identity. The threat model addressed here is: a Relay operator receives a subpoena or legal demand. What can they produce?
 
 What each operator can be compelled to produce is defined in ARCHITECTURE.md §4: an IO yields only what is inside its observation budget (ARCHITECTURE.md §5), and a CO yields what its own retention policy keeps. The authoritative record for a regulated community is the CO's archive (§7), never a Relay.
 
-**What a Relay can observe:** exactly the ARCHITECTURE.md §5 observation budget: network-layer connection metadata within the retention declared in its manifest, ciphertext envelopes with their size, timing, `channelToken` and expiry hint, verification material and proofs that do not identify the member, CIDs it stores, agreement-keyed quota state, the billing DID of each CO it holds an agreement with and which access-key chains are registered under each agreement (ARCHITECTURE.md §5 item 6), and its own peering relationships. Because it follows each access-key chain (§5.2.2), a Relay links one chain's `channelToken`s across epochs and sees the chain's epoch boundaries and Commit cadence.
+**What a Relay can observe:** exactly the ARCHITECTURE.md §5 observation budget: network-layer connection metadata within the retention declared in its manifest, ciphertext envelopes with their size, timing, `id`, `channelToken`, timestamp and expiry hint, admission public keys and `admissionSig` values that do not identify the member, CIDs it stores, agreement-keyed quota state, the billing DID of each CO it holds an agreement with and which admission keys are registered under each agreement and when (ARCHITECTURE.md §5 item 6), push registrations if it serves push (ARCHITECTURE.md §5 item 7), and its own peering relationships. Every envelope of a channel within one key epoch carries the same `channelToken`, so a Relay links all of a channel's traffic within a key epoch. It may also link successive key epochs of one channel by the timing of their registration and deregistration (§5.2.2, §10.5.3). It recognizes envelopes that carry a stamped Commit by their `commitStamp` (§5.2.2). A Relay that serves push learns which `channelToken`s wake the same device (§11.7).
 
 **What a Relay cannot observe:**
 - Message content (MLS E2EE; the Relay never holds decryption keys).
 - Sender identity for any message (MLS encrypts the sender data, and the sealed envelope hides the MLS framing, §5.2.2).
-- Channel identity from `channelToken` (epoch-rotating derivation from the MLS exporter, non-reversible without group secrets).
+- Channel identity from `channelToken` (derived from the CO-issued admission key, §5.2.2, and not reversible to a `channelID` or MLS group ID without that key).
 - Group membership (no membership list at the Relay layer).
 - Message graphs or conversation structure.
 
 **What a Relay cannot do:**
 - Forge messages (each message carries the sender's MLS signature inside the sealed envelope, verified by recipients).
-- Silently modify history (IPLD content addressing detects tampering).
-- Map an access-key chain to a channel, Space or member. It links the tokens of one chain across epochs (§5.2.2), but not the chain to anything behind it.
+- Alter a message undetected: the MLS signature inside the sealed envelope covers its content.
+- Drop messages unnoticed: a Relay can withhold envelopes, but members detect the gap in the sender's inner `seq` (§5.1.1) and fetch from another Relay or another member (§5.2.5).
+- Map a `channelToken` or admission key to a channel, Space or member. It may link the key epochs of one channel (above), but not the channel to anything behind it.
 
-Clients SHOULD connect to multiple Relays simultaneously. A single Relay going dark (legal seizure, operator shutdown) does not partition a user from their channels as long as at least one other Relay serving that `channelToken` is reachable.
+Clients SHOULD connect to multiple Relays simultaneously. A single Relay going dark (legal seizure, operator shutdown) does not partition a user from their channels as long as at least one other Relay that the CO lists for the channel (§10.3.5) is reachable.
 
 ## 12.4 Metadata Leakage
 
-MLS sender-data encryption and the sealed envelope keep sender identity, the MLS group ID and the message kind away from the Relay layer, with one exception: an envelope that carries a Commit also carries an `accessKeyAnnouncement`, and the routing envelope carries `epoch` in the clear (§5.2.2), so Commits and epoch boundaries are visible. Residual metadata leakage points:
+MLS sender-data encryption and the sealed envelope keep sender identity, the MLS group ID, the MLS epoch and the message kind away from the Relay layer, with one exception: in a channel whose Space designates a sequencer, an envelope that carries a Commit also carries a `commitStamp` (§5.2.2), so Commits are visible there. The `channelToken` is stable for a whole key epoch (§12.3). Residual metadata leakage points:
 
 **IP address**: a Relay sees the connecting IP. Clients requiring IP-level anonymity SHOULD connect via Tor (preferring the Relay's `.onion` endpoint where available, to avoid exit node exposure) or a trusted front-end proxy.
 
 **Timing correlation**: a global passive adversary watching both sender and Relay can correlate message timing. This is a known limitation of all low-latency messaging protocols. Mixing/batching (as in Katzenpost) defeats timing analysis but is incompatible with Discord-like UX latency targets. This is an accepted tradeoff.
 
-**Gossipsub topic subscription**: Relays and mesh peers observe which `channelTokens` a peer subscribes to. Tokens rotate per epoch, but rotation does not prevent long-term correlation: the `accessKeyAnnouncement` that names each new token rides in the clear on the routing envelope (§5.2.2), so any Relay or gossip peer that sees it can follow a chain from epoch to epoch. Clients MAY subscribe to decoy `channelTokens` (random values indistinguishable from real tokens) to obscure their actual channel membership count and pattern. Clients requiring strong subscription privacy SHOULD maintain a fixed subscription count (padding with decoys to a constant) and rotate decoy selections each epoch.
+**Subscriptions**: a Relay observes which `channelToken`s a client subscribes to, and Relays that carry a channel's topic between them (§10.3.1) observe the token. A token is stable for a whole key epoch and changes only when the CO rotates the admission key (§5.2.2), so a Relay links a client's subscription to all of that channel's traffic in the key epoch. Decoy subscriptions do not hide membership from a Relay, because a Relay knows which tokens are registered with it. A client that wants to hide how many channels it follows from one Relay SHOULD spread its subscriptions across several of the Relays its COs list (§10.3.5).
 
-**Presence, typing and DM membership**: presence and typing indicators are MLS application messages, and a DM is an ordinary MLS group addressed by `channelToken`. A Relay sees them only as ciphertext envelopes within the ARCHITECTURE.md §5 budget; it cannot distinguish them from other traffic by type, and it does not learn who is in a DM.
+**Presence, typing and DM membership**: presence and typing indicators are MLS application messages, and a DM is an ordinary MLS group addressed by `channelToken`. A Relay sees them only as ciphertext envelopes within the ARCHITECTURE.md §5 budget; it cannot distinguish them from other traffic by type, and it does not learn who is in a DM. A DM group's admission key is registered under the agreement of the initiator's identity host (§4.6), so a Relay learns whose agreement covers a DM token. The identity host itself serves the DM group's admission key only to the group's members, so it learns who is in the DM (§12.11).
 
-**Tor gossipsub fingerprinting**: as noted in §11.3, gossipsub peer scoring observes message timing and subscription behavior independently of IP. A client connecting via Tor is not fully anonymous at the gossipsub layer. Clients requiring strong anonymity against a Relay-level adversary should treat this as a known residual risk.
+**Tor subscription fingerprinting**: as noted in §11.3, a Relay sees which `channelToken`s a connection subscribes to and when, whatever address the connection comes from. A client connecting via Tor can be recognized across circuits by its subscription set. Clients requiring strong anonymity against a Relay-level adversary should treat this as a known residual risk.
 
-**Channel token to channel CID correlation**: the `channelToken` is derived from the MLS exporter with a dedicated label and the `channelCID` as context (§5.2.2). An adversary who obtains a member's group state for an epoch (e.g., via member compromise) can compute the token for any channel they know the CID of. This is acceptable: that compromise already implies full message compromise for that epoch; the token mapping adds no new capability beyond what the compromised group state already provides.
+**Channel token correlation**: the `channelToken` is derived from the seed of the channel admission key (§5.2.2). Anyone who holds a `ChannelAdmissionKey`, which every current member and the CO hold, can compute the token and recognize the channel's traffic at a Relay. A removed member keeps that ability for the key epochs it held, including the current one until the CO rotates the key on its removal. A channel whose membership changes often SHOULD therefore have its key rotated promptly on each removal (§5.2.2).
 
 ## 12.5 Denial of Service
 
-Gossipsub v1.1 includes peer scoring and flood control built-in. Relays never authenticate client identity (ARCHITECTURE.md S1, §8 Q2); a connection opens with a minimal unauthenticated hello that only negotiates the protocol version (§11). Abuse control rests on what a Relay can check without knowing who the client is:
+Between Relays, gossipsub v1.1 peer scoring and flood control apply (§10.3.1). Relays never authenticate client identity (ARCHITECTURE.md S1, §8 Q2); a connection opens with a minimal unauthenticated hello that only negotiates the protocol version (§11). Abuse control rests on what a Relay can check without knowing who the client is:
 
-- **Writes** are accepted only with a valid epoch access proof (§5.2.2); envelopes that fail it are rejected.
-- **Group registration** requires the CO's billing key under a `RelayServiceAgreement` (§10.5.1).
+- **Writes** are accepted only with a valid `admissionSig` under an admission key registered with the Relay (§5.2.2, §10.5.4); envelopes that fail it are rejected.
+- **Admission key registration** requires a request signed by the CO's billing DID under a `ServiceAgreement` (§10.5.1, §10.5.3).
 - **Storage and bandwidth** are bounded by the agreement's quotas (§10.5.1).
 - **Connections, subscriptions, history reads and push registrations** are rate-limited per network address and per `channelToken`. Relays MUST enforce per-`channelToken` rate limits on message publication.
-- **Under load**, a Relay MAY require a proof-of-work challenge before accepting a connection. This admits clients that share an address, such as Tor users behind one exit, without penalizing all of them for one abuser.
+- **Under load**, a Relay MAY require a proof-of-work challenge (`AdmissionChallenge` and `AdmissionProof`, §11.6) before accepting a connection. This admits clients that share an address, such as Tor users behind one exit, without penalizing all of them for one abuser.
+- **Removed members and leaked keys.** A removed member, or anyone who obtains an admission key, can have envelopes admitted until the CO rotates the key (§5.2.2). Members drop such envelopes because MLS processing fails, so the cost is relay capacity and member bandwidth, not content. The CO bounds it by rotating on every removal and on any suspected leak, and the Relay's per-token rate limits bound it meanwhile.
+- **Wake-ups.** Wake-ups carry no content and no urgency (§11.7), so a sender cannot cause a high-priority wake on a recipient's device.
 
 Privacy Pass tokens are a possible future extension. Spam control is local policy; there is no global reputation system (by design; global reputation systems become censorship infrastructure).
 
@@ -79,18 +86,18 @@ All private key operations in Agora (signing, key agreement, MLS leaf operations
 
 **Browser clients.** A browser has no hardware boundary that can sign arbitrary payloads: a WebAuthn authenticator signs only WebAuthn assertion structures, so a passkey cannot be the device key (§2.2). A browser client holds its Ed25519 device key in WebCrypto and signs only through a non-extractable `CryptoKey` (`extractable: false`); for browser clients that `CryptoKey` is the secure boundary this section refers to. A browser client SHOULD protect the stored key with a passkey through the WebAuthn PRF extension:
 
-1. At registration, the client generates the Ed25519 key with `extractable: true`, wraps it with `wrapKey` under an AES key derived by HKDF from the PRF output of the user's passkey, stores only the wrapped key, and drops the original `CryptoKey`. The client MUST NOT call `exportKey` on it.
-2. Once per session, the client obtains the PRF output with a WebAuthn assertion, derives the AES key, and calls `unwrapKey` with `extractable: false`. It signs with the resulting key until the session ends.
+1. At registration, the client generates the Ed25519 key with `extractable: true`. It obtains the PRF output of the user's passkey with the PRF input `first` set to SHA-256 of the UTF-8 string `agora/v1/webauthn-prf`, and derives a 32-byte wrapping key as `HKDF-SHA256(IKM = PRF output, salt = "" (zero-length), info = "agora/v1/webauthn-prf-wrap", L = 32)`, imported as an AES-GCM key. It calls `wrapKey` with format `pkcs8` and `{name: "AES-GCM", iv}`, where `iv` is 12 fresh random bytes, stores only the wrapped key and `iv`, and drops the original `CryptoKey`. The client MUST NOT call `exportKey` on it.
+2. Once per session, the client obtains the PRF output with a WebAuthn assertion using the same PRF input, derives the wrapping key as above, and calls `unwrapKey` with the stored `iv` and `extractable: false`. It signs with the resulting key until the session ends.
 
 Where the authenticator does not support PRF, the client generates the key with `extractable: false` and stores the `CryptoKey` object itself in IndexedDB. Clearing browser storage destroys the device key; recovery is registering a new device (§2.2). A browser without WebCrypto Ed25519 MAY use a reviewed JavaScript or WebAssembly implementation, which exposes key bytes to page memory and is weaker than the paths above.
 
 **Conformance requirements by operation:**
 
-- **Authentication key signing** (Ed25519): MUST use a hardware-backed key where the platform supports Ed25519 in its secure boundary, and otherwise the best-protected software store the platform offers. Device keys are Ed25519 only (§2.2, §13.1.1), so a platform whose secure boundary supports only P-256 (such as the Secure Enclave) holds the device key in software. A `did:key` identity key used on several devices is exportable by design (§2.1) and so cannot be a non-extractable hardware key.
+- **Authentication key signing** (Ed25519): MUST use a hardware-backed key where the platform supports Ed25519 in its secure boundary, and otherwise the best-protected software store the platform offers. Device keys are Ed25519 only (§2.2, §13.1.1), so a platform whose secure boundary supports only P-256 (such as the Secure Enclave) holds the device key in software. A `did:key` identity key used on several devices is exportable by design (§2.1) and so cannot be a non-extractable hardware key. The MLS leaf signature key of a `did:key` device is generated on that device and never copied (§5.2.1), so it falls under the next item.
 
 - **MLS leaf operations** (KeyPackage generation, Commit signing, Update proposals): MUST use keys held in the secure boundary where the platform supports Ed25519 there, and otherwise in the best-protected software store. `openmls` supports pluggable crypto backends; implementations SHOULD provide a backend that delegates to the platform keystore rather than holding raw key bytes.
 
-- **MLS key schedule / epoch secrets**: these are MLS-internal derived values, not persistent keys. They exist transiently in MLS stack memory during epoch processing and SHOULD NOT be exposed to application code. All operations requiring epoch secret access MUST use the MLS exporter interface (RFC 9420 §11.5) rather than accessing the epoch secret directly.
+- **MLS key schedule / epoch secrets**: these are MLS-internal derived values, not persistent keys. They exist transiently in MLS stack memory during epoch processing and SHOULD NOT be exposed to application code. All operations requiring epoch secret access MUST use the MLS exporter interface (RFC 9420 §8.5) rather than accessing the epoch secret directly.
 
 - **X25519 key agreement** (for encrypting social recovery shares, HPKE operations): SHOULD use hardware-backed key agreement where the platform supports it. Where hardware X25519 is unavailable, software implementation in a sandboxed process is the fallback.
 
@@ -132,7 +139,7 @@ The organization retains one path to producing a message attributable to Alice's
 2. **Is recorded in the provisioning audit log** (§2.5.8).
 3. **Is detectable** by any member who compares the MLS leaf signature key that signed a message against the DID document entry that was active at the time of message creation.
 
-Cryptography does not prevent an organization holding an update key from adding a key to Alice's `did:webvh` document, inside or outside the enrollment path. It does make every such addition auditable: the key can enter the document only through a DID log entry signed with the organization's update key, the log is hash-chained, and resolvers reject a log that does not verify (§2.1). The organization cannot rewrite or hide the entry without producing an invalid history, so Alice, her contacts and auditors can see when each key was added and by which update key, without trusting the organization. Silent impersonation (producing a message indistinguishable from one Alice sent herself) is therefore not possible.
+Cryptography does not prevent an organization holding an update key from adding a key to Alice's `did:webvh` document, inside or outside the enrollment path. It does make every such addition auditable: the key can enter the document only through a DID log entry signed with the organization's update key, the log is hash-chained, and resolvers reject a log that does not verify (§2.1). Hash chaining alone does not stop the organization from showing different resolvers different valid logs (a split view) or an old prefix of the log (a rollback). For that reason a CO-provisioned `did:webvh` MUST use witnesses: every log entry carries a proof from at least one witness the organization does not control, and clients MUST verify those proofs (§2.1). Hiding a key addition from Alice while showing it to her contacts then requires the collusion of such a witness, so Alice, her contacts and auditors can see when each key was added and by which update key without trusting the organization alone. Silent impersonation (producing a message indistinguishable from one Alice sent herself) is therefore not possible without a colluding witness. An individual's `did:webvh` MAY omit witnesses; it then gets only the weaker guarantee that each entry a resolver receives was signed by an authorized update key, with no protection against a split view or a rollback by whoever holds an update key or serves the log (§2.1).
 
 Detectable impersonation through the enrollment path (registering a new device key under Alice's DID) requires a logged admin action and produces a cryptographic artifact that auditors and Alice herself can inspect.
 
@@ -144,7 +151,7 @@ The combination of per-message device-key signatures and a tamper-evident IPLD c
 
 - **DKIM** authenticates the sending domain, not the individual sender. An admin with access to the DKIM private key can sign mail on behalf of any address at that domain.
 - **Enterprise S/MIME** with key escrow allows the key custodian (typically the organization) to produce valid signatures for any escrowed identity.
-- **Agora device-key signatures** can only be produced by the specific hardware device that holds the private key. The compliance logger is an MLS member and verifies each message's MLS signature against the sender's leaf before writing a signed `ComplianceRecord` with the message content and `senderDID` (§7.4). A regulator or court relies on that signed record and can cross-reference the sender's device keys in the DID log (§2.1). The `ComplianceRecord` does not currently record which of the sender's device keys signed the message.
+- **Agora device-key signatures** can only be produced by the device that holds the private key, in a hardware-backed keystore where the platform supports Ed25519 there and otherwise in the best-protected software store (§12.6). The compliance logger is an MLS member and verifies each message's MLS signature against the sender's leaf before writing a signed `ComplianceRecord` (§7.4). The record carries the sender's MLS message as received, the keys that open that one message, the epoch's `GroupContext` and the sender's `LeafNode`, so a regulator or court can re-verify the sender's own signature without trusting the logger, and can check in the DID log that the signing key was a device key of `senderDID` at the time (§7.4, Third-party verification).
 
 This property is relevant for FINRA Rule 17a-4, SEC Rule 17a-4, and MiFID II recordkeeping requirements, where the integrity and authenticity of retained communications are material.
 
@@ -153,17 +160,17 @@ This property is relevant for FINRA Rule 17a-4, SEC Rule 17a-4, and MiFID II rec
 
 *Binds: CO.*
 
-The CO runs the online services that hold community authority: the registration service (§5.2.2, §10.5.1), Space endpoints (§3.4), KeyPackage hosts (§5.2.1.1), the provisioning service (§2.5), the TURN credential service (§6.11), and the compliance logger and recorder (§7.3, §6.12). Their conformance classes are listed in §1.4. These services are CO components (ARCHITECTURE.md §2.3), so what they learn is CO knowledge and not an IO observation; §12.11 lists it.
+The CO runs the online services that hold community authority: the registration service (§5.2.2, §10.5.3), Space endpoints (§3.4), KeyPackage hosts (§5.2.1.1), the provisioning service (§2.5), the TURN credential service (§6.11), and the compliance logger and recorder (§7.3, §6.12). Their conformance classes are listed in §1.4. These services are CO components (ARCHITECTURE.md §2.3), so what they learn is CO knowledge and not an IO observation; §12.11 lists it.
 
 **Member authentication.** CO services that serve or issue something only to current members authenticate them with the exchange in §3.5. That exchange is the only member authentication between clients and CO services; Relays and other IOs never use it.
 
-**Key custody.** The billing key, the provisioning service's signing and DID update keys, the Space owner and admin keys used for online signing, and the keys of the compliance logger and recorder SHOULD be held in an HSM or equivalent hardware boundary, as for relay keys (§12.6). The billing key SHOULD NOT be held on the same host as a Space endpoint: a Space endpoint is reachable by every member and holds Space-identifying records, while the billing DID MUST NOT appear in any Space-identifying record (ARCHITECTURE.md §6.1).
+**Key custody.** The billing key, the provisioning service's signing and DID update keys, the Space owner and admin keys used for online signing, the channel admission private keys the registration service issues (§5.2.2), and the keys of the compliance logger and recorder SHOULD be held in an HSM or equivalent hardware boundary, as for relay keys (§12.6). The billing key SHOULD NOT be held on the same host as a Space endpoint: a Space endpoint is reachable by every member and holds Space-identifying records, while the billing DID MUST NOT appear in any Space-identifying record (ARCHITECTURE.md §6.1).
 
 **Rate limits.** Every CO service SHOULD rate-limit requests per network address and per authenticated DID. A KeyPackage host SHOULD also rate-limit Welcome POSTs per source address and per target identity, and SHOULD reject a Welcome larger than it is prepared to store; fetch rate limits are in §5.2.1.1.
 
-**Audit logging.** CO services SHOULD log security-relevant operations, including device key registrations and revocations (§2.5), issuance of `BroadcastKey` records (§3.4), and administrative actions. Such logs are CO records kept under the CO's retention policy and are subject to the minimization guidance in §12.11.
+**Audit logging.** CO services SHOULD log security-relevant operations, including device key registrations and revocations (§2.5), admission key registrations, rotations and deregistrations (§10.5.3), issuance of `ChannelAdmissionKey` and `BroadcastKey` records (§3.4), and administrative actions. Such logs are CO records kept under the CO's retention policy and are subject to the minimization guidance in §12.11.
 
-**Availability.** Outages of these services fail closed for new access but leave existing access in place. In particular, while the registration service is unreachable, relays keep accepting the last countersigned access key, so a member removed after that key can keep writing until service resumes (§5.2.2). A CO SHOULD run the registration service and Space endpoints redundantly and monitor them.
+**Availability.** Outages of these services fail closed for new access but leave existing access in place. In particular, while the Space endpoint or the registration service is unreachable, relays keep accepting the last registered admission key, so a member removed after that key was issued can still have envelopes admitted, though it cannot read, until the CO rotates the key (§5.2.2). A CO SHOULD run the registration service and Space endpoints redundantly and monitor them.
 
 ## 12.9 Time and Clocks
 
@@ -173,7 +180,7 @@ Timestamps in documents are RFC 3339 date-times in UTC (`Z` suffix). The excepti
 
 Clients, Relays and CO services SHOULD keep their clocks synchronized to UTC, for example with NTP (RFC 5905). Unless a section states its own window, a party comparing another party's timestamp with its own clock MUST NOT treat an object as not yet valid unless its start time is more than 300 seconds ahead of its own clock, and checks expiry against its own clock with no added tolerance.
 
-Message order does not depend on any clock: messages are ordered by `seq` (§5.1.1), call coordination by epoch and envelope `id` (§6.14), and the routing envelope `ts` is unauthenticated (§5.2.2). Clocks do decide the following:
+Message order does not depend on any clock: messages are ordered by `seq` (§5.1.1), call coordination by epoch and envelope `id` (§6.14), and the routing envelope `ts` is set by an unidentified holder of the admission key (§5.2.2). Clocks do decide the following:
 
 | Check | Whose clock | Defined in |
 |---|---|---|
@@ -216,19 +223,20 @@ This section applies to every disclosure this specification requires a client to
 
 *Binds: both.*
 
-This section collects what each party learns. It does not restate the IO limits, which are normative in ARCHITECTURE.md: what each operator can be compelled to produce (§4), the IO observation budget (§5), and the accepted costs of the design, including Space anonymity bounded by the size of the CO and address clustering (§9). §12.3 and §12.4 describe the residual metadata visible to Relays and gossip peers.
+This section collects what each party learns. It does not restate the IO limits, which are normative in ARCHITECTURE.md: what each operator can be compelled to produce (§4), the IO observation budget (§5), and the accepted costs of the design, including Space anonymity bounded by the size of the CO and address clustering (§9). §12.3 and §12.4 describe the residual metadata visible to Relays.
 
 **What each party learns.**
 
 | Party | Learns | Defined in |
 |---|---|---|
-| Relay, blob host | The ARCHITECTURE.md §5 budget, including the access-key chains it follows | §12.3, §12.4, §10.4.1 |
+| Relay, blob host | The ARCHITECTURE.md §5 budget, including the admission keys registered with it and, if it serves push, which tokens wake the same device | §12.3, §12.4, §10.4.1 |
 | Push proxy | Device push handles and wake-up timing | ARCHITECTURE.md §5 item 7, §11.7.1 |
 | TURN server | A valid credential, a source address and opaque media | §6.11 |
-| SFU | Participant connections and encrypted media frames | §6.6 |
+| SFU | Participant connections, encrypted media frames and the admission keys registered with it | §6.6 |
 | Sequencer | As stated in §14.4.6 | §14.4.6 |
-| Registration service (CO) | Which authenticated members request its services, and the epoch timing of each chain | §5.2.2, §10.5.1 |
-| Space endpoint (CO) | Which members and invitees fetch Space state and broadcast keys, and when | §3.4 |
+| Registration service (CO) | Which admission keys it registers with which IOs, and when | §5.2.2, §10.5.3 |
+| Space endpoint (CO) | Which members and invitees fetch Space state, admission keys and broadcast keys, and when | §3.4 |
+| DM initiator's identity host | Who fetches a DM group's admission key, and so who is in the DM | §4.6 |
 | KeyPackage host (CO) | When a user's KeyPackages are fetched, and which groups send that user a Welcome | §5.2.1.1, §4.6 |
 | TURN credential service (CO) | Which members request credentials, and so call attendance | §6.11 |
 | Provisioning service (CO) | The employee's IdP identity, devices, registrations and revocations | §2.5 |
@@ -245,6 +253,49 @@ This section collects what each party learns. It does not restate the IO limits,
 - Crypto-shredding: message ciphertext and group-encrypted blobs (§3.4) are keyed from MLS epoch secrets. Once every member has deleted an epoch's secrets (§12.1), ciphertext held by any IO for that epoch can no longer be decrypted.
 
 **Out of scope.** Legal hold, archive disposal after `retentionDays`, and responses to data-subject requests are CO policy carried out on CO records under the CO's own controls (ARCHITECTURE.md §4). An IO holds nothing attributable to a member beyond network-layer metadata within its declared retention (ARCHITECTURE.md §5 item 1).
+
+## 12.12 Key Compromise and Incident Response
+
+*Binds: both.*
+
+This section gives the response to the loss or compromise of each class of key that is not covered elsewhere. Device keys are revoked as in §2.2 and §2.5.5. MLS leaf keys heal through Updates (§12.2). A device key revoked in a DID log does not invalidate objects that were verified against the DID document in effect when they were accepted; it stops new objects from verifying (§13.1.1).
+
+**Space owner key.** For a `did:webvh` or `did:plc` owner, loss of the owner's devices is repaired by recovering the owner's DID (§2.4, §2.5.8), after which the owner signs Space state again. Theft is worse: a thief can sign Space state, including a transfer of ownership to itself.
+
+1. The owner revokes the stolen device key in its DID log (§2.2, §2.5.5) and sends an `IdentityChanged` notice (§2.7). Space state signed with that key after the revocation fails verification.
+2. If the thief has already transferred ownership, or can keep signing because the owner cannot revoke the key, the guardians named in `guardian` transfer ownership to a DID the rightful owner controls (§4.1). The completion SHOULD replace `guardian` if a guardian was involved.
+3. If the Space has no `guardian`, or the thief defeats the guardian procedure by objecting with the stolen key (§4.1), the only remedy is to found a new Space and move members to it.
+
+A Space run by an organization avoids most of this by having an organization service DID as owner (§4.1), whose keys the organization holds under its own custody and recovery.
+
+**Recovery and social recovery keys.** A thief who holds the recovery key or the social recovery key (§2.4.1, §2.4.2) can sign a `RecoveryAssertion` and take over the DID. Detection and the 24-hour rule of §2.4.4 apply. When the user suspects exposure, while it still controls the DID:
+
+1. It writes a DID log entry (or, for `did:plc`, a PLC operation) that removes the exposed key from `recoverableIdentity` and from the authorized update keys, and in the same entry registers a new recovery key generated as in §2.4.1.
+2. For a social recovery key, it generates a new recovery secret, distributes new shares to its guardians (§2.4.2), registers the new derived key, and removes the old one. Guardians SHOULD delete the old shares; an old share cannot reconstruct the new secret.
+3. It sends an `IdentityChanged` notice (§2.7) so that members re-resolve the DID.
+
+A `RecoveryAssertion` names the log head it applies to in `prev` (§2.4.1), so an assertion signed with the old key before the rotation cannot be replayed afterward.
+
+**Provisioning service keys.** A thief who holds the provisioning service's DID update key can add device keys to every employee DID it hosts (§2.5). Each addition is a DID log entry visible to resolvers (§2.1). A provisioning service SHOULD use did:webvh pre-rotation, committing in each log entry to the hash of the next update key, so that a stolen current update key cannot authorize a successor of the thief's choosing. On detection the organization:
+
+1. Rotates the update key: a log entry for each hosted DID, signed with a still-trusted or pre-rotated update key and carrying its witness proofs, that authorizes the new update key and removes the old one. If no such key remains for a DID, that DID cannot be taken back, and the organization provisions a new DID for the user (§2.5.3).
+2. Lists every device key added by entries signed with the stolen key since the earliest possible compromise, and revokes each one not confirmed by its user (§2.5.5), in bulk.
+3. Has each affected user's remaining devices remove the leaves of the revoked keys from the user's groups (§2.2) and send an `IdentityChanged` notice (§2.7).
+4. Tells affected users and their Space admins which keys were revoked, so they can judge which messages to distrust. Messages signed by a revoked key before its revocation remain verifiable; whether to trust them is a human decision.
+
+**Compliance logger and recorder keys.** The rotation and compromise procedure, including re-encryption of archives, is in §7.9.
+
+**Channel admission key.** A leaked admission key lets its holder have envelopes admitted and recognize the channel's traffic at a Relay (§12.4). It gives no access to content. The CO rotates the key (§5.2.2), registers the new key and deregisters the old one (§10.5.3).
+
+**Relay signing key.** A planned rotation keeps the old key as `deprecated` during an overlap (§10.2.6). On compromise the Relay instead publishes its manifest with the key's `status` set to `"revoked"`. Peer Relays MUST reject, with no overlap, every request signed with a key their latest copy of the manifest marks `revoked`, and SHOULD refetch a peer's manifest when a signature from that peer fails to verify, so that a revocation takes effect at the next failed or suspicious request. The Relay operator also notifies each CO it holds a `ServiceAgreement` with through the agreement's contact. A Relay key signs no member-visible content, so members need do nothing.
+
+**Billing key.** The billing DID signs `ServiceAgreement`s and admission key registrations (§10.5.1, §10.5.3). For a planned rotation the CO adds a new key to the billing DID's document and signs new requests with it; agreements and registrations need not change. On compromise, a thief can register admission keys of its choosing under the CO's agreements, consuming the CO's quota, or deregister the CO's keys, interrupting delivery; it cannot read content or forge messages. The CO:
+
+1. Removes the stolen key from the billing DID's document, or, if the billing DID itself is lost, creates a new billing DID.
+2. Signs with each IO a new `ServiceAgreement` that supersedes the old one (§10.5.1). From then on the IO rejects registrations under the old agreement, and the keys registered under it lapse after one hour.
+3. Within that hour, re-registers every current admission key under each new agreement (§10.5.3), including any key the thief deregistered.
+
+Admission keys and `channelToken`s do not change in this procedure, so members notice nothing: channels survive renewal or replacement of an agreement. The billing key gives no access to admission private keys, so their rotation is not needed.
 
 ---
 

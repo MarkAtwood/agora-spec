@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.31.161",
+  "title": "DM admission keys: registration signer for identity hosts",
+  "description": "§10.5.3 says the billing DID signs AdmissionKeyRegistration, but DM keys are issued by the initiator's identity host. Define: an employer provisioning service registers under the employer CO's billing DID/agreements; an individual's chosen host registers under its own ServiceAgreement and billing DID.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T06:46:23.260059098Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T06:46:23.260059098Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.161",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T06:46:23.270124675Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

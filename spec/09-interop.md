@@ -5,7 +5,7 @@
 
 *Binds: CO.*
 
-Every interop component in this section (MIMI provider endpoints, gateways and bridges) is a CO component (ARCHITECTURE.md §2.3, S8). None of them runs in, or as part of, a relay or any other IO component. Relays carry interop traffic only as ordinary ciphertext envelopes keyed by `channelToken`.
+Every interop component in this section (MIMI provider endpoints, gateways and bridges) is a CO component (ARCHITECTURE.md §2.3, S8). None of them runs in, or as part of, a relay or any other IO component. Relays carry interop traffic only as ordinary ciphertext envelopes keyed by `channelToken` and signed with the channel admission key (§5.2.2).
 
 ## 9.1 MIMI Native Interop
 
@@ -62,9 +62,16 @@ The content format in use is declared in the channel's entry in Space state (§3
 
 ### Delivery Service Bridging
 
-MIMI defines a delivery service protocol (`draft-ietf-mimi-protocol-05`) for cross-provider message routing. The MIMI delivery service tracks room participants by MIMI URI, so the Agora-side MIMI endpoint necessarily knows group membership. It is therefore a CO component: the CO operating the channel runs a MIMI provider endpoint, and a relay MUST NOT act as a MIMI delivery service endpoint (ARCHITECTURE.md S1). MLS Commits and Welcome messages are exchanged between the CO's MIMI provider endpoint and the peer MIMI provider via the MIMI delivery protocol. Gossipsub fanout through relays handles Agora-side delivery as token-keyed ciphertext; the MIMI protocol handles the cross-provider leg.
+MIMI defines a delivery service protocol (`draft-ietf-mimi-protocol-05`) for cross-provider message routing. The MIMI delivery service tracks room participants by MIMI URI, so the Agora-side MIMI endpoint necessarily knows group membership. It is therefore a CO component: the CO operating the channel runs a MIMI provider endpoint, and a relay MUST NOT act as a MIMI delivery service endpoint (ARCHITECTURE.md S1). MLS Commits and Welcome messages are exchanged between the CO's MIMI provider endpoint and the peer MIMI provider via the MIMI delivery protocol. The channel's relays handle Agora-side delivery as token-keyed ciphertext; the MIMI protocol handles the cross-provider leg.
 
-The CO's MIMI provider endpoint registers as the MIMI delivery service endpoint for the channel's MLS group with the peer MIMI provider. MLS handshake messages (Proposals, Commits, KeyPackages) flow bidirectionally between the two delivery services. The endpoint holds no MLS group secrets and sees no plaintext; it relays handshake messages between the MIMI provider and the channel's relays as ciphertext. Members SHOULD be told that the peer MIMI provider also learns the room's participant list.
+The CO's MIMI provider endpoint registers as the MIMI delivery service endpoint for the channel's MLS group with the peer MIMI provider. MLS handshake messages (Proposals, Commits, KeyPackages) flow bidirectionally between the two delivery services, and the endpoint carries the group's application messages between the peer provider and the channel's relays.
+
+To publish to the relays, the endpoint signs routing envelopes with the channel admission key, and to read from them and post to them it removes and applies the sealed envelope (§5.2.2). The admission key is a CO-issued key, which the endpoint holds as a CO component. The sealing key is an MLS exporter output of each epoch, so the endpoint holds group secrets in one of two ways:
+
+- It is a member of the group, admitted as a passive member (§5.2.1.3) and visible in the group's membership like a compliance logger (§7.7). As a member it can decrypt the group's content.
+- It is not a member and receives the sealing key of each epoch from a CO component that is a member. It then handles only MLS ciphertext and does not see plaintext. This is the RECOMMENDED form.
+
+Either way the endpoint is inside the CO trust boundary (ARCHITECTURE §2.3), and the exporter outputs it holds MUST NOT be passed to any IO (ARCHITECTURE S3). Members SHOULD be told that the peer MIMI provider also learns the room's participant list.
 
 ### Limitations
 
@@ -110,7 +117,7 @@ The channel's entry in Space state records the gateway's presence and type:
 
 ### Message Flow: Agora → Matrix
 
-1. Gateway receives an MLS-encrypted message from the Agora channel gossip topic.
+1. Gateway receives an MLS-encrypted message from the channel's relays (§11).
 2. Gateway decrypts it using its MLS leaf key (it is a full group member).
 3. Gateway translates Agora inner payload to Matrix event format:
    - New `urn:ietf:params:jmap:chat#Message` → `m.room.message` with `msgtype: m.text`
@@ -126,7 +133,7 @@ The channel's entry in Space state records the gateway's presence and type:
 1. Gateway receives a Matrix event via the Matrix Application Service API.
 2. Gateway translates the Matrix event to Agora inner payload format.
 3. Gateway encrypts the payload using its MLS group membership.
-4. Gateway publishes the outer `RoutingEnvelope` to the Agora channel gossip topic.
+4. Gateway publishes the outer `RoutingEnvelope`, signed with the channel admission key it obtains as a member (§5.2.2), to the channel's relays.
 5. Agora clients see the message as coming from the gateway DID. The payload is a `urn:ietf:params:jmap:chat#Message` whose body carries a `bridgedFrom` field identifying the original Matrix sender:
 
 ```json
@@ -149,9 +156,9 @@ Agora DIDs map to Matrix virtual users with a deterministic MXID derived from th
 Agora's nested channel namespace does not map cleanly to Matrix's flat room model. The gateway maps each Agora channel path to a separate Matrix room, organized into a Matrix Space:
 
 ```
-agora://bafyrei.../general             → !room1:example.com (in Space)
-agora://bafyrei.../engineering/backend → !room2:example.com (in Space)
-agora://bafyrei.../engineering/fips    → !room3:example.com (in Space)
+agora://bafkrei.../general             → !room1:example.com (in Space)
+agora://bafkrei.../engineering/backend → !room2:example.com (in Space)
+agora://bafkrei.../engineering/fips    → !room3:example.com (in Space)
 ```
 
 Category channels (`type: category`) with no messages of their own map to Matrix Space sub-spaces rather than rooms.
@@ -191,9 +198,9 @@ Any gateway admitted to an Agora channel (Matrix, or any future gateway type) is
 }
 ```
 
-This event is stored in the channel's IPLD history, a permanent record that a gateway was added and when.
+This specification defines one `event` value, `gateway-added`; receivers MUST ignore a `SystemEvent` whose `event` they do not recognize. The `SystemEvent` reaches members like any message (§5.2.5) and is not the durable record: the `gateways` array in Space state is, and the Space state chain (§3.3) records when each gateway was added.
 
-**Client rendering.** Clients MUST render a persistent banner or channel badge indicating gateway presence. The banner MUST NOT be dismissible per-session without re-appearing on reconnect. Members who joined after a gateway was added receive the `SystemEvent` from history and see the indicator immediately on first load.
+**Client rendering.** Clients MUST render a persistent banner or channel badge indicating gateway presence. The banner MUST NOT be dismissible per-session without re-appearing on reconnect. Members who joined after a gateway was added see the indicator from the `gateways` array in Space state immediately on first load, whether or not they received the `SystemEvent`.
 
 
 ---

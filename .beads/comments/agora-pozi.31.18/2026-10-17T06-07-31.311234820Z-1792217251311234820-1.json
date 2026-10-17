@@ -1,0 +1,7 @@
+{
+  "id": "1792217251311234820-1",
+  "issue_id": "agora-pozi.31.18",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16): (A) MUST: client-side message-request state for DMs from non-accepted senders (no notification, no read receipts/typing, nothing sent until accepted; decline/block; block list local to the user's devices); (B) MAY: the user's KeyPackage host refuses KeyPackage fetches and Welcome POSTs from blocked senders or by policy (e.g. outside the org). Also write as fixes: urn:agora:type:AbuseReport to CO moderation (state plainly no message franking, so reports are not third-party verifiable), CO-to-IO chain deregistration, relay takedown handling for unreadable CIDs, open-link join rate/PoW gate.",
+  "created_at": "2026-10-17T06:07:31.31123482Z"
+}

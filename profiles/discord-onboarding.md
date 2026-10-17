@@ -71,7 +71,7 @@ Both browser and CLI follow the same logical sequence:
 6. **KeyPackage upload**: the tool uploads an initial batch of MLS KeyPackages and one last-resort KeyPackage to the user's `KeyPackageEndpoint` (spec §5.2.1.1). KeyPackages never go to a relay or to the Enrollment Service.
 7. **Registration**: the tool POSTs the DID and a signed proof-of-possession to the Enrollment Service (§8).
 8. **MLS Add**: the enrollment agent fetches a KeyPackage from the user's `KeyPackageEndpoint`, commits the Add, and POSTs the Welcome to that endpoint (§8.2).
-9. **Keyfile export**: the tool produces the encrypted key and state backup file for the user to save (§7). It never contains the recovery private key.
+9. **Keyfile export**: the tool produces the encrypted key backup file for the user to save (§7). It never contains the recovery private key or any MLS state.
 10. **Confirmation**: the tool displays the space URI and the user's DID.
 
 ### 3.1 DID Method Choice
@@ -88,7 +88,7 @@ The user picks one of the three user DID methods of spec §2.1. The tool MUST of
 
 **`did:plc`.** Intended for users who already have a Bluesky identity. The tool adds the device verification method and a `KeyPackageEndpoint` service entry by an ordinary PLC operation, signed by a rotation key the user controls (for an existing identity, this may require the user's PDS to sign). A new `did:plc` identity uses the device key and the recovery public key as rotation keys.
 
-**`did:key`.** Before creating a `did:key` identity, the tool MUST show the warning required by spec §2.1: losing the key loses the identity permanently, a lost or stolen device cannot be revoked, and there is no recovery beyond the user's own encrypted backup. The user confirms explicitly. The tool then publishes the user's Pkarr pointer record (spec §2.1, §10.3.4.6) with `_kp._agora.` set to the `KeyPackageEndpoint` URL at the host the user picked; the record MUST NOT name a relay. The client re-publishes the record every 2 hours (spec §10.3.4.6). `did:key` is CLI-only because the identity key must be exportable to reach the user's other devices (spec §2.1), and the browser device key is not (§5.1). The CLI offers `did:key` only with the encrypted file or OS keychain backend, or with PKCS#11 if the user accepts a single-device identity.
+**`did:key`.** Before creating a `did:key` identity, the tool MUST show the warning required by spec §2.1: losing the key loses the identity permanently, a lost or stolen device cannot be revoked, and there is no recovery beyond the user's own encrypted backup. The user confirms explicitly. The tool then publishes the user's Pkarr pointer record (spec §2.1, §10.3.4.6) with `_kp._agora.` set to the `KeyPackageEndpoint` URL at the host the user picked; the record MUST NOT name a relay. The client re-publishes the record every 2 hours (spec §10.3.4.6). The identity key is not an MLS leaf key: each device generates its own leaf signature key and carries a device binding signed by the identity key in its leaf, which members verify (spec §2.2, §5.2.1). The identity key signs the KeyPackage publications (spec §5.2.1.1) and the registration proof (§8). `did:key` is CLI-only because the identity key must be exportable to reach the user's other devices (spec §2.1), and the browser device key is not (§5.1). The CLI offers `did:key` only with the encrypted file or OS keychain backend, or with PKCS#11 if the user accepts a single-device identity.
 
 ---
 
@@ -212,7 +212,7 @@ For `did:webvh`, the DID document in the genesis log entry combines the WebCrypt
   "service": [{
     "id": "did:webvh:QmSCID...:host.example:alice#keypackages",
     "type": "AgoraKeyPackageEndpoint",
-    "serviceEndpoint": "https://host.example/alice/keypackages"
+    "serviceEndpoint": "https://host.example/v1/agora/kp/alice"
   }]
 }
 ```
@@ -267,13 +267,13 @@ backupKey = Argon2id(passphrase, salt, m=65536, t=3, p=4)
 ciphertext = AES-256-GCM(backupKey, keyMaterial)
 ```
 
-`keyMaterial` is a CBOR struct containing the Ed25519 private key, X25519 private key, DID, and creation timestamp. The file format matches the Agora spec §2.4.3 encrypted backup format (`backupType: "full"`).
+`keyMaterial` is a CBOR struct containing the Ed25519 private key, X25519 private key, DID, and creation timestamp. This file is the local keystore. The user's backup is the keyfile (§7); the tool can also export the spec §2.4.3 backup format with `backupType` `"keys"`.
 
 The passphrase is prompted at key generation and at each subsequent use. It MUST NOT be stored anywhere. The CLI MUST require the passphrase to be confirmed twice at generation.
 
 ### 6.4 PKCS#11 Backend
 
-The CLI uses the PKCS#11 interface to generate a key on the hardware token. The private key is non-extractable (stays on device). The public key is retrieved for DID derivation. Supported mechanisms: `CKM_EDDSA` (Ed25519), `CKM_ECDSA` (P-256 fallback). The PKCS#11 library path is configurable in `~/.agora/config.toml`:
+The CLI uses the PKCS#11 interface to generate a key on the hardware token. The private key is non-extractable (stays on device). The public key is retrieved for DID derivation. The mechanism is `CKM_EDDSA` (Ed25519). Device keys are Ed25519 only (spec §2.2), so a token without `CKM_EDDSA` cannot hold the device key; the CLI then refuses the PKCS#11 backend and offers the other two. The PKCS#11 library path is configurable in `~/.agora/config.toml`:
 
 ```toml
 [keystore]
@@ -294,6 +294,8 @@ x25519Priv := generateX25519(rand.Reader)      // golang.org/x/crypto/curve25519
 did := createDID(method, host, privKey, recoveryPub) // did:webvh genesis, did:plc genesis, or did:key from privKey.Public() (§3.1)
 ```
 
+For `did:key` the CLI also generates a separate Ed25519 leaf signature key for this device and signs its device binding with `privKey` (spec §5.2.1).
+
 The CLI MUST NOT generate the recovery key during enrollment; for `did:webvh` and `did:plc` it accepts the recovery public key as in §5.2.
 
 ### 6.6 Offline Recovery Key Generation
@@ -312,7 +314,7 @@ Both browser and CLI produce a single downloadable keyfile, the user's backup ar
   "type": "agora-keyfile",
   "did": "did:webvh:QmSCID...:host.example:alice",
   "didMethod": "webvh",
-  "keyPackageEndpoint": "https://host.example/alice/keypackages",
+  "keyPackageEndpoint": "https://host.example/v1/agora/kp/alice",
   "createdAt": "2026-03-13T00:00:00Z",
   "source": "discord-enrollment",
   "discordUserId": "123456789012345678",
@@ -329,11 +331,6 @@ Both browser and CLI produce a single downloadable keyfile, the user's backup ar
     "description": "X25519 key agreement key",
     "encryptedPrivateKey": "<base64url-AES256GCM-ciphertext>",
     "publicKeyMultibase": "zABC..."
-  },
-  "stateBackup": {
-    "description": "MLS group state; restores space membership continuity",
-    "backupType": "stateOnly",
-    "encryptedState": "<base64url-AES256GCM-ciphertext>"
   },
   "primaryKeyType": "webcrypto",
   "primaryKeyPublicMultibase": "z6Mk..."
@@ -354,7 +351,9 @@ For the CLI with an extractable keystore backend, `primaryKeyType` is `"software
 
 For PKCS#11, `primaryKeyType` is `"pkcs11"` and `primaryKeypair` is omitted (non-extractable); only `primaryKeyPublicMultibase` is present.
 
-**Passphrase derivation:** A single Argon2id invocation produces a 96-byte output. The first 32 bytes encrypt `keyAgreementKeypair.encryptedPrivateKey`; the second 32 bytes encrypt `stateBackup`. When a `primaryKeypair` is present, the third 32-byte block encrypts it. This avoids key reuse without requiring multiple passphrase entries.
+The keyfile holds no MLS state. Spec §2.4.3 forbids epoch secrets and ratchet state in a backup, because restoring them would rewind sender generations. A device restored from the keyfile joins each of the user's groups as a new leaf (spec §2.6) and does not use the restored keys while the source device is active (spec §2.4.3).
+
+**Passphrase derivation:** A single Argon2id invocation produces a 64-byte output. The first 32 bytes encrypt `keyAgreementKeypair.encryptedPrivateKey`. When a `primaryKeypair` is present, the second 32 bytes encrypt it. This avoids key reuse without requiring multiple passphrase entries.
 
 **Filename:** `agora-<displayName>-<YYYY-MM-DD>.keyfile.json`. The `.keyfile.json` double extension is intentional: systems that hide extensions will display `.keyfile`, which is less likely to be opened naively than `.json` alone.
 
@@ -373,7 +372,7 @@ Content-Type: application/json
   "discordUserId": "123456789012345678",
   "challenge": "<challenge from §5.4>",
   "proofOfPossession": "<signature over the proof payload, see below>",
-  "spaceURI": "agora://bafyrei.../"
+  "spaceURI": "agora://bafkrei.../"
 }
 ```
 
@@ -384,7 +383,7 @@ Content-Type: application/json
   "did": "did:webvh:QmSCID...:host.example:alice",
   "discordUserId": "123456789012345678",
   "challenge": "<challenge>",
-  "spaceURI": "agora://bafyrei.../",
+  "spaceURI": "agora://bafkrei.../",
   "ts": "2026-03-13T00:00:00Z"
 }
 ```
@@ -421,11 +420,11 @@ The Enrollment Service holds the space enrollment agent's MLS credentials, speci
    }
    ```
 
-3. Publishes the commit to the channel like any member's handshake message, with the epoch access proof the relay checks (spec §5.2.2). The relay carries ciphertext; it neither processes the commit nor learns who was added.
+3. Publishes the commit to the channel like any member's handshake message, signed with the channel admission key (`admissionSig`, spec §5.2.2), which the enrollment agent holds as a channel member. The relay checks only that signature and carries ciphertext; it neither processes the commit nor learns who was added.
 4. POSTs the Welcome, with the `ratchet_tree` extension, to the same `KeyPackageEndpoint` (spec §4.6, §5.2.1).
 5. Updates the Space membership in Space state through the CO's Space endpoint (spec §3.4).
 
-The client retrieves the Welcome from its identity host and initializes its local MLS state. It can decrypt space messages from the Add epoch forward.
+The client retrieves the Welcome from its identity host and initializes its local MLS state. It then fetches each channel's `ChannelAdmissionKey` from the Space endpoint (spec §5.2.2), so that it can subscribe and publish. It can decrypt space messages from the Add epoch forward.
 
 ---
 
@@ -434,7 +433,7 @@ The client retrieves the Welcome from its identity host and initializes its loca
 A user who already has a DID (from a prior enrollment or manual setup) can update their record. The flow is identical to the create path except:
 
 - At step 4 of §8.1: if the provisional record already has a DID, the service MUST verify that the new registration's DID matches the existing one. A DID change is not permitted through this flow. Loss of device keys is handled by recovery, which keeps the DID (Agora spec §2.4); a `did:key` identity has no recovery beyond its backup.
-- Adding a new device (second hardware key, new phone) uses the standard Agora multi-device enrollment flow from the existing device, not this tool. For `did:key`, the user copies the identity key to the new device from the keyfile (spec §2.1).
+- Adding a new device (second hardware key, new phone) uses the multi-device flow of spec §2.6, not this tool: once the new device's key is in the DID document, an existing device adds it to the user's self-group and to each of the user's groups. For `did:key`, the user copies the identity key to the new device from the keyfile (spec §2.1); the new device generates its own leaf signature key and device binding (spec §5.2.1), and the user pairs it with an existing device so that device learns the new leaf key (spec §2.6).
 
 The update path's primary use case is a user who enrolled but lost their keyfile and needs to re-download it. The tool re-generates the keyfile from the existing registered keypair if it is still accessible in the browser's storage or the CLI keystore.
 
@@ -475,14 +474,14 @@ Configuration (`config.toml`):
 [enrollment]
 discord_client_id     = "..."
 discord_client_secret = "..."
-space_uri             = "agora://bafyrei.../"
+space_uri             = "agora://bafkrei.../"
 relay_url             = "wss://relay.example.com"
 provisional_members   = "/data/provisional-members.json"
 admin_key             = "/secrets/enrollment-agent.key"
 challenge_ttl_seconds = 300
 ```
 
-`admin_key` is the enrollment agent's Ed25519 private key. This agent MUST be a member of the space's MLS group with permission to issue Add commits. It is added to the space at setup time; the `discord2agora` tool generates a placeholder enrollment agent entry in SpaceState when `--enrollment-service` is specified.
+`admin_key` is the enrollment agent's Ed25519 private key. This agent MUST be a member of the space's MLS group with permission to issue Add commits. It is added to the space at setup time; the `discord2agora` tool generates a placeholder enrollment agent entry in SpaceState when `--enrollment-service` is specified. The genesis Space state should also set the `guardian` field, which spec §3.3 recommends and which lets named guardians transfer ownership after a delay if the owner's key is lost (spec §4.1). For a migrated community the owner should be a key the community's operators control, not the enrollment agent.
 
 ---
 
@@ -526,6 +525,8 @@ challenge_ttl_seconds = 300
 **Enrollment Service privilege.** The Enrollment Service holds the enrollment agent key, which grants the ability to add members to the space MLS group. Compromise of the Enrollment Service allows an attacker to add arbitrary DIDs to the space. The service MUST be hardened accordingly: minimal attack surface, no public write endpoints beyond the registration flow, rate-limited per Discord user ID. The enrollment agent key SHOULD be rotated after the initial enrollment wave completes, or the agent SHOULD be removed from the MLS group entirely if no further enrollments are expected.
 
 **Identity host.** The host the user picks observes KeyPackage fetches and Welcome deliveries for that user (spec §4.6). A `did:webvh` host cannot add a key without producing an invalid log (spec §2.1), so a dishonest host can deny service but cannot impersonate the user. The user can move to a different host.
+
+**Direct messages.** Enrollment admits the user to the Space's channels only. This tool imports no Discord friendships as accepted senders, so a DM from another migrated member starts in the message request state until the user accepts it (spec §4.6.3).
 
 **Discord OAuth2 scope.** Discord identity is used to match users to provisional records only. It does not serve as a trust anchor beyond confirming control of a Discord account. The cryptographic proof-of-possession is the binding between DID and enrollment.
 

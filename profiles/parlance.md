@@ -80,7 +80,7 @@ Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `
 
 ## 4. Data classes and consistency
 
-**Readings are `single-author`** (§14.2, §14.3). `Measurement` is authored by the gateway that owns the topic prefix. `Derived` is authored by its logic engine. A receiver ignores a reading whose MLS sender is not the author for that `topic` (cf. §14.3.3). Readings are append-only facts, so last-writer-wins per topic gives the current value and the MQTT retained-value behaviour (SPEC-Substrate §11.5). High-rate telemetry that need not be kept goes as ephemeral messages (§5.3). Alarms, summaries and actuator state changes are durable.
+**Readings are `single-author`** (§14.2, §14.3). `Measurement` is authored by the gateway that owns the topic prefix. `Derived` is authored by its logic engine. A receiver ignores a reading whose MLS sender is not the author for that `topic` (cf. §14.3.3). Readings are append-only facts, so last-writer-wins per topic gives the current value and the MQTT retained-value behaviour (SPEC-Substrate §11.5). High-rate telemetry that need not be kept goes as ephemeral events (§5.2.3), which are excluded from history. Alarms, summaries and actuator state changes are durable.
 
 **Commands go to an Arbiter.** An `Intent` is addressed to the site's Arbiter front end. This is a CO-run MLS member that hands intents to the per-device Arbiters on the site fabric (SPEC-Substrate §12). The Arbiter is the single plaintext decider (§14.1, "CO components where one plaintext decider is needed"). It runs priority merge, manual-override hold, interlocks, rate limiting and OPA policy (PLAN-02-01-arbiters-core). Its decision appears as a `Measurement` whose `cause.command_id` is the `intent_id`, with `policy_version` stamped. Group membership lets a member send an intent. The Arbiter's policy decides whether the intent takes effect. Cross-realm writes stay forbidden by default (SPEC-Substrate §19.3). None of this logic runs at a relay or sequencer (ARCHITECTURE S2).
 
@@ -97,8 +97,8 @@ Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `
 
 ## 6. Separation and leakage
 
-- **Topics stay inside the ciphertext.** `realm.site.building.zone.device_uuid` and object paths travel only in `body`. Relays see `channelToken` (rotated per epoch), size and timing (ARCHITECTURE §5). Channel names in public Space state should not name sensitive zones.
-- **Timing still leaks occupancy.** A motion-triggered reading is visible as a burst even when encrypted. The gateway should batch readings into one envelope per fixed interval, sent whether or not anything changed, and pad envelopes to fixed size buckets (MLS PrivateMessage padding, RFC 9420 §6.3.1). The cost is latency equal to the interval. Alarms that bypass the batch leak by timing, and that trade is accepted for life safety.
+- **Topics stay inside the ciphertext.** `realm.site.building.zone.device_uuid` and object paths travel only in `body`. Relays see `channelToken` (which changes only when the CO rotates the channel admission key, spec §5.2.2), size and timing (ARCHITECTURE §5 item 2). Channel names in public Space state should not name sensitive zones.
+- **Timing still leaks occupancy.** A motion-triggered reading is visible as a burst even when encrypted. The gateway should batch readings into one envelope per fixed interval, sent whether or not anything changed, and pad each `PrivateMessage` (RFC 9420 §6.3.1). Spec §5.2.1 already recommends padding content to a multiple of 256 bytes; a gateway may pad to larger fixed buckets. The cost is latency equal to the interval. Alarms that bypass the batch leak by timing, and that trade is accepted for life safety.
 - The sequencer, if used, learns the same as a relay (§14.4.6). The batching rule applies to config edits only by convention.
 
 ## 7. What Agora does not replace
@@ -112,7 +112,7 @@ Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `
 2. Cross-org gateways. §9.2 requires a gateway to run under the CO that operates the channel. In an installer's fleet Space, the customer's gateway is run by a different CO. Does a disclosed gateway of another CO need a distinct descriptor field?
 3. Topic-prefix authorship. Where is the mapping from topic prefix to authoring gateway DID recorded so that receivers can enforce single-author? A channel state field signed by the CO is the obvious place.
 4. Intent rejection. A rejected intent produces no state change. Should the Arbiter send an explicit decision message, or is silence plus TTL enough?
-5. Agora defines no envelope padding. Should the profile rely on MLS padding alone, or should Agora name bucket sizes?
+5. Spec §5.2.1 recommends padding to a multiple of 256 bytes. Is that enough for telemetry, or should this profile name larger bucket sizes?
 6. Do derived values need a closure-domain marker (physical or computational) beyond `definition`, or is the definition URI enough?
 
 ---

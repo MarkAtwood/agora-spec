@@ -3,13 +3,13 @@
 > Binds: both. Source: import/agora-protocol-spec-unified.md lines 3939–4083 (§18).
 
 
-*Binds: both (CO throughout; §8.6 peering also binds IO).*
+*Binds: both (CO throughout; relays and SFUs only verify admission, §8.6).*
 
 ## 8.1 Overview
 
 A channel MAY be shared across Space boundaries, giving members of multiple Spaces access to the same message stream, history, and MLS group. From any member's perspective in either Space, the shared channel appears as a normal channel in their sidebar; there is no visible workspace transition or foreign-context indicator.
 
-Agora channel sharing is structurally simpler than analogous features in centralized systems (like Slack Connect) because channels are already identified by content-addressed CID rather than opaque server-internal IDs. A channel shared between Space A and Space B is the same MLS group, the same IPLD history DAG, and the same `channelToken`; there is no synchronization problem because there is no duplication.
+Agora channel sharing is structurally simpler than analogous features in centralized systems (like Slack Connect) because a channel's identity does not depend on any server: it is a random `channelID` fixed at creation (§3.3). A channel shared between Space A and Space B is the same MLS group, with the same `channelID`, the same channel admission key and the same `channelToken` (§5.2.2); there is no synchronization problem because there is no duplication.
 
 ## 8.2 Home Space and Guest Spaces
 
@@ -31,9 +31,9 @@ Sharing a channel requires bilateral authorization: the home space admin and the
 {
   "@type": "ChannelShareAgreement",
   "schemaVersion": "1",
-  "homeSpace": "agora://bafyrei...",
-  "homeChannel": "agora://bafyrei.../engineering/backend",
-  "guestSpace": "agora://bafyxyz...",
+  "homeSpace": "agora://bafkrei...",
+  "homeChannelID": "base64url...",
+  "guestSpace": "agora://bafkreixyz...",
   "guestAlias": "shared/example-backend",
   "guestRoles": ["member", "engineer"],
   "guestPermissions": {
@@ -51,7 +51,7 @@ Sharing a channel requires bilateral authorization: the home space admin and the
 }
 ```
 
-`guestAlias` is the channel path under which the shared channel appears in the guest space's sidebar. It is a local display alias only; the channel's canonical identity remains `homeChannel`. `guestRoles` is the list of guest space roles whose members are eligible for admission. `guestPermissions` defines the capability constraints applied to guest space members in this channel, independently of their role in their own space.
+`guestAlias` is the channel path under which the shared channel appears in the guest space's sidebar. It is a local display alias only; the channel's identity remains `homeChannelID`, the shared channel's `channelID` in the home Space's state (§3.3). `guestRoles` is the list of guest space roles whose members are eligible for admission. `guestPermissions` defines the capability constraints applied to guest space members in this channel, independently of their role in their own space.
 
 The agreement has no `id` member; it is referenced by the CID of its signed envelope (§13.1), as `agreementCID` does below. It is stored as an IPLD node, CID-referenced from both space state documents, and served by both Spaces' endpoints and announced to each Space's members in-band, like any Space state change (§3.4).
 
@@ -72,7 +72,7 @@ Guest members appear in the channel participant list with a visual indicator of 
 
 ## 8.5 Namespace Resolution
 
-A guest space member sees the channel at `guestAlias` in their space sidebar. Internally, the client resolves this alias to the home channel's CID and connects to the home channel's MLS group and gossip topic. The alias is purely a display and navigation convenience; all protocol operations (message send, history fetch, MLS operations) use the home channel's identity.
+A guest space member sees the channel at `guestAlias` in their space sidebar. Internally, the client resolves this alias to the home channel's `channelID`, obtains the channel's admission key and relays from the home Space (§8.6), and subscribes to the channel's `channelToken`. The alias is purely a display and navigation convenience; all protocol operations (message send, history fetch, MLS operations) use the home channel's identity.
 
 The guest space's state document records the alias mapping:
 
@@ -81,29 +81,25 @@ The guest space's state document records the alias mapping:
   {
     "@type": "SharedChannelAlias",
     "aliasPath": "shared/example-backend",
-    "homeChannelCID": "bafyrei...",
-    "agreementCID": "bafyrei...",
-    "homeSpaceCID": "bafyrei..."
+    "homeChannelID": "base64url...",
+    "agreementCID": "bafkrei...",
+    "homeSpaceCID": "bafkrei..."
   }
 ]
 ```
 
-Clients resolve `guestAlias` → `homeChannelCID` before any protocol operation. If the agreement is revoked (§8.7), the alias entry is removed from the guest space state and clients remove the channel from their sidebar on next state refresh.
+Clients resolve `guestAlias` → `homeChannelID` before any protocol operation. If the agreement is revoked (§8.7), the alias entry is removed from the guest space state and clients remove the channel from their sidebar on next state refresh.
 
-## 8.6 Relay Coordination
+## 8.6 Admission Key and Relays
 
-The home channel's gossip topic (`v1/agora/channel/<channelToken>`) is where all messages flow. Guest space members subscribe to this topic via their own Relays. For this to work, the guest space's Relays must be peered with (or able to reach) the home channel's Relays.
+The home Space's CO is the only CO that issues and registers anything for a shared channel. The guest CO registers nothing with any IO for it.
 
-Each CO engages Relays for the shared channel through its own `RelayServiceAgreement` (§10.5.1) by registering the shared group's access-key chain under it (S7). Neither agreement identifies the Space or the channel. Relays route by `channelToken` alone; they do not learn which Space a subscriber belongs to, that the channel is shared, or the contents of the `ChannelShareAgreement` (S1). Access is by MLS membership (ARCHITECTURE §6.2), so guest members need no Relay-side admission.
+- **Admission key.** The home CO generates the shared channel's admission key, rotates it, and registers it with the relays (and other IOs, such as its SFU, §8.9) that hold a `ServiceAgreement` with the home CO's billing DID (§5.2.2, §10.5.3). It serves the key from the home Space endpoint at `<spaceEndpoint>/admission-key/<channelID>` to home members and to eligible guest members.
+- **Guest eligibility.** A guest member authenticates to the home Space endpoint by the exchange of §3.5, which the endpoint applies to guests as follows: in place of membership of the home Space, it checks that the DID holds a role in `guestRoles` under the guest Space's current state and that the agreement is unexpired and unrevoked. To check this, the home Space endpoint fetches the guest Space's state from the guest Space endpoint, which MUST serve it to the home Space's CO, authenticated per §3.5 as `homeAdminDID`, for as long as the agreement is in force. A guest CO that does not accept this does not sign the agreement.
+- **Removal.** Eligibility is the only thing the home CO checks for a guest, so a guest admin removes a guest member from the shared channel by first changing the guest Space state so that the member holds no role in `guestRoles`, and then committing the member's MLS Remove. The home Space endpoint MUST use guest Space state fetched no more than one hour earlier. When it finds that a DID it has served the key to is no longer eligible, the home CO rotates the admission key (§5.2.2) and does not serve the new key to that DID.
+- **Relays.** Guest members learn the channel's relay list from the home Space endpoint, as home members do (§10.3.5), and connect to the home CO's relays. They need no relay of their own Space.
 
-No special Relay configuration is required if both spaces' Relays participate in the same gossipsub mesh; this is the common case for public or semi-public spaces. For private spaces whose Relays are isolated (e.g., on a private Tailscale overlay), the two COs arrange peering between their IOs through their respective `RelayServiceAgreement`s; peering itself is an IO-to-IO relationship (ARCHITECTURE §5 item 8). The `ChannelShareAgreement` MAY include a `relayHints` array suggesting peering endpoints, for the COs' use; Relays do not read it:
-
-```json
-"relayHints": [
-  "wss://relay.home-space.example.com",
-  "wss://relay.guest-space.example.com"
-]
-```
+Relays route by `channelToken` and see one registration under one billing DID, so they do not learn which Space a subscriber belongs to, that the channel is shared, or the contents of the `ChannelShareAgreement` (S1). Relays verify `admissionSig` as for any channel; guest members need no other Relay-side admission. If the home CO's relays are reachable only on a private network, such as a Tailscale overlay, the home CO MUST make them reachable to guest members, for example by adding guest devices to that network or by registering the key with a relay guest members can reach.
 
 ## 8.7 Revocation
 
@@ -112,9 +108,9 @@ Either party MAY revoke the `ChannelShareAgreement` by publishing a `ChannelShar
 ```json
 {
   "@type": "ChannelShareRevocation",
-  "agreementCID": "bafyrei...",
+  "agreementCID": "bafkrei...",
   "revokedBy": "did:key:z6MkRevoker...",
-  "revokedBySpace": "agora://bafyrei...",
+  "revokedBySpace": "agora://bafkrei...",
   "reason": "partnership-ended",
   "ts": "2026-03-12T00:00:00Z"
 }
@@ -122,7 +118,7 @@ Either party MAY revoke the `ChannelShareAgreement` by publishing a `ChannelShar
 
 On revocation:
 
-1. The revoking admin issues MLS Remove commits for all members of the foreign space from the channel's MLS group.
+1. The revoking admin issues MLS Remove commits for all members of the foreign space from the channel's MLS group, and the home CO rotates the channel admission key and stops serving it to guest members (§8.6). When the guest admin revokes, the home CO does this as soon as it receives the revocation.
 2. The alias entry is removed from the guest space's state document.
 3. The `ChannelShareRevocation` is stored in both space IPLD state chains and distributed like any Space state change (§3.4).
 4. Clients of the guest space remove the channel from their sidebar on next state refresh.
@@ -142,7 +138,7 @@ If the guest space also has compliance logging enabled, its logger MAY also be a
 
 ## 8.9 Voice Channel Sharing
 
-Voice channels MAY be shared using the same `ChannelShareAgreement` mechanism. All VTC semantics (§6) apply unchanged: the shared voice channel has one MLS group, one set of call state gossip, and one SFU if configured. The SFU used is the home space's SFU (declared in the home space state document). Guest space members connect to the home space's SFU directly.
+Voice channels MAY be shared using the same `ChannelShareAgreement` mechanism. All VTC semantics (§6) apply unchanged: the shared voice channel has one MLS group, one set of call state messages, and one SFU if configured. The SFU used is the home space's SFU, declared in the home space state document and registered with the channel's admission key by the home CO (§8.6). Guest space members connect to the home space's SFU directly and admit themselves with the admission key (§6.6).
 
 If the home space does not have an SFU configured and the shared voice channel exceeds the mesh threshold (§6.5), the home space admin is responsible for provisioning one. The `ChannelShareAgreement` MAY specify a minimum SFU capacity as a precondition for guest space participation.
 

@@ -124,11 +124,11 @@ Agora Compliance Archive/
   └── Direct Messages/
 ```
 
-The bridge creates subfolders lazily on first item for each Space and channel. Space and channel names come from the Space state document served by the CO's Space endpoint (spec §3.4); the channel is identified by the record's `channel` field (spec §7.4). Names are sanitized for Exchange folder name constraints (maximum 255 characters; the characters `\ / : * ? " < > |` are prohibited).
+The bridge creates subfolders lazily on first item for each Space and channel. Space and channel names come from the Space state document served by the CO's Space endpoint (spec §3.4); the channel is identified by the record's `channelID` field, and a DM group by its `mlsGroupID` field (spec §7.4). Names are sanitized for Exchange folder name constraints (maximum 255 characters; the characters `\ / : * ? " < > |` are prohibited).
 
 ### 2.3 DID-to-M365 Identity Mapping
 
-The bridge maintains a mapping table `{ agoraDID → m365UPN }`. The mapping is private CO data: it MUST be held only in the CO's directory, the DID provisioning service's database and the bridge's own store, and MUST NOT be written into any DID document, profile, Space state or other published or gossiped record (spec §2.5.2). The table is populated by one of the following methods:
+The bridge maintains a mapping table `{ agoraDID → m365UPN }`. The mapping is private CO data: it MUST be held only in the CO's directory, the DID provisioning service's database and the bridge's own store, and MUST NOT be written into any DID document, profile, Space state or other published record (spec §2.5.2). The table is populated by one of the following methods:
 
 1. **Provisioning-service record** (preferred for enterprise deployments): at onboarding (spec §2.5.3) the DID provisioning service validates the IdP token, whose SAML attribute (`urn:oid:1.2.840.113549.1.9.1` / email) or OIDC claim (`upn` or `email`) carries the M365 UPN. The provisioning service records `{ agoraDID → m365UPN }` in its private store, and the bridge reads it over an authenticated internal interface. The Agora client takes no part in the mapping.
 
@@ -165,14 +165,14 @@ Content-Type: application/json
     { "id": "Integer 0x0E07",        "value": "1" },
     { "id": "SystemTime 0x0039",     "value": "{loggedAt}" },
     { "id": "SystemTime 0x0E06",     "value": "{loggedAt}" },
-    { "id": "String {bridge-GUID} Name AgoraDedupKey", "value": "{envelopeID}" }
+    { "id": "String {bridge-GUID} Name AgoraDedupKey", "value": "{outerEnvelopeCID}" }
   ]
 }
 ```
 
 - `Integer 0x0E07` is the MAPI `PidTagMessageFlags` property. Setting it to `1` (read) on create, without the unsent flag, makes Exchange store the item as a received item rather than a draft.
 - `SystemTime 0x0039` (`PidTagClientSubmitTime`) and `SystemTime 0x0E06` (`PidTagMessageDeliveryTime`) set the item's sent and received times to the record's logged time, so the item's timestamp is the capture time rather than the deposit time.
-- `AgoraDedupKey` is a named property in a GUID namespace the bridge operator generates once. It carries the record's `envelopeID` for the duplicate check in §4.1.
+- `AgoraDedupKey` is a named property in a GUID namespace the bridge operator generates once. It carries the record's `outerEnvelopeCID`, the `id` of the routing envelope that carried the message, for the duplicate check in §4.1.
 - Attachments (the signed record, §3.2, and file content, §3.5) are added after creation with `POST .../messages/{id}/attachments`, or with an attachment upload session for files above the inline request size limit.
 
 This method depends on the following Graph behavior, none of which this profile has confirmed (verify against current Microsoft Graph documentation): that a message created with these extended properties is stored as a non-draft item; that `from` and `internetMessageHeaders` may be set on create, including any limit on the number or length of custom headers; that the MAPI time properties may be set on create; and the request size limits for inline and upload-session attachments. If custom header limits prevent writing every header in §3.3, the bridge writes the headers marked "required" in §3.3 and relies on the body marker block (§3.4) and the attached record for the rest.
@@ -192,7 +192,7 @@ The bridge MUST NOT call `/send`, `sendMail`, or any other Graph operation that 
 | Attachment `agora-compliance-record.cbor` | The `ComplianceRecord` exactly as stored by the logger: its encoded typed envelope (spec §13.1), including the logger's JWS in `sig` (spec §13.1.1). Content type `application/cbor`. |
 | Further attachments | File content (§3.5) |
 
-The `ComplianceRecord` is a signed typed envelope whose `body` holds the record fields (`envelopeID`, `channel`, `senderDID`, `epoch`, `seq`, `ts`, `plaintextPayload`, `outerEnvelopeCID`, `prevRecordCID`; spec §7.4). `plaintextPayload` is the decrypted inner payload envelope, itself a typed envelope whose `type` names the payload (for example `urn:ietf:params:jmap:chat#Message`) and whose `body` holds the payload bytes as sent (spec §5.2.2). The attachment MUST be the exact stored bytes (spec §13.1.1 byte-for-byte rule) so an investigator can verify the logger's signature without Agora client software beyond a JWS and CBOR library.
+The `ComplianceRecord` is a signed typed envelope whose `body` holds the record fields (`channelID` or, for a DM group, `mlsGroupID`; `senderDID`, `epoch`, `seq`, `ts`, `plaintextPayload`, `senderMessage`, `messageKeys`, `groupContext`, `senderLeaf`, `outerEnvelopeCID`, `prevRecordCID`; spec §7.4). `plaintextPayload` is the decrypted inner payload envelope, itself a typed envelope whose `type` names the payload (for example `urn:ietf:params:jmap:chat#Message`) and whose `body` holds the payload bytes as sent (spec §5.2.2). The attachment MUST be the exact stored bytes (spec §13.1.1 byte-for-byte rule) so an investigator can verify the logger's signature without Agora client software beyond a JWS and CBOR library. The same bytes carry the verification material (`senderMessage`, `messageKeys`, `groupContext`, `senderLeaf`) for the third-party check of spec §7.4, which shows that a device key of `senderDID` signed the message without relying on the logger; that check needs an MLS library and the sender's DID log.
 
 `agora.invalid` uses the `.invalid` top-level domain (RFC 6761), which cannot be registered, so a synthetic sender address can never reach a real mailbox.
 
@@ -205,19 +205,19 @@ The bridge writes the following headers. A header whose value is absent for a gi
 | Header | Required | Source | Description |
 |---|---|---|---|
 | `x-agora-record-version` | yes | constant | Version of this item format. Currently `1`. |
-| `x-agora-envelope-id` | yes | record `envelopeID` | Unique per logged MLS message. Duplicate-check key. |
+| `x-agora-envelope-id` | yes | record `outerEnvelopeCID` | CID of the routing envelope that carried the message (spec §5.2.2). Unique per logged MLS message. Duplicate-check key. |
 | `x-agora-record-cid` | yes | logger | CID of the stored `ComplianceRecord` envelope. |
 | `x-agora-prev-record-cid` | no | record `prevRecordCID` | Chain link to the previous record in the channel's log. |
 | `x-agora-logger-did` | yes | record `sig` `kid` | DID of the logger that signed the record. |
-| `x-agora-channel` | yes | record `channel` | The channel URI as logged. For a DM group, the logged value for that group. |
+| `x-agora-channel` | yes | record `channelID` or `mlsGroupID` | The channel's `channelID` from Space state (spec §3.3), or for a DM group its MLS group ID, as base64url. |
 | `x-agora-space-name` | no | Space state (spec §3.4) | Space name at deposit time. Absent for DM records. |
 | `x-agora-channel-name` | no | Space state (spec §3.4) | Channel name at deposit time. Absent for DM records. |
 | `x-agora-is-dm` | yes | logger | `true` if the record came from a DM group (spec §4.6), else `false`. |
-| `x-agora-dm-group-id` | no | `DMGroupDescriptor.dmGroupID` (spec §4.6) | Stable DM group identifier. Present only when `x-agora-is-dm` is `true`. |
+| `x-agora-dm-group-id` | no | record `mlsGroupID` (spec §4.6) | The DM group's MLS group ID, which names the group. Present only when `x-agora-is-dm` is `true`. |
 | `x-agora-sender-did` | yes | record `senderDID` | Sender DID. Primary identity field. |
 | `x-agora-target-did` | yes | §4.1 | DID of the regulated member whose mailbox, or whose catch-all entry, holds this item. |
 | `x-agora-epoch` | yes | record `epoch` | MLS epoch of the message. |
-| `x-agora-seq` | yes | record `seq` | Sender's per-channel sequence number (spec §5.1.1). |
+| `x-agora-seq` | yes | record `seq` | Sending device's per-channel sequence number (spec §5.1.1). |
 | `x-agora-logged-at` | yes | record `ts` | Time the logger captured the message. Used for the item timestamp. |
 | `x-agora-sent-at` | no | payload `sentAt` | Sender's claimed send time. Not authoritative (spec §5.1.1). |
 | `x-agora-payload-type` | yes | payload envelope `type` | For example `urn:ietf:params:jmap:chat#Message`. |
@@ -238,7 +238,7 @@ Whether Purview Communication Compliance conditions and eDiscovery keyword queri
 The text body MUST contain a human-readable rendering of the record, usable by Purview Communication Compliance classifiers and investigators without Agora client software. It begins with a marker block:
 
 ```
-Agora-Envelope-ID: {envelopeID}
+Agora-Envelope-ID: {outerEnvelopeCID}
 Agora-Sender-DID: {senderDID}
 Agora-Channel: {channel}
 Agora-Record-Kind: {recordKind}
@@ -275,7 +275,7 @@ The original item is retained.
 [{ts}] {senderDisplayName} {added|removed} reaction {emoji} on message {target senderMsgId}
 ```
 
-**`pins`** (JMAP Chat `Chat` with `pinnedMessageIds`):
+**`pins`** (`JmapSet` patch of `Chat.pinnedMessageIds`, spec §5.2.6):
 ```
 [{ts}] {senderDisplayName} set pinned messages: {pinnedMessageIds}
 ```
@@ -317,11 +317,11 @@ For each DID in the target set, the bridge creates one item in that member's `Ag
 
 A record whose target set is empty is not deposited. The bridge marks it `skipped` with reason `no-regulated-member` (§7.1). The record remains in the IPLD compliance log.
 
-The delivery state store (§7.1) is the primary duplicate check. When it has no `deposited` row for a `(envelopeID, targetDID)` pair but shows an earlier attempt, the bridge SHOULD query the target folder before creating the item, to cover a crash between creation and state update:
+The delivery state store (§7.1) is the primary duplicate check. When it has no `deposited` row for a `(outerEnvelopeCID, targetDID)` pair but shows an earlier attempt, the bridge SHOULD query the target folder before creating the item, to cover a crash between creation and state update:
 
 ```http
 GET https://graph.microsoft.com/v1.0/users/{targetUPN}/mailFolders/{folderId}/messages
-  ?$filter=singleValueExtendedProperties/Any(ep: ep/id eq 'String {bridge-GUID} Name AgoraDedupKey' and ep/value eq '{envelopeID}')
+  ?$filter=singleValueExtendedProperties/Any(ep: ep/id eq 'String {bridge-GUID} Name AgoraDedupKey' and ep/value eq '{outerEnvelopeCID}')
   &$select=id
 ```
 
@@ -419,7 +419,7 @@ The bridge classifies each record by its payload envelope `type` and body (spec 
 | `urn:ietf:params:jmap:chat#Message`, body contains `editedAt` | `edit` |
 | `urn:ietf:params:jmap:chat#Message`, otherwise | `message` |
 | `urn:ietf:params:jmap:chat#Reaction` | `reaction` |
-| `urn:ietf:params:jmap:chat#Chat` | `pins` |
+| `urn:agora:type:JmapSet` with `dataType` `urn:ietf:params:jmap:chat#Chat` | `pins` |
 | any other type | `other` |
 
 ### 6.1 Edit Events
@@ -552,13 +552,13 @@ Each line:   {
                "recordCID": "...",
                "record": "{base64url of the exact stored ComplianceRecord envelope}",
                "isDM": true | false,
-               "dmGroupID": "urn:agora:dmgroup:<uuid>",      (DM records only)
+               "dmGroupID": "{base64url MLS group ID}",      (DM records only)
                "regulatedRecipients": ["did:...", ...],       (target set, §4.1)
                "attachments": [ { "blobId": "...", "path": "/run/agora-compliance/blobs/..." } ]
              }
 ```
 
-`attachments` lists decrypted attachment files the logger has written to a local directory readable by the bridge (§3.5); an entry without `path` means the logger could not capture that blob. The bridge SHOULD verify each record's JWS against the logger DID (spec §13.1.1) before depositing it, and MUST alert on a verification failure.
+`attachments` lists decrypted attachment files the logger has written to a local directory readable by the bridge (§3.5); an entry without `path` means the logger could not capture that blob. The bridge SHOULD verify each record's JWS against the logger DID (spec §13.1.1) before depositing it, and MUST alert on a verification failure. It verifies against the logger DID document version in effect when the record was signed, taken from the DID log, so that records signed before a rotation of the logger's signing key still verify (spec §7.9).
 
 The bridge processes records in order. If the bridge is offline, the logger buffers records to a local queue (configurable; default 10,000 records). On bridge reconnect, the queue is drained in order.
 

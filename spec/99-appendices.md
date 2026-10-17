@@ -9,7 +9,7 @@
 | E2EE group key management | RFC 9420 (MLS) | `openmls` (Rust), `mlspp` (C++) |
 | Payload envelope | Typed payload envelope (§13.1), CBOR (RFC 8949) | See Wire encoding |
 | Identity | W3C DID Core; user DID methods in the rows below; `did:web` for relay DIDs only (§10.2.1) | `ssi` (Rust), `go-did` (Go) |
-| Content addressing | IPFS / IPLD (CIDv1, dag-cbor) | `go-ipfs`, `helia` (JS), `rust-ipfs` |
+| Content addressing | IPFS / IPLD (CIDv1, `raw` codec, sha2-256, §13.1) | `go-ipfs`, `helia` (JS), `rust-ipfs` |
 | Peer discovery / fanout | libp2p gossipsub v1.1 | `go-libp2p-pubsub`, `libp2p` (Rust) |
 | Primary transport | WebTransport (RFC 9000) | Native browser; `webtransport-go`, `wtransport` (Rust) |
 | Fallback transport | WebSocket (RFC 6455) | Native in all environments |
@@ -93,20 +93,21 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 
 **MLS credential types.** `AgoraMIMICredential` (§9.1) has no MLS credential type codepoint yet. Interoperating with MIMI providers requires one from the IANA "MLS Credential Types" registry, or use of a credential type MIMI defines.
 
+**MLS extension types.** `agora_admission_host` (0xF0A0, GroupContext, §4.6) and `agora_device_binding` (0xF0A1, LeafNode, §5.2.1) use the RFC 9420 private-use range and need no IANA registration.
+
 **URN namespaces.**
 
 | Namespace | Use | Defined in | Registration |
 |---|---|---|---|
 | `urn:agora:type:` | Payload type URIs | §13.1, §13.2, §5.2.3 | Agora-internal under `urn:agora:` |
 | `urn:agora:v1` | JMAP capability | §11.8.3 | IANA "JMAP Capabilities" (RFC 8620 §9.4) |
-| `urn:agora:msg:`, `urn:agora:csa:`, `urn:agora:rsa:`, `urn:agora:dmgroup:` | Envelope, agreement and DM group identifiers | Examples in §5.2.2, §8.3, §10.5.1, §4.6 | Agora-internal under `urn:agora:` |
 | `urn:ietf:params:jmap:*` | JMAP family types | External drafts, profiled in §14.6 | Defined by those drafts |
 
 **Capability and model strings** (Agora-internal).
 
 | Strings | Use | Defined in |
 |---|---|---|
-| `gossipsub-v1.1`, `gossipsub-quic-v1`, `peer-api-h3`, `tor-hidden-service-v1`, `sfu-v1`, `peer-api-v1`, `jmap-sync-v1`, `push-proxy-v1` | Relay manifest `capabilities` | §10.2.1 |
+| `gossipsub-v1.1`, `gossipsub-quic-v1`, `peer-api-h3`, `tor-hidden-service-v1`, `sfu-v1`, `peer-api-v1`, `jmap-sync-v1`, `push-proxy-v1`, `sequencer-v1` | Relay manifest `capabilities` | §10.2.1 |
 | `single-author`, `sequenced-v1` | Consistency model identifiers | §14.2.1 |
 | `text/markdown;variant=commonmark`, `text/markdown;variant=gfm`, `text/plain`, `application/jmap-chat-rich` | `bodyType` values | §5.2.7.2 |
 | `co-issued` | TURN `credentialScheme` | §6.11 |
@@ -130,7 +131,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | Well-known URI `agora-relay` | §10.2.1 | IANA "Well-Known URIs" (RFC 8615) |
 | Service name `agora-relay` (`_agora-relay._udp`, `_agora-relay._tcp`) | §10.2.5, §10.3.3 | IANA "Service Name and Transport Protocol Port Number" (RFC 6335) |
 | `_agora` and its children `_kp._agora`, `_profile._agora` | §2.1, §10.3.4.6 | IANA "Underscored and Globally Scoped DNS Node Names" (RFC 8552), for `_agora` |
-| HTTP fields `x-agora-relay-did`, `x-agora-timestamp`, `x-agora-nonce` | §10.2.3, §11.7.4 | IANA "HTTP Field Name" (RFC 9110 §16.3) |
+| HTTP field `Agora-Storage-Auth` | §11.8.2 | IANA "HTTP Field Name" (RFC 9110 §16.3) |
 | JWS header parameter `agoraType` | §13.1.1 | IANA "JSON Web Signature and Encryption Header Parameters" (RFC 7515 §4.3) |
 | URI scheme `agora` | §3.2 | IANA "Uniform Resource Identifier (URI) Schemes" (RFC 7595) |
 | HTTP path prefix `/v1/agora/`, gossip topics `v1/agora/...`, IPNS name `/ipns/agora.protocol/relays/v1` | §1.1, §10.3.1, §10.2.5 | Agora-internal |
