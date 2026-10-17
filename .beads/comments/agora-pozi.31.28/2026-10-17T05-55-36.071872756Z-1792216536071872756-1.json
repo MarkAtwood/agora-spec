@@ -1,0 +1,7 @@
+{
+  "id": "1792216536071872756-1",
+  "issue_id": "agora-pozi.31.28",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A plus in-group notice: delete UserAd and all client-originated gossip of DID-signed records (profile updates, RecoveryAssertion, device revocation) over relay connections. Discovery/reachability via DID document (did:webvh/did:plc) or Pkarr record (did:key); recovery via DID log. Add an Agora plumbing type (e.g. urn:agora:type:IdentityChanged) sent as an MLS application message to the groups the user is in, telling members to re-resolve the DID / profile. Accepted loss: no network-wide browsing of users.",
+  "created_at": "2026-10-17T05:55:36.071872756Z"
+}

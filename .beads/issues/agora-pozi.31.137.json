@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.137",
+  "title": "[CRY-4] KeyPackage init keys are described as coming from the long-term DID `keyAgreement` key",
+  "description": "Review finding CRY-4: KeyPackage init keys are described as coming from the long-term DID `keyAgreement` key (lens CRY). Location: spec/02-identity.md:44, spec/02-identity.md:74, spec/02-identity.md:314. Fix: RFC 9420 §10 (rfc9420.txt, Key Packages) requires that init_key \"MUST be unique among the set of KeyPackages created by this client\". 02:44, 02:74 and 02:314 describe the DID `keyAgreement` key as the \"source\" of init keys. This is downgraded from P1 because the spec elsewhere contradicts a reuse reading. 05:67 says \"reuse lets two groups share HPKE init secrets\", and 05:117 forbids giving groups \"the same HPKE init key\". So the defect is contradictory text, not mandated reuse. Fix as proposed: init_key and leaf encryption_key are fresh per KeyPackage and unrelated to the DID document; `keyAgreement` serves only out-of-group HPKE. 06:345 (recorder archive sealing to the recorder's `keyAgreement` key) is a legitimate out-of-group use and needs no change. 12:95 already scopes `keyAgreement` to recovery shares and HPKE. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:25.221212372Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:25.221212372Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.137",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:25.234073812Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

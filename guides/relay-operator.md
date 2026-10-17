@@ -19,7 +19,7 @@ The audience is infrastructure engineers, platform teams, and SREs at enterprise
 
 ## Key Words
 
-The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119.
+This guide is non-normative. Upper-case BCP 14 key words (RFC 2119, RFC 8174) appear only where the guide restates a requirement of the protocol specification or ARCHITECTURE.md, and each such sentence cites its source. Everything else is operational advice for this relay implementation.
 
 ---
 
@@ -137,7 +137,7 @@ There is no admin blob read endpoint. The Admin API has one blob operation, `DEL
 
 **Optional components:**
 - SFU (Selective Forwarding Unit): voice/video channel routing (spec §6.6). An IO component that is never an MLS member. Can be a separate process or a separate host.
-- Push proxy: mobile push notification wake-ups (spec §11.7). Can be co-located or externally hosted; a CO MAY run its own instead.
+- Push proxy: mobile push notification wake-ups (spec §11.7). Can be co-located or externally hosted; a CO MAY run its own instead (ARCHITECTURE §2.1).
 - Sequencer: stamps an order on encrypted operations for `sequenced-v1` JMAP types (spec §14.4). A separate IO service with its own DID and endpoint, designated by a CO in Space state. It is not part of the relay process and has no relay configuration; it shares the relay's observation budget (spec §14.4.6).
 
 CO components (employer DID provisioning service and KeyPackage host, compliance logger, Purview bridge, gateways) are not part of a relay deployment. See §14.
@@ -177,8 +177,8 @@ Multi-node HA deployment is required when:
 The relay requires these network interfaces:
 
 - **Public interface**: handles WebTransport (QUIC/UDP), WebSocket (TCP), JMAP HTTPS, the blob CAS endpoint, and the well-known relay manifest endpoint. Must be reachable from the internet.
-- **Peer gossip interface**: handles libp2p gossipsub QUIC connections from peer relays. MAY be the same public interface or a separate interface. MUST NOT be firewalled from peer relay IP ranges.
-- **Internal/management interface**: handles the Admin API, Prometheus metrics, and database connections. MUST NOT be reachable from the internet.
+- **Peer gossip interface**: handles libp2p gossipsub QUIC connections from peer relays. may be the same public interface or a separate interface. must not be firewalled from peer relay IP ranges.
+- **Internal/management interface**: handles the Admin API, Prometheus metrics, and database connections. must not be reachable from the internet.
 
 ---
 
@@ -188,7 +188,7 @@ The relay requires these network interfaces:
 
 The relay reads configuration from a TOML file. The default path is `/etc/agora-relay/relay.toml`. Override with the `--config` flag or the `AGORA_CONFIG` environment variable.
 
-Secrets (signing keys, database passwords, admin tokens) MUST NOT be placed in the config file. Use environment variable overrides (§3.3) or a secrets manager integration (§3.4).
+Secrets (signing keys, database passwords, admin tokens) must not be placed in the config file. Use environment variable overrides (§3.3) or a secrets manager integration (§3.4).
 
 ### 3.2 Full Configuration Reference
 
@@ -220,7 +220,7 @@ websocket_addr = "0.0.0.0:443"
 # default: "0.0.0.0:9001"
 peer_addr = "0.0.0.0:9001"
 
-# Admin API listen address. MUST be bound to a non-public interface.
+# Admin API listen address. must be bound to a non-public interface.
 # default: "127.0.0.1:9099"
 admin_addr = "127.0.0.1:9099"
 
@@ -258,7 +258,7 @@ accepting_new_connections = true
 # default: 200
 max_jmap_concurrent = 200
 
-# Minimum TLS version. MUST be "1.3" for WebTransport.
+# Minimum TLS version. must be "1.3" for WebTransport.
 # WebSocket may fall back to 1.2 for compatibility with older clients.
 # default: "1.3"
 tls_min_version = "1.3"
@@ -304,7 +304,7 @@ region = "us-east"
 
 # Path to the relay signing key (Ed25519 private key, PEM format).
 # STRONGLY prefer setting via AGORA_SIGNING_KEY_PATH env var or
-# a secrets manager. If set here, file permissions MUST be 0600.
+# a secrets manager. If set here, file permissions must be 0600.
 # default: "/etc/agora-relay/keys/relay-signing.key"
 signing_key_path = "/etc/agora-relay/keys/relay-signing.key"
 
@@ -401,7 +401,7 @@ agreements_dir = "/etc/agora-relay/agreements"
 # default: 7
 connection_log_retention_days = 7
 
-# Opt-in observation-budget extensions (ARCHITECTURE S6). MUST stay
+# Opt-in observation-budget extensions (ARCHITECTURE S6). must stay
 # empty unless every CO served has agreed to the extension in its
 # agreement. Published in the manifest as observationBudget.extensions.
 # default: []
@@ -544,7 +544,8 @@ admission_pow_difficulty = 20
 # Relay's own minimum envelope PoW difficulty (spec §10.5.2). 0 accepts
 # envelopes without a powProof. A channel's own PowPolicy is
 # enforced by member clients, since the relay cannot map a
-# channelToken to a channel. default: 0
+# channelToken to a channel. Published in the manifest as
+# `minPowDifficulty` (spec §10.2.1). default: 0
 envelope_pow_min_difficulty = 0
 
 # ─────────────────────────────────────────────
@@ -566,7 +567,7 @@ format = "json"
 
 ### 3.3 Environment Variable Overrides
 
-All configuration values can be overridden via environment variables using the pattern `AGORA_<SECTION>_<KEY>` in SCREAMING_SNAKE_CASE. Section separators become underscores. These secrets MUST be set via environment variables and MUST NOT appear in the config file:
+All configuration values can be overridden via environment variables using the pattern `AGORA_<SECTION>_<KEY>` in SCREAMING_SNAKE_CASE. Section separators become underscores. These secrets must be set via environment variables and must not appear in the config file:
 
 | Environment Variable | Config Equivalent | Description |
 |---|---|---|
@@ -582,7 +583,7 @@ All configuration values can be overridden via environment variables using the p
 
 The approach depends on the deployment environment:
 
-**AWS Secrets Manager:** Store each secret as a separate secret. Use the AWS SDK to fetch secrets at startup. The relay process MUST have an IAM role with `secretsmanager:GetSecretValue` permission for the relevant secret ARNs. Inject secret values as environment variables via the ECS task definition `secrets` field or Kubernetes external-secrets operator.
+**AWS Secrets Manager:** Store each secret as a separate secret. Use the AWS SDK to fetch secrets at startup. The relay process must have an IAM role with `secretsmanager:GetSecretValue` permission for the relevant secret ARNs. Inject secret values as environment variables via the ECS task definition `secrets` field or Kubernetes external-secrets operator.
 
 **HashiCorp Vault:** Use the Vault agent sidecar injector for Kubernetes, or the Vault AWS auth method for ECS. The relay process should not contain Vault credentials; authentication should use the platform identity (EC2 instance profile, Kubernetes service account).
 
@@ -630,7 +631,7 @@ ENTRYPOINT ["/usr/local/bin/agora-relay"]
 CMD ["--config", "/etc/agora-relay/relay.toml"]
 ```
 
-**Image tags:** Use digest-pinned references in production. The `:latest` tag MUST NOT be used in production deployments. Use immutable tags of the form `agora-relay:0.2.1` and pin to the image digest in your deployment manifests:
+**Image tags:** Use digest-pinned references in production. The `:latest` tag must not be used in production deployments. Use immutable tags of the form `agora-relay:0.2.1` and pin to the image digest in your deployment manifests:
 
 ```
 ghcr.io/agora-protocol/relay:0.2.1@sha256:<digest>
@@ -696,7 +697,7 @@ networks:
   relay-public:
 ```
 
-The `.env` file MUST NOT be committed to version control. It must contain at minimum:
+The `.env` file must not be committed to version control. It must contain at minimum:
 
 ```
 DB_PASSWORD=<strong-random-password>
@@ -793,7 +794,7 @@ serviceMonitor:
   namespace: "monitoring"
 
 adminIngress:
-  enabled: false          # Admin API MUST NOT be exposed externally
+  enabled: false          # Admin API must not be exposed externally
 ```
 
 ### 4.4 AWS Deployment (Terraform Out of Scope)
@@ -812,7 +813,7 @@ This guide does not provide a Terraform module; a sketch would be mistaken for a
 
 ## 5. Relay Admin API
 
-The Relay Admin API is an HTTP API served on the admin listen address (default `127.0.0.1:9099`). It MUST NOT be exposed to the public internet. All endpoints require authentication via a static bearer token (see §5.1).
+The Relay Admin API is an HTTP API served on the admin listen address (default `127.0.0.1:9099`). It must not be exposed to the public internet. All endpoints require authentication via a static bearer token (see §5.1).
 
 The Admin API is an operator interface defined in this document, outside the Agora protocol.
 
@@ -820,15 +821,15 @@ The Admin API reports per-token and per-agreement counters only. It never report
 
 ### 5.1 Authentication
 
-All Admin API requests MUST include an `Authorization: Bearer <token>` header. The token is configured via the `AGORA_ADMIN_TOKEN` environment variable. The relay MUST reject any request without a valid token with HTTP 401.
+All Admin API requests must include an `Authorization: Bearer <token>` header. The token is configured via the `AGORA_ADMIN_TOKEN` environment variable. The relay must reject any request without a valid token with HTTP 401.
 
-The admin token MUST be a cryptographically random value of at least 32 bytes, base64url-encoded. Generate with:
+The admin token must be a cryptographically random value of at least 32 bytes, base64url-encoded. Generate with:
 
 ```bash
 openssl rand -base64 32
 ```
 
-The admin token provides full control over the relay. It MUST be treated as a high-value secret: stored in a secrets manager, rotated via `POST /admin/reload` after updating the environment variable, and never logged.
+The admin token provides full control over the relay. It must be treated as a high-value secret: stored in a secrets manager, rotated via `POST /admin/reload` after updating the environment variable, and never logged.
 
 Every Admin API call is recorded in the relay's audit log (retrievable via `GET /admin/audit`).
 
@@ -921,7 +922,7 @@ Remove a peer and add it to the permanent blocklist. This action is irreversible
 }
 ```
 
-The `confirm` field MUST equal the string `"REMOVE_AND_BLOCK"`. Requests without this field return HTTP 400.
+The `confirm` field must equal the string `"REMOVE_AND_BLOCK"`. Requests without this field return HTTP 400.
 
 **Response 200:**
 ```json
@@ -973,7 +974,7 @@ Stops service under the agreement: the relay rejects envelopes and uploads on ev
 }
 ```
 
-`confirm_agreement_id` MUST exactly match `{id}`. Requests where these do not match return HTTP 400.
+`confirm_agreement_id` must exactly match `{id}`. Requests where these do not match return HTTP 400.
 
 **Response 200:**
 ```json
@@ -1042,7 +1043,7 @@ Deletes a blob from the blob store and adds its CID to a deny list, so a re-uplo
 }
 ```
 
-`confirm_cid` MUST exactly match `{cid}`.
+`confirm_cid` must exactly match `{cid}`.
 
 **Response 200:**
 ```json
@@ -1100,7 +1101,7 @@ Returns the relay operator audit log: all Admin API calls with timestamp, endpoi
 
 ### 6.1 Prometheus Metrics
 
-The relay MUST expose Prometheus metrics at `GET /metrics` on the metrics listen address (default `127.0.0.1:9100`). The metrics endpoint MUST NOT require authentication. It MUST NOT be publicly reachable.
+The relay must expose Prometheus metrics at `GET /metrics` on the metrics listen address (default `127.0.0.1:9100`). The metrics endpoint must not require authentication. It must not be publicly reachable.
 
 All metric names are prefixed `agora_relay_`.
 
@@ -1205,7 +1206,7 @@ None. Compliance logging is a CO function on CO infrastructure (ARCHITECTURE S8)
 
 ### 6.2 Log Format
 
-The relay MUST emit structured JSON logs when `logging.format = "json"`. Each log line is a single JSON object. Fields:
+The relay must emit structured JSON logs when `logging.format = "json"`. Each log line is a single JSON object. Fields:
 
 | Field | Type | Always present | Description |
 |---|---|---|---|
@@ -1240,7 +1241,7 @@ Example log line:
 
 ## 7. Alerting
 
-These alert rules MUST be configured for any production relay deployment. Rules are expressed in Prometheus alerting rule format.
+These alert rules must be configured for any production relay deployment. Rules are expressed in Prometheus alerting rule format.
 
 ```yaml
 # agora-relay-alerts.yaml
@@ -1410,7 +1411,7 @@ groups:
 
 ### 8.2 Relay Signing Key Backup
 
-The relay signing key MUST be backed up before the relay is first deployed. There is no recovery path if it is lost. Procedure:
+The relay signing key must be backed up before the relay is first deployed. There is no recovery path if it is lost. Procedure:
 
 1. Generate the key using the relay CLI:
    ```bash
@@ -1607,7 +1608,7 @@ agora-relay migrate --down --steps 1
 
 Migrations are versioned and tracked in the `schema_migrations` table. All migrations must be:
 - **Backward-compatible for one version**: a migration that adds a column must have a default value so the old relay binary can continue to read the table. Dropping columns requires a two-version process (deprecate in v0.2, remove in v0.3).
-- **Idempotent**: running the same migration twice MUST produce the same result.
+- **Idempotent**: running the same migration twice must produce the same result.
 
 ### 9.5 Post-Upgrade Verification
 
@@ -1635,7 +1636,7 @@ A relay upgrade is **breaking** if:
 - The relay manifest declares a new required capability that peer relays must support.
 - The protocol spec version incremented on any transport surface.
 
-Breaking changes MUST be called out explicitly in release notes and MUST NOT be deployed via rolling upgrade without coordination across all relay nodes sharing the same relay DID.
+Breaking changes must be called out explicitly in release notes and must not be deployed via rolling upgrade without coordination across all relay nodes sharing the same relay DID.
 
 ### 9.7 Rollback Procedure
 
@@ -1665,17 +1666,17 @@ agora-relay keygen --output /etc/agora-relay/keys/relay-signing.key
 # The corresponding relay DID is printed to stdout.
 ```
 
-**File permissions:** The key file MUST have permissions `0600` and be owned by the relay process user. Any other permissions MUST be rejected at startup.
+**File permissions:** The key file must have permissions `0600` and be owned by the relay process user. Any other permissions must be rejected at startup.
 
-**HSM storage (recommended for production):** Store the key in a hardware security module or cloud HSM. Options:
+**HSM storage (recommended for production):** Store the key in a hardware security module or cloud HSM. Options are below. Validation levels, product names, Ed25519 support and pricing change; verify each against current vendor documentation (table written 2026-10, not re-verified).
 
 | Option | Notes |
 |---|---|
 | PKCS#11 + SoftHSM2 | Development/testing only. Software HSM; no hardware protection. |
 | PKCS#11 + YubiHSM 2 | Affordable hardware HSM. Supports Ed25519. Network-attached or USB. |
-| AWS CloudHSM | FIPS 140-2 Level 3. ~$1.60/hour. Use PKCS#11 or JCE provider. |
-| GCP Cloud HSM | FIPS 140-2 Level 3. Use via Cloud KMS API. |
-| Azure Dedicated HSM | FIPS 140-2 Level 3. Use PKCS#11 provider. |
+| AWS CloudHSM | FIPS 140 Level 3 validated (140-2 or 140-3 depending on HSM type). Billed hourly per HSM. Use PKCS#11 or JCE provider. |
+| GCP Cloud HSM | FIPS 140 Level 3 validated. Use via Cloud KMS API. |
+| Azure Dedicated HSM or Azure Cloud HSM | FIPS 140 Level 3 validated. Use PKCS#11 provider. Check which offering Microsoft currently sells. |
 | TPM 2.0 | Available on most server hardware. Ed25519 support varies by TPM firmware. |
 
 Configure PKCS#11 in the relay config:
@@ -1769,14 +1770,16 @@ _agora-relay._udp.example.com.  IN  SRV  10 0 9001  relay.example.com.
 ; TCP fallback
 _agora-relay._tcp.example.com.  IN  SRV  20 0 443   relay.example.com.
 
-; TXT record with relay DID and manifest URL
-_agora.relay.example.com.  IN  TXT  "did=did:key:z6MkRelay... manifest=https://relay.example.com/.well-known/agora-relay"
+; TXT records with relay DID and manifest URL, at the same owner names as the
+; SRV records (spec §10.2.5, Method 3)
+_agora-relay._udp.example.com.  IN  TXT  "did=did:key:z6MkRelay... manifest=https://relay.example.com/.well-known/agora-relay"
+_agora-relay._tcp.example.com.  IN  TXT  "did=did:key:z6MkRelay... manifest=https://relay.example.com/.well-known/agora-relay"
 
 ; Optional: separate subdomain for push proxy
 push.relay.example.com.  IN  A  203.0.113.1
 ```
 
-The `_agora-relay._udp` record MUST be published if the relay supports QUIC peer connections. Relays that cannot expose UDP MUST publish only the `_agora-relay._tcp` record and MUST omit `gossipsub-quic-v1` from their manifest capabilities.
+The `_agora-relay._udp` record must be published if the relay supports QUIC peer connections. Relays that cannot expose UDP must publish only the `_agora-relay._tcp` record and must omit `gossipsub-quic-v1` from their manifest capabilities.
 
 ### 11.3 Firewall Rules
 
@@ -1806,7 +1809,7 @@ WebTransport (QUIC) connections are stateful: a client maintains a QUIC connecti
 - For Kubernetes, use a Service of type `LoadBalancer` with `externalTrafficPolicy: Local` to prevent SNAT from breaking connection tracking.
 
 **WebSocket sticky sessions:**
-WebSocket connections are long-lived TCP connections. Any TLS-terminating load balancer MAY be used, but MUST be configured for **sticky sessions** (source IP or cookie-based affinity). Without sticky sessions, WebSocket upgrade attempts may be routed to a different backend than the original HTTP request.
+WebSocket connections are long-lived TCP connections. Any TLS-terminating load balancer may be used, but must be configured for **sticky sessions** (source IP or cookie-based affinity). Without sticky sessions, WebSocket upgrade attempts may be routed to a different backend than the original HTTP request.
 
 ### 11.5 Tor Hidden Service (Optional)
 
@@ -1826,7 +1829,7 @@ To expose the relay as a Tor v3 hidden service:
 
 4. The relay will publish the `.onion` address in its manifest under `endpoints.onion` as `ws://examplerelay3xyz.onion/v1/agora/ws`.
 
-The `.onion` key file at `/var/lib/tor/agora-relay/hs_ed25519_secret_key` MUST be backed up with the same rigor as the relay signing key. If lost, the hidden service address changes permanently.
+The `.onion` key file at `/var/lib/tor/agora-relay/hs_ed25519_secret_key` must be backed up with the same rigor as the relay signing key. If lost, the hidden service address changes permanently.
 
 ---
 
@@ -1928,7 +1931,7 @@ Scale **horizontally** (add relay nodes, see §15) when:
 
 ### 13.1 TLS Configuration
 
-The relay MUST be configured with the following TLS parameters:
+The relay must be configured with the following TLS parameters:
 
 ```toml
 [server]
@@ -1937,7 +1940,7 @@ tls_min_version = "1.3"
 
 TLS 1.2 is permitted only for WebSocket connections to accommodate legacy clients; WebTransport (QUIC) requires TLS 1.3 by protocol definition.
 
-For TLS 1.3, cipher suites are not configurable (the protocol mandates a fixed set). For TLS 1.2 fallback (WebSocket only), the relay MUST NOT negotiate:
+For TLS 1.3, cipher suites are not configurable (the protocol mandates a fixed set). For TLS 1.2 fallback (WebSocket only), the relay must not negotiate:
 - `TLS_RSA_*` (no forward secrecy)
 - `*_RC4_*` (broken cipher)
 - `*_3DES_*` (broken cipher)
@@ -1952,11 +1955,11 @@ TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
 
 ### 13.2 Network Segmentation
 
-The Admin API (`/admin`) and Prometheus metrics (`/metrics`) MUST be bound to a non-public interface. Default configuration (`admin_addr = "127.0.0.1:9099"`, `metrics_addr = "127.0.0.1:9100"`) is correct for single-node deployments. For multi-node deployments, bind to an internal management VLAN address, not `0.0.0.0`.
+The Admin API (`/admin`) and Prometheus metrics (`/metrics`) must be bound to a non-public interface. Default configuration (`admin_addr = "127.0.0.1:9099"`, `metrics_addr = "127.0.0.1:9100"`) is correct for single-node deployments. For multi-node deployments, bind to an internal management VLAN address, not `0.0.0.0`.
 
 Blobs are served publicly only through the CAS and JMAP endpoints on the client-facing port (§2.1). The only admin blob operation, `DELETE /admin/blobs/{cid}`, is on the admin interface with the rest of the Admin API.
 
-The PostgreSQL port MUST NOT be exposed outside the relay's private network.
+The PostgreSQL port must not be exposed outside the relay's private network.
 
 ### 13.3 Rate Limiting
 
@@ -1980,14 +1983,14 @@ Two proofs of work apply at a relay, both non-monetary abuse controls:
 | Public relay, light abuse | 18–20 | 0 | ~262,000–1M hash ops per connection under load; imperceptible to a human |
 | Public relay, heavy abuse | 22 | 16 | ~4M hash ops per connection; envelope floor makes bulk flooding expensive |
 
-Difficulty above 24 is NOT RECOMMENDED for either proof because it begins to degrade legitimate user experience on low-end hardware. An envelope floor above the difficulty a channel sets would make the relay drop that channel's valid traffic, so keep the floor at or below 18 unless every CO served agrees.
+Difficulty above 24 is not recommended for either proof because it begins to degrade legitimate user experience on low-end hardware. An envelope floor above the difficulty a channel sets would make the relay drop that channel's valid traffic, so keep the floor at or below 18 unless every CO served agrees.
 
 ### 13.5 OS Hardening
 
 Minimal practical checklist for the relay host:
 
 - **Minimal OS install**: Do not install unnecessary packages. Use a minimal container base image (Debian slim or distroless).
-- **Non-root process**: The relay MUST run as a non-root user (uid 1000 in the reference Dockerfile). Never run as uid 0.
+- **Non-root process**: The relay must run as a non-root user (uid 1000 in the reference Dockerfile). Never run as uid 0.
 - **No SSH access in containers**: Use `kubectl exec` or `docker exec` for debugging. Remove SSH daemon from container images.
 - **Read-only filesystem where possible**: Mount `/etc/agora-relay/keys` and `/etc/agora-relay/relay.toml` as read-only. Only `/var/lib/agora-relay` needs write access.
 - **Seccomp profile**: Apply a restrictive seccomp profile to the relay container. The relay requires a limited syscall set (network I/O, file I/O, time); deny the rest.
@@ -2074,7 +2077,7 @@ Alternatively, use **CockroachDB** for a distributed-by-default PostgreSQL-compa
 
 ### 15.4 Blob Store: Shared Backend
 
-All relay instances MUST share the same blob store so that any instance can serve any CID. Use `blob_backend = "s3"` and configure all instances to point at the same bucket:
+All relay instances must share the same blob store so that any instance can serve any CID. Use `blob_backend = "s3"` and configure all instances to point at the same bucket:
 
 - **AWS S3**: Set `blob_s3_endpoint`, `blob_s3_bucket`, and `blob_s3_region` identically across all relay instances. Use an IAM role or access key with `s3:GetObject` and `s3:PutObject` on the bucket.
 - **MinIO** (self-hosted): Deploy a MinIO cluster with erasure coding for durability. All relay instances connect to the same MinIO endpoint. Simpler to control than AWS; requires operating the MinIO cluster.
@@ -2084,9 +2087,9 @@ Do not use a shared NFS/EFS volume as a blob store backend. NFS introduces a sin
 
 ### 15.5 Session Affinity
 
-WebTransport (QUIC) connections maintain cryptographic state (QUIC connection ID, TLS session). The load balancer MUST route all packets from a given QUIC connection to the same relay instance for the duration of the connection.
+WebTransport (QUIC) connections maintain cryptographic state (QUIC connection ID, TLS session). The load balancer must route all packets from a given QUIC connection to the same relay instance for the duration of the connection.
 
-WebSocket connections are long-lived TCP connections. The load balancer MUST NOT terminate and re-route WebSocket connections mid-stream.
+WebSocket connections are long-lived TCP connections. The load balancer must not terminate and re-route WebSocket connections mid-stream.
 
 **For AWS NLB:** UDP flows are tracked by 5-tuple (source IP, source port, destination IP, destination port, protocol) for the duration of the flow idle timeout. Set the NLB idle timeout to at least 350 seconds (longer than the QUIC idle timeout of 300 seconds).
 
@@ -2094,7 +2097,7 @@ WebSocket connections are long-lived TCP connections. The load balancer MUST NOT
 
 ### 15.6 Peer Mesh: Per-Instance Peering
 
-Each relay instance MUST independently participate in the gossipsub peer mesh. Do not front the peer API behind the load balancer; peer relays SHOULD connect to individual relay instance endpoints for gossip.
+Each relay instance must independently participate in the gossipsub peer mesh. Do not front the peer API behind the load balancer; peer relays should connect to individual relay instance endpoints for gossip.
 
 Each instance announces itself with the same `relay_did` (the shared identity) but a distinct physical endpoint. The relay manifest should list the load balancer endpoint for client-facing transports and instance-specific endpoints for the peer API and gossipsub:
 
@@ -2116,7 +2119,7 @@ Configure the load balancer to health-check each relay instance via:
 GET /v1/agora/peer/health
 ```
 
-This endpoint is unauthenticated (spec §10.2.2) and returns `{ "status": "healthy" }` when the relay is operating normally. The load balancer MUST stop routing to an instance that returns `unhealthy` or does not respond within 5 seconds.
+This endpoint is unauthenticated (spec §10.2.2) and returns `{ "status": "healthy" }` when the relay is operating normally. The load balancer must stop routing to an instance that returns `unhealthy` or does not respond within 5 seconds.
 
 Health check interval: 10 seconds. Unhealthy threshold: 2 consecutive failures. Healthy threshold: 3 consecutive successes.
 
@@ -2126,7 +2129,7 @@ Health check interval: 10 seconds. Unhealthy threshold: 2 consecutive failures. 
 
 ### 16.1 Overview
 
-Decommissioning a relay is a multi-step process designed to minimize disruption to the COs and clients that depend on it. A relay MUST NOT be turned off without following this procedure; abrupt shutdown leaves clients unable to reconnect, pinned CIDs potentially inaccessible, and peer relays with stale mesh entries. A CO can replace a relay without changing any Space's identity, membership or history, provided another IO or the CO itself holds its CIDs (ARCHITECTURE S5); this procedure gives each CO the time and the CID lists to do that.
+Decommissioning a relay is a multi-step process designed to minimize disruption to the COs and clients that depend on it. A relay must not be turned off without following this procedure; abrupt shutdown leaves clients unable to reconnect, pinned CIDs potentially inaccessible, and peer relays with stale mesh entries. A CO can replace a relay without changing any Space's identity, membership or history, provided another IO or the CO itself holds its CIDs (ARCHITECTURE S5); this procedure gives each CO the time and the CID lists to do that.
 
 ### 16.2 Pre-Decommissioning Notification
 
@@ -2159,7 +2162,7 @@ Decommissioning a relay is a multi-step process designed to minimize disruption 
    watch -n 5 'curl -s -H "Authorization: Bearer $ADMIN_TOKEN" localhost:9099/admin/status | jq .active_connections'
    ```
 
-3. Allow at least 60 minutes of drain time. After drain, there SHOULD be fewer than 50 active connections (stragglers on slow reconnect schedules).
+3. Allow at least 60 minutes of drain time. After drain, there should be fewer than 50 active connections (stragglers on slow reconnect schedules).
 
 ### 16.4 Export: Ensuring CID Availability
 
@@ -2172,7 +2175,7 @@ Content stored under an agreement belongs to that agreement's CO. The relay cann
        > "cids-$AGREEMENT_ID.txt"
    ```
 
-2. The CO pins the CIDs at its other relays under its agreements there, using pin instructions authorized by the epoch access proof (spec §10.4.3). A CO MAY instead ask you to copy the blobs to a successor relay directly; the blobs are ciphertext, so a copy from your blob store (filesystem or S3 bucket) to the successor's storage under the CO's agreement with the successor discloses nothing new.
+2. The CO pins the CIDs at its other relays under its agreements there, using pin instructions authorized by the epoch access proof (spec §10.4.3). A CO may instead ask you to copy the blobs to a successor relay directly; the blobs are ciphertext, so a copy from your blob store (filesystem or S3 bucket) to the successor's storage under the CO's agreement with the successor discloses nothing new.
 
 3. Before shutdown, check that each listed CID is served by at least one other relay the CO named:
    ```bash
@@ -2201,23 +2204,20 @@ Content stored under an agreement belongs to that agreement's CO. The relay cann
 
 ### 16.6 DID Tombstone
 
-After shutdown, publish a signed tombstone to the gossip mesh to formally retire the relay DID:
+After shutdown, publish a signed tombstone to the gossip mesh to formally retire the relay DID. The tombstone is a typed envelope (spec §13.1) with type `urn:agora:practice:RelayTombstone` and content type `application/json`, signed per spec §13.1.1 by the relay DID. The signature is in the envelope's `sig` field, not in the body. The body is:
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "RelayTombstone",
   "relayDID": "did:key:z6MkRelay...",
   "retiredAt": "2026-05-22T00:00:00Z",
   "reason": "decommissioned",
-  "successor": "did:key:z6MkNewRelay...",
-  "sig": "base64url(signature by relay signing key)"
+  "successor": "did:key:z6MkNewRelay..."
 }
 ```
 
 Gossip this message on `v1/agora/discovery`. `RelayTombstone` is an operational extension, not defined in the protocol spec. Peer relays that implement it remove the retired relay from their peer tables and do not re-establish connections to it; peers that do not implement it remove the relay after the heartbeat expiry in spec §10.2.6.
 
-The tombstone MUST be signed by the relay's current active signing key. Generate and gossip the tombstone before the relay process stops.
+The tombstone must be signed by the relay's current active signing key. Generate and gossip the tombstone before the relay process stops.
 
 ### 16.7 Final Shutdown
 
@@ -2243,9 +2243,9 @@ Shutting down does not extend any retention limit. Data the relay held under an 
 
 A preservation order received before deletion can require you to keep specific data longer. It can reach only what is still held within the observation budget (ARCHITECTURE §4); see §17.4.
 
-Data not listed above MAY be deleted after shutdown. In particular:
-- The local blob store MAY be deleted once each CO has confirmed its CIDs are held elsewhere, or once the agreement's notice period has passed (§16.4).
-- Push registrations and ephemeral per-connection state SHOULD be deleted immediately on shutdown.
+Data not listed above may be deleted after shutdown. In particular:
+- The local blob store may be deleted once each CO has confirmed its CIDs are held elsewhere, or once the agreement's notice period has passed (§16.4).
+- Push registrations and ephemeral per-connection state should be deleted immediately on shutdown.
 
 ---
 
@@ -2275,7 +2275,7 @@ A report that names only a Space, a channel or a user cannot be mapped to anythi
 | Refer to the CO | Contact the agreement's billing contact, or the CO named in a public SpaceAd | The CO can remove members (MLS Remove), moderate content, and change policy (ARCHITECTURE §6.2). |
 | Decline peering | `POST /admin/peers/{did}/trust` or `DELETE /admin/peers/{did}` (§5.2) | Stops gossip from an abusive peer relay (spec §10.2.4). |
 
-Suspending a chain or terminating an agreement is the relay declining service. It is not a moderation decision about any member, and the relay MUST NOT present it as one. Notify the agreement's billing contact when you suspend one of its chains, unless a legal order forbids it.
+Suspending a chain or terminating an agreement is the relay declining service. It is not a moderation decision about any member, and the relay must not present it as one. Notify the agreement's billing contact when you suspend one of its chains, unless a legal order forbids it.
 
 ### 17.3 What an Operator Cannot Do
 

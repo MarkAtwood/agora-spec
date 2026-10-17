@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.127",
+  "title": "[DOC-9] The \"non-normative\" relay guide and some profiles write RFC 2119 requirements the spec doe",
+  "description": "Review finding DOC-9: The \"non-normative\" relay guide and some profiles write RFC 2119 requirements the spec does not have (lens DOC). Location: guides/relay-operator.md:5, :22, :1243, :2129, :2278; profiles/o365-employer-did.md:250. Fix: The relay-guide part stands. :5 \"Draft, non-normative\" contradicts :22's RFC 2119 clause and the operational MUSTs at :1243 and :2129, which have no spec backing (grep for decommission in spec/ and ARCHITECTURE returns nothing). Drop :22 and lower-case MUSTs not sourced from spec/ARCHITECTURE, or cite their source. Corrections to the original finding: parlance.md:207 contains no requirement, so drop it. The one parlance MUST (:96) restates §6.13 logic. o365:496 (`tombstoneGracePeriodSeconds` MUST be 0) is a rule on the profile's own sidecar configuration, a field that exists only in the profile, so it is legitimate profile normativity. Drop it. o365:458 is covered by DOC-1. o365:250 imposes a rule on Agora clients. Cite DID Core's handling of unknown properties, or reword it as advice. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:47.806786563Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:47.806786563Z",
+  "labels": [
+    "review",
+    "doc"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.127",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:47.81883812Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

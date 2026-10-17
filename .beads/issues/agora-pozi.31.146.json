@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.146",
+  "title": "[CRY-13] Passive members can never update their leaf, so post-compromise security is permanently lo",
+  "description": "Review finding CRY-13: Passive members can never update their leaf, so post-compromise security is permanently lost for the most exposed keys (lens CRY). Location: spec/05-messaging.md:113, spec/07-compliance.md:88, spec/07-compliance.md:199; vs spec/12-security.md:14. Fix: The problem is real. A passive member \"MUST NOT issue Commits or Proposals\" (05:113), so its leaf HPKE key never changes. Every UpdatePath that covers it encrypts to that key, and compromising one logger yields path secrets in every group it belongs to indefinitely. That contradicts 12:14. Adjustment: the alternative fix in CRY.md (\"require admins to Remove and re-Add the logger periodically\") conflicts with 07:199, which says \"no member ... MAY issue an MLS Remove commit for the logger DID for the duration of the regulatory retention period\" in DMs. The fix therefore does not follow mechanically. It requires either changing the passive-member contract or carving an exception into 07:199. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:25.748932679Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:25.748932679Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.146",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:25.763369252Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

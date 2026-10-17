@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.133",
+  "title": "[DOC-15] Stale spec version pins and inconsistent lifecycle state names",
+  "description": "Review finding DOC-15: Stale spec version pins and inconsistent lifecycle state names (lens DOC). Location: profiles/discord-onboarding.md:4; profiles/universal-idp-did.md:4, :32, :42; profiles/purview-bridge.md:8; profiles/o365-employer-did.md:115, :129; profiles/gsuite-employer-did.md:125. Fix: As proposed. guides/counsel.md:6 and regulators.md:6 align to spec 0.2, while three profiles pin v0.1. Universal uses `TOMBSTONED`, while o365 and gsuite use `DEACTIVATED` and gsuite:125 says the two are \"identical\". `discord2agora` appears only in import/ and notes/, so mark it external or drop it. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:48.146357301Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:48.146357301Z",
+  "labels": [
+    "review",
+    "doc"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.133",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:48.160542448Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.71",
+  "title": "[IMP-30] DM-specific gaps: relay hints, consent signal, descriptor bootstrap",
+  "description": "Review finding IMP-30: DM-specific gaps: relay hints, consent signal, descriptor bootstrap (lens IMP). Location: spec/04-access-control.md:151, :153, :159; spec/02-identity.md:37, :302; spec/10-relays.md:612. Fix: Raised to P1 because DM chain registration has no rule at all. Relays admit only chains registered by a CO billing DID under a RelayServiceAgreement (10:612, Q6, S7), and DMs have no CO (04:125, 04:168). As written, no DM envelope passes relay admission, and implementers will each invent a different workaround. The relay-hint contradiction is confirmed: 04:151/153 rely on \"DID document relay hints\", while 02:37 and 02:302 forbid naming any relay. `consentModel` and the \"explicit approval signal\" (04:159) have no schema. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.541090059Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.541090059Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.71",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.553164037Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

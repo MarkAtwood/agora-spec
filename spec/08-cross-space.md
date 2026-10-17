@@ -1,6 +1,6 @@
 # 8. Cross-Space Channel Sharing
 
-> Binds: CO. Source: import/agora-protocol-spec-unified.md lines 3939–4083 (§18).
+> Binds: both. Source: import/agora-protocol-spec-unified.md lines 3939–4083 (§18).
 
 
 *Binds: both (CO throughout; §8.6 peering also binds IO).*
@@ -31,10 +31,9 @@ Sharing a channel requires bilateral authorization: the home space admin and the
 {
   "@type": "ChannelShareAgreement",
   "schemaVersion": "1",
-  "id": "urn:agora:csa:bafyrei...",
-  "homeSpace": "agora://bafyrei.../",
+  "homeSpace": "agora://bafyrei...",
   "homeChannel": "agora://bafyrei.../engineering/backend",
-  "guestSpace": "agora://bafyxyz.../",
+  "guestSpace": "agora://bafyxyz...",
   "guestAlias": "shared/example-backend",
   "guestRoles": ["member", "engineer"],
   "guestPermissions": {
@@ -54,7 +53,7 @@ Sharing a channel requires bilateral authorization: the home space admin and the
 
 `guestAlias` is the channel path under which the shared channel appears in the guest space's sidebar. It is a local display alias only; the channel's canonical identity remains `homeChannel`. `guestRoles` is the list of guest space roles whose members are eligible for admission. `guestPermissions` defines the capability constraints applied to guest space members in this channel, independently of their role in their own space.
 
-The agreement is stored as an IPLD node, CID-referenced from both space state documents, and served by both Spaces' endpoints and announced to each Space's members in-band, like any Space state change (§3.4).
+The agreement has no `id` member; it is referenced by the CID of its signed envelope (§13.1), as `agreementCID` does below. It is stored as an IPLD node, CID-referenced from both space state documents, and served by both Spaces' endpoints and announced to each Space's members in-band, like any Space state change (§3.4).
 
 The agreement is a CO-to-CO document, signed per §13.1.1 by both `homeAdminDID` and `guestAdminDID`: the envelope `sig` carries one entry for each, and both are CO keys of the respective Spaces (S4). It links two Spaces, so it is never sent on a gossipsub topic and is not stored on IO infrastructure in the clear; it confers no authority on any IO.
 
@@ -115,7 +114,7 @@ Either party MAY revoke the `ChannelShareAgreement` by publishing a `ChannelShar
   "@type": "ChannelShareRevocation",
   "agreementCID": "bafyrei...",
   "revokedBy": "did:key:z6MkRevoker...",
-  "revokedBySpace": "agora://bafyrei.../",
+  "revokedBySpace": "agora://bafyrei...",
   "reason": "partnership-ended",
   "ts": "2026-03-12T00:00:00Z"
 }

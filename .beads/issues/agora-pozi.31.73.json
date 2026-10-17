@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.73",
+  "title": "[IMP-32] Minor contradictions that will cause small divergences",
+  "description": "Review finding IMP-32: Minor contradictions that will cause small divergences (lens IMP). Location: spec/06-calls.md:28-29 vs spec/05-messaging.md:228; spec/02-identity.md:35 vs spec/10-relays.md:456, :465; spec/11-transport.md:85-88 vs spec/13-encoding.md:121; spec/02-identity.md:211-215, :231. Fix: As proposed. The Pkarr example at 10:456 already uses `cid=bafyrei...`, so only the table text at 10:465 needs to change. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.648319631Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.648319631Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.73",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.659279579Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

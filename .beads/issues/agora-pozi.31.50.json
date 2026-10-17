@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.50",
+  "title": "[IMP-9] Concurrent Commits: no rule chooses the winning Commit",
+  "description": "Review finding IMP-9: Concurrent Commits: no rule chooses the winning Commit (lens IMP). Location: spec/05-messaging.md:23, :203-205; spec/04-access-control.md:16. Fix: The normal path is mostly serialized already. 05:204 says \"The committer obtains it from the service before publishing the Commit\" and \"at most one announcement per chain and `epoch`\", so a careful loser cannot obtain a countersignature and does not publish. The gaps that remain: (1) the outage path (05:205) allows Commits while the service is unreachable, and the text does not say whether those may be published; (2) no rule tells clients to reject a Commit whose envelope lacks a countersigned announcement; (3) the loser's action is unstated; (4) `commitPolicy` has no schema (only 04:16). The fix follows from Q1: the Commit for epoch N+1 is the one carried with the countersigned announcement for N+1, no Commit is published without one (including during outage), and the loser discards and retries. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:43.379818398Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:43.379818398Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.50",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:43.391775856Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

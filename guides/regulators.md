@@ -245,17 +245,17 @@ A firm with chain heads recorded in an independent system, and a chain that veri
 
 ### FINRA Rule 4511 / SEC Rule 17a-4
 
-**Requirement summary.** Six-year retention (two years in accessible storage) for most records; seven years for certain records. Non-erasable, non-alterable storage (WORM). Ability to produce records promptly.
+**Requirement summary.** Rule 17a-4(b)(4) requires broker-dealers to keep business communications sent and received for not less than three years, the first two in an easily accessible place. Other record classes have other periods (six years under 17a-4(a), life of the enterprise under 17a-4(d)); FINRA Rule 4511 applies a six-year default to records with no period specified in 17a-4. Many firms configure a longer period by policy. Electronic records must be kept either in non-rewriteable, non-erasable (WORM) form or, since the October 2022 amendments, in a system with a complete time-stamped audit trail (17a-4(f)(2)(i)). Ability to produce records promptly. Confirm the periods that apply to each record class with counsel.
 
 **What Agora provides.** The IPLD hash chain makes alteration detectable. The Space state sets the retention period (`retentionDays`). The firm owns the archive, with no third-party platform operator involved, which supports the control requirement.
 
 **What to verify in an examination.**
-- `retentionDays` is set to ≥ 2555 (7 years)
+- `retentionDays` is at least the period the firm's applicable rule requires (for example, 1095 days for 17a-4(b)(4) communications), or the firm's longer policy period
 - Archive pruning is suspended for any records subject to legal hold
 - The archive backend (the storage system the compliance logger writes to) is configured to prevent administrative deletion during the retention period
 - An independent auditor has reviewed the archive configuration and issued a written opinion (no such opinion yet exists for Agora deployments; this is a known gap firms are expected to be actively working to close)
 
-**Examiner note: the auditor gap.** As of this writing, no FINRA-registered third-party archiving vendor has issued a written certification that a specific Agora deployment satisfies Rule 17a-4, and no conformant implementation exists. Firms relying on Agora for Rule 17a-4 compliance should be required to produce a timeline and vendor engagement for obtaining third-party certification. Absence of a certification plan is a deficiency.
+**Examiner note: the auditor gap.** As of this writing, no qualified third-party archiving vendor (or designated third party under 17a-4(f)) has issued a written certification that a specific Agora deployment satisfies Rule 17a-4, and no conformant implementation exists. Firms relying on Agora for Rule 17a-4 compliance should be required to produce a timeline and vendor engagement for obtaining third-party certification. Absence of a certification plan is a deficiency.
 
 ### MiFID II Article 16 / FCA COBS 11.8
 
@@ -298,7 +298,7 @@ These checkpoints correspond to the configuration items in the firm's compliance
 - Request the Space state and verify `complianceLogging.enabled` is `true`
 - Verify `regulatedMembers` lists every employee the firm treats as regulated; only listed employees carry the DM capture obligation
 - Verify `scope` is set to `all-channels` or that the configured scope demonstrably covers all channels where regulated business communication has occurred
-- Verify `retentionDays` meets the applicable requirement: 2555 days (7 years) for FINRA/SEC, 1825 days (5 years) for MiFID II unless the competent authority has directed seven years
+- Verify `retentionDays` meets the applicable requirement: for example, at least 1095 days (3 years) for communications under SEC Rule 17a-4(b)(4), or 1825 days (5 years) for MiFID II unless the competent authority has directed seven years, and no less than the firm's own policy period
 - Verify regulated employees use client software that conforms to spec §7.8 and runs on firm-managed devices
 
 ### Archive Completeness
@@ -372,7 +372,7 @@ When examining a firm's Agora deployment:
 
 **VTC compliance recorder.** A firm-operated passive member added to voice/video calls for compliance recording, analogous to the compliance logger for text channels.
 
-**WORM (Write Once Read Many).** Storage that cannot be modified after writing. Rule 17a-4 requires WORM storage for retained records. The IPLD hash chain provides a technical WORM property: modification is detectable even if the underlying storage does not enforce write-once constraints. The underlying storage should still have operational controls preventing administrative deletion.
+**WORM (Write Once Read Many).** Storage that cannot be modified after writing. Rule 17a-4(f)(2)(i) accepts either WORM storage or, since the October 2022 amendments, a recordkeeping system that keeps a complete time-stamped audit trail of every modification and deletion and can re-create the original record. The IPLD hash chain fits the audit-trail alternative more naturally than WORM: modification is detectable even if the underlying storage does not enforce write-once constraints. The chain alone does not record who made a change or preserve the original after one, so the archive backend must supply those parts of the audit trail, and operational controls should still prevent administrative deletion.
 
 ---
 

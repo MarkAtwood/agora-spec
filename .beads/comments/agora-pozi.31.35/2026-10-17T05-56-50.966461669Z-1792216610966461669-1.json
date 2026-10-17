@@ -1,0 +1,7 @@
+{
+  "id": "1792216610966461669-1",
+  "issue_id": "agora-pozi.31.35",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: generalize the RelayServiceAgreement into one IO service agreement (serviceType: relay | sfu | turn | sequencer ...) signed by the IO and the CO billing DID; same quotas/retention/observation budget; chain registration (AccessChainRegistration) gives every IO member-only admission without identity. Update ARCHITECTURE S7/§6.1 wording.",
+  "created_at": "2026-10-17T05:56:50.966461669Z"
+}

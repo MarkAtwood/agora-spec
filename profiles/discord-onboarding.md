@@ -1,7 +1,7 @@
 # Tool Specification: `agora-enroll`
 
 **Version:** 0.1 Draft
-**Depends On:** Agora Protocol Spec v0.1, `discord2agora` spec v0.1
+**Depends On:** the Agora protocol specification (`spec/`, current draft); the `discord2agora` import tool, an external tool specified outside this repository
 **Status:** Pre-implementation design
 
 ---
@@ -125,7 +125,7 @@ Standard OAuth2 loopback redirect (RFC 8252 §7.3):
 4. The CLI exchanges `code` for an access token directly (client ID only, no client secret; the CLI is a public client).
 5. The CLI calls `/users/@me`, extracts Discord user ID and username, and discards the token.
 
-Discord explicitly permits loopback redirect URIs for installed applications. The port is OS-assigned (random) to avoid conflicts. The operator MUST register the loopback URI in Discord's developer portal either with a wildcard port or a fixed registered port.
+RFC 8252 §7.3 requires authorization servers to accept any port on a loopback redirect URI. Whether Discord does so, or requires an exact registered port, is not confirmed here; verify against current Discord developer documentation. The operator MUST register the loopback URI in Discord's developer portal. If Discord matches the port exactly, the CLI MUST bind the fixed registered port instead of a random one.
 
 ---
 
@@ -135,14 +135,7 @@ Discord explicitly permits loopback redirect URIs for installed applications. Th
 
 The browser generates the device key with WebCrypto Ed25519 and signs only through a non-extractable `CryptoKey` (spec §2.2, §12.6). The key signs the `did:webvh` genesis log entry or `did:plc` genesis operation, the KeyPackages and the registration proof (§8) without user interaction. Because the key never leaves the origin's storage, the browser app MUST be served from the origin of the Agora web client that will use the key, or be part of that client.
 
-```javascript
-// extractable only so that wrapKey can wrap it (spec §12.6); exportKey is never called on the private key
-const deviceKey = await crypto.subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
-const rawPublicKey = await crypto.subtle.exportKey("raw", deviceKey.publicKey);
-const publicKeyMultibase = multibaseEncode('ed25519-pub', new Uint8Array(rawPublicKey));
-```
-
-The app then creates a passkey for its origin and requests the WebAuthn PRF extension:
+The app first creates a passkey for its origin and requests the WebAuthn PRF extension, because whether the device key may be extractable depends on PRF support (spec §12.6):
 
 ```javascript
 const credential = await navigator.credentials.create({
@@ -167,7 +160,17 @@ const credential = await navigator.credentials.create({
 });
 ```
 
-If the creation response carries no PRF result, the app obtains it with a `navigator.credentials.get` assertion carrying the same `prf` input. The app wraps the device key under a key derived from the PRF output, stores only the wrapped key with the credential ID and `prfSalt`, and drops the original `CryptoKey` (spec §12.6). In later sessions the Agora web client unwraps the key once per session as non-extractable. If the authenticator does not support PRF, the app stores a non-extractable device key unwrapped, as spec §12.6 allows, and warns that the stored key is not protected by the passkey.
+If the creation response carries no PRF result, the app obtains it with a `navigator.credentials.get` assertion carrying the same `prf` input. If neither yields a PRF output, the authenticator does not support PRF. Only then does the app generate the device key:
+
+```javascript
+// PRF path: extractable only so that wrapKey can wrap it; exportKey is never called on the private key.
+// No-PRF path: non-extractable from the start (spec §12.6).
+const deviceKey = await crypto.subtle.generateKey({ name: "Ed25519" }, prfSupported, ["sign", "verify"]);
+const rawPublicKey = await crypto.subtle.exportKey("raw", deviceKey.publicKey);
+const publicKeyMultibase = multibaseEncode('ed25519-pub', new Uint8Array(rawPublicKey));
+```
+
+On the PRF path the app wraps the device key under a key derived from the PRF output, stores only the wrapped key with the credential ID and `prfSalt`, and drops the original `CryptoKey` (spec §12.6). In later sessions the Agora web client unwraps the key once per session as non-extractable. On the no-PRF path the app stores the non-extractable `CryptoKey` itself, as spec §12.6 allows, and warns that the stored key is not protected by the passkey. The genesis log entry or genesis operation, the KeyPackages and the registration proof are signed after this step, with the key in its final form.
 
 The passkey is not a device key and does not appear in the DID document (spec §2.2). Its assertions never leave the browser; the Enrollment Service does not parse WebAuthn. The DID itself is not derived from the device key: a `did:webvh` DID embeds the SCID of its genesis log entry, and a `did:plc` DID comes from its genesis operation (§3.1). The browser path does not offer `did:key` (§3.1).
 
@@ -493,7 +496,7 @@ challenge_ttl_seconds = 300
 
 **Key material lifetime:** The device key is held as described in §5.1 and is never exported. The X25519 keypair is held in a `CryptoKey` with `extractable: true`; it MUST be exported to the keyfile immediately after generation, and all references to the extractable object MUST be dropped after the keyfile download is initiated.
 
-**Service worker restrictions:** The enrollment page MUST NOT be served with a service worker that could cache responses containing key material. CSP headers MUST include `Cache-Control: no-store` on all enrollment API responses.
+**Service worker restrictions:** The enrollment page MUST NOT be served with a service worker that could cache responses containing key material. All enrollment API responses MUST carry the HTTP header `Cache-Control: no-store`, which is separate from the Content Security Policy.
 
 ---
 

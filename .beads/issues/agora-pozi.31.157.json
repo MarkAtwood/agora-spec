@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.157",
+  "title": "[CRY-25] RFC section citations are wrong",
+  "description": "Review finding CRY-25: RFC section citations are wrong (lens CRY). Location: spec/05-messaging.md:55, spec/02-identity.md:225, spec/12-security.md:93. Fix: Checked against rfc9420.txt headings. §10 is Key Packages and has only §10.1, so §10.3 does not exist. §11 is Group Creation and has only §11.1-§11.3, so §11.5 does not exist. Exporters is §8.5 (rfc9420.txt:3210). The DS and AS roles are defined in RFC 9750. Cite RFC 9420 §8.5 and RFC 9750. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:26.414738906Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:26.414738906Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.157",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:26.430658655Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

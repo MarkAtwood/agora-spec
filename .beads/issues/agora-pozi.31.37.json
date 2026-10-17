@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.37",
+  "title": "[SEP-10] Private-Space icon and custom-emoji images may be pinned in plaintext under a chain",
+  "description": "Review finding SEP-10: Private-Space icon and custom-emoji images may be pinned in plaintext under a chain (lens SEP). Location: spec/05-messaging.md:529, 549; spec/03-spaces.md:57, 188; spec/14-jmap.md:117. Fix: As proposed. §3.4's mirroring rule (03:188) covers only \"Records that name members\", and the §14.3.4 blob-encryption rule (14:117) covers blobs referenced by JMAP durable objects, not Space-state `iconCID` or `customEmoji`. A pin instruction carries an access proof for a registered chain, so a plaintext logo links chain to Space (S1). For non-public Spaces, encrypt icon and emoji blobs under a content key carried in Space state, and widen 03:188 to \"Space-identifying content\". Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.658204432Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.658204432Z",
+  "labels": [
+    "review",
+    "sep"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.37",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.670918233Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

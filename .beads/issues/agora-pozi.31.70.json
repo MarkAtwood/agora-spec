@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.70",
+  "title": "[IMP-29] No list of spec-defined type URIs, DID service types or exporter labels",
+  "description": "Review finding IMP-29: No list of spec-defined type URIs, DID service types or exporter labels (lens IMP). Location: spec/07-compliance.md:227; spec/04-access-control.md:127; spec/05-messaging.md:283-301; spec/13-encoding.md:32, :100 (not :164). Fix: Mostly resolved by existing rules. 13:32 says \"An Agora protocol type is named `urn:agora:type:` followed by the type name\", which fixes the URNs for `ComplianceDisclosureNotice` and `DMGroupDescriptor`. 05:261 admits \"a type defined in another section\", and 06:422 defines the call-type naming. The service-type mismatch is IMP-8. Mixed exporter-label styles are each exact strings and cause no divergence. What remains: write the full URN at 07:227 and 04:145 for clarity, and define the `SystemEvent.event` values (only one example exists, at 09:185). An appendix index is optional. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.484012714Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.484012714Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.70",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.496808565Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

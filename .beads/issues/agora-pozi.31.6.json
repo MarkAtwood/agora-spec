@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.6",
+  "title": "[CLM-6] \"The provider cannot link your traffic to a particular Space\" is absolute",
+  "description": "Review finding CLM-6: \"The provider cannot link your traffic to a particular Space\" is absolute (lens CLM). Location: PRFAQ.md:35, 17; PROPOSAL.md:42-43; vs ARCHITECTURE.md:307-313. Fix: As proposed. ARCHITECTURE §9: \"A CO with one Space gets none\", plus registration-timing correlation and address clustering. PROPOSAL l.42 (\"or which channel or Space a routing token belongs to\") and PRFAQ l.17 need the same qualifier as l.35. PRFAQ l.31 (\"which of a customer's Spaces\") needs it too. Full text: notes/review/CLM-verified.md and notes/review/CLM.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:40.931242246Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:40.931242246Z",
+  "labels": [
+    "review",
+    "clm"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.6",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:40.942631051Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

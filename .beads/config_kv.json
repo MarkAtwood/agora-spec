@@ -22,5 +22,6 @@
   "kv.memory.agora-recording-consent": "Agora recording consent (Mark 2026-10-16, option B): compliance grants = disclosure + participation is consent, no veto; operational grants = explicit per-participant acknowledgement before that user's media is sent. Per-person crypto exclusion rejected (group-wide media keys; members can re-record anyway).",
   "kv.memory.agora-stable-did": "Agora employer DID naming (Mark 2026-10-16, option A'): localIdentifier MUST be stable, never reassigned, MUST NOT derive from name/email/UPN; org picks source (employee ID, IdP immutable ID, random). Rationale is operational stability of compliance/audit keys, not anonymity (corporate IDs aren't anonymous). alsoKnownAs flow kept only for domain migration.",
   "kv.memory.agora-translog": "Agora relay transparency log (Mark 2026-10-16, option C): dropped entirely, matching nie. Do not re-add as protocol feature, guide practice or manifest field.",
-  "kv.memory.agora-urn": "Treat urn:agora: as a registered URN namespace (Mark 2026-10-16); do not raise RFC 8141 registration again."
+  "kv.memory.agora-urn": "Treat urn:agora: as a registered URN namespace (Mark 2026-10-16); do not raise RFC 8141 registration again.",
+  "kv.memory.corundum-flexible": "CORUNDUM is not fixed (Mark 2026-10-16): it can change to align with Agora (signing, identity, key custody). Frame Corundum fit decisions as change Corundum / change Agora / keep both."
 }

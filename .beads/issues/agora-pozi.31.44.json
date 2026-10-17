@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.44",
+  "title": "[IMP-3] `accessKeyAnnouncement` and the registration-service API do not exist as wire formats",
+  "description": "Review finding IMP-3: `accessKeyAnnouncement` and the registration-service API do not exist as wire formats (lens IMP). Location: spec/05-messaging.md:203-205; spec/10-relays.md:612-624; spec/13-encoding.md:27 (not :91). Fix: As proposed. \"registration service\" appears only at 05:203-205, 10:612/624, 14:136 and ARCHITECTURE:181/198/276, and none of these gives an endpoint, field list or relay intake. Constraint from Q6: the locator for the registration service may sit in Space state, but the billing DID must not (10:608). Agreement exchange to the relay also needs an endpoint, because the agreement is private and never gossiped (10:610). Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:43.066994456Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:43.066994456Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.44",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:43.078415341Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

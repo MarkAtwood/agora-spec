@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.115",
+  "title": "[CON-23] Terms used but never defined",
+  "description": "Review finding CON-23: Terms used but never defined (lens CON). Location: spec/10-relays.md:275, :298, :302 (`UserAd`); spec/03-spaces.md:184, spec/05-messaging.md:204, spec/06-calls.md:214, spec/14-jmap.md:216 (CO DID auth); spec/04-access-control.md:121; spec/09-interop.md:50, :96, :179 and spec/05-messaging.md:318 (\"channel state document\"). Fix: Apply the reviewer's fixes. Grep confirms there is no `UserAd` schema and no defined DID-auth method for CO services. \"Channel state document\" has no definition apart from the channel entry in Space state. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:47.082632852Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:47.082632852Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.115",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:47.096713693Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

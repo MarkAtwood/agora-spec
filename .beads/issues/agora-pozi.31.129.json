@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.129",
+  "title": "[DOC-11] O365 device-key registration request diverges from spec §2.5.4 and embeds `sig` in the bod",
+  "description": "Review finding DOC-11: O365 device-key registration request diverges from spec §2.5.4 and embeds `sig` in the body (lens DOC). Location: profiles/o365-employer-did.md:532-547, :555; spec/02-identity.md:327-332; spec/13-encoding.md:51. Fix: As proposed. The spec body uses `deviceEd25519PublicKey`, `deviceX25519PublicKey` and `idpToken` (02-identity.md:327-332). The profile uses `devicePublicKey`, omits X25519, carries the token as a Bearer header, and puts `sig` inside the body. Also align the token placement, or state that the Bearer header substitutes for `idpToken`. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:47.916378805Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:47.916378805Z",
+  "labels": [
+    "review",
+    "doc"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.129",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:47.929006905Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

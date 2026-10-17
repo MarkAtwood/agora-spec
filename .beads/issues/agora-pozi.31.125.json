@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.125",
+  "title": "[DOC-7] Records-retention law is stated incorrectly or without a hedge in the regulator and counse",
+  "description": "Review finding DOC-7: Records-retention law is stated incorrectly or without a hedge in the regulator and counsel guides (lens DOC). Location: guides/counsel.md:10, :206, :250; guides/regulators.md:248, :253, :258, :301, :375; profiles/purview-bridge.md:620. Fix: The text of 17 CFR 240.17a-4(b) says \"not less than three years, the first two years in an easily accessible place\", and (b)(4) covers \"all communications received and ... sent\". The rule contains no seven-year period. Its periods are six years ((a), (c), some of (e)), three years ((b)), and life of the enterprise ((d)). regulators:248 \"seven years for certain records\" is therefore wrong. Its \"six-year ... most records\" misattributes 17a-4(a) to communications. 17a-4(f)(2)(i)(A) allows \"a complete time-stamped audit trail\" as an alternative to (B) \"non-rewriteable, non-erasable format\", so regulators:375 \"requires WORM\" is wrong after the 2022 amendments. The hash-chain argument at :375 fits the audit-trail alternative better and should be framed that way. I found no FINRA vendor-registration regime. The 2022 amendments use a \"designated third party\" or \"designated executive officer\" (Dechert, ACA summaries). I could not find a source that proves the negative, so hedge rather than assert: replace \"FINRA-registered\" with \"qualified third-party archiving vendor (or the firm's designated third party under 17a-4(f))\". Apply the retention-figure fix from DOC.md everywhere, including pur Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:47.696595423Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:47.696595423Z",
+  "labels": [
+    "review",
+    "doc"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.125",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:47.709697561Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

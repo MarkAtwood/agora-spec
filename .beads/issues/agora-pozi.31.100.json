@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.100",
+  "title": "[CON-8] The JMAP `Envelope` exposes `seqNo` (which is inside the ciphertext) and does not match `R",
+  "description": "Review finding CON-8: The JMAP `Envelope` exposes `seqNo` (which is inside the ciphertext) and does not match `RoutingEnvelope` (lens CON). Location: spec/11-transport.md:336, :349; spec/05-messaging.md:226; spec/10-relays.md:561 (SHOULD-level second history API); spec/11-transport.md:279 vs :341-350, :404. Fix: As the reviewer proposes. Drop `seqNo`. Store the exact encoded `RoutingEnvelope` bytes plus `receivedAt` and the CID. Delete 10:561 or make it an alias. Either define `Envelope/set` with the access proof or delete the write clause at 11:279. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:46.227759194Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:46.227759194Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.100",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:46.239755836Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

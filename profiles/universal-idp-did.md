@@ -1,7 +1,7 @@
 # Specification: Employer-Managed DIDs, Universal Identity Provider Support
 
 **Version:** 0.1 Draft
-**Depends On:** Agora Protocol Spec v0.1, O365 DID Spec v0.1, Google Workspace DID Spec v0.1
+**Depends On:** the Agora protocol specification (`spec/`, current draft), O365 DID Spec v0.1, Google Workspace DID Spec v0.1
 **Status:** Pre-implementation design
 
 ---
@@ -29,7 +29,7 @@ The VC issuance model is identical to the Google Workspace spec: self-issued `Em
 
 ## 2. Shared Architecture
 
-The sidecar event handler and DID document lifecycle (STUB → ACTIVE → SUSPENDED → TOMBSTONED) are unchanged from the Google Workspace spec. The `IdentityProvider` implementation and `JMLSource` configuration are the only per-deployment variables.
+The sidecar event handler and DID document lifecycle (STUB → ACTIVE → SUSPENDED → DEACTIVATED) are unchanged from the Google Workspace spec. The `IdentityProvider` implementation and `JMLSource` configuration are the only per-deployment variables.
 
 Every source's events reduce to five normalized actions. Each source section below maps its native events to these; §7 collects all mappings in one table.
 
@@ -39,7 +39,7 @@ Every source's events reduce to five normalized actions. Each source section bel
 | `UPDATE` | None. Claims live in the credential, not the DID document. | Re-issue with new claims | Unchanged |
 | `SUSPEND` | Remove all device keys (spec §2.5.5 `revokeAll`). The sidecar keeps the removed public keys in its private store. | Revoke | `SUSPENDED` |
 | `REACTIVATE` | Restore the device keys removed at suspension. | Re-issue | `ACTIVE` (or `STUB` if no keys were held) |
-| `TERMINATE` | Remove all device keys and deactivate the DID (spec §2.5.6). | Revoke | `TOMBSTONED` |
+| `TERMINATE` | Remove all device keys and deactivate the DID (spec §2.5.6). | Revoke | `DEACTIVATED` |
 
 For `SUSPEND` and `TERMINATE` the sidecar also stops serving the user's KeyPackages and notifies the CO's Enrollment Service, which issues MLS Remove commits for the user's leaves (spec §2.5.5). `TERMINATE` additionally deletes stored KeyPackages. It is final: the log stays resolvable and is never deleted, so archived compliance records keep resolving (spec §2.5.6), and the `localIdentifier` is never reassigned. A returning employee gets a new DID.
 
@@ -49,8 +49,13 @@ For `SUSPEND` and `TERMINATE` the sidecar also stops serving the user's KeyPacka
 [sidecar]
 did_base_url     = "https://did.example.com"
 org_root_did     = "did:web:did.example.com"   # EmployeeCredential issuer
-signing_key_type = "file"            # or "awskms", "gcpkms", "azurekv", "pkcs11"
-signing_key_path = "/secrets/org-root-ed25519.pem"   # also signs DID log entries (§9)
+# Three separate Ed25519 keys, as in Google Workspace spec §7. Backends: §9.
+signing_key_type = "file"            # or "awskms", "gcpkms", "azurekv", "pkcs11", "vault"
+signing_key_path = "/secrets/org-root-ed25519.pem"   # VC issuer key only
+update_key_type  = "file"
+update_key_path  = "/secrets/did-log-update-ed25519.pem"   # did:webvh update key; signs DID log entries only
+provisioning_signing_key_type = "file"
+provisioning_signing_key_path = "/secrets/provisioning-ed25519.pem"   # sidecar's own DID key (spec §2.5.7)
 
 [identity_provider]
 type = "okta"                        # okta | jumpcloud | ping | onelogin | scim | saml | ldap
@@ -73,8 +78,10 @@ One sidecar instance maps to one identity provider and one JML source. An org us
 |---|---|---|
 | **Okta** | Event Hooks (HTTPS POST, async) | `user.lifecycle.create`, `user.lifecycle.activate`, `user.lifecycle.deactivate`, `user.lifecycle.delete`, `user.lifecycle.suspend`, `user.lifecycle.unsuspend`, `group.user_membership.add`, `group.user_membership.remove` |
 | **JumpCloud** | Webhooks (HTTPS POST, synchronous) | `user.create`, `user.update`, `user.delete`, `group.member.add`, `group.member.remove` |
-| **Ping Identity** (PingOne) | Webhook subscriptions | `USER_CREATED`, `USER_UPDATED`, `USER_DELETED`, `POPULATION_CHANGED` |
+| **Ping Identity** (PingOne) | Webhook subscriptions | `USER.CREATE`, `USER.UPDATE`, `USER.DELETE`, `ROLE.USER_ROLE_ASSIGNMENT_CREATED`, `ROLE.USER_ROLE_ASSIGNMENT_DELETED` (see §3.4) |
 | **OneLogin** | Events API + webhooks | `user.created`, `user.deactivated`, `user.deleted`, `role.add_user`, `role.remove_user` |
+
+Event names and payload formats are as of October 2026; verify them against current vendor documentation (Okta, JumpCloud, PingOne, OneLogin) before implementation.
 
 All four providers use the same sidecar webhook receiver (`POST /v1/notify`) with provider-specific payload adapters.
 
@@ -154,7 +161,7 @@ type OktaEventHookPayload struct {
 
 The target with `type: "User"` carries the Okta user ID (`id`) and email (`alternateId`). The sidecar keys on the Okta user ID, which is stable through email changes, and fetches the full user profile via the Okta Users API on each event before acting.
 
-**Reconciliation:** The sidecar's reconciliation poller queries the Okta System Log API (`GET /api/v1/logs?filter=eventType eq "user.lifecycle.*"`) daily for any lifecycle events that were missed, using a stored cursor on the `published` timestamp. This approach is more reliable than a full directory scan because it fetches only change events.
+**Reconciliation:** The sidecar's reconciliation poller queries the Okta System Log API (`GET /api/v1/logs?filter=eventType sw "user.lifecycle"`; the `eq` operator takes no wildcard, so a prefix match uses `sw`. Verify filter syntax against current Okta documentation) daily for any lifecycle events that were missed, using a stored cursor on the `published` timestamp. This approach is more reliable than a full directory scan because it fetches only change events.
 
 **Limitations:** Okta event hooks are asynchronous with up to a one-minute delivery delay and do not guarantee delivery; failed deliveries are retried but may be dropped after repeated failures. The System Log reconciliation poller is the reliability backstop.
 
@@ -454,10 +461,10 @@ AD on-premises supports two change detection mechanisms with different privilege
 
 | Mechanism | Privilege Required | Detects Deletions | Scope | Go Library |
 |---|---|---|---|---|
-| **DirSync control** | `DS-Replication-Get-Changes` (domain admin level) | Yes (tombstones included) | Entire naming context | `go-ldap/ldap/v3` `DirSync()` |
+| **DirSync control** | With the `LDAP_DIRSYNC_OBJECT_SECURITY` flag: read access only, and results are limited to objects and attributes the account can read. Without it: `DS-Replication-Get-Changes` on the naming context root | Yes (tombstones included, if readable) | Entire naming context | `go-ldap/ldap/v3` `DirSync()` |
 | **USNChanged polling** | `List + Read` on target subtree (least privilege) | Only via full sync diff | Subtree-scoped | `go-ldap/ldap/v3` LDAP search |
 
-USNChanged SHOULD be used for least-privilege deployments. DirSync SHOULD be used for domain-joined service accounts where the elevated privilege is acceptable.
+This profile runs DirSync with the object-security flag (§6.3), so neither mechanism needs replication rights. USNChanged SHOULD be used where the account's read access is limited to a subtree. DirSync SHOULD be used where the account can read the whole naming context, including `CN=Deleted Objects`.
 
 ```toml
 [identity_provider]
@@ -532,7 +539,7 @@ func (p *LDAPProvider) PollChanges(ctx context.Context) ([]*UserRecord, error) {
 
 ### 6.3 DirSync Implementation
 
-DirSync is simpler to implement correctly (the cookie manages cursor state automatically) but requires `DS-Replication-Get-Changes`. The `go-ldap/ldap/v3` library provides native `DirSync()` support:
+DirSync is simpler to implement correctly (the cookie manages cursor state automatically) and, with the `ldap.DirSyncObjectSecurity` flag used below, needs no replication right: the domain controller returns only objects and attributes the service account can read. Without that flag the account needs `DS-Replication-Get-Changes`. The `go-ldap/ldap/v3` library provides native `DirSync()` support:
 
 ```go
 func (p *LDAPProvider) PollDirSync(ctx context.Context) ([]*UserRecord, error) {
@@ -565,8 +572,8 @@ DirSync includes deleted objects (tombstones) automatically when the filter matc
 - `Read All Properties` on deleted objects
 
 **For DirSync:**
-- `DS-Replication-Get-Changes` extended right on the domain naming context root
-- This right is equivalent to AD replication access; the minimum grant is membership in `Domain Admins` or explicit delegation of the extended right.
+- With `DirSyncObjectSecurity` (as in §6.3): `Read All Properties` on user objects under the base DN and on `CN=Deleted Objects,DC=...`. Attributes the account cannot read are silently omitted, so grant read on every attribute in `userAttributes`.
+- Without that flag: the `DS-Replication-Get-Changes` extended right on the domain naming context root, delegated explicitly. This profile does not use that mode.
 
 The service account MUST be a dedicated account in a dedicated OU with all interactive login rights stripped. The account password MUST be rotated at least annually and MUST be stored in a secrets manager (HashiCorp Vault, AWS Secrets Manager, or equivalent); it MUST NOT be stored in a config file.
 
@@ -641,9 +648,9 @@ The operator MUST configure the IdP to emit a claim that matches the `stableID` 
 
 ## 9. Signing Key Options
 
-The self-issued `EmployeeCredential` requires the org to hold an Ed25519 signing key, and the sidecar signs DID log entries with its update key (§1). The sidecar supports the following backends for both keys:
+The self-issued `EmployeeCredential` requires the org to hold an Ed25519 signing key, and the sidecar signs DID log entries with its update key (§1). The sidecar holds three distinct Ed25519 keys: the VC issuer key (`signing_key_*`), the `did:webvh` update key (`update_key_*`) and the provisioning signing key (`provisioning_signing_key_*`), as in Google Workspace spec §7. The issuer key is separate from the update key, so it confers no authority over any employee's DID log. Each key is configured independently and can use any of the following backends:
 
-| Backend | `signing_key_type` | Notes |
+| Backend | `*_key_type` value | Notes |
 |---|---|---|
 | File (PEM) | `file` | Key on disk; operator is responsible for backup and rotation. Acceptable for lab/pilot only. |
 | AWS KMS | `awskms` | HSM-backed; key ARN in config; uses `aws-sdk-go-v2` |

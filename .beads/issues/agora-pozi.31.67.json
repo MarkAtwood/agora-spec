@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.67",
+  "title": "[IMP-26] PoW input and placement are ambiguous",
+  "description": "Review finding IMP-26: PoW input and placement are ambiguous (lens IMP). Location: spec/10-relays.md:673-683; spec/11-transport.md:125. Fix: As proposed. Depends on the IMP-2 byte definition. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.311235907Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.311235907Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.67",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.324296035Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

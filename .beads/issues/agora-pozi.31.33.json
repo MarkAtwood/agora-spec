@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.33",
+  "title": "[SEP-6] §11 sends Welcomes over the relay live stream, contradicting KeyPackage-endpoint delivery",
+  "description": "Review finding SEP-6: §11 sends Welcomes over the relay live stream, contradicting KeyPackage-endpoint delivery (lens SEP). Location: spec/11-transport.md:10, 405; vs spec/05-messaging.md:51, spec/04-access-control.md:147, spec/10-relays.md:264. Fix: As proposed: drop \"Welcomes\" at 11:10, change the row at 11:405 to \"Commit / Proposal\", and point to §4.6. Lowered to P3 because §11's mentions are overview prose and a table, while the normative rules in 05:51 (\"never on a gossip topic\") and 04:147 are explicit MUSTs. This is an editorial contradiction, not an open leak. Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.428854778Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.428854778Z",
+  "labels": [
+    "review",
+    "sep"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.33",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.441449724Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

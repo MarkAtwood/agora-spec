@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.49",
+  "title": "[IMP-8] KeyPackage endpoint and Welcome delivery have no API",
+  "description": "Review finding IMP-8: KeyPackage endpoint and Welcome delivery have no API (lens IMP). Location: spec/05-messaging.md:50-51, :63-73; spec/07-compliance.md:185-195; spec/13-encoding.md:117 (not :181); spec/02-identity.md:302, :381; spec/04-access-control.md:147. Fix: As proposed. The type mismatch is confirmed: 07:190 uses `\"type\": \"AgoraKeyPackageEndpoint\"`, while 02:19/302, 05:63 and 10:466 use `KeyPackageEndpoint`. Q3 (KeyPackages at the identity host, found via the DID-doc KeyPackageEndpoint) settles where the endpoint is, not its API. The per-device fetch is a real gap: 05:65 says \"a fetch atomically consume[s] the returned KeyPackage\", one per fetch, while each device is a leaf (02:78). Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:43.323611224Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:43.323611224Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.49",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:43.33527322Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

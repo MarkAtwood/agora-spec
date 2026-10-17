@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.53",
+  "title": "[IMP-12] SFU signaling protocol is undefined",
+  "description": "Review finding IMP-12: SFU signaling protocol is undefined (lens IMP). Location: spec/06-calls.md:84-119. Fix: As proposed. Also 06:88 says \"the SFU's signaling messages are signed by the DID in that entry\", but no signature format exists, and 06:111 says the client \"presents the MLS-membership access proof\", with no challenge or replay rule. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:43.544146503Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:43.544146503Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.53",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:43.557564917Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

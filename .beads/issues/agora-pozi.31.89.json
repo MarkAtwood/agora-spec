@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.89",
+  "title": "[EXA-16] Pkarr record examples disagree with each other and with the no-relay rule",
+  "description": "Review finding EXA-16: Pkarr record examples disagree with each other and with the no-relay rule (lens EXA). Location: spec/10-relays.md:465, 476. Fix: As the reviewer proposed. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:45.583317318Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:45.583317318Z",
+  "labels": [
+    "review",
+    "exa"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.89",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:45.596782013Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

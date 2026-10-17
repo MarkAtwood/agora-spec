@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.144",
+  "title": "[CRY-11] MLS credential format and Authentication Service checks are undefined; KeyPackage validati",
+  "description": "Review finding CRY-11: MLS credential format and Authentication Service checks are undefined; KeyPackage validation is assigned to the wrong party (lens CRY). Location: spec/05-messaging.md:55, spec/05-messaging.md:77-84, spec/02-identity.md:43, spec/02-identity.md:80. Fix: Neither `BasicCredential` nor any other credential type appears anywhere in spec/. 05:77 tells \"Recipients of a Welcome\" to validate \"the KeyPackage used to construct it\". That is their own KeyPackage, so the check proves nothing. RFC 9420 §10.1 places that check on the adder, and §12.4.3.1 requires the joiner to validate the tree. 05:65 makes the KeyPackage host check the credential, which is necessary but does not replace the member-side checks. No text requires leaf `signature_key` to be a current `authentication` method of the credential's DID at Add, Update and path. 02:43 (\"Ed25519 key used to sign all protocol messages\") conflicts with per-device keys at 02:80. Fix as proposed. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:25.633030917Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:25.633030917Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.144",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:25.646827543Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

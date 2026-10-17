@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.96",
+  "title": "[CON-4] Shared channels need two COs' `billingSig` on one announcement, but the format allows one",
+  "description": "Review finding CON-4: Shared channels need two COs' `billingSig` on one announcement, but the format allows one (lens CON). Location: spec/08-cross-space.md:98; spec/05-messaging.md:204. Fix: Let `billingSig` carry one §13.1.1 entry per agreement under which the chain is registered (§13.1.1 already supports multi-signer `sig`). State that the guest CO authorizes on the basis of the `ChannelShareAgreement` plus its own member list. This depends on the CON-2 fix that turns the announcement into a typed envelope. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:46.002033117Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:46.002033117Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.96",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:46.014251491Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

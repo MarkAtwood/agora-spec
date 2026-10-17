@@ -7,7 +7,7 @@
 
 ---
 
-> **Preliminary note.** This document explains how the Agora protocol works from a compliance and legal standpoint. It is not legal advice. No FINRA-registered archiving vendor or HIPAA-qualified auditor has yet validated the compliance logging architecture described here. Regulated organizations should obtain independent validation before relying on Agora for regulatory compliance.
+> **Preliminary note.** This document explains how the Agora protocol works from a compliance and legal standpoint. It is not legal advice. No qualified third-party archiving vendor (or designated third party under SEC Rule 17a-4(f)) or HIPAA-qualified auditor has yet validated the compliance logging architecture described here. Regulated organizations should obtain independent validation before relying on Agora for regulatory compliance.
 
 ---
 
@@ -203,7 +203,7 @@ Before deploying Agora in a regulated environment, verify the following.
 - [ ] `complianceLogging.enabled` is `true` in the Space state
 - [ ] `complianceLogging.regulatedMembers` lists every employee you treat as regulated, and you have a process to update it on hiring, role change, and departure
 - [ ] `scope` is set to `all-channels` or explicitly confirmed to cover all channels where regulated business communication may occur
-- [ ] `retentionDays` is set to meet your regulatory requirement (FINRA/SEC 17a-4: 2555 days = 7 years; HIPAA: 2190 days = 6 years minimum for most records)
+- [ ] `retentionDays` is set to meet your regulatory requirement and your own policy. Examples, to be confirmed by counsel for each record class: SEC Rule 17a-4(b)(4) business communications, at least 1095 days (3 years, the first 2 easily accessible); HIPAA, 6 years under 45 CFR 164.316(b)(2), which covers required Security Rule documentation rather than communications generally
 - [ ] DM compliance (spec §7.8) is active: regulated employees use client software that conforms to §7.8, and the `loggerDID` is correctly configured
 
 **Endpoint enforcement**
@@ -247,7 +247,7 @@ Before deploying Agora in a regulated environment, verify the following.
 
 | Regulation | Key Requirement | Agora Coverage | Gap |
 |---|---|---|---|
-| FINRA 17a-4 / SEC 17a-4 | 7-year retention of business communications, non-erasable, non-alterable | Covered for text channels, DMs (spec §7.8), and voice/video (spec §6.12); tamper-evident chain | Auditor validation pending; capture depends on conformant clients |
+| SEC Rule 17a-4 / FINRA Rule 4511 | Business communications kept at least 3 years, first 2 easily accessible (17a-4(b)(4)); WORM storage or a complete time-stamped audit trail (17a-4(f)(2)(i), as amended 2022) | Covered for text channels, DMs (spec §7.8), and voice/video (spec §6.12); tamper-evident chain | Auditor validation pending; capture depends on conformant clients |
 | FINRA Rule 4511 | Books and records: communications with the public | Covered for Agora-channel communications including voice | Non-Agora channels not covered |
 | HIPAA Security Rule (§164.312) | Technical safeguards for ePHI in electronic communications | MLS E2EE protects ePHI in transit and in relay storage; voice recording covered; archive holds plaintext and is a covered system | Whether a BAA is needed with the relay operator is a question for counsel. Facts: the relay holds ciphertext and connection metadata, no keys and no plaintext (ARCHITECTURE §4-§5). Parties running the logger, recorder, or archive hold plaintext |
 | MiFID II Article 16 | 5-year retention of communications related to transactions | Covered for text and voice; 7-year retention configuration available | Cross-border jurisdiction issues |

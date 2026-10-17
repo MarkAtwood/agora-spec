@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.4",
+  "title": "[CLM-4] \"Cannot hijack the chain\" depends on an ordering the spec does not require",
+  "description": "Review finding CLM-4: \"Cannot hijack the chain\" depends on an ordering the spec does not require (lens CLM). Location: spec/05-messaging.md:204; spec/04-access-control.md:88; spec/03-spaces.md:28; PROPOSAL.md:80-81; PRFAQ.md:99. Fix: The gap is wider than the finding says. (1) The gate is \"a DID it authenticates as a current member of the channel under Space state\", but 03:28 says \"Space membership does not imply channel membership\" and a Kick (04:88) \"removes a member from one or more channel MLS groups without a space-level ban\" and changes no Space state, so a kicked member always passes the gate. (2) The service countersigns \"at most one announcement per chain and `epoch`\" and cannot check that the announced key matches a real Commit, so any current member, not only one being removed, can grab the single countersignature with a key only they hold and lock out the channel. Option (a) as originally proposed (Space-state removal first) covers neither case. This attacks the implementation, not decision Q1, which says the countersignature \"closes removed-member forgery race\". Until it is fixed, soften PROPOSAL l.80-81 and PRFAQ l.99. Add to agora-pozi.8 (open) scope, which already lists \"commit ordering\". Full text: notes/review/CLM-verified.md and notes/review/CLM.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:40.824423321Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:40.824423321Z",
+  "labels": [
+    "review",
+    "clm"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.4",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:40.836447513Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

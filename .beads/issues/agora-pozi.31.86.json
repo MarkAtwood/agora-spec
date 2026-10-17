@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.86",
+  "title": "[EXA-13] Self-referential and undefined `urn:agora:` identifiers",
+  "description": "Review finding EXA-13: Self-referential and undefined `urn:agora:` identifiers (lens EXA). Location: spec/10-relays.md:593, 617; spec/08-cross-space.md:34-37, 118; spec/07-compliance.md:97, 217, 258; spec/04-access-control.md:133; spec/03-spaces.md:55. Fix: The finding is real. The agora-urn decision covers only registration, not undefined sub-namespaces or self-reference. Keep the reviewer's fixes for `rsa`, `csa`, `msg` and the `agora://` form. For SpaceState, 03:49 anchors identity to the genesis CID, so state that `id` is absent from genesis and equals `agora://\u003cgenesis CID\u003e` afterward. Replace the reviewer's DM fix with a simpler one: drop `dmGroupID` and identify DM groups by the descriptor's `mlsGroupID`. It is already stable and only ever appears inside the group or in compliance records. Then change 04:117 from \"identified by a `DMGroupCID`\" to that. No new `urn:agora:dmgroup:` namespace is needed. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:45.400412931Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:45.400412931Z",
+  "labels": [
+    "review",
+    "exa"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.86",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:45.414143564Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

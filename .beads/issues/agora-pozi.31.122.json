@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.122",
+  "title": "[DOC-4] Google Business-tier \"step-up\" WebAuthn check verifies nothing and is mislabeled as the de",
+  "description": "Review finding DOC-4: Google Business-tier \"step-up\" WebAuthn check verifies nothing and is mislabeled as the device-key PoP (lens DOC). Location: profiles/gsuite-employer-did.md:419, :421, :427-428, :514; profiles/o365-employer-did.md:555; spec/02-identity.md:80. Fix: The gsuite profile never registers a WebAuthn credential (grep for passkey/webauthn finds only :419-428 and :514). An assertion against a key that was never enrolled proves nothing about the user. o365:555 is a device-key signature, not a WebAuthn check, and spec/02-identity.md:80 says \"A WebAuthn credential (passkey) is not a device key\". Remove \"same proof-of-possession check\" and pick one of the options below. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:47.518754703Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:47.518754703Z",
+  "labels": [
+    "review",
+    "doc"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.122",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:47.533445081Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

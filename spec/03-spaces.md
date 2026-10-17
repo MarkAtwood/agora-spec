@@ -72,7 +72,9 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
       "mode": "broadcast",
       "name": "Announcements",
       "keyAccess": "members",
-      "noPin": true
+      "broadcasterRoles": ["broadcaster"],
+      "noPin": true,
+      "mlsGroupID": "base64url..."
     },
     {
       "path": "community",
@@ -80,20 +82,22 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
       "mode": "community",
       "name": "Community",
       "speakerCap": 200,
-      "idleEvictDays": 7
+      "idleEvictDays": 7,
+      "mlsGroupID": "base64url..."
     },
     {
       "path": "engineering",
       "type": "category",
       "name": "Engineering",
       "children": [
-        { "path": "engineering/backend", "type": "text", "mode": "interactive" },
-        { "path": "engineering/fips",    "type": "text", "mode": "interactive" }
+        { "path": "engineering/backend", "type": "text", "mode": "interactive", "mlsGroupID": "base64url..." },
+        { "path": "engineering/fips",    "type": "text", "mode": "interactive", "mlsGroupID": "base64url..." }
       ]
     },
     {
       "path": "voice/lounge",
-      "type": "voice"
+      "type": "voice",
+      "mlsGroupID": "base64url..."
     }
   ],
   "roles": [
@@ -103,6 +107,12 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
       "channelAccess": ["general", "engineering/*"],
       "canInvite": false,
       "permissions": ["view", "send", "pin"]
+    },
+    {
+      "id": "broadcaster",
+      "label": "Broadcaster",
+      "channelAccess": ["announcements"],
+      "canInvite": false
     }
   ],
   "customEmoji": [
@@ -116,17 +126,18 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
   ],
   "sequencer": {
     "did": "did:webvh:QmSCID...:seq.example.com",
-    "endpoint": "https://seq.example.com/agora/v1"
+    "endpoint": "https://seq.example.com/v1/agora/seq"
   },
   "consistencyModels": {
     "urn:ietf:params:jmap:tasks#Task": "sequenced-v1"
   },
-  "vtcCompliance": {},
   "mlsGroupID": "base64url...",
   "prevStateCID": "bafyrei...",
   "seq": 42
 }
 ```
+
+`id` is absent from the genesis state document, whose CID it would otherwise have to contain. In every later state document `id` is `agora://<genesis CID>`, with no trailing slash (§3.2).
 
 The document is signed per §13.1.1 by the Space owner's authentication key or a delegated admin's key. Space state and channel state are signed only by these CO keys (ARCHITECTURE S4). A Relay or other IO key MUST NOT sign Space or channel state, and clients MUST reject Space or channel state that is not signed by the owner or by an admin authorized under the prior state.
 
@@ -181,10 +192,28 @@ GET <spaceEndpoint>/broadcast-key/<channelCID>/<keyEpoch>   → BroadcastKey of 
 
 **Locating the endpoint.** The CO lists its Space endpoint URLs in the `spaceEndpoint` array of each `SpaceInvite` (§4.3) and `SpaceAd` (§10.3.2), and MAY list them as an `AgoraSpaceEndpoint` service entry in the Space owner's DID document. A CO changes endpoints by publishing new URLs through these same records; Space identity (genesis CID) is unaffected.
 
-**Access control.** For a private Space, the endpoint MUST serve state only to clients that authenticate as current members (by DID authentication to the CO) or that present an unexpired, unrevoked (§4.3) `SpaceInvite` naming them or an open-link invite token. For a public Space, the endpoint serves non-members the access-controlled view of §4.4, signed by the owner or a delegated admin; it is a separate signed document and is never a substitute for the members' chain. Because the endpoint is the CO, its knowledge of who fetches state is not an IO observation.
+**Access control.** For a private Space, the endpoint MUST serve state only to clients that authenticate as current members (§3.5) or that present an unexpired, unrevoked (§4.3) `SpaceInvite` naming them or an open-link invite token. For a public Space, the endpoint serves non-members the access-controlled view of §4.4, signed by the owner or a delegated admin; it is a separate signed document and is never a substitute for the members' chain. Because the endpoint is the CO, its knowledge of who fetches state is not an IO observation.
 
 **Real-time notification.** When Space state changes, the signer SHOULD send the new head CID to members as an MLS application message of type `SpaceStateHead` (field `stateCID`) in the Space's MLS group (`mlsGroupID`, §3.3) and MAY send it in channel groups. Recipients fetch and verify the new state from the Space endpoint. The notification needs no signature of its own because the state it points to is signed. Clients SHOULD also poll `/head` on reconnect.
 
 **Mirroring.** A CO MAY mirror a public Space's state chain on IPFS by CID; doing so is a CO publication. Records that name members other than the owner and admins (the state of a private Space, the moderation log, any state carrying `regulatedMembers`) MUST NOT be stored on IO infrastructure in the clear. The CO either holds them only at the Space endpoint or stores them on IO infrastructure as **group-encrypted blobs**.
 
 **Group-encrypted blob.** A group-encrypted blob is `epoch || nonce || AEAD(key, nonce, record, aad = "agora/blob/v1" || epoch)`, where `key` is `MLS-Exporter("agora blob", "", Nk)` of the MLS epoch in which it is written, the AEAD is that of the group's ciphersuite, `epoch` is a big-endian uint64 in the clear, and `nonce` is freshly random. It is addressed by the CID of the whole ciphertext. Only members of that epoch can decrypt it. An IO storing it holds only an opaque CID (ARCHITECTURE §5 item 4).
+
+## 3.5 Member Authentication
+
+*Binds: CO.*
+
+A CO service that serves or issues something only to current members, such as the Space endpoint (§3.4), the TURN credential service (§6.11) or the invite service (§14.6.1), authenticates a member by DID as follows. Relays and other IOs never use this exchange (§11.6).
+
+The client sends `POST <service>/auth`, where `<service>` is the service's base URL, with a typed payload envelope (§13.1) of type `urn:agora:type:MemberAuth`, signed per §13.1.1 by a device key of `did`. Its body is:
+
+```json
+{
+  "did": "did:webvh:QmSCID...:example.com:alice",
+  "service": "https://spaces.example.com/v1/agora/space/1f3a...",
+  "ts": "2026-03-12T12:00:00.000Z"
+}
+```
+
+The service MUST verify the signature with `did` as the required signer, MUST check that `service` equals its own base URL and that `ts` is within 300 seconds of its clock, MUST reject an envelope it has accepted in the previous 600 seconds, and MUST check that `did` is a current member under the Space state it holds or, for the Space endpoint, is named by an unexpired, unrevoked `SpaceInvite` (§4.3). On success it returns a bearer token of at least 128 random bits, valid for at most one hour, which the client sends as `Authorization: Bearer <token>` on later requests to that service.

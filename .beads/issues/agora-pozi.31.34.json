@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.34",
+  "title": "[SEP-7] DM routing relies on per-DID \"relay hints\" that identity records are forbidden to carry",
+  "description": "Review finding SEP-7: DM routing relies on per-DID \"relay hints\" that identity records are forbidden to carry (lens SEP). Location: spec/04-access-control.md:151, 153; vs spec/02-identity.md:37, 302. Fix: The contradiction is as described. The finding's fix assumes a registration path for DMs that does not exist. 05:204 requires every announcement to carry a `billingSig` from a service that authenticates the requester \"as a current member of the channel under Space state\", but DMs have no Space (04:145), and no text says who registers or countersigns a DM chain. Fix: delete the relay-hint sentences at 04:151 and 04:153, carry the relay list in the Welcome (for example as a GroupContext extension), and specify DM chain registration and countersigning. Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.484259563Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.484259563Z",
+  "labels": [
+    "review",
+    "sep"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.34",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.496768932Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

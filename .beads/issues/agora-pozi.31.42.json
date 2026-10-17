@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.42",
+  "title": "[IMP-1] The live client-relay protocol has no message set",
+  "description": "Review finding IMP-1: The live client-relay protocol has no message set (lens IMP). Location: spec/11-transport.md:36, :54-64, :80-135, :398-407. Fix: As proposed. Only ClientHello, RelayHello, AdmissionChallenge and AdmissionProof exist (11:80-133). No grep hit anywhere for a subscribe, publish, deliver, ack or pin message. \"channel ID prefix\" (11:36) does not appear in the frame structure (11:59). §11.8.8 assigns push registration and MLS handshake to the live stream only, so the gap blocks those features too. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.955839032Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.955839032Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.42",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.96822595Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

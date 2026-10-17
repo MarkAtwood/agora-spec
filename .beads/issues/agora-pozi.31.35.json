@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.35",
+  "title": "[SEP-8] IOs other than relays (TURN, SFU, sequencer) have no S7 binding, and the sequencer ignores",
+  "description": "Review finding SEP-8: IOs other than relays (TURN, SFU, sequencer) have no S7 binding, and the sequencer ignores the §6.2 proof (lens SEP). Location: spec/06-calls.md:110, 212; spec/14-jmap.md:166, 171, 178, 193; vs ARCHITECTURE.md:116-119 (S7). Fix: As proposed. One more concrete failure: the closing rule (14:178) reads `after` from \"the operation at position 0 of a new epoch's stream\". The sequencer \"does not authenticate submitters\" (14:166), so a non-member who saw the token can take position 0, and members skip that op at decryption (14:173), which leaves the closing head undefined. Requiring `accessSig` at the sequencer fits D2 (\"Sequencer reads nothing\"), because verifying the proof reads no content. 14:193's Space association holds only for Spaces whose state the operator can see (public Spaces, which are CO publications). Reword it rather than call it a §5 violation. Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.543992921Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.543992921Z",
+  "labels": [
+    "review",
+    "sep"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.35",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.556509662Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

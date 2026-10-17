@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.126",
+  "title": "[DOC-8] Radio profile sizes the Agora message using the retired sealed-envelope design",
+  "description": "Review finding DOC-8: Radio profile sizes the Agora message using the retired sealed-envelope design (lens DOC). Location: profiles/radio-mesh-gateway.md:246; spec/05-messaging.md:220; notes/lichen-ironweed.md §2. Fix: As proposed. spec/05-messaging.md:220 says \"The wrapper carries no sender DID, ephemeral key or signature of its own\". Recompute from §5.2.2 as it now stands. Fix the note too, but note edits are out of scope for spec/doc reviewers unless Mark wants it. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:47.753779977Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:47.753779977Z",
+  "labels": [
+    "review",
+    "doc"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.126",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:47.768302526Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.30",
+  "title": "[SEP-3] Billing countersignature and chain verification leak onto the open gossip mesh",
+  "description": "Review finding SEP-3: Billing countersignature and chain verification leak onto the open gossip mesh (lens SEP). Location: spec/05-messaging.md:204; spec/13-encoding.md:62 (`kid` is the signer's DID URL); spec/10-relays.md:527, 608; spec/08-cross-space.md:96; vs ARCHITECTURE.md:157-160, 182. Fix: As proposed. `billingSig` is a §13.1.1 JWS whose `kid` names the billing DID, and announcements travel on the gossiped channel topic, so every mesh relay learns the billing DID behind each chain. 10:608 says agreements are \"not gossiped\", but this is their signer gossiped on every rotation. In the other direction, 10:527 requires dropping envelopes whose `accessSig` cannot be verified, and no mechanism introduces a chain to a peer relay without a registration. That leaves 08:96 unworkable. Q1 fixes that a CO countersigns. It does not fix that the countersigning key is the billing DID, so a per-registration key is open. Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.270819041Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.270819041Z",
+  "labels": [
+    "review",
+    "sep"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.30",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.282954446Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.150",
+  "title": "[CRY-17] JWS verification does not say which DID-document state a key is checked against",
+  "description": "Review finding CRY-17: JWS verification does not say which DID-document state a key is checked against (lens CRY). Location: spec/13-encoding.md:76. Fix: 13:76 resolves `kid` with no time reference. Only 02:163 (\"the DID document in effect before the assertion\") states one. Archived compliance records, agreements and Space state signed by a later-revoked device key either fail verification or keep verifying for new objects, depending on how an implementer reads it. Fix as proposed: check new objects against the current document, and stored objects against the version recorded at acceptance (`versionId` or PLC operation CID). Revocation is not retroactive. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:25.983917973Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:25.983917973Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.150",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:25.999073199Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

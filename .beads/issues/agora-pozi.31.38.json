@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.38",
+  "title": "[SEP-11] Relay \"sequence attestations\" give relays an undefined ordering role",
+  "description": "Review finding SEP-11: Relay \"sequence attestations\" give relays an undefined ordering role (lens SEP). Location: spec/05-messaging.md:23. Fix: Delete the sentence. The spec defines no format or validation for it, and D2 assigns sequenced order to the blind sequencer (§14.4). Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.710759558Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.710759558Z",
+  "labels": [
+    "review",
+    "sep"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.38",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.723019994Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

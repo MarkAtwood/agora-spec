@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.116",
+  "title": "[CON-24] The version registry claims to list \"every versioned protocol surface\" but omits several",
+  "description": "Review finding CON-24: The version registry claims to list \"every versioned protocol surface\" but omits several (lens CON). Location: spec/13-encoding.md:106-121; spec/01-overview.md:21. Fix: Add the missing rows (JMAP sync, blob, Space endpoint, sequencer, SFU, TURN credential, `/.well-known/agora-relay`), or narrow the claim. Pick 404 or 404/410 in both places. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:47.141898956Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:47.141898956Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.116",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:47.156847409Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

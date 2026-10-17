@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.114",
+  "title": "[CON-22] Signers and fields that other parts rely on are unspecified",
+  "description": "Review finding CON-22: Signers and fields that other parts rely on are unspecified (lens CON). Location: spec/07-compliance.md:266, :276; spec/12-security.md:123, :147; spec/02-identity.md:469 vs :224-229. Fix: Apply the reviewer's fixes. Name the `DMComplianceAuditEntry` signer and define a gap-record type. Either source the \"signing key fingerprint\" from the MLS leaf credential and record it in `ComplianceRecord`, or soften 12:123/12:147; no \"MLS authenticated data\" field carries it today. Qualify 02:469 to software keystores. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:47.026607879Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:47.026607879Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.114",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:47.040690272Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

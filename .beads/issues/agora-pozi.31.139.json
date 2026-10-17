@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.139",
+  "title": "[CRY-6] Nothing stops relays accepting previous-epoch access signatures, so a removed member keeps",
+  "description": "Review finding CRY-6: Nothing stops relays accepting previous-epoch access signatures, so a removed member keeps write access (lens CRY). Location: spec/05-messaging.md:205-208, spec/10-relays.md:527. Fix: The retirement rule exists only by implication. 05:205 (\"A member removed after the last countersigned epoch can write until then\") presumes that relays stop accepting the old key once a later announcement is accepted, but no sentence requires it. 05:206 only requires verification \"against the access public key for the envelope's `channelToken` and `epoch`\", which an epoch-N envelope on token N still satisfies. Add a normative rule. After accepting a countersigned announcement for epoch N+1 on a chain, a relay MUST reject envelopes for epoch N or earlier on that chain once a fixed grace period has passed. The grace covers in-flight traffic and members still processing the Commit, which 05:23 makes them buffer. State that the grace period is the removed member's residual write window. Choosing the value (for example 60 s) is a parameter, not a design choice. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:25.341163895Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:25.341163895Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.139",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:25.356578372Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -25,7 +25,6 @@ Call state is ephemeral, gossip-propagated, and not stored in IPLD history. It i
 ```json
 {
   "@type": "ParticipantState",
-  "sender": "did:key:z6Mk...",
   "channel": "agora://bafyrei.../voice/lounge",
   "status": "joined",
   "audioMuted": false,
@@ -211,7 +210,7 @@ TURN servers are listed in the CO-signed Space state document (ARCHITECTURE S4):
 TURN credentials (`credentialScheme: "co-issued"`) are short-lived RFC 8489 long-term credentials issued to members by a CO-run credential service, using the TURN REST pattern:
 
 1. The TURN operator and the CO credential service share a secret. It is held only by those two parties and is never published.
-2. A member requests credentials from the CO credential service at the descriptor's `credentialEndpoint`, which issues them only to current members of the Space.
+2. A member requests credentials from the CO credential service at the descriptor's `credentialEndpoint`, which issues them only to current members of the Space, authenticated per §3.5.
 3. The service returns `username = expiryUnixTime || ":" || randomNonce` and `password = HMAC(secret, username)`. The username MUST NOT contain a DID or any other persistent identifier.
 4. The TURN server verifies the HMAC and the expiry without learning the client's DID or any persistent identity.
 
@@ -248,13 +247,13 @@ A channel Admin or the Space Owner issues a `RecordingGrant` as an MLS applicati
 {
   "@type": "RecordingGrant",
   "channelCID": "bafyrei...",
-  "grantedTo": "did:key:z6MkRecorder...",
+  "grantedTo": "did:webvh:QmSCID...:example.com:agora:recorder",
   "grantedBy": "did:key:z6MkAdmin...",
   "scope": "audio-video",
   "purpose": "compliance",
   "retentionDays": 2555,
   "expiresAt": "2026-03-13T00:00:00Z",
-  "participantDisclosure": "This call is being recorded for regulatory compliance by Example Corp Compliance Archive.",
+  "participantDisclosure": "This call is being recorded for regulatory compliance by Example Corp VTC Compliance Recorder and retained for 2555 days.",
   "ts": "2026-03-12T12:00:00Z"
 }
 ```
@@ -303,9 +302,9 @@ In either case, clients MUST NOT transmit a participant's media automatically on
 
 The grant governs CO recording only. Any member can capture media it receives by other means; the protocol cannot prevent this.
 
-For compliance grants (`"purpose": "compliance"`), the disclosure MUST include the `loggerLabel` from the space's `ComplianceLoggingConfig` and the grant's `retentionDays`:
+For compliance grants (`"purpose": "compliance"`), the disclosure MUST include the `recorderLabel` from the Space's `vtcCompliance` block (§6.12.5) and the grant's `retentionDays`:
 
-> **This call is being recorded for regulatory compliance by [loggerLabel] and retained for [retentionDays] days.**
+> **This call is being recorded for regulatory compliance by [recorderLabel] and retained for [retentionDays] days.**
 
 ### 6.12.4 Recording Archive Format
 
@@ -332,7 +331,7 @@ The recorder writes each recording to CO-controlled storage (ARCHITECTURE S8) an
     }
   ],
   "mediaCID": "bafyrei...",
-  "mediaFormat": "audio/ogg;codec=opus",
+  "mediaFormat": "video/webm;codecs=\"vp9,opus\"",
   "scope": "audio-video",
   "prevRecordCID": "bafyrei..."
 }
@@ -355,7 +354,7 @@ To enable automatic compliance recording for a space's voice channels, the space
   "@type": "VTCComplianceConfig",
   "schemaVersion": "1",
   "enabled": true,
-  "recorderDID": "did:key:z6MkRecorder...",
+  "recorderDID": "did:webvh:QmSCID...:example.com:agora:recorder",
   "recorderLabel": "Example Corp VTC Compliance Recorder",
   "scope": "audio-video",
   "retentionDays": 2555,
@@ -380,7 +379,7 @@ The space's IPLD compliance audit chain receives a `VTCComplianceAuditEntry` for
   "@type": "VTCComplianceAuditEntry",
   "channelCID": "bafyrei...",
   "grantCID": "bafyrei...",
-  "recorderDID": "did:key:z6MkRecorder...",
+  "recorderDID": "did:webvh:QmSCID...:example.com:agora:recorder",
   "callStart": "2026-03-12T12:00:00Z",
   "callEnd": "2026-03-12T12:45:00Z",
   "epochsRecorded": [17, 18, 19],

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.19",
+  "title": "[GAP-7] Limits and quotas are scattered, partly local policy, and lack floors",
+  "description": "Review finding GAP-7: Limits and quotas are scattered, partly local policy, and lack floors (lens GAP). Location: spec/05-messaging.md:40, 90, 572; spec/11-transport.md:112, 303-304; spec/12-security.md:61; spec/10-relays.md:540; spec/02-identity.md:346. Fix: Confirmed. 11:112 says \"Limit values are local Relay policy\" and sets no floor. Presence is re-sent every 30 s on each channel topic (05:559, 572), and nothing caps DM size, state size or body length. Correct one example: Welcomes never go to relays (05:51; they are POSTed to the `KeyPackageEndpoint`), so the 64 KiB envelope limit does not apply to a 500-leaf Welcome. The real size risk on relays is a Commit that batches many Adds, since each carries a KeyPackage. The fix is otherwise as proposed. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:41.662093585Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:41.662093585Z",
+  "labels": [
+    "review",
+    "gap"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.19",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:41.673060483Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

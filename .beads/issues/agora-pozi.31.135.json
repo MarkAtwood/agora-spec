@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.135",
+  "title": "[CRY-2] Sealed-envelope AEAD has no nonce rule, under a key shared by every member for the whole e",
+  "description": "Review finding CRY-2: Sealed-envelope AEAD has no nonce rule, under a key shared by every member for the whole epoch (lens CRY). Location: spec/05-messaging.md:214-220. Fix: The text defines the key (`MLS-Exporter(\"agora sealed envelope\", channelCID, Nk)`) and the AAD but no nonce and no byte layout. The word \"nonce\" appears in §5 only for broadcast (05:141-144). Every member shares the key for the whole epoch, so any deterministic per-sender nonce collides across senders under AES-128-GCM. Define `sealedEnvelope = nonce(12, random) || AEAD-Seal(...)`, mirroring 05:141-144. One correction to the suggested fix: no single sender can count seals across all members, so a \"new epoch before 2^32 seals\" rule cannot be enforced. Make the bound a per-sender SHOULD, and rely on the §12.2 7-day epoch cap for the aggregate. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:25.101101509Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:25.101101509Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.135",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:25.116227515Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

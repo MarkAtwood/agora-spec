@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.36",
+  "title": "[SEP-9] Shared channels expose a CO–CO link and leave the countersignature undefined",
+  "description": "Review finding SEP-9: Shared channels expose a CO–CO link and leave the countersignature undefined (lens SEP). Location: spec/08-cross-space.md:98; spec/05-messaging.md:204. Fix: As proposed. A relay holding both agreements sees one first-epoch key and token registered under two billing DIDs, which falsifies \"they do not learn ... that the channel is shared\". A single `billingSig` cannot satisfy relays registered under the other agreement. Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.601746194Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.601746194Z",
+  "labels": [
+    "review",
+    "sep"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.36",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.615182018Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.90",
+  "title": "[EXA-17] RelayAd example violates \"exactly these members\" and omits a manifest client endpoint",
+  "description": "Review finding EXA-17: RelayAd example violates \"exactly these members\" and omits a manifest client endpoint (lens EXA). Location: spec/10-relays.md:634-641, 663. Fix: As the reviewer proposed. 13:32 tolerates `@type` in general, but 10:663 \"exactly these members\" overrides that here. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:45.642356321Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:45.642356321Z",
+  "labels": [
+    "review",
+    "exa"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.90",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:45.654865285Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

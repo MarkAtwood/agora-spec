@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.65",
+  "title": "[IMP-24] JMAP Envelope object does not match the routing envelope",
+  "description": "Review finding IMP-24: JMAP Envelope object does not match the routing envelope (lens IMP). Location: spec/11-transport.md:327-350, :279. Fix: As proposed. Also, 11:329 \"always MLS ciphertext\" is false for `broadcastPayload` envelopes (05:138). Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.200934885Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.200934885Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.65",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.213567783Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

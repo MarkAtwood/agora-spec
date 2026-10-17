@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.9",
+  "title": "[CLM-9] \"One thing\" undecided understates; Appendix B is stale",
+  "description": "Review finding CLM-9: \"One thing\" undecided understates; Appendix B is stale (lens CLM). Location: spec/99-appendices.md:40, 38; spec/13-encoding.md:86; spec/10-relays.md:440; PRFAQ.md:99. Fix: Appendix B item 2 points to agora-pozi.11, which is CLOSED (\"Decided by Mark 2026-10-16\"). Delete the item. 13:86 and 10:440 cite agora-pozi.20.16, which is CLOSED (\"Resolved in P3 errata pass\"), yet both still say Open. File new beads and re-point the markers. The PRFAQ question is about open design questions, so unfinished work items (test vectors) do not belong in it. Appendix B item 1 (cross-space reputation) is an open question, though, so \"One thing\" is wrong. Reword to name the access-proof review as the one blocking question and mention cross-space reputation as an open optional extension. The finding calls the infohash gap \"blocks DHT bootstrap\", but Mainline is one of several parallel bootstrap methods (10-relays.md:202), so that claim is overstated. Full text: notes/review/CLM-verified.md and notes/review/CLM.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:41.091996309Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:41.091996309Z",
+  "labels": [
+    "review",
+    "clm"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.9",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:41.105907162Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.149",
+  "title": "[CRY-16] Non-repudiation claim is not supported by the archive format",
+  "description": "Review finding CRY-16: Non-repudiation claim is not supported by the archive format (lens CRY). Location: spec/12-security.md:123, spec/12-security.md:147; vs spec/07-compliance.md:94-109. Fix: 12:123 says \"The signing key fingerprint is embedded in the message's MLS authenticated data\". Nothing defines such a field (a grep for \"authenticated_data\" and \"fingerprint\" finds no definition). The `ComplianceRecord` (07:96-108) stores `plaintextPayload`, the decrypted inner envelope, plus the logger's JWS. It keeps no sender signature, FramedContent, leaf `signature_key` or GroupContext, so a third party cannot re-verify the sender as 12:147 claims. In-group objects carry no `sig` (13:23). Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:25.92534134Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:25.92534134Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.149",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:25.939513288Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

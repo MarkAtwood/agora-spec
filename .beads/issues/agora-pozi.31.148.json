@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.148",
+  "title": "[CRY-15] Overclaim that media is bound to a DID through an SFU",
+  "description": "Review finding CRY-15: Overclaim that media is bound to a DID through an SFU (lens CRY). Location: spec/06-calls.md:74, spec/06-calls.md:178, spec/06-calls.md:182. Fix: RFC 9605 §6.1.1 (rfc9605.txt:953-955) says: \"in order to prevent impersonation by a malicious participant (not the SFU), a mechanism based on digital signature would be required. SFrame does not protect against such attacks\". §7.2 says the same. 06:182 claims \"Participant-to-participant binding is then provided by the SFrame keys\", and 06:74 claims a stream is \"cryptographically bound to their DID\" without qualification. 06:412 already states the correct property for data channels. Restrict the DID binding to mesh DTLS-SRTP, and state group-only authentication for SFU media. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:25.866975871Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:25.866975871Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.148",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:25.880286534Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

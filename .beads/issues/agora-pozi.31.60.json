@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.60",
+  "title": "[IMP-19] The Space endpoint has no error or offline behaviour, and Welcome validation depends on it",
+  "description": "Review finding IMP-19: The Space endpoint has no error or offline behaviour, and Welcome validation depends on it (lens IMP). Location: spec/03-spaces.md:154-186; spec/04-access-control.md:78; spec/05-messaging.md:131. Fix: As proposed. Invite presentation ties to the IMP-11 profile. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:43.926802624Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:43.926802624Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.60",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:43.938041349Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

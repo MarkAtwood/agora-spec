@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.29",
+  "title": "[SEP-2] The access-key chain links every epoch of a channel at the relay, but the spec says rotati",
+  "description": "Review finding SEP-2: The access-key chain links every epoch of a channel at the relay, but the spec says rotation prevents this (lens SEP). Location: spec/05-messaging.md:185 (`\"epoch\": 17` in clear), 203, 216; spec/10-relays.md:504, 518; spec/12-security.md:34, 46; spec/11-transport.md:335. Fix: As proposed. 05:203 says \"The relay thereby follows the chain from token to token\", while 10:518 says a relay \"cannot correlate them without also capturing the epoch secrets\" and 12:34 says it cannot \"Map routing tables across epochs\". 05:216 says the wrapper hides `epoch`, but the RoutingEnvelope carries `epoch` in clear. The chain is fixed by Q1/Q6, so the text must change. Also note in §12.4 that gossip peers can follow the chain, because announcements ride in clear on the routing envelope. Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.217855021Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.217855021Z",
+  "labels": [
+    "review",
+    "sep"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.29",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.230112826Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

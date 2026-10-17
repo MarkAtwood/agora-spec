@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.143",
+  "title": "[CRY-10] DM groups have no defined exporter context, chain registration or countersigner",
+  "description": "Review finding CRY-10: DM groups have no defined exporter context, chain registration or countersigner (lens CRY). Location: spec/04-access-control.md:125, spec/05-messaging.md:194, spec/05-messaging.md:202-204, spec/05-messaging.md:218, spec/10-relays.md:612. Fix: The access seed (05:202), channel token (05:194) and sealing key (05:218) all take `channelCID` as exporter context. A DM has no `channelCID`, and its `DMGroupCID` changes on each membership change (04:145). 04:125 gives a separate `dmGroupToken` with context `\"\"`, but no access seed or sealing key for DMs. 05:204's countersign gate is \"a current member of the channel under Space state\", which does not exist for DMs, which \"do not appear in any Space state document\" (04:125). Nothing says which billing DID registers a DM chain. One note on the fix: using the MLS `group_id` as exporter context is compatible with 04:125's ban on deriving the token \"from the MLS group ID\". The exporter output still rotates per epoch, so the reworded rule must say \"not derived from a constant value alone\". Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:25.571624176Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:25.571624176Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.143",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:25.587173917Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

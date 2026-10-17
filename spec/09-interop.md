@@ -17,11 +17,11 @@ MIMI (More Instant Messaging Interoperability) is an IETF working group producin
 
 In MIMI interop mode, a single MLS group spans both Agora and the MIMI-compliant peer system. Members from both systems hold leaves in the same MLS tree and share the same epoch secrets. There is no re-encryption at the boundary. A message sent by an Agora client is decryptable by a MIMI client using its own MLS implementation, and vice versa.
 
-This requires that both systems use compatible MLS ciphersuites. Agora MUST support `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` (ciphersuite 0x0001, the MIMI-mandated baseline) in addition to any other suites it implements. Channels operating in MIMI interop mode MUST use this ciphersuite.
+This requires that both systems use compatible MLS ciphersuites. Agora groups use `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` (ciphersuite 0x0001, §5.2.1), which is the MIMI baseline.
 
 ### Identity Mapping
 
-Agora users are identified by DID (`did:key` or `did:web`). MIMI defines its own identifier scheme: MIMI URIs of the form `mimi://provider/user-id`. This is a bespoke URI scheme minted by the MIMI WG rather than an adoption of any existing identity standard. It is functionally equivalent to `did:web` (a domain-scoped opaque user identifier with no standardized resolution mechanism beyond DNS) but is a distinct namespace with no interoperability with DID resolvers or any other identity infrastructure.
+Agora users are identified by DID (`did:webvh`, `did:plc` or `did:key`, §2.1). MIMI defines its own identifier scheme: MIMI URIs of the form `mimi://provider/user-id`. This is a bespoke URI scheme minted by the MIMI WG rather than an adoption of any existing identity standard. It is functionally equivalent to `did:web` (a domain-scoped opaque user identifier with no standardized resolution mechanism beyond DNS) but is a distinct namespace with no interoperability with DID resolvers or any other identity infrastructure.
 
 The consequence for Agora is that MIMI interop requires carrying two parallel identifiers for every user in a cross-system MLS group: the Agora DID (which has a resolution spec, a key material binding, and is used for all Agora-internal operations) and the MIMI URI (which the MIMI delivery service requires to route messages and manage room membership). There is no way to derive one from the other or collapse them into a single identifier without either Agora abandoning DIDs or MIMI adopting them.
 
@@ -47,7 +47,7 @@ Agora inner payloads are typed payload envelopes (§13.1); chat content is JMAP 
 
 **Agora content format mode**: the channel uses Agora typed payload envelopes carrying JMAP Chat objects (§5.2.3) as the canonical inner payload. MIMI clients that support Agora content format (via a registered MIMI content type) can participate natively. MIMI clients that do not support Agora content format receive a fallback plain-text rendering negotiated at join time.
 
-The content format in use is declared in the channel state document:
+The content format in use is declared in the channel's entry in Space state (§3.3):
 
 ```json
 "mimiInterop": {
@@ -68,7 +68,7 @@ The CO's MIMI provider endpoint registers as the MIMI delivery service endpoint 
 
 ### Limitations
 
-MIMI interop is currently limited by the MIMI specification's own draft status. As of April 2026, the content format (`draft-ietf-mimi-content-08`) is active; the architecture (`draft-ietf-mimi-arch-02`) and delivery service protocol (`draft-ietf-mimi-protocol-05`) drafts have both expired without replacement, indicating the WG is stalled on the delivery layer. The MLS WG's own federation draft (`draft-ietf-mls-federation-03`, expired September 2023) was also abandoned without a successor; cross-system MLS federation has no active IETF standardization track as of this writing. Agora implementations SHOULD track the MIMI drafts and update their interop implementation as the specs stabilize. Channel state documents carrying `mimiInterop` configurations MUST include a `mimiSpecVersion` field to allow clients to detect and handle version skew.
+MIMI interop is currently limited by the MIMI specification's own draft status. As of April 2026, the content format (`draft-ietf-mimi-content-08`) is active; the architecture (`draft-ietf-mimi-arch-02`) and delivery service protocol (`draft-ietf-mimi-protocol-05`) drafts have both expired without replacement, indicating the WG is stalled on the delivery layer. The MLS WG's own federation draft (`draft-ietf-mls-federation-03`, expired September 2023) was also abandoned without a successor; cross-system MLS federation has no active IETF standardization track as of this writing. Agora implementations SHOULD track the MIMI drafts and update their interop implementation as the specs stabilize. Channel entries carrying `mimiInterop` configurations MUST include a `mimiSpecVersion` field to allow clients to detect and handle version skew.
 
 MIMI interop does not currently specify voice/video interop. VTC channels cannot operate in MIMI interop mode until MIMI adds a media signaling specification.
 
@@ -85,7 +85,7 @@ The Matrix gateway runs as an Agora client with its own DID. It is added to chan
 ```json
 {
   "service": [{
-    "id": "did:key:z6MkGateway...#gateway",
+    "id": "did:webvh:QmSCID...:example.com:agora:gateway#gateway",
     "type": "AgoraMatrixGateway",
     "serviceEndpoint": "https://matrix.example.com",
     "matrixServerName": "example.com"
@@ -93,13 +93,13 @@ The Matrix gateway runs as an Agora client with its own DID. It is added to chan
 }
 ```
 
-The channel state document records the gateway's presence and type:
+The channel's entry in Space state records the gateway's presence and type:
 
 ```json
 "gateways": [
   {
     "@type": "GatewayDescriptor",
-    "did": "did:key:z6MkGateway...",
+    "did": "did:webvh:QmSCID...:example.com:agora:gateway",
     "protocol": "matrix",
     "matrixRoomID": "!abc123:example.com",
     "addedBy": "did:key:z6MkAdmin...",
@@ -118,7 +118,7 @@ The channel state document records the gateway's presence and type:
    - `Message` edit (body contains `editedAt`, §5.2.3) → `m.room.message` with `m.new_content` relation
    - `Message` deletion (body contains `deletedAt` and `deletedForAll: true`, §5.2.3) → `m.room.redaction`
    - `urn:ietf:params:jmap:chat#Reaction` → `m.reaction`
-4. Gateway sends the translated event to the bridged Matrix room via the Matrix Client-Server API, attributed to a virtual Matrix user representing the Agora sender (`@agora_z6Mk...:example.com`).
+4. Gateway sends the translated event to the bridged Matrix room via the Matrix Client-Server API, attributed to a virtual Matrix user representing the Agora sender (`@agora_<hash>:example.com`, see Identity and Namespace Mapping).
 5. If the Matrix room has Megolm E2EE enabled, the gateway re-encrypts the event using Megolm before sending.
 
 ### Message Flow: Matrix → Agora
@@ -144,7 +144,7 @@ The channel state document records the gateway's presence and type:
 
 ### Identity and Namespace Mapping
 
-Agora DIDs map to Matrix virtual users with a deterministic MXID derived from the DID: `@agora_<did-fragment>:<gateway-homeserver>`. Matrix MXIDs map to Agora gateway messages with `bridgedFrom.senderID` carrying the MXID.
+Agora DIDs map to Matrix virtual users with a deterministic MXID derived from the DID: `@agora_<hash>:<gateway-homeserver>`, where `<hash>` is the first 20 bytes of the SHA-256 of the full DID string (UTF-8), encoded as lowercase RFC 4648 base32 without padding. The result contains only characters Matrix allows in a user localpart, for every DID method. Matrix MXIDs map to Agora gateway messages with `bridgedFrom.senderID` carrying the MXID.
 
 Agora's nested channel namespace does not map cleanly to Matrix's flat room model. The gateway maps each Agora channel path to a separate Matrix room, organized into a Matrix Space:
 
@@ -176,7 +176,7 @@ The recommended implementation uses the **Matrix Application Service API** rathe
 
 Any gateway admitted to an Agora channel (Matrix, or any future gateway type) is a CO component subject to the same placement rule as §9.2 and MUST be disclosed to all channel members. This is enforced at the protocol level, not by policy.
 
-**Channel state disclosure.** The `gateways` array in the channel state document (§9.2) is visible to all MLS group members. Clients MUST display a visible indicator when a channel has active gateways. The indicator MUST identify the gateway protocol and target system. A channel with an active gateway is not E2EE-private for bridged traffic; members must be able to determine this without reading protocol documentation.
+**Channel state disclosure.** The `gateways` array in the channel's entry in Space state (§9.2) is visible to all MLS group members. Clients MUST display a visible indicator when a channel has active gateways. The indicator MUST identify the gateway protocol and target system. A channel with an active gateway is not E2EE-private for bridged traffic; members must be able to determine this without reading protocol documentation.
 
 **Gateway transparency message.** When a gateway DID is added to a channel's MLS group, the adding Admin MUST also send a `SystemEvent` MLS application message (§5.2.3) to the channel announcing the gateway. As an inside-group object it carries no object signature; the Admin's MLS sender signature authenticates it (§13.1.1):
 
@@ -184,10 +184,9 @@ Any gateway admitted to an Agora channel (Matrix, or any future gateway type) is
 {
   "@type": "SystemEvent",
   "event": "gateway-added",
-  "gatewayDID": "did:key:z6MkGateway...",
+  "gatewayDID": "did:webvh:QmSCID...:example.com:agora:gateway",
   "protocol": "matrix",
   "target": "!abc123:example.com",
-  "addedBy": "did:key:z6MkAdmin...",
   "e2eeNote": "Messages in this channel are bridged to Matrix. E2EE is not preserved for bridged traffic."
 }
 ```

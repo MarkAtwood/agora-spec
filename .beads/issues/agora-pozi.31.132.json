@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.132",
+  "title": "[DOC-14] Other third-party claims that are wrong, internally inconsistent, or unhedged",
+  "description": "Review finding DOC-14: Other third-party claims that are wrong, internally inconsistent, or unhedged (lens DOC). Location: o365:723, gsuite:378 (Bitstring \"encrypted entries\"); o365:312, :665-669 (Request Service path and permission); universal:157 (Okta `eq` wildcard); universal:457, :545, :568 (DirSync rights vs `DirSyncObjectSecurity`); universal:76 vs :190 (PingOne names); gsuite:514 vs o365:682 (CA licensing); gsuite:152 vs :160 (DIF, not W3C CCG); discord:496 (Cache-Control is not CSP); discord:128 (Discord wildcard port); relay-operator.md:1676-1678 (HSM FIPS levels and prices). Fix: All quoted text is present as cited. These items are clearly wrong or internally inconsistent: universal:76 vs :190, gsuite:514 vs o365:682, gsuite:152 vs :160, discord:496, and universal:457/:568 vs :545. Correct them directly. Hedge the vendor-behavior items (Bitstring, Request Service path, Okta filter, Discord ports, HSM table) with \"verify against current vendor documentation\" and a date, unless the editor confirms them. I did not re-fetch those vendor pages. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:48.088297598Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:48.088297598Z",
+  "labels": [
+    "review",
+    "doc"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.132",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:48.102918675Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -22,7 +22,7 @@ Clients SHOULD buffer messages for up to 500ms waiting for a gap to close before
 
 **MLS Commit ordering.** MLS Commits (which advance the group epoch) require stricter ordering than application messages. Clients MUST buffer application messages from a new epoch until the Commit that opened that epoch has been received and processed. Relays MAY provide **sequence attestations** (signed sequence numbers over a channel's message stream) as an optional ordering anchor for clients that require it.
 
-**Space state ordering.** Space state mutations are ordered by a `seq` field on the `SpaceState` document. Concurrent non-conflicting mutations (e.g., two admins each independently adding a different channel) are merged by taking the union. Conflicting mutations (e.g., two admins simultaneously changing the same user's role) are resolved last-writer-wins using the `seq` value. In an exact tie, the mutation signed by the higher-authority key wins (owner beats admin).
+**Space state ordering.** Space state is one signed chain (§3.3), and each state document carries a `seq` field. Two valid state documents that name the same `prevStateCID` fork the chain. Every client resolves a fork by the same rule, applied to the two documents that follow the fork point: the one with the higher `seq` wins; on equal `seq`, the one signed by the owner wins over one signed by an admin; otherwise the one whose CID is lower, compared as bytes, wins. Clients follow the winning branch, and the Space endpoint serves its head (§3.4). State on the losing branch has no effect. A signer whose mutation lost re-signs it, if it is still wanted, as a new state document on top of the winning head. Clients MUST NOT merge two branches into one state, since a merged state has no signer (§3.3).
 
 
 ---
@@ -67,6 +67,30 @@ The host MUST make a fetch atomically consume the returned KeyPackage, and MUST 
 **Why single-use.** KeyPackages are consumed exactly once. RFC 9420 assumes each KeyPackage's init key is used for one Welcome; reuse lets two groups share HPKE init secrets and lets a replayed Welcome be accepted. A known failure mode is a store that hands out KeyPackages without consuming them, keeps them only while the owning device is connected (so they vanish on disconnect), and keys them to an unstable per-session device identifier, so that adding a user's other devices silently fails. Agora's endpoint avoids this: consumption is atomic and permanent, supply persists independent of connection state, and supply is keyed to the owning DID.
 
 **Last-resort KeyPackages.** A client SHOULD also publish one last-resort KeyPackage (`draft-ietf-mls-extensions-09`, §last-resort-keypackage) per device, which the host returns, without consuming it, only when no single-use KeyPackage remains.
+
+##### Endpoint Protocol
+
+For `did:webvh` and `did:plc`, the `KeyPackageEndpoint` is the DID document service entry whose `type` is `AgoraKeyPackageEndpoint` (§2.1). For `did:key` it is the `url` value of the `_kp._agora` record (§10.3.4.6). In both cases it is an HTTPS URL for one DID, with a path that begins with `/v1/agora/kp/` (§13.2). Relative to that URL, written `{kp}`:
+
+```
+GET  {kp}           fetch one KeyPackage, consumed atomically
+POST {kp}           publish KeyPackages
+POST {kp}/welcome   deliver a Welcome
+```
+
+- **Fetch.** The request carries no caller identity. The response body is one `MLSMessage` with `wire_format` `mls_key_package` (RFC 9420 §6), media type `message/mls` (RFC 9420 §17.10). The host returns a single-use KeyPackage if one remains, otherwise a last-resort KeyPackage, otherwise HTTP 404. A rate-limited caller receives HTTP 429.
+- **Publish.** The request body is a typed payload envelope (§13.1) of type `urn:agora:type:KeyPackagePublish`, signed per §13.1.1 by a device key of the endpoint's DID (for `did:key`, the identity key). Its body is:
+
+```json
+{
+  "keyPackages": ["base64url...", "base64url..."],
+  "lastResort": "base64url...",
+  "ts": "2026-03-12T12:00:00.000Z"
+}
+```
+
+`keyPackages` are encoded `MLSMessage` KeyPackages added to the single-use supply. `lastResort` is optional; it replaces the last-resort KeyPackage of the device whose leaf it carries. The host MUST reject a request whose `ts` differs from its clock by more than 300 seconds, MUST reject any KeyPackage it has stored before, so that a replayed request cannot restore consumed KeyPackages, and MUST apply the checks above to each KeyPackage. It returns HTTP 204 on success.
+- **Welcome.** The request body is one `MLSMessage` with `wire_format` `mls_welcome`, media type `message/mls`. The host returns HTTP 202 and holds the Welcome for the DID's devices. How a device collects Welcomes from its own host is a matter between the device and the host.
 
 ##### KeyPackage Exhaustion
 
@@ -193,7 +217,7 @@ The outer envelope contains only what Relays strictly need for delivery routing.
 
 `channelToken` is derived from the MLS exporter of the channel's group: `MLS-Exporter("agora channel token", channelCID, 32)`. It rotates with every epoch. Relays use it for topic routing without learning the channel identifier or any member identity.
 
-`id` is the CID of the canonical outer envelope, used for deduplication and history indexing. `ts` is present for gossipsub ordering and relay-side TTL enforcement only; it is not authenticated at the outer layer and MUST NOT be trusted for application-level ordering (use the inner `seq` for that, §5.1.1). `expiryHint` is set by the sender to match the inner payload `expiry` value; Relays use it as a cache TTL hint (§5.2.4). `accessSig` is the epoch access proof defined below.
+`id` is the CID of the canonical outer envelope, used for deduplication and history indexing. `ts` is present for gossipsub ordering and relay-side TTL enforcement only; it is not authenticated at the outer layer and MUST NOT be trusted for application-level ordering (use the inner `seq` for that, §5.1.1). `expiryHint` is set by the sender to match the `senderExpiresAt` of the inner `Message` (§5.2.4); Relays use it as a cache TTL hint (§5.2.4). `accessSig` is the epoch access proof defined below.
 
 #### Epoch Access Proof
 
@@ -213,13 +237,13 @@ A removed member does not hold the next epoch's access key, so bans and removals
 
 `sealedEnvelope` is one AEAD ciphertext over the complete serialized `MLSMessage` (a `PrivateMessage`, or a handshake message such as a Commit or Proposal), keyed from the channel's current MLS epoch. No Relay or non-member can open it.
 
-The wrapper exists because MLS framing is visible in the clear: `group_id`, `epoch` and `content_type` precede the encrypted content. `group_id` is constant for the life of the group, so a Relay that saw it could link every epoch of a channel despite the rotating `channelToken`; `epoch` and `content_type` would reveal epoch boundaries and which messages are Commits. The wrapper hides all three.
+The wrapper exists because MLS framing is visible in the clear: `group_id`, `epoch` and `content_type` precede the encrypted content. The wrapper hides the `group_id` value, which Space state carries as `mlsGroupID` (§3.3), so a Relay that saw it could map the group's traffic to a channel and Space. It also hides the sender fields of handshake messages and the content type of non-Commit traffic. It does not hide epoch boundaries or which envelopes carry Commits: the routing envelope carries `epoch` in the clear, and the epoch access-key chain lets a Relay link every epoch of one group (ARCHITECTURE §5 item 6).
 
 The sealing key is `MLS-Exporter("agora sealed envelope", channelCID, Nk)`, used with the AEAD of the group's ciphersuite. The AEAD associated data MUST bind the recipient context: `"agora/sealed/v1" || channelToken || epoch` (epoch as a big-endian uint64). Implementations MUST NOT seal with empty associated data. A recipient MUST reject a sealed envelope whose associated data does not match the `channelToken` and `epoch` of the routing envelope it arrived in, which prevents re-targeting a sealed envelope to another channel or epoch.
 
 The plaintext is the serialized `MLSMessage` with no further structure. The wrapper carries no sender DID, ephemeral key or signature of its own: the sender is identified by the MLS sender data, which MLS encrypts, and authenticated by the MLS signature (§13.1.1).
 
-The idea of hiding the sender from the delivery service comes from Signal's Sealed Sender; the construction is different, since sender authentication here is entirely MLS's. A Relay processing this message learns: a `channelToken` (epoch-rotating, non-reversible without the group's exporter secret), an epoch access signature that does not identify the signer, a timestamp, an expiry hint, and an opaque encrypted blob. It learns nothing about who sent the message.
+The idea of hiding the sender from the delivery service comes from Signal's Sealed Sender; the construction is different, since sender authentication here is entirely MLS's. A Relay processing this message learns: a `channelToken` (epoch-rotating, non-reversible without the group's exporter secret, and linked to the group's other epochs by the access-key chain), the epoch number, an epoch access signature that does not identify the signer, a timestamp, an expiry hint, and an opaque encrypted blob. It learns nothing about who sent the message.
 
 #### Inner Payload (After MLS Decryption)
 
@@ -268,7 +292,7 @@ Chat content uses the data types and ephemeral events of the JMAP Chat specifica
 |---|---|---|
 | `urn:ietf:params:jmap:chat#Message` | New Message, edit, or deletion (below) | `Message`, with embedded `Attachment`, `Mention`, `BroadcastMention` and `MessageAction`; rich text per the Rich Body Format |
 | `urn:ietf:params:jmap:chat#Reaction` | The fields of the federation `reactionUpdate` object (§5.2.8.2) | `Reaction` |
-| `urn:ietf:params:jmap:chat#Chat` | `pinnedMessageIds` only (§5.2.6) | `Chat.pinnedMessageIds` |
+| `urn:agora:type:JmapSet` with `dataType` `urn:ietf:params:jmap:chat#Chat` | Patch of `pinnedMessageIds` only (§5.2.6) | `Chat.pinnedMessageIds` |
 | `urn:ietf:params:jmap:chat:websocket#ChatTypingEvent` | §5.3.2 | `ChatTypingEvent` (draft-atwood-jmap-chat-wss-00) |
 | `urn:ietf:params:jmap:chat:websocket#ChatPresenceEvent` | §5.3.1 | `ChatPresenceEvent` (draft-atwood-jmap-chat-wss-00) |
 
@@ -297,8 +321,11 @@ These types have no JMAP Chat equivalent and are defined by this specification:
 | `urn:agora:type:JmapSet` | Patch to JMAP-family objects (§14.3.2); for a `sequenced-v1` type, carries the `after` head (§14.4.3) |
 | `urn:agora:type:SequencedOp` | A sequencer stamp with the operation it orders (§14.4.3) |
 | `urn:agora:type:SequencerFork` | Proof of sequencer equivocation: two conflicting stamps (§14.4.5) |
+| `urn:agora:type:DMGroupDescriptor` | Current membership and logger list of a DM group, sent by the committer of each change (§4.6) |
+| `urn:agora:type:ComplianceDisclosureNotice` | Notice that a compliance logger has been admitted to a DM group (§7.8.4) |
+| `urn:agora:type:CallRing`, `CallResponse`, `CallEnd`, `CallSchedule`, `LobbyDecision`, `CallPolicy`, `CallBreakout` | Call coordination (§6.14); each name is prefixed with `urn:agora:type:` |
 
-`urn:agora:type:BroadcastMessage` (§5.2.1.4) is carried only in a `broadcastPayload`, never in an MLS application message. `urn:agora:type:SequenceStamp` (§14.4.2) is issued by the sequencer and carried only inside a `SequencedOp` body or returned by the sequencer's endpoint, never as an MLS application message by itself. Access key announcements travel in the routing envelope (§5.2.2), and compliance records (§7.4) are written by the logger; neither is an MLS application message.
+`urn:agora:type:BroadcastMessage` (§5.2.1.4) is carried only in a `broadcastPayload`, never in an MLS application message. `urn:agora:type:KeyPackagePublish` (§5.2.1.1) and `urn:agora:type:MemberAuth` (§3.5) are sent over HTTPS to a CO or identity host, never in an MLS application message. `urn:agora:type:SequenceStamp` (§14.4.2) is issued by the sequencer and carried only inside a `SequencedOp` body or returned by the sequencer's endpoint, never as an MLS application message by itself. Access key announcements travel in the routing envelope (§5.2.2), and compliance records (§7.4) are written by the logger; neither is an MLS application message.
 
 Ephemeral events (`ChatTypingEvent`, `ChatPresenceEvent`, `ParticipantState`) are MLS application messages sent as `PrivateMessage`, never as `PublicMessage` application data, and are excluded from history storage.
 
@@ -351,17 +378,23 @@ Who may change `pinnedMessageIds` is defined by the JMAP Chat specification: in 
 
 #### PinEvent and UnpinEvent
 
-Retired. A pin or unpin is an MLS application message of type `urn:ietf:params:jmap:chat#Chat` (§5.2.3) whose body carries the complete new list:
+Retired. A pin or unpin is a `JmapSet` patch (§14.3.2) on the channel's `Chat` that sets `pinnedMessageIds` to the complete new list:
 
 ```json
 {
-  "pinnedMessageIds": ["01J3XM2C4V0Q6R9T8Y7W5E3B1A", "01J3XKZQN4MWVT8PPBEHTJ3HX0"]
+  "dataType": "urn:ietf:params:jmap:chat#Chat",
+  "at": "2026-03-12T12:00:00.000Z",
+  "after": { "stream": "base64url...", "n": 40, "hash": "base64url..." },
+  "update": {
+    "chat": {
+      "pinnedMessageIds": ["01J3XM2C4V0Q6R9T8Y7W5E3B1A", "01J3XKZQN4MWVT8PPBEHTJ3HX0"]
+    }
+  },
+  "destroy": []
 }
 ```
 
-Several members may write the list, so `Chat` is a sequenced type: clients apply pin updates in sequencer order, run the checks above on each, and each valid update replaces the list. Pin updates are kept in the channel's history DAG, and the MLS sender signature on each records who changed the pin list and when.
-
-Pin updates are written under the `sequenced-v1` consistency model and ordered by the Space's blind sequencer as defined in §14.4. A client MUST submit a pin update per §14.4.3 and MUST apply pin updates only in the stamped order validated per §14.4.4.
+The `update` key `chat` names the Chat of the group that carries the message (§14.3.2). A pin update MUST patch only `pinnedMessageIds`. Several members may write the list, so `Chat.pinnedMessageIds` is written under the `sequenced-v1` consistency model (§14.2.3) and ordered by the Space's blind sequencer (§14.4). A client MUST submit a pin update per §14.4.3, MUST apply pin updates only in the stamped order validated per §14.4.4, and runs the checks above on each; each valid update replaces the list. Pin updates are kept in the channel's history DAG, and the MLS sender signature on each records who changed the pin list and when.
 
 #### Retention Exemption
 
@@ -425,11 +458,11 @@ A sender composing a message has no way to know whether a recipient can render a
 
 **DID document declaration (persistent)**
 
-A client MAY publish its supported body types as a service entry in its DID document:
+A `did:webvh` or `did:plc` user's client MAY publish its supported body types as a service entry in its DID document. A `did:key` user cannot publish this entry (§2.1) and uses only the in-group declaration below.
 
 ```json
 {
-  "id": "did:key:z6Mk...#text-formats",
+  "id": "did:webvh:QmSCID...:example.com:alice#text-formats",
   "type": "AgoraTextFormatCapabilities",
   "serviceEndpoint": "inline",
   "supportedBodyTypes": [
@@ -460,7 +493,7 @@ Relays do not cache or serve client capabilities; doing so would require the rel
 
 When composing a message with a non-baseline `bodyType`, a conformant client SHOULD:
 
-1. Use the most recent in-group `ClientCapabilities` from each recipient (in DM groups) or check the DID document (in space channels, where per-member checking at compose time is impractical).
+1. Use the most recent in-group `ClientCapabilities` from each recipient (in DM groups) or check the DID document, where the recipient has one with this entry (in space channels, where per-member checking at compose time is impractical).
 2. If all reachable recipients declare support for the chosen body type, send with it.
 3. If any recipient's capabilities are unknown or do not include the chosen body type, either fall back to `text/markdown;variant=commonmark` or send with the preferred body type and accept that some recipients will display raw markup.
 

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.21",
+  "title": "[GAP-9] No privacy considerations section; CO-side observation and data-subject rights unaddressed",
+  "description": "Review finding GAP-9: No privacy considerations section; CO-side observation and data-subject rights unaddressed (lens GAP). Location: spec/12-security.md:38-52; spec/05-messaging.md:204; spec/04-access-control.md:121, 147; spec/02-identity.md:326-360, 437. Fix: Confirmed. There is no hit for erasure, GDPR or data subject, and §12.4 covers only IO observation. `deviceLabel: \"Alice's MacBook Pro\"` and `platform` are written into the public DID document (02:359-360). Narrow one part: legal hold and archive disposal are CO policy by design (\"under its own retention and legal-hold controls\", ARCHITECTURE:136), so the spec should state that they are out of protocol scope, not define them. Keep the per-CO-component observation tables, the minimization guidance and the erasure model (which records can be deleted, which cannot, and crypto-shredding). Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:41.763315599Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:41.763315599Z",
+  "labels": [
+    "review",
+    "gap"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.21",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:41.774759805Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

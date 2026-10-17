@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.28",
+  "title": "[SEP-1] User-signed discovery gossip ties a DID to the client's relay connection",
+  "description": "Review finding SEP-1: User-signed discovery gossip ties a DID to the client's relay connection (lens SEP). Location: spec/10-relays.md:275, 298, 302; spec/02-identity.md:115, 163; vs spec/10-relays.md:500 (\"I do not know who my users are\"), ARCHITECTURE.md:88 (S1). Fix: As proposed. Nothing in the spec routes user-signed discovery records off the client's channel-carrying relay connection, and UserAd has no schema anywhere (grep shows only 10-relays:275, 298, 302). Q5 (\"discovery records signed by whoever they describe\") governs who signs a user record. It does not require that user records be gossiped or that clients publish them, so options (a) and (b) both fit Q5. Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:42.164884069Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:42.164884069Z",
+  "labels": [
+    "review",
+    "sep"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.28",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:42.177145221Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

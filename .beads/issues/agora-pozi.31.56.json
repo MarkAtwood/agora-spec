@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.56",
+  "title": "[IMP-15] Space state schema is scattered and missing fields that signature checks need",
+  "description": "Review finding IMP-15: Space state schema is scattered and missing fields that signature checks need (lens IMP). Location: spec/03-spaces.md:51-145; spec/04-access-control.md:14, :16, :121; spec/05-messaging.md:318; spec/09-interop.md:53, :99. Fix: As proposed, with two additions. (1) The SpaceState example has no member list or member-to-role assignment, which §4.2 role assignment and JMAP Chat SpaceMember `roleIds` need. (2) JMAP Chat leaves the admin predicate \"deployment-defined\" (draft-atwood-jmap-chat-00:337), so Agora must define it. Either an explicit `admins` list or a stated mapping from SpaceRole permissions (`manage_space`, `manage_members`, `manage_channels`) to admin scope would work. Reusing roles and permissions is the smaller change, consistent with 03:135. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:43.708177586Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:43.708177586Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.56",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:43.722130342Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.154",
+  "title": "[CRY-21] Device enrollment has no proof of possession of the new key",
+  "description": "Review finding CRY-21: Device enrollment has no proof of possession of the new key (lens CRY). Location: spec/02-identity.md:336. Fix: 02:336 says the request \"is signed per §13.1.1 by an existing registered device key. For first-device enrollment the envelope `sig` is absent\". The new key never signs, so a holder of an IdP token can register any public key, including one that belongs to someone else. The impact is limited to duplicate-key and unknown-key-share confusion, because the registrant cannot sign with the key, hence P3. Add a self-signature by the new key over the request, bound to the IdP token nonce. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:26.226481086Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:26.226481086Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.154",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:26.242017258Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

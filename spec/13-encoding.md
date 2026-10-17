@@ -29,18 +29,18 @@ Every Agora payload is carried in a **typed payload envelope**. The envelope nam
 **Type URIs.** `type` values are compared as exact, case-sensitive strings. No normalization is applied.
 
 - A JMAP data type is named by the URN of the capability that defines it, a `#`, and the data type name as the defining specification spells it. For example, the `Message` type of the JMAP Chat specification (draft-atwood-jmap-chat-00) is `urn:ietf:params:jmap:chat#Message`. The `body` of a JMAP object is its JSON representation as defined by that specification and RFC 8620, with `contentType` `application/json`.
-- An Agora protocol type is named `urn:agora:type:` followed by the type name, for example `urn:agora:type:SpaceState` or `urn:agora:type:PresenceEvent`. The `urn:agora:type:` namespace is reserved for types defined by this specification. A type name is never reused for an incompatible definition; a breaking change defines a new name. Unless its defining section states otherwise, an Agora type has `contentType` `application/json` and its `body` is the JSON object shown in that section. A `@context` or `@type` member in such a body is ordinary JSON and carries no meaning for Agora processing.
+- An Agora protocol type is named `urn:agora:type:` followed by the type name, for example `urn:agora:type:SpaceState` or `urn:agora:type:SpeakRequest`. The `urn:agora:type:` namespace is reserved for types defined by this specification. A type name is never reused for an incompatible definition; a breaking change defines a new name. Unless its defining section states otherwise, an Agora type has `contentType` `application/json` and its `body` is the JSON object shown in that section. A `@context` or `@type` member in such a body is ordinary JSON and carries no meaning for Agora processing.
 - Any other type is named by an absolute URI under the control of whoever defines it, such as an HTTPS IRI or a URN in a namespace they control (§13.2).
 
 **JSON-LD.** JSON-LD remains usable: a body MAY have `contentType` `application/ld+json`, with `type` set to the JSON-LD type IRI of the object. Such bodies are carried and signed as bytes like any other. Agora performs no JSON-LD expansion, RDF conversion or canonicalization, and no Agora processing step dereferences a body's `@context`.
 
-**Example.** A chat message (a JMAP Chat `Message`) inside an MLS application message, shown with `body` decoded for readability:
+**Example.** A chat message (a JMAP Chat `Message`) inside an MLS application message, in CBOR diagnostic notation with `body` shown as hex:
 
 ```
 {
   "type": "urn:ietf:params:jmap:chat#Message",
   "contentType": "application/json",
-  "body": h'7b226964223a...'      / the exact JSON bytes of the Message /
+  "body": h'7b2273656e6465724d73674964223a...'      / the exact JSON bytes of the Message /
 }
 ```
 
@@ -73,7 +73,7 @@ This is the single normative object-signing procedure of this specification. Whe
 
 1. The entry has exactly the members `protected` and `signature`, each a base64url string.
 2. The protected header decodes to a JSON object with exactly the members above; `alg` is `"EdDSA"`, `b64` is `false`, `crit` is `["b64"]`, `cty` equals the envelope's `contentType` and `agoraType` equals the envelope's `type`.
-3. `kid` is a DID URL whose DID resolves (§2.1) to a DID document containing a verification method whose `id` equals `kid`, holding an Ed25519 public key, and referenced from the document's `authentication` relationship unless the section defining the object names another relationship.
+3. `kid` is a DID URL whose DID resolves (§2.1; a `did:web` IO principal such as a Relay, §10.2.1, per the `did:web` method specification) to a DID document containing a verification method whose `id` equals `kid`, holding an Ed25519 public key, and referenced from the document's `authentication` relationship unless the section defining the object names another relationship.
 4. The DID in `kid` is the signer that the section defining the object requires (for example the Space's CO DID, or the message's `senderDID`).
 5. The Ed25519 signature verifies over the JWS Signing Input built from the entry's received `protected` value and the `body` bytes exactly as received.
 
@@ -103,7 +103,7 @@ The protocol is designed to be extended without breaking existing clients:
 - New channel types MAY be introduced by defining new values of the channel `type` field.
 - Transport encodings beyond CBOR/JSON MAY be negotiated via WebTransport stream headers.
 
-**Version surface registry.** The following table lists every versioned protocol surface, its current version, and the mechanism by which it is negotiated or detected:
+**Version surface registry.** The following table lists every versioned protocol surface, its current version, and the mechanism by which it is negotiated or detected. URL-versioned surfaces answer a request under an unknown version prefix with HTTP 404.
 
 | Surface | Current Version | Location | Negotiation Mechanism |
 |---|---|---|---|
@@ -114,12 +114,40 @@ The protocol is designed to be extended without breaking existing clients:
 | WebSocket endpoint | v1 | URL path prefix `/v1/agora/ws` | HTTP 404 on unknown version |
 | Frame format | 0x01 | Frame `version` byte | Discard unknown; may close connection |
 | Gossip topics | v1 | Topic string prefix `v1/` | `negotiated.gossipVersion` in RelayHello |
-| KeyPackage Store API | v1 | URL path prefix `/v1/agora/kp/` | HTTP 404 on unknown version |
+| KeyPackage Store API | v1 | URL path prefix `/v1/agora/kp/` (§5.2.1.1) | HTTP 404 on unknown version |
 | Peer API | v1 | URL path prefix `/v1/agora/peer/` + `peer-api-v1` capability | HTTP 404; capability string |
 | Push Proxy API | v1 | URL path prefix `/v1/agora/push/` + `push-proxy-v1` capability | HTTP 404; capability string |
 | Relay Manifest schema | 1 | `version` field | Field value; reject unsupported |
 | Client-relay handshake | v1 | `supportedTransportVersions` in ClientHello | Negotiated in RelayHello |
+| Relay Manifest location | 1 | `GET /.well-known/agora-relay` (§10.2.1) | Manifest `version` field |
+| JMAP sync API | v1 | Base URL `endpoints.jmapSync`, conventionally `/v1/agora/jmap` + capability `urn:agora:v1` + `jmap-sync-v1` capability string (§11.8) | JMAP `using`; capability string |
+| Relay blob API | v1 | URL path prefix `/v1/agora/blob/` (§10.4.4) | HTTP 404 on unknown version |
+| Space endpoint | v1 | URL from `spaceEndpoint`, conventionally under `/v1/agora/space/` (§3.4) | HTTP 404 on unknown version |
+| Sequencer API | v1 | Sequencer `endpoint`, conventionally `/v1/agora/seq` (§14.4) | HTTP 404 on unknown version |
+| SFU signaling | v1 | `SFUDescriptor.endpoint`, conventionally `/v1/agora/sfu` (§6.6) | HTTP 404 on unknown version |
+| TURN credential service | v1 | `TURNDescriptor.credentialEndpoint`, conventionally `/v1/agora/turn` (§6.11) | HTTP 404 on unknown version |
 
+## 13.3 Derivation Label Registry
+
+*Binds: both.*
+
+Every MLS exporter label, KDF `info` string and AEAD associated-data prefix that this specification defines is listed below. A new label MUST NOT equal a label in this table, and a section that defines a new label MUST add it here. The labels are opaque byte strings (UTF-8, no terminator); their spelling style carries no meaning.
+
+| Label | Kind | Context or input | Defined in |
+|---|---|---|---|
+| `agora channel token` | MLS exporter | `channelCID`, 32 bytes | §5.2.2 |
+| `agora access` | MLS exporter | `channelCID`, 32 bytes | §5.2.2 |
+| `agora sealed envelope` | MLS exporter | `channelCID`, `Nk` bytes | §5.2.2 |
+| `agora blob` | MLS exporter | empty context, `Nk` bytes | §3.4 |
+| `agora-dm-token` | MLS exporter | empty context, 32 bytes | §4.6 |
+| `agora-media-key` | MLS exporter (SFrame, RFC 9605 §5.2) | media keys | §6.9 |
+| `agora data channel` | MLS exporter (SFrame, RFC 9605 §5.2) | data channel keys | §6.13 |
+| `agora broadcast token` | HKDF-SHA256 `info`, followed by `keyEpoch` | broadcast `channelToken` | §5.2.1.4 |
+| `agora/v1/social-recovery-key` | HKDF-SHA256 `info` | social recovery key seed | §2.4.2 |
+| `agora/sealed/v1` | AEAD associated-data prefix | sealed envelope | §5.2.2 |
+| `agora/blob/v1` | AEAD associated-data prefix | group-encrypted blob | §3.4 |
+| `agora/broadcast/v1` | AEAD associated-data prefix | broadcast payload | §5.2.1.4 |
+| `agora-recording-archive-v1` | HPKE `info` prefix | recording archive | §6.12.4 |
+| `agora-relay-v1` | SHA-1 input | Mainline DHT infohash | §10.3.4.6 |
 
 ---
-

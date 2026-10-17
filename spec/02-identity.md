@@ -31,10 +31,12 @@ A `did:key` user publishes a **Pkarr pointer record**: a BEP-44 mutable item on 
 | Record | Value | Required |
 |---|---|---|
 | `_agora.` | `v=1` | Yes |
-| `_kp._agora.` | `url=<KeyPackageEndpoint URL>`: the user's `KeyPackageEndpoint` (§2.5.4, §7.8.2) | Yes |
-| `_profile._agora.` | `cid=<profile CID>`: the current profile node (§2.3) | No |
+| `_kp._agora.` | `url=<KeyPackageEndpoint URL>`: the user's `KeyPackageEndpoint` (§5.2.1.1) | Yes |
+| `_profile._agora.` | `cid=<profile CID>`: the bare CID, with no scheme, of the current profile node (§2.3) | No |
 
 Clients MUST verify the BEP-44 signature against the key in the `did:key` identifier before using any field. The record MUST NOT name a relay or other IO (ARCHITECTURE §2).
+
+A **`KeyPackageEndpoint` service entry** is a DID document `service` entry whose `type` is `AgoraKeyPackageEndpoint` and whose `serviceEndpoint` is the endpoint URL. The endpoint protocol is defined in §5.2.1.1.
 
 `did:key` also remains in use outside user identity, for device keys and for some service identities.
 
@@ -87,7 +89,7 @@ Revoking a device means removing its leaf node from all relevant MLS trees with 
 
 ## 2.3 User Display Profile
 
-The user profile is stored separately from the DID document, as an IPLD node addressed by CID. For `did:webvh` and `did:plc`, the DID document links to the current profile CID via a `service` endpoint; a `did:key` user publishes it in the `_profile` field of the Pkarr pointer record (§2.1):
+The user profile is stored separately from the DID document, as an IPLD node addressed by CID. For `did:webvh` and `did:plc`, the DID document links to the current profile CID via a `service` endpoint; a `did:key` user publishes it in the `_profile._agora` record of the Pkarr pointer record (§2.1):
 
 ```json
 {
@@ -104,7 +106,7 @@ Profile schema:
 ```json
 {
   "@type": "UserProfile",
-  "did": "did:key:z6Mk...",
+  "did": "did:webvh:QmSCID...:example.com:alice",
   "displayName": "alice",
   "avatarCID": "bafyrei...",
   "statusText": "building things",
@@ -112,7 +114,7 @@ Profile schema:
 }
 ```
 
-Profile updates are signed by the user's authentication key and gossiped on `v1/agora/discovery`. Because the profile is content-addressed, clients can cache it indefinitely; a stale profile will produce a CID mismatch against the current DID document's `serviceEndpoint` (or the Pkarr `_profile` field), prompting a refresh.
+Profile updates are signed by the user's authentication key and gossiped on `v1/agora/discovery`. Because the profile is content-addressed, clients can cache it indefinitely; a stale profile will produce a CID mismatch against the current DID document's `serviceEndpoint` (or the Pkarr `_profile._agora` record), prompting a refresh.
 
 ## 2.4 Account Recovery
 
@@ -252,7 +254,7 @@ In enterprise deployments, user identities are managed by the organization via a
 The constraint this section enforces:
 
 - **The organization provisions and hosts the `did:webvh` log and holds an update key for it.** It controls the DNS domain and the HTTPS endpoint serving the log, and therefore has revocation authority: it can retire any DID it controls by writing a log entry that removes all keys or deactivates the DID.
-- **The user agent generates and owns device private keys.** Private keys are generated inside the device's secure hardware boundary (Secure Enclave, StrongBox, TPM) and never leave it. The organization cannot generate, hold, or retrieve these keys. An organization holding an update key can still add a key it holds and sign as that user, but it can do so only by writing a log entry signed with its own update key. Every resolver of the DID sees that entry in the document history, so organizational impersonation is auditable by the user, her contacts and auditors without trusting the organization (§12.7.3).
+- **The user agent generates and owns device private keys.** Private keys are generated inside the device's secure hardware boundary where the platform supports Ed25519 there, otherwise in the best protected software store available (§2.2), and never leave the device. The organization cannot generate, hold, or retrieve these keys. An organization holding an update key can still add a key it holds and sign as that user, but it can do so only by writing a log entry signed with its own update key. Every resolver of the DID sees that entry in the document history, so organizational impersonation is auditable by the user, her contacts and auditors without trusting the organization (§12.7.3).
 - **Device public keys are registered into the `did:webvh` document** via an authenticated provisioning endpoint. Authentication uses the IdP token (proving user identity to the org); authorization uses an existing device key signature (proving key possession) or the IdP token alone for first-device enrollment.
 
 This mirrors how S/MIME and WebAuthn work in enterprise: the org manages the certificate or credential binding; the private key never leaves the user's hardware.
@@ -282,7 +284,7 @@ The DID document is served by the organization's **DID Provisioning Service**, a
 - Serves documents at the well-known URL path
 - Accepts authenticated device key registration requests (§2.5.4)
 - Accepts authenticated device revocation requests (§2.5.5)
-- Publishes DID document updates to the Agora gossipsub discovery mesh (§3)
+- Publishes DID document updates to the Agora gossipsub discovery mesh (§10.3)
 
 ### 2.5.3 Initial Provisioning (Onboarding)
 
@@ -299,7 +301,7 @@ When a user is onboarded to Agora, the organization creates a stub DID document 
 }
 ```
 
-The DID document MUST NOT name an infrastructure operator (relay or other IO) as the user's service endpoint; clients choose IOs independently of identity (ARCHITECTURE §2). Service entries limited to CO- or user-chosen endpoints MAY be added. The provisioning service hosts its users' KeyPackages and MUST add a `KeyPackageEndpoint` service entry (§7.8.2) pointing at itself before the first device enrolls (§2.5.4).
+The DID document MUST NOT name an infrastructure operator (relay or other IO) as the user's service endpoint; clients choose IOs independently of identity (ARCHITECTURE §2). Service entries limited to CO- or user-chosen endpoints MAY be added. The provisioning service hosts its users' KeyPackages and MUST add a `KeyPackageEndpoint` service entry (§2.1, §5.2.1.1) pointing at itself before the first device enrolls (§2.5.4).
 
 The stub document is valid and resolvable. It has no keys, so no one can authenticate as Alice yet. The document becomes operational when Alice's first device key is registered in §2.5.4.
 
@@ -313,7 +315,7 @@ When Alice installs the Agora client on a new device, the client performs the fo
 - Ed25519 keypair for `authentication` (signing)
 - X25519 keypair for `keyAgreement` (MLS key packages, HPKE)
 
-Neither private key leaves the secure enclave. The client holds only the public keys for transmission. A browser client generates its Ed25519 device key as a non-extractable WebCrypto key (§2.2, §12.6) and sets `secureEnclaveAttested` to `false`. If the user authenticates with a passkey during Step 2, the WebAuthn exchange is between the user and the IdP or the provisioning service; the passkey never becomes a device key (§2.2).
+Neither private key leaves the device's key store. The client transmits only the public keys. A browser client generates its Ed25519 device key as a non-extractable WebCrypto key (§2.2, §12.6) and sets `secureEnclaveAttested` to `false`. If the user authenticates with a passkey during Step 2, the WebAuthn exchange is between the user and the IdP or the provisioning service; the passkey never becomes a device key (§2.2).
 
 **Step 2: IdP authentication.** The client initiates an SAML 2.0 or OIDC authentication flow against the organization's IdP. The user authenticates (password + MFA) and the client receives an IdP token.
 
@@ -378,7 +380,7 @@ The request is signed per §13.1.1 by an existing registered device key. For fir
 
 **Step 6: Gossip publication.** The provisioning service gossips the updated DID document hash on `v1/agora/discovery`.
 
-**Step 7: KeyPackage upload.** The newly enrolled client generates an initial batch of MLS KeyPackages (§5.2.1) and uploads them, signed with the new device key, to the user's `KeyPackageEndpoint` hosted by the provisioning service (§2.5.3), completing enrollment. KeyPackages live with whoever runs the user's identity: the employer's provisioning service for an employee, or a host the individual chooses or runs, named by the `KeyPackageEndpoint` service entry (`did:webvh`, `did:plc`) or the Pkarr pointer record (`did:key`) (§2.1). Relays hold no KeyPackages. The host rate-limits KeyPackage fetches to resist draining, and the client keeps a last-resort KeyPackage available there (§5.2.1.1).
+**Step 7: KeyPackage upload.** The newly enrolled client generates an initial batch of MLS KeyPackages (§5.2.1) and publishes them, signed with the new device key, by `POST` (§5.2.1.1) to the user's `KeyPackageEndpoint` hosted by the provisioning service (§2.5.3), completing enrollment. KeyPackages live with whoever runs the user's identity: the employer's provisioning service for an employee, or a host the individual chooses or runs, named by the `KeyPackageEndpoint` service entry (`did:webvh`, `did:plc`) or the Pkarr pointer record (`did:key`) (§2.1). Relays hold no KeyPackages. The host rate-limits KeyPackage fetches to resist draining, and the client keeps a last-resort KeyPackage available there (§5.2.1.1).
 
 ### 2.5.5 Device Revocation
 
@@ -407,7 +409,7 @@ The request is signed per §13.1.1 by a surviving device key of `did`.
   "revokeDeviceKeyID": "did:webvh:QmSCID...:example.com:users:k7f3qd2m#device-{fingerprint}",
   "revokeAll": false,
   "reason": "employee-offboarding | security-incident | policy-violation",
-  "adminDID": "did:webvh:QmSCID...:example.com:users:it-admin",
+  "adminDID": "did:webvh:QmSCID...:example.com:users:r2v8n5xw",
   "ts": "2026-03-12T12:00:00.000Z"
 }
 ```
@@ -466,7 +468,7 @@ For enterprise `did:webvh` identities, the recovery mechanisms of §2.4 interact
 
 - **Social recovery (§2.4.2):** Valid for user-initiated recovery. The provisioning service accepts a `RecoveryAssertion` as equivalent to an IdP token for first-device enrollment, provided its signature verifies under the social recovery key (`#social-recovery-1`, a `recoverableIdentity` key) in the user's DID document.
 
-- **Encrypted backup (§2.4.3):** Valid. The backup restores MLS state and device keys. The restored device still needs to be enrolled via §2.5.4 to update the DID document with the restored public key.
+- **Encrypted backup (§2.4.3):** Valid. A backup from a software keystore restores MLS state and device keys; a backup from a non-extractable key store restores MLS state only (§2.4.3). The restored device still needs to be enrolled via §2.5.4 to update the DID document with the restored public key.
 
 - **Org-initiated recovery (helpdesk):** When a user loses all devices and has no recovery key or guardians, the organization can initiate recovery on their behalf: an admin issues a provisioning request (with no existing-device signature, substituted by admin authorization) to add a new device key to the user's DID document. This path MUST be logged in the audit trail; it is a privileged operation, and the added key appears in the DID log as an entry signed with the provisioning service's update key.
 

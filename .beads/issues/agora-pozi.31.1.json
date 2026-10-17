@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.1",
+  "title": "[CLM-1] Spec claims cross-epoch unlinkability that the access-key chain removes by design",
+  "description": "Review finding CLM-1: Spec claims cross-epoch unlinkability that the access-key chain removes by design (lens CLM). Location: spec/10-relays.md:518; spec/12-security.md:34, 46; spec/05-messaging.md:216 (vs 05:186, 05:203); ARCHITECTURE.md:145-160. Fix: As proposed. 10.4.2 still says a Relay \"cannot correlate [routing tables across epochs] without also capturing the epoch secrets\" and 12.3 says it cannot \"Map routing tables across epochs without MLS group secrets\", while 05:203 says \"The relay thereby follows the chain from token to token\", and Q1/Q6 make chain-following the design. The outer envelope carries `\"epoch\": 17` in the clear, so the 05:216 claim that the wrapper hides \"epoch boundaries and which messages are Commits\" is false (announcements ride only on Commit envelopes). Rewrite those three passages to say the relay links one chain's epochs and sees epoch boundaries and Commit cadence, not the chain's channel or Space; cut the 05:216 rationale to `group_id` value, sender data and non-Commit content type. 12.4 l.40 (\"keep ... the message kind away\") needs the same Commit exception. ARCHITECTURE §5 item 2 should name `epoch`, `id` and `ts` (`powProof` is a connection-level object at 10-relays.md:676 and falls under item 3 or 1; state which). Full text: notes/review/CLM-verified.md and notes/review/CLM.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:40.656016563Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:40.656016563Z",
+  "labels": [
+    "review",
+    "clm"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.1",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:40.671425032Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

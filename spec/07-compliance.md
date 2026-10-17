@@ -94,7 +94,6 @@ Every message received by the logger is written as a signed `ComplianceRecord` t
 ```json
 {
   "@type": "ComplianceRecord",
-  "envelopeID": "urn:agora:msg:bafyrei...",
   "channel": "agora://bafyrei.../engineering/backend",
   "senderDID": "did:key:z6MkSender...",
   "epoch": 17,
@@ -182,17 +181,17 @@ Logger addition in a DM group follows the standard MLS Add + Commit path:
 
 If the regulated member is joining an existing DM group (rather than creating one), steps 2–5 are performed at join time, before the member sends any application messages. Messages sent by other members before the regulated member joined are not retroactively accessible to the logger; the logger's archive begins at the MLS epoch of its admission.
 
-**KeyPackage availability:** The logger's DID document MUST publish a `KeyPackageEndpoint` service entry so that client user agents can fetch fresh KeyPackages programmatically:
+**KeyPackage availability:** The logger's DID document MUST publish a `KeyPackageEndpoint` service entry (§2.1) so that client user agents can fetch fresh KeyPackages programmatically:
 
 ```json
 {
   "id": "did:webvh:QmSCID...:compliance.example.com:logger#keypackages",
   "type": "AgoraKeyPackageEndpoint",
-  "serviceEndpoint": "https://archive.example.com/v1/agora/keypackages"
+  "serviceEndpoint": "https://archive.example.com/v1/agora/kp/logger"
 }
 ```
 
-The endpoint MUST return a fresh, unused `KeyPackage` on each GET request and MUST accept a `Welcome` by POST. The logger operator is the CO, so this endpoint is CO-hosted and the CO's knowledge of which groups admit its logger is not an IO observation. Reusing KeyPackages breaks MLS forward secrecy guarantees and is a conformance violation.
+The endpoint follows §5.2.1.1. It MUST return a fresh, unused `KeyPackage` on each fetch, never a last-resort KeyPackage, and MUST accept a `Welcome` by POST. The logger operator is the CO, so this endpoint is CO-hosted and the CO's knowledge of which groups admit its logger is not an IO observation. Reusing KeyPackages breaks MLS forward secrecy guarantees and is a conformance violation.
 
 ### 7.8.3 Logger Removal Prohibition
 
@@ -219,12 +218,11 @@ Before any regulated member sends a message in a DM group with a compliance logg
   "loggerLabel": "Example Corp Compliance Archive",
   "retentionDays": 2555,
   "regulatoryFramework": ["FINRA 17a-4", "SEC 17a-4"],
-  "issuedBy": "did:key:z6MkRegulatedMember...",
   "ts": "2026-03-12T00:00:00Z"
 }
 ```
 
-The disclosure notice is an MLS application message of type `ComplianceDisclosureNotice` sent in the same epoch as the logger's admission commit, prior to any other application messages. It carries no object signature; the MLS sender signature of the regulated member authenticates it (§13.1.1). Clients MUST render it as a visible system notification (not a suppressable status line) with wording equivalent to:
+The disclosure notice is an MLS application message of type `urn:agora:type:ComplianceDisclosureNotice` (§5.2.3) sent in the same epoch as the logger's admission commit, prior to any other application messages. It carries no object signature; the MLS sender signature of the regulated member authenticates it (§13.1.1). Clients MUST render it as a visible system notification (not a suppressable status line) with wording equivalent to:
 
 > **[Display name of regulated member]'s messages in this conversation are subject to regulatory retention by [loggerLabel] for [retentionDays] days.**
 
@@ -264,7 +262,7 @@ The regulated member's Space MUST record each DM group compliance logger admissi
 }
 ```
 
-A `DMComplianceAuditEntry` is verified outside the MLS group and is signed per §13.1.1, with the JWS in its envelope `sig`.
+A `DMComplianceAuditEntry` is verified outside the MLS group and is signed per §13.1.1 by `loggerDID`, the writer of the compliance audit chain, with the JWS in its envelope `sig`. `admittedBy` is the MLS sender of the Commit that added the logger.
 
 `removalAttempts` is an array of timestamps and initiator DIDs for any Remove commits targeting the logger that the regulated member's client detected and remedied per §7.8.3. This gives the Space admin and compliance officer a complete record of logger presence in DM groups, including any attempted circumvention.
 
@@ -273,7 +271,20 @@ A `DMComplianceAuditEntry` is verified outside the MLS group and is signed per �
 DM compliance capture is enforced only at CO enforcement points (ARCHITECTURE §6.3): the regulated member's client, the compliance logger, and the CO's archive and audit pipeline. Relays and other IO components do not know DM group participants or which users are regulated (S1), and MUST NOT inspect Welcomes, hold messages, or otherwise enforce logger presence (S2).
 
 - The regulated member's client MUST NOT send any application message into a DM group whose current MLS membership lacks the Space's `loggerDID` (§7.8.1). Regulated members SHOULD communicate from CO-managed devices, where the CO controls the client and its configuration.
-- The compliance logger MUST record every capture gap it can detect in the Space's IPLD compliance audit chain, including its own removal from a group (the epoch of the Remove commit) and its re-admission (the epoch of the re-add), so the missing epochs are identified.
+- The compliance logger MUST record every capture gap it can detect in the Space's IPLD compliance audit chain, including its own removal from a group (the epoch of the Remove commit) and its re-admission (the epoch of the re-add), so the missing epochs are identified. It records each gap as a `ComplianceGapEntry`, signed per §13.1.1 by `loggerDID`:
+
+```json
+{
+  "@type": "ComplianceGapEntry",
+  "dmGroupID": "urn:agora:dmgroup:<uuid>",
+  "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
+  "removedAtEpoch": 41,
+  "readmittedAtEpoch": 43,
+  "detectedAt": "2026-03-12T00:00:00Z"
+}
+```
+
+For a Space channel, `channel` (the channel path URI, as in `ComplianceRecord`) replaces `dmGroupID`. `readmittedAtEpoch` is `null` while the logger has not been re-admitted.
 - The CO's audit pipeline SHOULD reconcile `DMComplianceAuditEntry` records (§7.8.8) against the groups the logger actually holds and alert the compliance officer to discrepancies.
 
 **Accepted cost.** A modified or non-conformant client can create or join a DM group without the logger, and no infrastructure component will stop it; such groups are invisible to the logger. The mitigation is the managed endpoint, the same trust boundary regulated firms already rely on for every other channel (ARCHITECTURE §9).
@@ -290,7 +301,7 @@ The following table summarizes the conformance requirements for DM group complia
 | Re-add logger if removed by another member | Regulated member's client | MUST |
 | Notify Space admin of logger removal attempt | Regulated member's client | MUST |
 | Queue logger addition before queued outbound messages on deferred join | Regulated member's client | MUST |
-| Publish `DMComplianceAuditEntry` to Space IPLD chain | Regulated member's client | MUST |
+| Publish `DMComplianceAuditEntry` to Space IPLD chain | Compliance logger | MUST |
 | Publish `KeyPackageEndpoint` in logger DID document | Compliance logger operator | MUST |
 | Provide fresh (non-reused) KeyPackage per request | Compliance logger operator | MUST |
 | Refuse to send in a DM group lacking the logger | Regulated member's client | MUST |

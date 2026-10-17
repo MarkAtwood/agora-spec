@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.14",
+  "title": "[GAP-2] Billing key and registration service have no rotation or compromise procedure",
+  "description": "Review finding GAP-2: Billing key and registration service have no rotation or compromise procedure (lens GAP). Location: spec/05-messaging.md:203-205; spec/10-relays.md:588-624; ARCHITECTURE.md:177-183. Fix: The gap is real. \"billing\" appears nowhere with rotate, revoke or renew. The compromise impact needs correcting. An `accessKeyAnnouncement` must be signed with the previous epoch's access key (05:203) as well as carry `billingSig`, so a thief holding only the billing key cannot lock out a group. Lockout also needs a colluding current or removed member. The billing key alone gains quota theft and fake chain registration (DoS against the CO's agreement). The stronger P1 driver is routine lifecycle, not compromise. Registrations name an `agreement` id (10-relays:617), and agreements expire at `validUntil` (10-relays:604). Nothing moves registered chains to a renewed agreement or a new billing DID, and registration exists only at epoch 0. So every chain dies at agreement end unless the group is re-created, which contradicts S5. Fix as proposed (a `BillingKeyRotation`/agreement re-bind record plus re-registration under GAP-1), and add an explicit agreement-renewal case. Drop the \"maximum tolerated outage\" item here: the outage rule at 05:205 is deliberate, and availability belongs with GAP-15. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:41.39560399Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:41.39560399Z",
+  "labels": [
+    "review",
+    "gap"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.14",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:41.407178162Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

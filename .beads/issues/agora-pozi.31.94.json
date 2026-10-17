@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.94",
+  "title": "[CON-2] `accessSig` and `billingSig` sign \"the envelope with the signature omitted\", which contrad",
+  "description": "Review finding CON-2: `accessSig` and `billingSig` sign \"the envelope with the signature omitted\", which contradicts §13.1's no-canonical-form rule; the routing envelope field set is scattered (lens CON). Location: spec/05-messaging.md:206 (accessSig), :204 (billingSig), :196 (`id` is \"CID of the canonical outer envelope\"); spec/13-encoding.md:9, :27, :49; spec/11-transport.md:54 (relays accept JSON and CBOR), :236 (`pushUrgency`); spec/10-relays.md:676 (`powProof`); spec/05-messaging.md:138 (`broadcastPayload`). Fix: As the reviewer proposes. Write one normative `RoutingEnvelope` definition listing every member. Define `accessSig` over an explicit byte string, and state whether `powProof` and `pushUrgency` are covered. Make `accessKeyAnnouncement` a typed envelope with named members, signed with the previous access key, with `billingSig` as a §13.1.1 `sig` entry. Redefine `id` so it does not hash itself. All of this follows from D1/D6 (signatures over exact bytes, no canonicalization). Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:45.891783622Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:45.891783622Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.94",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:45.90338449Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

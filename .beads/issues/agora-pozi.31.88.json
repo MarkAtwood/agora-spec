@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.88",
+  "title": "[EXA-15] Employer-namespace admin DID derived from a role name",
+  "description": "Review finding EXA-15: Employer-namespace admin DID derived from a role name (lens EXA). Location: spec/02-identity.md:410. Fix: As the reviewer proposed. This follows the agora-stable-did decision and 02:273. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:45.520071254Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:45.520071254Z",
+  "labels": [
+    "review",
+    "exa"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.88",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:45.535315437Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

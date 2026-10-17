@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.81",
+  "title": "[EXA-8] KeyPackageEndpoint service `type` and path are never fixed, and the one example disagrees ",
+  "description": "Review finding EXA-8: KeyPackageEndpoint service `type` and path are never fixed, and the one example disagrees with the registry (lens EXA). Location: spec/07-compliance.md:190-191; spec/02-identity.md:19; spec/13-encoding.md:117. Fix: As the reviewer proposed. Define the service `type` string once in §2.1 and align 07:191 with `/v1/agora/kp/`. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:45.116086225Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:45.116086225Z",
+  "labels": [
+    "review",
+    "exa"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.81",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:45.128251944Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

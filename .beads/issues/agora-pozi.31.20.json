@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.20",
+  "title": "[GAP-8] A user's devices have no way to sync private data or history",
+  "description": "Review finding GAP-8: A user's devices have no way to sync private data or history (lens GAP). Location: spec/14-jmap.md:59, 81, 115; spec/02-identity.md:84-86, 208-232; spec/05-messaging.md:107. Fix: Partly covered. §14.3.1 (14:81) allows \"a personal daemon run by or for that member\" serving the member's own devices. Where one is used, it is the sync point for `ReadPosition` and `ChatContact`. The gap remains for daemon-less clients. A related gap the finding misses: no procedure says who adds a newly enrolled device's leaf to every group the user is in. Enrollment ends at the KeyPackage upload (02:381), and 02:229 only says \"having an existing device add it\". For DMs, it is also unstated whether the §4.6.1 consent threshold applies to a member's own new device. The backup-fork risk is real and unaddressed. 02:220 exports \"Current MLS key material for all group memberships\", and nothing forbids using it alongside the source device. Fix as proposed, and add the new-device group-join duty (the user's existing devices commit Adds for their own new device, exempt from DM consent). Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:41.711755224Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:41.711755224Z",
+  "labels": [
+    "review",
+    "gap"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.20",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:41.723405723Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

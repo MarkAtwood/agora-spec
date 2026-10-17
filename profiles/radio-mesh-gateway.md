@@ -12,7 +12,7 @@
 
 ## 1. Summary
 
-IRONWEED (VHF/UHF land mobile) and LICHEN (LoRa) are IPv6 radio meshes with their own identities, OSCORE security and per-group keys. Agora cannot run over either radio. A sealed Agora message costs roughly 450 B before payload: three Ed25519 signatures, two AEAD tags, `channelToken`, `senderEphemeralKey`, the sender DID, the CID and MLS framing (estimate; Agora has no binary wire size yet; notes/lichen-ironweed.md §2).
+IRONWEED (VHF/UHF land mobile) and LICHEN (LoRa) are IPv6 radio meshes with their own identities, OSCORE security and per-group keys. Agora cannot run over either radio. An Agora message costs roughly 400 B before payload: two Ed25519 signatures (`accessSig` and the MLS signature), two AEAD tags (the sealed envelope and MLS), `channelToken`, `epoch`, the envelope `id` (a CID), `ts`, `expiryHint`, MLS framing with its encrypted sender data, and the inner envelope's `type`, `contentType` and `seq` (estimate from spec §5.2.2 assuming a compact binary encoding, which Agora does not yet define; the JSON form is larger).
 
 - **LICHEN:** about 165 B of application room per 255 B frame, so one Agora message is 3-4 frames and 7-9 s of airtime at SF10. The dense EU duty budget is 0.5%, or 18 s per hour (02a §2a.9.1). That allows about two Agora messages per node per hour, before relaying, Commits, Welcomes or KeyPackage fetches.
 - **IRONWEED:** 450 B is at least 0.4 s of airtime at the 9.6 kbps C4FM raw rate, more after FEC, on a channel shared with voice (SPEC §4.1, §7.3). It would also duplicate IRONWEED's own link encryption and Group OSCORE, and add dependencies (relays, DID resolution, the CO registration service) that IRONWEED's disconnected-operations design removes (SPEC §6.5.2).

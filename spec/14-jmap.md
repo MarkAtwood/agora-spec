@@ -57,8 +57,9 @@ The default model of each type in the family, and the types that are not written
 | chat `Message` (incl. `Attachment`, `Mention`, `MessageAction`, `MessageRevision`) | `single-author` | sender | Only the sender creates, edits or retracts a message. |
 | chat `Reaction` (entry of `Message.reactions`) | `single-author` | reacting member | Keyed by the reactor's `senderReactionId`; no two members write the same entry. |
 | chat `ReadPosition`, `ChatContact` | `single-author` | the user | Private to the user; synchronized only among the user's own devices. |
-| chat `PresenceStatus`, `Chat/typing` | ephemeral (§5.3) | sender | Not stored; carried as ephemeral MLS application messages. |
+| chat `ChatPresenceEvent`, `ChatTypingEvent` | ephemeral (§5.3) | sender | Not stored; carried as ephemeral MLS application messages. |
 | chat `Space`, `SpaceRole`, `SpaceMember`, `SpaceBan`, `Category`, `ChannelPermission`, `CustomEmoji`, `SpaceInvite`, `Chat` membership | derived | CO-signed Space state (§3.3), MLS group membership | Community state is CO-signed (ARCHITECTURE S4). Members never replicate these as JMAP writes. |
+| chat `Chat.pinnedMessageIds` | `sequenced-v1` | holders of the `pin` permission (§5.2.6) | Several members write one list. |
 | `CalendarEvent` | `single-author` | event creator; each participant for its own `participants` entry | Low contention; an RSVP is a per-participant entry written only by that participant. Per-property last-writer-wins (§14.3.3). |
 | `Task` | `single-author` | task creator; each assignee for its own progress | Last-writer-wins suffices when only the creator reassigns. A Space that lets any member edit or reassign selects `sequenced-v1`. |
 | `Calendar`, `TaskList` binding (`Space.calendarId`, `Space.taskListId`) | derived | CO-signed Space state | A binding is community structure. |
@@ -91,16 +92,18 @@ A write by the author travels as an MLS application message to the channel group
 
 ```json
 {
-  "dataType": "urn:ietf:params:jmap:chat#Message",
+  "dataType": "urn:ietf:params:jmap:tasks#Task",
   "at": "2026-10-16T12:00:00.000Z",
-  "update": { "01JABCDEF...": { "body": "corrected text" } },
+  "update": { "01JABCDEF...": { "progress": "completed" } },
   "destroy": []
 }
 ```
 
-`update` maps a global object id to an RFC 8620 PatchObject; `destroy` lists global object ids. `at` is the sender's clock and is used only as the first last-writer-wins key (§14.3.3).
+`update` maps a global object id to an RFC 8620 PatchObject; `destroy` lists global object ids. `at` is the sender's clock and is used only as the first last-writer-wins key (§14.3.3). For a `sequenced-v1` type the body also carries `after`, the head of the latest stamp the client has applied for the channel, as a JSON object `{ "stream": <base64url channelToken>, "n": <position>, "hash": <base64url stamp hash> }`, or `null` if the client has applied no stamp for the channel (§14.4.3).
 
-**Global object ids.** Objects are referenced across members by a sender-assigned ULID: `senderMsgId` for a chat `Message`, `senderReactionId` for a `Reaction`, and the creator-assigned `id` for every other type. A store MUST index objects by global id and SHOULD use it as the local `id` where the type's specification allows.
+Chat `Message` and `Reaction` are written only in object form (§5.2.3). A receiving store MUST ignore a `JmapSet` whose `dataType` is `urn:ietf:params:jmap:chat#Message` or `urn:ietf:params:jmap:chat#Reaction`.
+
+**Global object ids.** Objects are referenced across members by a sender-assigned ULID: `senderMsgId` for a chat `Message`, `senderReactionId` for a `Reaction`, and the creator-assigned `id` for every other type. A store MUST index objects by global id and SHOULD use it as the local `id` where the type's specification allows. A `Chat` is the channel or DM group whose MLS group carried the message (§5.2.2) and has no sender-assigned id; a patch names it with the `update` key `chat`.
 
 **Sender identity.** A store sets every author or sender property (for example `Message.senderId`) from the DID of the MLS credential that sent the message (§5.2.1) and stores it. It MUST NOT take sender identity from the `body`.
 
@@ -108,7 +111,7 @@ A write by the author travels as an MLS application message to the channel group
 
 A store MUST ignore an object or patch whose MLS sender is not the author that §14.2.3 names for the object or for the patched property. A patch MUST touch only paths that sender owns (for example, a participant patches only its own `participants` entry, a reactor only its own `reactions` entry). Checks that the drafts assign to a server (slow mode, the broadcast-mention gate, bans, channel permissions) are evaluated by each receiving store against CO-signed Space state, or by a CO component where one decision is required (§14.6.1).
 
-Delivery order follows §5.1.1 (`seq`, `causalRefs`, gap buffering). For each property of an object, the store keeps the value from the update with the highest (`at`, routing envelope `id`) pair, comparing `at` as a timestamp and the envelope `id` (§5.2.2) as bytes. Since only the author writes a property, the pair matters only for concurrent writes by the author's own devices, and the result is the same in every store.
+Delivery order follows §5.1.1 (`seq`, gap buffering). For each property of an object, the store keeps the value from the update with the highest (`at`, routing envelope `id`) pair, comparing `at` as a timestamp and the envelope `id` (§5.2.2) as bytes. Since only the author writes a property, the pair matters only for concurrent writes by the author's own devices, and the result is the same in every store.
 
 ### 14.3.4 History Catch-Up
 
@@ -122,14 +125,14 @@ A store that was offline, or a newly added device, obtains missed operations by 
 
 ### 14.4.1 Role and Designation
 
-A sequencer assigns a single order to encrypted operations on `sequenced-v1` types. It holds no MLS group secrets, exporter outputs or plaintext (ARCHITECTURE S3), is not an MLS member, and reads no operation. Members trust it for availability only: it can delay or drop operations, and it cannot alter, forge or read them.
+A sequencer assigns a single order to encrypted operations on `sequenced-v1` types. It holds no MLS group secrets, no exporter outputs other than routing tokens, and no plaintext (ARCHITECTURE S3), is not an MLS member, and reads no operation. Members trust it for availability only: it can delay or drop operations, and it cannot alter, forge or read them.
 
 The CO designates the sequencer in Space state with the optional field `sequencer`:
 
 ```json
 "sequencer": {
   "did": "did:webvh:QmSCID...:seq.example.com",
-  "endpoint": "https://seq.example.com/agora/v1"
+  "endpoint": "https://seq.example.com/v1/agora/seq"
 }
 ```
 
@@ -155,7 +158,7 @@ The hash of a stamp is SHA-256 over its `body` bytes. `prev` chains stamps, so a
 
 ### 14.4.3 Submission and Distribution
 
-1. The client encrypts the operation as an MLS application message to the channel group in the current epoch. Its envelope has `type` `urn:agora:type:JmapSet` (§14.3.2) with an added member `after`: the head (`stream`, `n`, stamp hash) of the latest stamp the client has applied for the channel. The resulting MLS message bytes are the **operation**.
+1. The client encrypts the operation as an MLS application message to the channel group in the current epoch. Its envelope has `type` `urn:agora:type:JmapSet`, and its body carries `after` (§14.3.2): the head (`stream`, `n`, stamp hash) of the latest stamp the client has applied for the channel. The resulting MLS message bytes are the **operation**.
 2. The client sends `POST {endpoint}/submit` with a CBOR map `{ "stream": <channelToken bytes>, "op": <operation bytes> }`.
 3. The sequencer assigns the next position in that stream, signs the stamp, appends (stamp, operation) to the stream's log and returns the encoded stamp envelope.
 4. The client publishes to the channel an MLS application message with `type` `urn:agora:type:SequencedOp`, `contentType` `application/cbor`, and a `body` that is a CBOR map `{ "stamp": <encoded stamp envelope>, "op": <operation bytes> }`. This copy enters channel history (§5.2.5), so the order survives replacement of the sequencer.
@@ -213,7 +216,7 @@ Used: all data types and methods, served by the member's store (§14.3.1, §11.8
 Overridden:
 - Server-enforced checks become checks by every receiving store against CO-signed Space state: slow mode, the broadcast-mention gate, channel permissions, blocked contacts and bans. A ban takes effect as an MLS Remove (§4.5).
 - `Space/set` and the other Space-family `/set` calls are translated by the store into a signed Space state mutation (§3.3) by an owner or admin, or rejected locally if the user holds no such authority.
-- `SpaceInvite.maxUses` and `Space/join` need one decider: a CO invite service enforces them, since a count cannot be enforced by independent stores.
+- `SpaceInvite.maxUses` and `Space/join` need one decider: a CO invite service enforces them, since a count cannot be enforced by independent stores. The invite service authenticates members per §3.5.
 - `receivedAt` is local receipt time; cross-member references use `senderMsgId` (§14.3.2).
 
 Forbidden: the draft's E2EE relay arrangement, in which a relay learns sender and recipient identifiers, violates ARCHITECTURE S1 and is not used. Relays carry only §5.2.2 envelopes.

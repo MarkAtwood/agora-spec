@@ -7,7 +7,7 @@
 
 Agora uses two complementary transport surfaces that serve different access patterns:
 
-**Live stream** (§11.1–§11.7): WebTransport (QUIC) or WebSocket. Optimized for real-time delivery: new message events, MLS handshake messages (Commits, Proposals, Welcomes), presence, and typing indicators. Required for any client that needs low-latency delivery.
+**Live stream** (§11.1–§11.7): WebTransport (QUIC) or WebSocket. Optimized for real-time delivery: new message events, MLS handshake messages (Commits and Proposals), presence, and typing indicators. Welcomes do not travel on the live stream; they are delivered to the new member's `KeyPackageEndpoint` (§4.6, §5.2.1.1). Required for any client that needs low-latency delivery.
 
 **JMAP Sync API** (§11.8): Standard HTTPS request/response with EventSource push, served by Relays. Optimized for token-keyed envelope history retrieval and state sync. Clients that need only history (bots, compliance tools, search indexers) can use JMAP without opening a live stream connection. The Space, membership, role and invite management API is not served by Relays; it runs in the client or on CO infrastructure (§11.8.9).
 
@@ -45,7 +45,7 @@ Tor proxies TCP only. This has the following protocol-level consequences:
 
 **Gossipsub fingerprinting.** Connecting to gossipsub via Tor provides IP-level anonymity but gossipsub peer scoring observes message timing and topic subscription patterns. A sufficiently persistent observer correlating topic subscription events across Tor circuits may be able to fingerprint clients by behavior. Clients requiring strong anonymity SHOULD rotate Tor circuits periodically and SHOULD subscribe to decoy topics (§12.4).
 
-**Rate limiting.** A Relay receiving connections from Tor exit nodes sees the exit node's IP address, not the client's IP. Relays MUST use per-`channelToken` rate limits and PoW requirements as the primary spam control mechanism. Per-IP limits MUST NOT be the sole mechanism.
+**Rate limiting.** A Relay receiving connections from Tor exit nodes sees the exit node's IP address, not the client's IP. Relays MUST use per-`channelToken` rate limits (and proof-of-work where the Relay requires it, §10.5.2) as the primary spam control mechanism. Per-IP limits MUST NOT be the sole mechanism.
 
 **Hidden service Relays.** A Relay operating as a Tor v3 hidden service publishes its `.onion` address in its manifest and `RelayAd` as `endpoints.onion` (§10.2.1, §10.5.1). Clients with Tor available SHOULD prefer `.onion` endpoints when available; they provide end-to-end Tor routing without depending on an exit node.
 
@@ -257,7 +257,7 @@ A client MAY rotate its `pushHandle` at any time for privacy or after suspected 
 
 JMAP ([RFC 8620](https://jmap.io)) is used at two layers that run on different operators:
 
-- **Relay sync API (IO).** Agora Relays expose a JMAP API limited to blind objects: ciphertext envelopes keyed by `channelToken`, and blobs (§11.8.1–§11.8.8). It provides history retrieval and state synchronization (state tokens, `/changes` deltas, batched method calls, ResultReferences, and EventSource push) without requiring a persistent connection. A Relay holds no `channelToken`→`channelCID` mapping and serves no Space, Channel, membership, role or invite objects (ARCHITECTURE S1, §5.3 item 4).
+- **Relay sync API (IO).** Agora Relays expose a JMAP API limited to blind objects: ciphertext envelopes keyed by `channelToken`, and blobs (§11.8.1–§11.8.8). It provides history retrieval and state synchronization (state tokens, `/changes` deltas, batched method calls, ResultReferences, and EventSource push) without requiring a persistent connection. A Relay holds no `channelToken`→`channelCID` mapping and serves no Space, Channel, membership, role or invite objects (ARCHITECTURE S1, §7 item 4).
 - **Management API (client / CO).** The Space, channel, membership, role and invite API runs in the client (a local daemon) or on CO infrastructure, never on a Relay (§11.8.9).
 
 ### 11.8.1 Endpoints
@@ -276,7 +276,7 @@ Clients locate the Session object from `endpoints.jmapSync`, not by RFC 8620 aut
 
 ### 11.8.2 Authentication
 
-Relays never authenticate client identity on JMAP requests (§11.6). Envelope history is addressed by `channelToken`; envelopes written through the sync API carry the same epoch access proof as on the live stream (ARCHITECTURE §6.2). Requests are rate-limited per network address and per `channelToken` (§11.6).
+Relays never authenticate client identity on JMAP requests (§11.6). Envelope history is addressed by `channelToken`. The sync API is read-only for envelopes: envelopes are written only on the live stream, where the Relay verifies the epoch access proof (ARCHITECTURE §6.2). Requests are rate-limited per network address and per `channelToken` (§11.6).
 
 ### 11.8.3 Capability and Session Object
 
@@ -326,17 +326,17 @@ The Session object returned by `GET {base}/.well-known/jmap`:
 
 #### Envelope
 
-A single MLS-encrypted envelope as stored by the Relay. The name `Envelope` avoids a collision with the `Message` type of the JMAP Chat specification (draft-atwood-jmap-chat-00). **The `encryptedPayload` field is always MLS ciphertext; the Relay cannot read it.** Clients decrypt using their local MLS group state.
+A single routing envelope (§5.2.2) as stored by the Relay. The name `Envelope` avoids a collision with the `Message` type of the JMAP Chat specification (draft-atwood-jmap-chat-00). **The `envelope` field holds the routing envelope exactly as the Relay received it; its sealed or broadcast payload is ciphertext the Relay cannot read.** Clients verify and decrypt it as they would on the live stream, using their local MLS group state.
 
 ```
-id              String     ULID (time-sortable, server-assigned)
+id              String     The routing envelope's id (§5.2.2)
 channelToken    String     Routing token under which the envelope was published
-encryptedPayload String    base64url: MLS ciphertext (ApplicationMessage or Proposal/Commit)
-mlsEpoch        UInt       MLS epoch in which the envelope was encrypted
-seqNo           UInt       Sequence number within the epoch (for client-side ordering)
+envelope        String     base64url: the exact bytes of the routing envelope as received
 receivedAt      UTCDate    Relay's clock; authoritative for stable sort order
-expiresAt       UTCDate|null  null = no configured expiry
+expiresAt       UTCDate|null  Time the Relay will drop the envelope; null = no configured expiry
 ```
+
+`Envelope` is read-only: there is no `Envelope/set`.
 
 ### 11.8.5 Methods
 
@@ -346,7 +346,7 @@ All methods follow RFC 8620 conventions. `/get`, `/set`, `/changes`, and `/query
 |---|---|
 | `Envelope/get` | Fetch by ids. Returns encrypted blobs. |
 | `Envelope/changes` | State-token delta. Returns added/updated/destroyed ids since a given state. |
-| `Envelope/query` | Filter by `channelToken`; sort by `receivedAt` (default) or `seqNo`. |
+| `Envelope/query` | Filter by `channelToken`; sort by `receivedAt`. |
 | `Envelope/queryChanges` | RFC 8620 extended query-delta. |
 
 **Batching and ResultReferences.** Standard RFC 8620 §4 batching applies. Multiple method calls in a single request execute in order; `#`-prefixed argument keys reference results of prior calls via RFC 6901 JSON Pointers.
@@ -377,9 +377,9 @@ Example: query a channel token's envelopes then fetch them in one round-trip:
 
 The Relay's blindness properties (§10.4.1) are fully preserved under the JMAP API:
 
-- **Envelope content.** `Envelope/encryptedPayload` is always MLS ciphertext. The Relay stores and serves it without decrypting. A subpoena against the Relay yields only ciphertext.
+- **Envelope content.** The payload inside `Envelope/envelope` is always ciphertext. The Relay stores and serves it without decrypting. A subpoena against the Relay yields only ciphertext.
 - **Channel identity.** The Relay keys envelopes by `channelToken` only. It holds no `channelToken`→`channelCID` mapping; that mapping exists only in the management API (§11.8.9).
-- **Sender identity.** No sender identity appears in any JMAP object. `encryptedPayload` contains a sealed MLS ApplicationMessage; the sender is sealed inside the ciphertext.
+- **Sender identity.** No sender identity appears in any JMAP object. The routing envelope carries no sender (§5.2.2); the sender is sealed inside the ciphertext.
 - **Community structure.** The Relay serves no Space, Channel, membership, role or invite objects and no member counts.
 
 ### 11.8.7 EventSource Push
@@ -402,7 +402,7 @@ Only object types whose state has changed are included in a given event. The liv
 | Programmatic / bot access | ✓ | ✗ |
 | Blob upload / download | ✓ | ✗ |
 | New message delivery | ✗ | ✓ |
-| MLS handshake (Commit / Proposal / Welcome) | ✗ | ✓ |
+| MLS handshake (Commit / Proposal); Welcomes go to the `KeyPackageEndpoint` (§5.2.1.1) | ✗ | ✓ |
 | Presence and typing indicators | ✗ | ✓ |
 | Push notification registration | ✗ | ✓ |
 

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.46",
+  "title": "[IMP-5] `channelCID` is used as exporter context but never defined; DMs have none",
+  "description": "Review finding IMP-5: `channelCID` is used as exporter context but never defined; DMs have none (lens IMP). Location: spec/05-messaging.md:194, :202, :218; spec/03-spaces.md:166; spec/04-access-control.md:125, :145. Fix: Grep finds no definition of `channelCID` anywhere. Channels are entries in SpaceState (03:60-98), not content-addressed objects. The only DM CID changes on every membership change (04:145), which would change access and sealing keys mid-epoch. Also used as an identifier in BroadcastKey (03:173), BroadcastMessage (05:148), SpeakRequest (05:98), RecordingGrant (06:250) and `homeChannelCID` (08:81). Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:43.165442448Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:43.165442448Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.46",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:43.177810931Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

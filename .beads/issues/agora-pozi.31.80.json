@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.80",
+  "title": "[EXA-7] Relay manifest key ids are invalid `did:key` DID URLs, and the manifest signer is ambiguou",
+  "description": "Review finding EXA-7: Relay manifest key ids are invalid `did:key` DID URLs, and the manifest signer is ambiguous (lens EXA). Location: spec/10-relays.md:72, 102. Fix: As the reviewer proposed. The preferred form is to switch the example to `did:web:relay.example.com` with `#key-1`, because 10:110 says public relays SHOULD use `did:web`. That also resolves EXA-19's 10:55 point. Change 10:102 to \"signed per §13.1.1 by `relayDID`\". Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:45.059077307Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:45.059077307Z",
+  "labels": [
+    "review",
+    "exa"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.80",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:45.070981258Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

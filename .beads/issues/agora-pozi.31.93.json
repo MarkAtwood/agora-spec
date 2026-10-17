@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.93",
+  "title": "[CON-1] `channelCID` is the exporter context for token, access key and sealing key, but is never d",
+  "description": "Review finding CON-1: `channelCID` is the exporter context for token, access key and sealing key, but is never defined (lens CON). Location: spec/05-messaging.md:194, :202, :218; spec/03-spaces.md:55-97 (channel entries have `path`, `type`, `mode`, `name`, `mlsGroupID`, with no CID); spec/03-spaces.md:166, :173; spec/04-access-control.md:125. Fix: Define the per-channel identifier and its exact byte encoding as exporter context once in §3.3. Then point §5.2.2, §3.4 (`/broadcast-key/\u003cchannelCID\u003e`), §6 and §7 at it. For DM groups, say which identifier and label apply. Today 04:125 uses `\"agora-dm-token\"` with empty context and gives no access or sealing derivation. Grep found no definition anywhere: `channelCID` appears only as a context and as a JSON field with the value `\"bafyrei...\"`. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:45.839126442Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:45.839126442Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.93",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:45.851037583Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

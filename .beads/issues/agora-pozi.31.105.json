@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.105",
+  "title": "[CON-13] The channel history head is said to live in CO-signed channel state, which members cannot ",
+  "description": "Review finding CON-13: The channel history head is said to live in CO-signed channel state, which members cannot update per message; history append is undefined (lens CON). Location: spec/05-messaging.md:318-320; spec/03-spaces.md:131; dependants spec/04-access-control.md:118, :155, spec/06-calls.md:277, spec/09-interop.md:195, spec/14-jmap.md:115. Fix: Replace the DAG/\"channel state document tracks the latest history CID\" model. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:46.505041693Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:46.505041693Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.105",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:46.519291606Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

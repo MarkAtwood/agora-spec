@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.128",
+  "title": "[DOC-10] Profiles disagree on the `KeyPackageEndpoint` service `type` string",
+  "description": "Review finding DOC-10: Profiles disagree on the `KeyPackageEndpoint` service `type` string (lens DOC). Location: profiles/o365-employer-did.md:158, :238; profiles/discord-onboarding.md:211; spec/07-compliance.md:185-190; spec/02-identity.md:302. Fix: The existing text already settles this. spec/02-identity.md:302 says the provisioning service \"MUST add a `KeyPackageEndpoint` service entry (§7.8.2)\", and §7.8.2's only example (07-compliance.md:190) uses `\"type\": \"AgoraKeyPackageEndpoint\"`. The name also matches the `Agora*` service naming. Change o365:158 and :238 to `AgoraKeyPackageEndpoint`, and add one sentence to spec §2.5.3 or §7.8.2 that states the type string normatively. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:47.861275378Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:47.861275378Z",
+  "labels": [
+    "review",
+    "doc"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.128",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:47.873811555Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

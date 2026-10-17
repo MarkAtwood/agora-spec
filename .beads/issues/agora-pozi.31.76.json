@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.76",
+  "title": "[EXA-3] `did:key` used where a DID-document service entry is required",
+  "description": "Review finding EXA-3: `did:key` used where a DID-document service entry is required (lens EXA). Location: spec/05-messaging.md:432; spec/09-interop.md:88, 102; spec/06-calls.md:251, 358, 383 (vs 06:372). Fix: As the reviewer proposed. The 02:14 table says `did:key` has \"No: document derived from the key\", and a `did:key` profile or KP pointer goes through Pkarr. A `did:key` gateway or recorder therefore cannot carry the `KeyPackageEndpoint` that 06:372 requires. Use `did:webvh:...` for the gateway and recorder. In §5.2.7.4, note that `did:key` users rely only on the in-group declaration. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.834256366Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.834256366Z",
+  "labels": [
+    "review",
+    "exa"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.76",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.846732753Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

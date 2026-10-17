@@ -14,7 +14,7 @@ Two components perform this work.
 
 **The DID Sidecar** is the organization's DID Provisioning Service (spec §2.5.2), a CO component, here a lightweight HTTPS service registered as an Entra application. It owns the namespace `https://did.example.com/users/{localIdentifier}/` and serves each user's `did:webvh` log (`did.jsonl`). It holds the update key for every employee log, receives provisioning events from Graph Lifecycle Workflows via a Logic App bridge, accepts authenticated device key registration requests from employees during Agora enrollment, and hosts each employee's `KeyPackageEndpoint` (spec §5.2.1.1). It is the only component that writes DID log entries.
 
-**Entra Verified ID** issues a signed `EmployeeCredential` verifiable credential to each enrolled employee's wallet (Microsoft Authenticator). The VC is the organization's cryptographic attestation that the holder is a current employee with specific claims (department, role, clearance level). It is issued after the first device key is registered (§4.2), and Spaces MAY require it for admission (§4.3). VC revocation is the organization's mechanism for immediately invalidating access without writing a DID log entry.
+**Entra Verified ID** issues a signed `EmployeeCredential` verifiable credential to each enrolled employee's wallet (Microsoft Authenticator). The VC is the organization's cryptographic attestation that the holder is a current employee with specific claims (department, role, clearance level). It is issued after the first device key is registered (§4.2), and Spaces MAY require it for admission (§4.3). VC revocation blocks future Space admissions (§4.3) without writing a DID log entry. It does not cut off access the employee already has: membership in the MLS group is the only access control, so access ends when the Enrollment Service issues the MLS Remove commits (§5.4, Action C).
 
 Relays play no part in this profile. They never receive or verify Entra tokens; IdP authentication runs between the client, Entra and the sidecar (spec §2.5.2).
 
@@ -26,7 +26,8 @@ These two components are intentionally independent and address different concern
 | Org attests employee status with auditable trail      | Entra Verified ID (EmployeeCredential)                           |
 | Employee controls private key                         | DID Sidecar (device key generated and registered by client, never by org) |
 | Org key insertion is auditable                        | DID log (every update-key entry is visible to all resolvers)     |
-| Immediate access revocation without DID deactivation  | Entra Verified ID (VC revocation)                                |
+| Block future Space admissions without DID deactivation | Entra Verified ID (VC revocation)                               |
+| Access cut-off in existing Spaces                     | Enrollment Service (MLS Remove commits)                          |
 | Specific device revocation (lost device)              | DID Sidecar (log entry removing one `verificationMethod`)        |
 | KeyPackage hosting and Welcome delivery               | DID Sidecar (`KeyPackageEndpoint`)                               |
 
@@ -155,7 +156,7 @@ The genesis log entry, created at Joiner time (spec §2.5.3). One line of `did.j
     "service": [
       {
         "id": "did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m#keypackages",
-        "type": "KeyPackageEndpoint",
+        "type": "AgoraKeyPackageEndpoint",
         "serviceEndpoint": "https://did.example.com/v1/keypackages/k7f3qd2m"
       },
       {
@@ -235,7 +236,7 @@ The `state` of the latest log entry after two devices and a recovery key are reg
   "service": [
     {
       "id": "...#keypackages",
-      "type": "KeyPackageEndpoint",
+      "type": "AgoraKeyPackageEndpoint",
       "serviceEndpoint": "https://did.example.com/v1/keypackages/k7f3qd2m"
     },
     {
@@ -247,7 +248,7 @@ The `state` of the latest log entry after two devices and a recovery key are reg
 }
 ```
 
-The `meta` fields on device keys are non-standard extensions for operator tooling; they allow IT to identify which key belongs to which device when issuing targeted revocations. They are informational only and carry no cryptographic weight. Agora clients MUST ignore unknown fields in `verificationMethod` entries.
+The `meta` fields on device keys are non-standard extensions for operator tooling; they allow IT to identify which key belongs to which device when issuing targeted revocations. They are informational only and carry no cryptographic weight. A client that does not recognize them should ignore them, as DID Core requires consumers to do for unrecognized properties.
 
 Employment attributes (department, role, status) are not published in the DID document. They live in the `EmployeeCredential` (§4.1). Putting them in the document would write every Mover change into the permanent public log, and spec §2.5.3 limits service entries to CO- or user-chosen endpoints.
 
@@ -306,10 +307,10 @@ The credential names the employee's DID as its subject, and that DID has no keys
 
 Later devices register with a request signed by an existing device key (§5.6); the org MAY additionally require a VC presentation for them, since by then the employee holds one.
 
-The sidecar calls the Verified ID issuance API:
+The sidecar calls the Verified ID Request Service issuance API. Verify the path and request schema against current Microsoft documentation (written 2026-10, not re-verified):
 
 ```http
-POST https://verifiedid.did.msidentity.com/v1.0/<tenant>/verifiableCredentials/createIssuanceRequest
+POST https://verifiedid.did.msidentity.com/v1.0/verifiableCredentials/createIssuanceRequest
 Authorization: Bearer <app token>
 Content-Type: application/json
 
@@ -455,7 +456,7 @@ On-demand workflow execution handles urgent terminations without waiting for the
 
 Three actions execute in parallel:
 
-**Action A: VC Revocation (immediate):** The sidecar calls the Verified ID revocation API for the user's current `EmployeeCredential`. Revocation takes effect within seconds. Any space configured to require VC validation MUST reject the user's next message or MLS epoch participation check. This is the fast path: VC revocation is effective before the DID deactivation completes.
+**Action A: VC Revocation (immediate):** The sidecar calls the Verified ID revocation API for the user's current `EmployeeCredential`. Revocation takes effect within seconds and stops the user from being admitted to any Space that requires the VC (§4.3). It does not remove the user from Spaces they already belong to; Action C does that.
 
 **Action B: DID Deactivation (within minutes):** The sidecar appends a final log entry, signed with its update key, that removes all keys and sets `deactivated: true` (the `revokeAll` offboarding of spec §2.5.5 and §2.5.6):
 
@@ -477,7 +478,7 @@ Three actions execute in parallel:
 
 The log stays resolvable with this entry as its last (spec §2.5.6). Agora clients that resolve a deactivated DID MUST treat the identity as permanently invalid and issue MLS Remove commits for its leaves in all groups they share with it. The reason and initiator are recorded in the sidecar's audit log, not in the public document. The sidecar gossips a `DeviceRevocation` for the removed keys, signed by its own key (spec §2.5.5).
 
-**Action C: MLS Removal (async, via Enrollment Service):** The sidecar notifies the Enrollment Service, which issues MLS Remove commits for the user from all spaces they belong to. After these commits propagate, the user's device keys cannot decrypt new messages even if the private key is retained.
+**Action C: MLS Removal (the access cut-off, via Enrollment Service):** The sidecar notifies the Enrollment Service, which issues MLS Remove commits for the user from all spaces they belong to. After these commits propagate, the user's device keys cannot decrypt new messages even if the private key is retained.
 
 Logic App payload:
 
@@ -527,32 +528,43 @@ If the revoked key was the user's only device key, the document returns to `STUB
 
 Device key registration (the moment a new device public key is written to the DID log) is the highest-stakes operation in the system: a successful registration grants a new device full access to all the user's spaces. Step-up MFA is REQUIRED regardless of the user's current session MFA state.
 
-The DID Sidecar enforces this by requiring a step-up token: a short-lived Entra ID token with the `acr` claim set to `"mfa"` and the `amr` array including a phishing-resistant method (`"hwk"` for Windows Hello, `"fido"` for FIDO2/WebAuthn).
+The DID Sidecar enforces this with a Conditional Access authentication context. The organization defines an authentication context (for example `c1`, labelled "Agora device registration") and a Conditional Access policy that requires the phishing-resistant MFA authentication strength (Windows Hello for Business, FIDO2 security key, or certificate-based authentication) for that context. The sidecar requires a short-lived Entra access token whose `acrs` claim contains that context ID. If the token lacks it, the sidecar returns a claims challenge naming the context, and the client re-authenticates. Clients signal that they can handle claims challenges with the `xms_cc` client capability. The sidecar does not rely on `acr` (in Entra access tokens it is only `0` or `1`, and only in v1.0 tokens) or on specific `amr` values, since Entra's documented `amr` values do not distinguish phishing-resistant methods. Verify the claim names and the claims-challenge flow against current Entra documentation (checked 2026-10).
 
 ```http
 POST /v1/register-device-key
 Authorization: Bearer <step-up-token>
-Content-Type: application/json
+Content-Type: application/cbor
 
+<encoded typed payload envelope (spec §13.1)>
+```
+
+The envelope has `type` `urn:agora:type:DeviceKeyRegistrationRequest`, `contentType` `application/json`, and a `body` that is the spec §2.5.4 Step 3 request, with one profile field added (`registeredVia`):
+
+```json
 {
+  "@type": "DeviceKeyRegistrationRequest",
   "did": "did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m",
-  "devicePublicKey": "zDEVICE_KEY...",
   "deviceLabel": "Alice's MacBook Pro",
-  "registeredVia": "webauthn",
-  "proofOfPossession": "...",
-  "sig": { ... }
+  "deviceEd25519PublicKey": "base64url(Ed25519 pubkey)",
+  "deviceX25519PublicKey": "base64url(X25519 pubkey)",
+  "platform": "macOS",
+  "secureEnclaveAttested": true,
+  "ts": "2026-03-12T12:00:00.000Z",
+  "registeredVia": "webauthn"
 }
 ```
 
-`sig` is the envelope signature of spec §13.1.1 by a currently registered device key. It is absent for the first device and REQUIRED for every later device (spec §2.5.4 Step 3).
+This profile carries the step-up token in the `Authorization` header instead of the body's `idpToken` member; the header token takes the place of `idpToken` for the checks of spec §2.5.4 Step 4.
+
+The envelope `sig` (spec §13.1.1) carries the signatures. For the first device it holds one entry, by the new `deviceEd25519PublicKey`, as proof of possession. For every later device it also holds an entry by a currently registered device key (spec §2.5.4 Step 3).
 
 The sidecar MUST validate all of the following before writing the key:
 
-1. Token `acr` is `"mfa"`
-2. Token `amr` includes `"hwk"` or `"fido"` (password-only MFA is not sufficient)
+1. Token is a valid Entra access token for the sidecar's audience
+2. Token `acrs` contains the configured authentication context ID (password-only MFA cannot satisfy the policy behind it)
 3. Token `oid` maps, in the sidecar's private store, to the `did` in the request body
-4. First device: the DID is in `STUB` state and `sig` is absent. Later devices: `sig` verifies against a device key in the current verified log
-5. `proofOfPossession` is a valid Ed25519 signature by `devicePublicKey` over the canonical proof payload
+4. First device: the DID is in `STUB` state and `sig` has no entry from a registered key. Later devices: `sig` has an entry that verifies against a device key in the current verified log
+5. `sig` has an entry that verifies against `deviceEd25519PublicKey` over the exact `body` bytes
 6. The remaining checks of spec §2.5.4 Step 4 (account active, device limit)
 
 No VC is required for the first device (§4.2). If org policy requires a VC for later devices, the request also carries a `vcPresentation`, validated as in §4.3.
@@ -602,7 +614,7 @@ The KeyPackage and Welcome endpoints are the only ones other Agora clients call.
 | Public DID logs             | None                              | None                                                                |
 | KeyPackage upload           | Signature by a device key in the user's verified log | None                                             |
 | KeyPackage fetch, Welcome   | None (rate-limited)               | None                                                                |
-| Device key registration     | Entra OIDC bearer token           | `acr: mfa`, `amr: [hwk\|fido]`, `oid` maps to the DID              |
+| Device key registration     | Entra access token                | `acrs` contains the authentication context ID, `oid` maps to the DID |
 | Admin operations            | Entra bearer token                | `Authentication Policy Administrator` role or `AgoraDIDAdmin` app role |
 | Logic App bridge            | Entra managed identity token      | `AgoraDIDProvisioner` app role                                      |
 | Enrollment Service webhook  | mTLS with pre-shared cert         | None                                                                |
@@ -664,10 +676,15 @@ Microsoft Graph:
   User.Read.All              (read user attributes for provisioning)
   AuditLog.Read.All          (read sign-in logs for device registration audit)
 
+Verifiable Credentials Service Request:
+  VerifiableCredential.Create.All            (call the Request Service to issue EmployeeCredential)
+
 Verified ID Service Admin:
-  VerifiableCredential.Authority.ReadWrite   (issue/revoke EmployeeCredential)
+  VerifiableCredential.Authority.ReadWrite   (manage the authority and contracts)
   VerifiableCredential.Credential.Revoke     (revoke individual credentials)
 ```
+
+Verify the permission names against current Microsoft documentation (written 2026-10, not re-verified).
 
 All permissions are application permissions (not delegated); the sidecar runs as a service with no user context.
 
@@ -720,10 +737,10 @@ The Logic App contains no business logic; it is a thin authenticated bridge. All
 
 1. **Verified ID VC auto-accept in Authenticator.** Authenticator supports auto-accept of VCs from trusted issuers, but requires the user to have the trust relationship configured. For corporate deployments, this SHOULD be pushed via Intune MDM policy. The enrollment issuance UX depends on this being configured; without it, the user receives a notification requiring a manual tap. This specification assumes MDM-managed Authenticator; unmanaged devices require a documented fallback.
 
-2. **StatusList2021 revocation scalability.** The Verified ID service uses StatusList2021 for VC revocation status. Each status list holds up to 131,072 entries and is served as a public URL, which is adequate for large organizations. For organizations with privacy concerns about public enumerability of revocation state (an external party can observe which entries are revoked over time), the Bitstring Status List specification (the StatusList2021 successor) adds encrypted status entries and is worth monitoring.
+2. **StatusList2021 revocation scalability.** The Verified ID service uses StatusList2021 for VC revocation status. Each status list holds up to 131,072 entries and is served as a public URL, which is adequate for large organizations. For organizations with privacy concerns about public enumerability of revocation state (an external party can observe which entries are revoked over time), the Bitstring Status List specification (the StatusList2021 successor) does not address this: it defines no encrypted entries. Mitigations are large lists with random index assignment, or a status list served only to authorized verifiers.
 
 3. **Non-Authenticator wallets.** This specification assumes Microsoft Authenticator as the VC wallet. The Verified ID service supports OID4VC-compliant third-party wallets in principle, but compatibility varies. Organizations that want employees to use a different wallet (e.g., a corporate-branded wallet) MUST validate compatibility against the specific Verified ID API version in use.
 
 4. **On-premises AD hybrid identity.** Organizations with on-premises AD synced to Entra via Entra Connect have UPNs controlled by on-premises AD. UPN changes on-premises propagate to Entra via sync, which can trigger the Mover workflow; they do not change the DID (§2). The default sync interval (30 minutes) introduces lag between an on-premises change and the sidecar update. For terminations, this lag is a risk: the specification calls for immediate on-demand workflow execution to bypass the sync cycle, but this requires the termination to be processed in Entra ID directly, or for the HR system to trigger both on-premises AD and Entra simultaneously.
 
-5. **Intune integration for device key registration.** Device key registration requires phishing-resistant MFA (`hwk` or `fido`). On Intune-managed devices, Windows Hello for Business satisfies this requirement automatically. On unmanaged or BYOD devices, a FIDO2 security key is the only option. The organization MUST decide whether to allow BYOD enrollment or require managed devices; this policy decision significantly affects the enrollment UX.
+5. **Intune integration for device key registration.** Device key registration requires phishing-resistant MFA (the authentication strength behind the §5.6 authentication context). On Intune-managed devices, Windows Hello for Business satisfies this requirement automatically. On unmanaged or BYOD devices, a FIDO2 security key is the only option. The organization MUST decide whether to allow BYOD enrollment or require managed devices; this policy decision significantly affects the enrollment UX.

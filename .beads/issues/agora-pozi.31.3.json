@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.3",
+  "title": "[CLM-3] Sequencer, an IO, can map its streams to Spaces, contrary to S1 and the Space-anonymity cl",
+  "description": "Review finding CLM-3: Sequencer, an IO, can map its streams to Spaces, contrary to S1 and the Space-anonymity claim (lens CLM). Location: spec/14-jmap.md:193; ARCHITECTURE.md:61, 86-88, 157-160. Fix: 14.4.6 states \"its operator can associate its streams with those Spaces\", which is outside §5 (S6) and contradicts §5 item 6's anonymity-set claim. The mitigation in 14.4.6 is only advisory. Full text: notes/review/CLM-verified.md and notes/review/CLM.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:40.771842936Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:40.771842936Z",
+  "labels": [
+    "review",
+    "clm"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.3",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:40.783113447Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

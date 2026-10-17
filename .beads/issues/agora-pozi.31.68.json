@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.68",
+  "title": "[IMP-27] RFC 9421 profile and manifest signer are under-specified",
+  "description": "Review finding IMP-27: RFC 9421 profile and manifest signer are under-specified (lens IMP). Location: spec/10-relays.md:102, :116, :167-183; spec/11-transport.md:214-219. Fix: As proposed. The signer conflict is confirmed: 10:102 says \"by the Relay operator's key\", while 10:116 says \"signed by the key declared in the DID document\" of `relayDID`. Apply the same profile to the push wake-up (11:214-219). Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.368205697Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.368205697Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.68",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.380679241Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -52,7 +52,7 @@ The manifest is a signed JSON document that serves as the Relay's authoritative 
 {
   "@type": "RelayManifest",
   "version": "1",
-  "relayDID": "did:key:z6MkRelay...",
+  "relayDID": "did:web:relay.example.com",
   "operator": "Example Relay Co.",
   "operatorDID": "did:key:z6MkOperator...",
   "adminContact": "relay-admin@example.com",
@@ -69,7 +69,7 @@ The manifest is a signed JSON document that serves as the Relay's authoritative 
   },
   "keys": [
     {
-      "id": "did:key:z6MkRelay...#key-1",
+      "id": "did:web:relay.example.com#key-1",
       "type": "Ed25519VerificationKey2020",
       "publicKeyMultibase": "z6MkRelay...",
       "status": "active",
@@ -99,7 +99,7 @@ The manifest is a signed JSON document that serves as the Relay's authoritative 
 }
 ```
 
-The manifest is signed per §13.1.1 by the Relay operator's key. Peer Relays MUST verify this signature before accepting the manifest.
+The manifest is signed per §13.1.1 by `relayDID`. Peer Relays MUST verify this signature before accepting the manifest.
 
 `observationBudget` declares what the Relay retains beyond transient routing. `connectionLogRetentionDays` is the retention of network-layer connection metadata (ARCHITECTURE §5 item 1), as set by the Relay's `RelayServiceAgreement`s (§10.5.1). `extensions` lists every opt-in extension to the ARCHITECTURE §5 observation budget the Relay has enabled; it MUST be empty unless a CO has opted in (ARCHITECTURE S6). A Relay MUST NOT observe, log or retain anything not covered by ARCHITECTURE §5 or a declared extension.
 
@@ -117,7 +117,7 @@ The relay MUST serve a conformant DID document at `https://relay.example.com/.we
 
 For relays operating exclusively on a private overlay, Tor hidden service, or air-gapped network, where no public DNS name exists or is desired, `relayDID` MAY be `did:key:...`. These relays do not participate in the public mesh and do not require DNS binding.
 
-**Operator vs. customer identity.** The `operatorDID` field records the identity of the party that operates the relay infrastructure. For self-hosted deployments, `operatorDID` and the relay's controlling entity are the same. For managed/SaaS deployments (§10.1), they differ: `relayDID` is anchored to the customer's DNS domain; `operatorDID` is the managed provider's DID. This distinction is relevant to legal exposure (§12.3) and compliance logging (§7).
+**Operator vs. customer identity.** The `operatorDID` field records the identity of the party that operates the relay infrastructure. For self-hosted deployments, `operatorDID` and the relay's controlling entity are the same. For managed/SaaS deployments (§10.1), they differ: `relayDID` is anchored to the customer's DNS domain; `operatorDID` is the managed provider's DID. This distinction is relevant to legal exposure (§12.3).
 
 `capabilities` is an array of capability strings declaring what features this Relay supports:
 
@@ -210,15 +210,15 @@ A new Relay with no existing peers joins the gossipsub mesh using any of the fol
 ```
 _agora-relay._udp.example.com. SRV 10 0 9001 relay.example.com.
 _agora-relay._tcp.example.com. SRV 20 0 443  relay.example.com.
-_agora-relay._udp.example.com. TXT "did=did:key:z6MkRelay... manifest=https://relay.example.com/.well-known/agora-relay"
-_agora-relay._tcp.example.com. TXT "did=did:key:z6MkRelay... manifest=https://relay.example.com/.well-known/agora-relay"
+_agora-relay._udp.example.com. TXT "did=did:web:relay.example.com manifest=https://relay.example.com/.well-known/agora-relay"
+_agora-relay._tcp.example.com. TXT "did=did:web:relay.example.com manifest=https://relay.example.com/.well-known/agora-relay"
 ```
 
 Each SRV record has a TXT record at the same owner name (RFC 6763 §6) carrying the Relay's DID and manifest URL.
 
 Lower SRV priority value means higher preference; QUIC (UDP) is preferred. Relays SHOULD publish both records. Relays that cannot expose UDP MUST publish only the TCP record.
 
-**Method 4: IPNS fallback.** The Relay resolves `/ipns/agora.protocol/relays/v1` for a community-maintained signed bootstrap list. This is the last resort.
+**Method 4: IPNS fallback.** The Relay resolves an IPNS name configured by the operator (e.g. `/ipns/bootstrap.example.com`) for a signed bootstrap list. This is the last resort.
 
 A Relay is considered mesh-joined when it has Level 1 or higher trust with at least 3 peers and is participating in gossipsub fanout. It SHOULD continue discovering peers until it has at least 6 active connections (gossipsub's default mesh degree `D`).
 
@@ -332,7 +332,7 @@ A `RelayDirectory` lists Relays available for client connection:
   "relays": [
     {
       "@type": "RelayEntry",
-      "did": "did:key:z6MkRelay...",
+      "did": "did:web:relay.example.com",
       "endpoints": [
         "wss://relay.example.com",
         "wss://relay2.example.com"
@@ -343,9 +343,9 @@ A `RelayDirectory` lists Relays available for client connection:
       "regions": ["us-west", "eu-central"],
       "operator": "Example Relay Operator",
       "operatorDID": "did:key:z6MkOperator...",
-      "tiers": [
-        { "label": "free",     "maxBandwidthMbps": 1  },
-        { "label": "standard", "maxBandwidthMbps": 10 }
+      "serviceTiers": [
+        { "id": "hobbyist", "retentionDays": 7,  "bandwidthTierGbPerMonth": 10  },
+        { "id": "standard", "retentionDays": 30, "bandwidthTierGbPerMonth": 100 }
       ],
       "note": "Community relay, no logging"
     }
@@ -356,7 +356,7 @@ A `RelayDirectory` lists Relays available for client connection:
 }
 ```
 
-`ttl` is the number of seconds before the client should re-fetch the document. `includes` is a list of other directory document URLs whose contents are merged into this one; clients MUST limit include recursion depth to 3 to prevent cycles. The document is signed per §13.1.1 by the `maintainer` DID. Clients SHOULD verify the signature against the `maintainer` DID but MAY accept unsigned directories with a user-visible warning. A `RelayEntry` is a connection hint; the relay record that counts is the Relay-signed manifest (§10.2.1), which clients MUST verify before use (§10.3.4.7).
+`ttl` is the number of seconds before the client should re-fetch the document. `includes` is a list of other directory document URLs whose contents are merged into this one; clients MUST limit include recursion depth to 3 to prevent cycles. The document is signed per §13.1.1 by the `maintainer` DID. Clients SHOULD verify the signature against the `maintainer` DID but MAY accept unsigned directories with a user-visible warning. A `RelayEntry` is a connection hint, and its `serviceTiers` have the form of `RelayAd.serviceTiers` (§10.5.1); the relay record that counts is the Relay-signed manifest (§10.2.1), which clients MUST verify before use (§10.3.4.7).
 
 #### 10.3.4.2 Space Directory
 
@@ -462,7 +462,7 @@ _kp._agora.         TXT  "url=https://kp.example.net/v1/agora/kp/z6Mk..."
 | Record | Key | Value | Required |
 |---|---|---|---|
 | `_agora` | `v` | Schema version (`1`) | Yes |
-| `_profile._agora` | `cid` | `ipfs://` URI of the user's current profile IPLD node | No |
+| `_profile._agora` | `cid` | Bare CID (no scheme) of the user's current profile IPLD node | No |
 | `_kp._agora` | `url` | The user's KeyPackage endpoint, the equivalent of a DID document `KeyPackageEndpoint` (§2.1) | Yes |
 
 The total DNS packet MUST fit within 1000 bytes (BEP-44 value limit). In practice a record with a profile CID and a KeyPackage URL occupies about 200 bytes.
@@ -473,7 +473,7 @@ The total DNS packet MUST fit within 1000 bytes (BEP-44 value limit). In practic
 1. Decode the `did:key` identifier to recover the raw 32-byte ed25519 public key.
 2. Issue a BEP-44 `get` query for that key.
 3. Verify the returned signature against the key.
-4. Parse TXT records and use relay endpoints, profile CID, or KeyPackage endpoint as needed.
+4. Parse TXT records and use the profile CID or KeyPackage endpoint as needed.
 
 **Publication and refresh.** Clients SHOULD publish their record on first login and re-publish every 2 hours. BEP-44 mutable items have no explicit TTL but decay from the DHT within approximately 2 hours without re-announcement. Stale or absent records are not an error; clients fall back to other discovery mechanisms.
 
@@ -515,7 +515,7 @@ Relays route messages by `channelToken`, not by channel CID or member identity. 
 - Log sender/recipient pairs for any message.
 - Retain message envelopes beyond the configured retention window or message expiry, whichever is sooner.
 
-The `channelToken` rotates with every MLS epoch. A Relay that captures routing tables across epochs cannot correlate them without also capturing the epoch secrets, which it has no access to.
+The `channelToken` rotates with every MLS epoch, but the epoch access-key chain (§5.2.2) links the tokens: a Relay that follows a chain links every epoch of one MLS group and sees its epoch numbers and Commit cadence (ARCHITECTURE §5 item 6). It cannot map the chain to a channel or Space; the set of Spaces it cannot tell apart is every Space the CO serves through it.
 
 ### 10.4.3 Conformance Requirements
 
@@ -558,7 +558,6 @@ A conformant Relay SHOULD:
 - Announce itself on `v1/agora/discovery` with a signed `RelayAd` including all available endpoint URIs.
 - Operate a Tor hidden service endpoint to protect operator IP and support Tor-connected clients.
 - Maintain peering connections to at least 3 other known Relays.
-- Offer an HTTP API for history fetch: `GET /v1/agora/history/<channelToken>?before=<cid>&limit=50`.
 - Implement gossipsub peer scoring to limit amplification attacks.
 
 Relay federation is permissionless. Any Relay that speaks the protocol may join the mesh.
@@ -581,7 +580,7 @@ A Relay is not required to run an IPFS node, join the IPFS DHT or speak Bitswap.
 
 Agora Relays incur real costs: bandwidth, compute, storage, legal exposure, and abuse handling. This section specifies the `RelayServiceAgreement`, the only binding between a CO and an IO (ARCHITECTURE S7), and proof-of-work as non-monetary abuse control. Commercial terms between CO and IO are agreed out of band and are outside the protocol.
 
-Both mechanisms are **optional extensions** to the core protocol. A Relay that serves only private, trusted traffic requires neither.
+A Relay that carries envelopes MUST hold a `RelayServiceAgreement` for them, because it admits only envelopes on access-key chains registered under an agreement (§10.4.3). Proof-of-work is optional (§10.5.2).
 
 ### 10.5.1 Relay Service Agreements
 
@@ -591,7 +590,7 @@ A `RelayServiceAgreement` is a bilaterally signed document between a CO billing 
 {
   "@type": "RelayServiceAgreement",
   "id": "urn:agora:rsa:bafyrei...",
-  "relay": "did:key:z6MkRelay...",
+  "relay": "did:web:relay.example.com",
   "billing": "did:key:z6MkBilling...",
   "retentionDays": 90,
   "bandwidthTierGbPerMonth": 100,
@@ -625,19 +624,19 @@ A registration is signed per §13.1.1 by the agreement's `billing` DID. It carri
 
 `storageQuotaGb` and `bandwidthTierGbPerMonth` are the quotas the Relay enforces for this agreement (§10.4.3).
 
-`observationBudget` records the connection-log retention (ARCHITECTURE §5 item 1) and any opt-in observation-budget extensions (ARCHITECTURE S6) the CO has agreed to. The Relay MUST declare the same values in its manifest (§10.2.1) and MUST NOT exceed them.
+`observationBudget` records the connection-log retention (ARCHITECTURE §5 item 1) and any opt-in observation-budget extensions (ARCHITECTURE S6) the CO has agreed to. A Relay holds one manifest and may hold many agreements, so its manifest (§10.2.1) MUST declare a `connectionLogRetentionDays` no lower than the highest value across its agreements and `extensions` listing every extension any of its agreements enables. For the traffic of each agreement the Relay MUST NOT exceed that agreement's values.
 
 Relays publish their service tiers in their `RelayAd`:
 
 ```json
 {
-  "@type": "RelayAd",
-  "did": "did:key:z6MkRelay...",
+  "did": "did:web:relay.example.com",
   "manifestURL": "https://relay.example.com/.well-known/agora-relay",
   "endpoints": {
     "webTransport": "https://relay.example.com/v1/agora/wt",
     "webSocket":    "wss://relay.example.com/v1/agora/ws",
-    "onion":        "ws://examplerelay3xyzabc.onion/v1/agora/ws"
+    "onion":        "ws://examplerelay3xyzabc.onion/v1/agora/ws",
+    "jmapSync":     "https://relay.example.com/v1/agora/jmap"
   },
   "serviceTiers": [
     {

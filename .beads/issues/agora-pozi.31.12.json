@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.12",
+  "title": "[CLM-12] README and PROPOSAL profile lists are incomplete",
+  "description": "Review finding CLM-12: README and PROPOSAL profile lists are incomplete (lens CLM). Location: README.md:22; PROPOSAL.md:65. Fix: profiles/ also has compliance-chain-witness.md, parlance.md and radio-mesh-gateway.md. List them, or write \"including ...\". Full text: notes/review/CLM-verified.md and notes/review/CLM.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:41.251672705Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:41.251672705Z",
+  "labels": [
+    "review",
+    "clm"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.12",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:41.264306304Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

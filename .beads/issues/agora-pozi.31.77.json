@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.77",
+  "title": "[EXA-4] User DID method lists and examples contradict §2.1",
+  "description": "Review finding EXA-4: User DID method lists and examples contradict §2.1 (lens EXA). Location: spec/09-interop.md:24; spec/04-access-control.md:153; spec/99-appendices.md:11. Fix: As the reviewer proposed. The agora-did-methods decision and 14:225 (\"`did:web` is not accepted as a user identity\") settle this. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.891877214Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.891877214Z",
+  "labels": [
+    "review",
+    "exa"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.77",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.904503362Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

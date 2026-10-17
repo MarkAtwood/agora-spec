@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.153",
+  "title": "[CRY-20] Backing up MLS state undermines forward secrecy and risks nonce reuse on restore; the \"sta",
+  "description": "Review finding CRY-20: Backing up MLS state undermines forward secrecy and risks nonce reuse on restore; the \"stateOnly\" claim is wrong (lens CRY). Location: spec/02-identity.md:220, spec/02-identity.md:225, spec/02-identity.md:229, spec/02-identity.md:469; vs spec/12-security.md:10. Fix: Drop the nonce-reuse leg. RFC 9420 (rfc9420.txt:1843-1845) says the 4-byte random `reuse_guard` \"is used to avoid nonce reuse in the case of state loss or corruption\", which is exactly this restore case. The rest stands. A snapshot retains keys that the RFC 9420 §9.2 deletion schedule requires to be deleted, which is a forward-secrecy exception that 12:10 does not mention. Rewound sender generations would in any case be refused by receivers that have already deleted those keys, so \"restores MLS continuity\" (02:229) is false. A \"stateOnly\" backup lacks the leaf signature key and cannot send. The exporter (§8.5) derives secrets and does not export state, and RFC 9420 §11 is Group Creation. Fix as proposed: no live ratchet state in backups; rejoin as a new leaf. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:26.166623929Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:26.166623929Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.153",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:26.18188941Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

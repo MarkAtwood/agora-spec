@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.109",
+  "title": "[CON-17] `did:web` is treated as a user identity in §4.6, §9.1 and Appendix A; §2.1/§14.6.2 exclude",
+  "description": "Review finding CON-17: `did:web` is treated as a user identity in §4.6, §9.1 and Appendix A; §2.1/§14.6.2 exclude it (lens CON). Location: spec/09-interop.md:24; spec/04-access-control.md:153; spec/99-appendices.md:11. Fix: Replace with `did:webvh` / `did:plc` / `did:key` (decision agora-did-methods). In 99:11, note that `did:web` is used for relay DIDs (10:110). Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:46.741805106Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:46.741805106Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.109",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:46.754745468Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

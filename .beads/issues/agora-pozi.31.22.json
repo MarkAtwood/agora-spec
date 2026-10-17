@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.22",
+  "title": "[GAP-10] No conformance classes beyond the relay, and no must-understand extensions",
+  "description": "Review finding GAP-10: No conformance classes beyond the relay, and no must-understand extensions (lens GAP). Location: spec/10-relays.md:520-564; spec/07-compliance.md:54, 165, 281-300; spec/13-encoding.md:102; spec/01-overview.md:23. Fix: The missing conformance classes are confirmed: \"conformant client\" is used at 07:54, 07:165 and 05:461 but never defined. The must-understand half is partly covered already. Documents with an unsupported `schemaVersion` MUST be rejected (01:23, 13:112), and 14-jmap:49 already makes an unsupported consistency model read-only. So a new enforcement-relevant field can be forced on old clients by bumping `schemaVersion`. A simpler fix than a new `requiredExtensions` array is a rule that any Space-state field which a CO enforcement point (ARCHITECTURE §6.3) depends on requires a `schemaVersion` bump. Either works. Prefer the existing mechanism unless finer granularity is wanted. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:41.816902486Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:41.816902486Z",
+  "labels": [
+    "review",
+    "gap"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.22",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:41.829205377Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

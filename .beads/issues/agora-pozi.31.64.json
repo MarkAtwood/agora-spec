@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.64",
+  "title": "[IMP-23] Relay blob upload and pin instructions have no format or authorization",
+  "description": "Review finding IMP-23: Relay blob upload and pin instructions have no format or authorization (lens IMP). Location: spec/11-transport.md:271, :279; spec/05-messaging.md:368-376; spec/10-relays.md:536-537. Fix: As proposed. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.145730926Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.145730926Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.64",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.156902574Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

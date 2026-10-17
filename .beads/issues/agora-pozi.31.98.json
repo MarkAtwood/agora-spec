@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.98",
+  "title": "[CON-6] §10.5 calls RelayServiceAgreements optional, but relays MUST verify access proofs that exi",
+  "description": "Review finding CON-6: §10.5 calls RelayServiceAgreements optional, but relays MUST verify access proofs that exist only under an agreement (lens CON). Location: spec/10-relays.md:584 vs :527, :612; ARCHITECTURE.md S7; spec/11-transport.md:48 vs spec/10-relays.md:667, spec/11-transport.md:114, spec/12-security.md:62. Fix: Delete \"Both mechanisms are optional extensions\" for the agreement and keep PoW optional. Change 11:48 to \"per-`channelToken` rate limits (and PoW where the Relay requires it)\". Q2 makes PoW optional under load, so 11:48's MUST also contradicts the decision. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:46.115887915Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:46.115887915Z",
+  "labels": [
+    "review",
+    "con"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.98",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:46.128160843Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

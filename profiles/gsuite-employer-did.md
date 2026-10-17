@@ -90,15 +90,15 @@ Content-Type: application/json
   "type": "web_hook",
   "address": "https://did.example.com/v1/notify",
   "token": "<secret-token>",
-  "expiration": <unix-ms + 7 days>
+  "expiration": <requested expiry, unix ms>
 }
 ```
 
-Push notification channels expire. The sidecar MUST run a background worker that renews the channel 24 hours before expiry. If renewal fails, the sidecar MUST fall back to the reconciliation poller (§2.3) until the channel is re-established. Channel expiry MUST trigger a monitoring alert; IT SHOULD be notified if the sidecar has operated in polling-only mode for more than one hour.
+Push notification channels expire. Google sets the channel's expiration to the more restrictive of the requested value and its own internal limits, and returns the actual value in the watch response. The sidecar MUST run a background worker that renews the channel 24 hours before that returned `expiration` (or at half the channel lifetime, if the lifetime is shorter than 48 hours). If renewal fails, the sidecar MUST fall back to the reconciliation poller (§2.3) until the channel is re-established. Channel expiry MUST trigger a monitoring alert; IT SHOULD be notified if the sidecar has operated in polling-only mode for more than one hour.
 
 The webhook endpoint MUST verify incoming requests by comparing the `X-Goog-Channel-Token` header against the registered `token` value. Requests with an invalid or missing token MUST be rejected with HTTP 403.
 
-Directory API push notifications are minimal: they carry the changed resource's ID and state (`exists` or `not_exists`), not the full user object. On receipt, the sidecar MUST fetch the full user record via `GET /admin/directory/v1/users/{userId}` before acting.
+Directory API push notifications are minimal. The `X-Goog-Resource-State` header is `sync` for the initial channel message, or the event name (`add`, `delete`, `makeAdmin`, `undelete` or `update`). The notification does not carry the full user object. On receipt, the sidecar MUST fetch the full user record via `GET /admin/directory/v1/users/{userId}` before acting.
 
 ### 2.3 Reconciliation Poller
 
@@ -116,7 +116,7 @@ The poller compares the full user list against the sidecar's DID document regist
 - A user in the sidecar with `ACTIVE` or `STUB` state but deleted from the Directory MUST be deactivated immediately.
 - A user in the sidecar with `SUSPENDED` state but active in the Directory MUST be reactivated.
 
-The reconciliation poller is the reliability backstop, not the primary path. Worst-case latency from a leaver event to DID deactivation via the poller is 24 hours (push channel down, event missed, poller not yet run). §4.4 documents VC revocation as the fast enforcement path for this reason.
+The reconciliation poller is the reliability backstop, not the primary path. Worst-case latency from a leaver event to DID deactivation via the poller is 24 hours (push channel down, event missed, poller not yet run). For this reason §4.4 runs revocation and MLS removal immediately on any push notification, without waiting for the poller.
 
 ---
 
@@ -149,7 +149,7 @@ https://did.example.com/.well-known/did.json
 
 This is the org's signing identity for EmployeeCredential issuance. It carries one key: the org's Ed25519 signing key, stored in Google Cloud KMS. It stays a `did:web` because general VC verifiers and the DID Configuration linkage below expect one. It is a separate principal from the sidecar's own provisioning DID (a portable `did:webvh`, O365 spec §6.5) and its key is separate from the update key of the employee logs (§7), so it confers no authority over any employee's DID log. After a domain change (O365 spec §6.4) the sidecar re-issues current credentials under the new issuer DID.
 
-A Well-Known DID Configuration document, following the W3C CCG DID Configuration spec, links the org's DID to its domain:
+A Well-Known DID Configuration document, following the DIF Well Known DID Configuration specification, links the org's DID to its domain:
 
 ```
 https://did.example.com/.well-known/did-configuration.json
@@ -180,7 +180,7 @@ type DirectoryEvent struct {
     ID               string   // Google unique user ID (stable, unlike email)
     PrimaryEmail     string
     Suspended        bool
-    Deleted          bool     // inferred from 404 on fetch after not_exists notification
+    Deleted          bool     // inferred from 404 on fetch after a `delete` notification
     OrgUnitPath      string
     CustomAttributes map[string]interface{}
     Groups           []string // fetched separately from groups.list
@@ -257,13 +257,13 @@ The DID log is not changed: the document carries no employment attributes (O365 
 
 Triggered by a push notification for a user with `suspended: true` (soft leaver) or a deleted user (hard leaver), or by the reconciliation poller finding a discrepancy.
 
-Google has no real-time termination trigger equivalent to Entra Lifecycle Workflows' on-demand execution, and the push notification channel has delivery lag. The fast enforcement path is VC revocation, which the sidecar MUST execute immediately on receiving a suspension or deletion notification, before the DID is deactivated.
+Google has no real-time termination trigger equivalent to Entra Lifecycle Workflows' on-demand execution, and the push notification channel has delivery lag. On receiving a suspension or deletion notification, the sidecar MUST immediately revoke the VC, which blocks future Space admissions, and notify the Enrollment Service. Membership in the MLS group is the only access control (ARCHITECTURE §6.2), so the MLS Remove commits in Phase 1 are what cut off the user's access to Spaces they already belong to. VC revocation alone does not.
 
 **Phase 1: Immediate** (on notification receipt; target latency: <30 seconds):
 
 - Mark the `EmployeeCredential` status entry as revoked in the status list.
 - Append a log entry moving the DID to `SUSPENDED` (soft leaver) or `DEACTIVATED` (hard leaver), as in O365 spec §3.1 and §5.4.
-- Notify the Enrollment Service to initiate MLS Remove commits.
+- Notify the Enrollment Service to initiate MLS Remove commits. This is the access cut-off.
 
 **Phase 2: Confirmed** (after the reconciliation poller next runs, or on explicit IT action):
 
@@ -375,7 +375,7 @@ GET https://did.example.com/v1/status/2026
 
 One status list is maintained per year (configurable), with a maximum of 131,072 entries. Status list indices are assigned at VC issuance and MUST NOT be reused. The status list MUST be regenerated and re-signed whenever a VC is revoked.
 
-**Privacy note:** A public status list is observable: an external party can infer employee terminations by monitoring newly flipped bits. For orgs with privacy requirements, the Bitstring Status List spec (the StatusList2021 successor) supports encrypted status entries. Migration is a matter of changing the served format and updating the `type` field; the `statusListCredential` pointer in the credential schema is unchanged.
+**Privacy note:** A public status list is observable: an external party can infer employee terminations by monitoring newly flipped bits. For orgs with privacy requirements, large lists with random index assignment reduce what an observer learns, and the list can be served only to authorized verifiers. The W3C Bitstring Status List specification (the StatusList2021 successor) defines no encrypted entries, so migrating to it does not address this. Migration is still a matter of changing the served format and updating the `type` field; the `statusListCredential` pointer in the credential schema is unchanged.
 
 ### 5.3 VC Delivery
 
@@ -414,18 +414,18 @@ Only the credential subject MAY fetch their own VC (the token `sub`, the Google 
 
 Google does not provide `acr`/`amr` claims in standard OAuth tokens for most Workspace tiers. The step-up enforcement mechanism varies by Workspace edition.
 
-**Enterprise Plus / Frontline:** Context-Aware Access (CAA) policies MAY require hardware security key (`FIDO2`) authentication as a condition for accessing specific OAuth scopes. A CAA policy SHOULD require `security_key` device assurance for the `AgoraDIDKeyRegistration` custom scope. When the enrollment app requests this scope, Google enforces the hardware key requirement at the OAuth consent step.
+**All tiers, Workspace sign-in policy:** The organization SHOULD enforce 2-Step Verification with security keys only for the users who enroll Agora devices, so that the Google sign-in that yields the enrollment OAuth token requires a hardware key. Google issues only Google-defined OAuth scopes, so the profile does not rely on a custom scope gated by Context-Aware Access. Enterprise Plus deployments MAY add Context-Aware Access rules that apply to the enrollment OAuth client, if their edition supports this. Verify both controls against current Google documentation (written 2026-10, not re-verified).
 
 **Business Starter / Standard / Plus (no CAA):** The sidecar MUST enforce step-up via a challenge-response. On device key registration, the sidecar issues a 32-byte challenge, requires the user to sign it using their WebAuthn credential (browser path) or PKCS#11 key (CLI path), and verifies the signature before writing the key to the DID log. This is the same proof-of-possession check as O365 spec §5.6 and does not depend on the Google OAuth token carrying MFA claims.
 
-The WebAuthn / PKCS#11 proof-of-possession check (O365 spec §5.6) applies in both cases. CAA-based enforcement is an additional layer for Enterprise Plus deployments.
+The WebAuthn / PKCS#11 proof-of-possession check (O365 spec §5.6) applies in both cases. Workspace-enforced security-key 2SV is an additional layer outside the sidecar.
 
 The remaining registration checks are those of O365 spec §5.6: the token `sub` maps in the private DB to the requested DID; the first device registers into a `STUB` DID with no existing-device signature and no VC; every later device's request carries a spec §13.1.1 signature by a device key in the current verified log (spec §2.5.4). On success the sidecar appends a log entry signed with its update key and, for the first device, issues the `EmployeeCredential` (§5).
 
 ```toml
 [enrollment]
 mfa_enforcement = "webauthn-pop"   # always require WebAuthn proof-of-possession
-# mfa_enforcement = "caa-scope"   # Enterprise Plus: rely on CAA + WebAuthn PoP
+# mfa_enforcement = "security-key-2sv"   # also expect Workspace-enforced security-key 2SV + WebAuthn PoP
 ```
 
 ---
@@ -445,11 +445,11 @@ mfa_enforcement = "webauthn-pop"   # always require WebAuthn proof-of-possession
 - Authorized redirect URIs: `https://enroll.example.com/v1/enroll/callback`.
 - Scopes requested at enrollment: `openid profile email`.
 
-### Custom OAuth Scope (device key registration step-up, Enterprise Plus only)
+### Sign-in policy for the enrollment OAuth client
 
-- Defined as a custom app scope in the GCP project.
-- Name: `AgoraDIDKeyRegistration`.
-- CAA policy in Google Admin MUST require `security_key` device assurance for this scope.
+- No custom OAuth scope: Google issues only Google-defined scopes.
+- In Google Admin, enforce 2-Step Verification with security keys only for the organizational unit or group whose members enroll Agora devices.
+- Enterprise Plus MAY add Context-Aware Access rules for the enrollment OAuth client. Verify availability against current Google documentation (written 2026-10, not re-verified).
 
 ### Cloud KMS (org root DID signing key)
 
@@ -510,11 +510,11 @@ spec:
 | JML reliability | Push + Logic App retry + Entra audit log | Push + polling fallback (24h worst-case lag) |
 | Immediate termination | On-demand Lifecycle Workflow execution (seconds) | IT calls `/v1/tombstone` directly (manual step) |
 | VC issuance | Entra Verified ID (managed service, Authenticator wallet) | Sidecar self-issued VC, Agora client wallet |
-| VC revocation speed | StatusList2021 via Verified ID (seconds) | StatusList2021 served by sidecar (seconds, same) |
-| MFA step-up enforcement | Entra Conditional Access (`acr`/`amr` claims, all tiers) | CAA (Enterprise Plus only) or WebAuthn PoP (all tiers) |
+| Admission block speed (VC revocation) | StatusList2021 via Verified ID (seconds) | StatusList2021 served by sidecar (seconds, same) |
+| MFA step-up enforcement | Entra Conditional Access authentication context (`acrs` claim; requires Entra ID P1) | Workspace security-key 2SV, optional CAA (Enterprise Plus), WebAuthn PoP (all tiers) |
 | Org signing key | Azure Key Vault (managed) | Google Cloud KMS (managed, equivalent) |
 | Hosting | Azure Container Apps / App Service | Cloud Run / GKE |
-| License cost | Entra ID P1 + Entra ID Governance | Workspace Enterprise Plus for CAA; otherwise no extra license |
+| License cost | Entra ID P1 + Entra ID Governance | No extra license; Enterprise Plus only for optional CAA |
 | Group membership change detection | Declarative (Mover workflow triggers on group change) | Polling (1-hour default lag for role updates) |
 
 For high-security deployments where role changes require immediate enforcement, the group membership polling interval MAY be shortened to 5 minutes at the cost of increased Directory API quota consumption.

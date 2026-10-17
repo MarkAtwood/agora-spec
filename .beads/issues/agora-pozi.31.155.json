@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.155",
+  "title": "[CRY-22] Underspecified parameters in several primitives",
+  "description": "Review finding CRY-22: Underspecified parameters in several primitives (lens CRY). Location: spec/02-identity.md:211-212, spec/02-identity.md:231, spec/02-identity.md:171, spec/12-security.md:82-83, spec/06-calls.md:215. Fix: All four gaps are present as described. The backup has no salt length or nonce, and its self-describing header (02:231) is not bound as AAD. Share encryption (02:171) names no scheme. The PRF wrap (12:82) gives no salt, HKDF info or IV. The TURN `HMAC(secret, username)` (06:215) names no hash. Fix as proposed. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:52:26.289833321Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:52:26.289833321Z",
+  "labels": [
+    "review",
+    "cry"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.155",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:52:26.304131094Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

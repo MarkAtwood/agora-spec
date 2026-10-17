@@ -5,7 +5,7 @@
 
 **Scope:** This document specifies the Agora Purview Bridge, a compliance gateway that ingests Agora `ComplianceRecord` objects (spec §7.4) and VTC compliance records (spec §6.12.4, spec §6.12.6) into Microsoft Exchange Online mailboxes for processing by Microsoft Purview Communication Compliance, eDiscovery, retention policies, and litigation hold.
 
-**Dependencies:** Agora Protocol Specification v0.1, spec §7 (Compliance Logging), spec §6.12 (Recording Grant Sub-Protocol), spec §4.6 (Direct Message Channels), spec §5.2.3 (Message Types), spec §13.1 (Typed Payload Envelope).
+**Dependencies:** the Agora protocol specification (`spec/`, current draft), spec §7 (Compliance Logging), spec §6.12 (Recording Grant Sub-Protocol), spec §4.6 (Direct Message Channels), spec §5.2.3 (Message Types), spec §13.1 (Typed Payload Envelope).
 
 **Microsoft behavior in this document.** Statements marked "verify against current Microsoft Graph documentation" or "verify against current Purview documentation" describe Microsoft behavior this profile depends on but has not confirmed. An implementer MUST confirm each one before production deployment.
 
@@ -617,7 +617,7 @@ Create a policy whose supervised users are the regulated members, with the follo
 |------------------|------------------------------------------------------------------------|
 | Target           | Regulated members' mailboxes and the catch-all mailbox                 |
 | Scope            | Agora items, selected by a retention label auto-applied on the subject prefix or body marker, or the whole mailbox |
-| Duration         | At least `complianceLogging.retentionDays` (e.g., 2555 days for FINRA 17a-4) |
+| Duration         | At least `complianceLogging.retentionDays`: the period the firm's applicable rule requires (e.g., SEC Rule 17a-4(b)(4): three years, the first two easily accessible); many firms configure longer |
 | Action           | Retain only                                                            |
 
 Purview retention policies apply to whole mailboxes; selecting only the Agora items requires a retention label (verify against current Purview documentation).

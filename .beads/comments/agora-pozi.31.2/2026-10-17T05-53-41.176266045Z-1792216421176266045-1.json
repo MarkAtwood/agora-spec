@@ -1,0 +1,7 @@
+{
+  "id": "1792216421176266045-1",
+  "issue_id": "agora-pozi.31.2",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: drop pushUrgency. Wake-ups carry no content and no urgency; relays send every wake-up the same way (high priority to APNs/FCM via proxy); the device decides how to notify after decrypting. Apply in spec §11.7 and ARCHITECTURE §5 item 7 wording if needed.",
+  "created_at": "2026-10-17T05:53:41.176266045Z"
+}

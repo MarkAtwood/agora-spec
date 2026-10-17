@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.31.62",
+  "title": "[IMP-21] Social recovery share format is undefined across clients",
+  "description": "Review finding IMP-21: Social recovery share format is undefined across clients (lens IMP). Location: spec/02-identity.md:171, :188, :198. Fix: As proposed. Also name which guardian `keyAgreement` key is the target when a guardian has several devices. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:49:44.035907864Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:49:44.035907864Z",
+  "labels": [
+    "review",
+    "imp"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.31.62",
+      "depends_on_id": "agora-pozi.31",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:49:44.047419806Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

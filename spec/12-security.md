@@ -19,7 +19,7 @@ Relays are untrusted for message content and blind to membership and sender iden
 
 What each operator can be compelled to produce is defined in ARCHITECTURE.md §4: an IO yields only what is inside its observation budget (ARCHITECTURE.md §5), and a CO yields what its own retention policy keeps. The authoritative record for a regulated community is the CO's archive (§7), never a Relay.
 
-**What a Relay can observe:** exactly the ARCHITECTURE.md §5 observation budget: network-layer connection metadata within the retention declared in its manifest, ciphertext envelopes with their size, timing, `channelToken` and expiry hint, verification material and proofs that do not identify the member, CIDs it stores, agreement-keyed quota state, and its own peering relationships.
+**What a Relay can observe:** exactly the ARCHITECTURE.md §5 observation budget: network-layer connection metadata within the retention declared in its manifest, ciphertext envelopes with their size, timing, `channelToken` and expiry hint, verification material and proofs that do not identify the member, CIDs it stores, agreement-keyed quota state, the billing DID of each CO it holds an agreement with and which access-key chains are registered under each agreement (ARCHITECTURE.md §5 item 6), and its own peering relationships. Because it follows each access-key chain (§5.2.2), a Relay links one chain's `channelToken`s across epochs and sees the chain's epoch boundaries and Commit cadence.
 
 **What a Relay cannot observe:**
 - Message content (MLS E2EE; the Relay never holds decryption keys).
@@ -31,19 +31,19 @@ What each operator can be compelled to produce is defined in ARCHITECTURE.md §4
 **What a Relay cannot do:**
 - Forge messages (each message carries the sender's MLS signature inside the sealed envelope, verified by recipients).
 - Silently modify history (IPLD content addressing detects tampering).
-- Map routing tables across epochs without MLS group secrets.
+- Map an access-key chain to a channel, Space or member. It links the tokens of one chain across epochs (§5.2.2), but not the chain to anything behind it.
 
 Clients SHOULD connect to multiple Relays simultaneously. A single Relay going dark (legal seizure, operator shutdown) does not partition a user from their channels as long as at least one other Relay serving that `channelToken` is reachable.
 
 ## 12.4 Metadata Leakage
 
-MLS sender-data encryption and the sealed envelope keep sender identity, the MLS group ID and the message kind away from the Relay layer. Residual metadata leakage points:
+MLS sender-data encryption and the sealed envelope keep sender identity, the MLS group ID and the message kind away from the Relay layer, with one exception: an envelope that carries a Commit also carries an `accessKeyAnnouncement`, and the routing envelope carries `epoch` in the clear (§5.2.2), so Commits and epoch boundaries are visible. Residual metadata leakage points:
 
 **IP address**: a Relay sees the connecting IP. Clients requiring IP-level anonymity SHOULD connect via Tor (preferring the Relay's `.onion` endpoint where available, to avoid exit node exposure) or a trusted front-end proxy.
 
 **Timing correlation**: a global passive adversary watching both sender and Relay can correlate message timing. This is a known limitation of all low-latency messaging protocols. Mixing/batching (as in Katzenpost) defeats timing analysis but is incompatible with Discord-like UX latency targets. This is an accepted tradeoff.
 
-**Gossipsub topic subscription**: Relays and mesh peers observe which `channelTokens` a peer subscribes to. Since tokens rotate per epoch, long-term correlation requires capturing multiple epochs' tokens. Clients MAY subscribe to decoy `channelTokens` (random values indistinguishable from real tokens) to obscure their actual channel membership count and pattern. Clients requiring strong subscription privacy SHOULD maintain a fixed subscription count (padding with decoys to a constant) and rotate decoy selections each epoch.
+**Gossipsub topic subscription**: Relays and mesh peers observe which `channelTokens` a peer subscribes to. Tokens rotate per epoch, but rotation does not prevent long-term correlation: the `accessKeyAnnouncement` that names each new token rides in the clear on the routing envelope (§5.2.2), so any Relay or gossip peer that sees it can follow a chain from epoch to epoch. Clients MAY subscribe to decoy `channelTokens` (random values indistinguishable from real tokens) to obscure their actual channel membership count and pattern. Clients requiring strong subscription privacy SHOULD maintain a fixed subscription count (padding with decoys to a constant) and rotate decoy selections each epoch.
 
 **Presence, typing and DM membership**: presence and typing indicators are MLS application messages, and a DM is an ordinary MLS group addressed by `channelToken`. A Relay sees them only as ciphertext envelopes within the ARCHITECTURE.md §5 budget; it cannot distinguish them from other traffic by type, and it does not learn who is in a DM.
 
@@ -53,7 +53,7 @@ MLS sender-data encryption and the sealed envelope keep sender identity, the MLS
 
 ## 12.5 Denial of Service
 
-Gossipsub v1.1 includes peer scoring and flood control built-in. Relays never authenticate client identity (ARCHITECTURE.md S1, §4); a connection opens with a minimal unauthenticated hello that only negotiates the protocol version (§11). Abuse control rests on what a Relay can check without knowing who the client is:
+Gossipsub v1.1 includes peer scoring and flood control built-in. Relays never authenticate client identity (ARCHITECTURE.md S1, §8 Q2); a connection opens with a minimal unauthenticated hello that only negotiates the protocol version (§11). Abuse control rests on what a Relay can check without knowing who the client is:
 
 - **Writes** are accepted only with a valid epoch access proof (§5.2.2); envelopes that fail it are rejected.
 - **Group registration** requires the CO's billing key under a `RelayServiceAgreement` (§10.5.1).
@@ -86,9 +86,9 @@ Where the authenticator does not support PRF, the client generates the key with 
 
 **Conformance requirements by operation:**
 
-- **Authentication key signing** (Ed25519 / P-256): MUST use hardware-backed key where available. On platforms that do not support Ed25519 in the secure boundary (such as Secure Enclave, which supports P-256 only), P-256 (`ES256`) MAY be used as the authentication key algorithm for that device. The DID document MUST reflect the actual key type in use. A `did:key` identity key used on several devices is exportable by design (§2.1) and so cannot be a non-extractable hardware key.
+- **Authentication key signing** (Ed25519): MUST use a hardware-backed key where the platform supports Ed25519 in its secure boundary, and otherwise the best-protected software store the platform offers. Device keys are Ed25519 only (§2.2, §13.1.1), so a platform whose secure boundary supports only P-256 (such as the Secure Enclave) holds the device key in software. A `did:key` identity key used on several devices is exportable by design (§2.1) and so cannot be a non-extractable hardware key.
 
-- **MLS leaf operations** (KeyPackage generation, Commit signing, Update proposals): MUST use keys held in the secure boundary. `openmls` supports pluggable crypto backends; implementations SHOULD provide a backend that delegates to the platform keystore rather than holding raw key bytes.
+- **MLS leaf operations** (KeyPackage generation, Commit signing, Update proposals): MUST use keys held in the secure boundary where the platform supports Ed25519 there, and otherwise in the best-protected software store. `openmls` supports pluggable crypto backends; implementations SHOULD provide a backend that delegates to the platform keystore rather than holding raw key bytes.
 
 - **MLS key schedule / epoch secrets**: these are MLS-internal derived values, not persistent keys. They exist transiently in MLS stack memory during epoch processing and SHOULD NOT be exposed to application code. All operations requiring epoch secret access MUST use the MLS exporter interface (RFC 9420 §11.5) rather than accessing the epoch secret directly.
 
@@ -119,8 +119,8 @@ In all of these systems, impersonation by the organization leaves no mandatory c
 Agora separates the identity namespace from the signing key material at a structural level:
 
 - **DID document (org-controlled, history public):** The organization hosts `did:webvh:{SCID}:{orgDomain}:users:{id}` and holds an update key; it can add, remove, and update key entries in the document (§2.5), but each change is a DID log entry signed with its update key and visible to every resolver (§2.1). This is the identity namespace.
-- **Private key material (device-controlled):** Ed25519 signing keys are generated inside the device's secure enclave and never leave it (§12.6). The DID document contains only the public key. The organization receives no copy of the private key at any point; there is no enrollment flow that transmits private key material to the provisioning service (§2.5.4).
-- **Per-message signing:** Every Agora message is signed by the sender's device key. The signing key fingerprint is embedded in the message's MLS authenticated data; it is bound to the ciphertext and cannot be altered without invalidating the message's authentication tag.
+- **Private key material (device-controlled):** Ed25519 device keys are generated on the device and held in its hardware-backed keystore where the platform supports Ed25519, or otherwise in its best-protected software store (§12.6). The DID document contains only the public key. The organization receives no copy of the private key at any point; there is no enrollment flow that transmits private key material to the provisioning service (§2.5.4).
+- **Per-message signing:** Every Agora message carries an MLS signature by the sender's device key. The key is the signature key of the sender's MLS leaf, whose credential names the sender's DID (§2.2); recipients verify the signature against that leaf, so a message cannot be attributed to another leaf without failing verification.
 
 Consequence: **the organization cannot sign a message as Alice without access to Alice's private key, which it does not have.** The DID document update authority (org-controlled) and the signing authority (device-controlled) are held by different parties and involve different, non-interchangeable key material.
 
@@ -129,8 +129,8 @@ Consequence: **the organization cannot sign a message as Alice without access to
 The organization retains one path to producing a message attributable to Alice's DID: it can register a new device key via the admin enrollment path (§2.5.8, helpdesk recovery) and sign messages with that key. This operation:
 
 1. **Creates a new DID document entry** with a distinct `deviceKeyFingerprint` and registration timestamp, different from Alice's existing device entries.
-2. **Is recorded in the provisioning audit log** (§2.5.5).
-3. **Is detectable** by any party that compares the signing key fingerprint in a message against the DID document entry that was active at the time of message creation.
+2. **Is recorded in the provisioning audit log** (§2.5.8).
+3. **Is detectable** by any member who compares the MLS leaf signature key that signed a message against the DID document entry that was active at the time of message creation.
 
 Cryptography does not prevent an organization holding an update key from adding a key to Alice's `did:webvh` document, inside or outside the enrollment path. It does make every such addition auditable: the key can enter the document only through a DID log entry signed with the organization's update key, the log is hash-chained, and resolvers reject a log that does not verify (§2.1). The organization cannot rewrite or hide the entry without producing an invalid history, so Alice, her contacts and auditors can see when each key was added and by which update key, without trusting the organization. Silent impersonation (producing a message indistinguishable from one Alice sent herself) is therefore not possible.
 
@@ -144,9 +144,107 @@ The combination of per-message device-key signatures and a tamper-evident IPLD c
 
 - **DKIM** authenticates the sending domain, not the individual sender. An admin with access to the DKIM private key can sign mail on behalf of any address at that domain.
 - **Enterprise S/MIME** with key escrow allows the key custodian (typically the organization) to produce valid signatures for any escrowed identity.
-- **Agora device-key signatures** can only be produced by the specific hardware device that holds the private key. The compliance archive records both the message content and the signing key fingerprint. A regulator or court can verify that a specific message was produced by a specific device key, and can cross-reference that key's registration in the DID log (§2.1).
+- **Agora device-key signatures** can only be produced by the specific hardware device that holds the private key. The compliance logger is an MLS member and verifies each message's MLS signature against the sender's leaf before writing a signed `ComplianceRecord` with the message content and `senderDID` (§7.4). A regulator or court relies on that signed record and can cross-reference the sender's device keys in the DID log (§2.1). The `ComplianceRecord` does not currently record which of the sender's device keys signed the message.
 
 This property is relevant for FINRA Rule 17a-4, SEC Rule 17a-4, and MiFID II recordkeeping requirements, where the integrity and authenticity of retained communications are material.
+
+
+## 12.8 Operational Security of CO Services
+
+*Binds: CO.*
+
+The CO runs the online services that hold community authority: the registration service (§5.2.2, §10.5.1), Space endpoints (§3.4), KeyPackage hosts (§5.2.1.1), the provisioning service (§2.5), the TURN credential service (§6.11), and the compliance logger and recorder (§7.3, §6.12). Their conformance classes are listed in §1.4. These services are CO components (ARCHITECTURE.md §2.3), so what they learn is CO knowledge and not an IO observation; §12.11 lists it.
+
+**Member authentication.** CO services that serve or issue something only to current members authenticate them with the exchange in §3.5. That exchange is the only member authentication between clients and CO services; Relays and other IOs never use it.
+
+**Key custody.** The billing key, the provisioning service's signing and DID update keys, the Space owner and admin keys used for online signing, and the keys of the compliance logger and recorder SHOULD be held in an HSM or equivalent hardware boundary, as for relay keys (§12.6). The billing key SHOULD NOT be held on the same host as a Space endpoint: a Space endpoint is reachable by every member and holds Space-identifying records, while the billing DID MUST NOT appear in any Space-identifying record (ARCHITECTURE.md §6.1).
+
+**Rate limits.** Every CO service SHOULD rate-limit requests per network address and per authenticated DID. A KeyPackage host SHOULD also rate-limit Welcome POSTs per source address and per target identity, and SHOULD reject a Welcome larger than it is prepared to store; fetch rate limits are in §5.2.1.1.
+
+**Audit logging.** CO services SHOULD log security-relevant operations, including device key registrations and revocations (§2.5), issuance of `BroadcastKey` records (§3.4), and administrative actions. Such logs are CO records kept under the CO's retention policy and are subject to the minimization guidance in §12.11.
+
+**Availability.** Outages of these services fail closed for new access but leave existing access in place. In particular, while the registration service is unreachable, relays keep accepting the last countersigned access key, so a member removed after that key can keep writing until service resumes (§5.2.2). A CO SHOULD run the registration service and Space endpoints redundantly and monitor them.
+
+## 12.9 Time and Clocks
+
+*Binds: both.*
+
+Timestamps in documents are RFC 3339 date-times in UTC (`Z` suffix). The exceptions are fields that a section defines as integer Unix seconds, such as `x-agora-timestamp` (§10.2.3) and the TURN credential username (§6.11).
+
+Clients, Relays and CO services SHOULD keep their clocks synchronized to UTC, for example with NTP (RFC 5905). Unless a section states its own window, a party comparing another party's timestamp with its own clock MUST NOT treat an object as not yet valid unless its start time is more than 300 seconds ahead of its own clock, and checks expiry against its own clock with no added tolerance.
+
+Message order does not depend on any clock: messages are ordered by `seq` (§5.1.1), call coordination by epoch and envelope `id` (§6.14), and the routing envelope `ts` is unauthenticated (§5.2.2). Clocks do decide the following:
+
+| Check | Whose clock | Defined in |
+|---|---|---|
+| `BroadcastKey` `notBefore`, which is also the cut-over that removes a subscriber | Poster | §3.4, §5.2.1.4 |
+| `TimeoutRecord` `expiresAt` | Each receiving client | §4.5 |
+| `SpaceInvite` expiry | Space endpoint and joining client | §4.3, §3.4 |
+| KeyPackage `lifetime.not_after` | Welcome recipient | §5.2.1.1 |
+| `ParticipantState` `ttl`; ring limit | Receiving client | §6.2, §6.14.1 |
+| Presence and typing timeouts | Receiving client | §5.3 |
+| `RecordingGrant` `expiresAt` | Recorder and participating clients | §6.12.2 |
+| TURN credential expiry | TURN server | §6.11 |
+| Relay-to-relay request freshness | Receiving Relay | §10.2.3 |
+| Member authentication `ts` | CO service | §3.5 |
+| `expiryHint` and envelope retention | Relay | §5.2.4, §10.4.3 |
+| Push registration TTL | Relay | §11.7.3 |
+| 24-hour `RecoveryAssertion` rule | Party applying the assertion | §2.4.4 |
+| Last-writer-wins `at` | Author (sender-chosen) | §14.3.3 |
+
+A poster whose clock is slow keeps encrypting under the previous `BroadcastKey` after a removal until its clock passes the new key's `notBefore`. A CO that rotates a `BroadcastKey` to remove a subscriber SHOULD therefore set `notBefore` no later than the time it publishes the key.
+
+## 12.10 Required Disclosures: Accessibility and Language
+
+*Binds: clients and CO.*
+
+This section applies to every disclosure this specification requires a client to present:
+
+- the compliance logging indicator and `retentionNotice` (§7.2, §7.7), including the home-space notice shown to guests (§8.8);
+- the `ComplianceDisclosureNotice` in DM groups (§7.8.4);
+- the recording disclosure and indicator, from `participantDisclosure` (§6.12.3);
+- the broadcast-channel indicator (§5.2.1.4);
+- the gateway indicator and `e2eeNote` (§9.3).
+
+**Text equivalent.** Every required indicator MUST have a text equivalent that the client exposes through the platform accessibility API. An icon or color alone does not meet a disclosure requirement.
+
+**Devices without a display.** A client on a device with no display, such as an audio-only or headless call endpoint, MUST play an audible announcement of the recording disclosure before it enables media transmission in a call with an active `RecordingGrant`. A device that can neither display nor announce the disclosure MUST NOT transmit media while a `RecordingGrant` is active.
+
+**Language.** Each of the fields `retentionNotice`, `participantDisclosure` and `e2eeNote` MAY be a language map instead of a string: a JSON object whose member names are language tags (RFC 5646) and whose values are strings. A language map MUST contain the member `und`. A client displays the value whose tag best matches the user's language preferences under RFC 4647 lookup, and the `und` value when none matches. Where this specification gives the wording of a notice ("wording equivalent to", §7.8.4; the guest notice, §8.8), clients SHOULD present that wording in the user's language.
+
+## 12.11 Privacy Considerations
+
+*Binds: both.*
+
+This section collects what each party learns. It does not restate the IO limits, which are normative in ARCHITECTURE.md: what each operator can be compelled to produce (§4), the IO observation budget (§5), and the accepted costs of the design, including Space anonymity bounded by the size of the CO and address clustering (§9). §12.3 and §12.4 describe the residual metadata visible to Relays and gossip peers.
+
+**What each party learns.**
+
+| Party | Learns | Defined in |
+|---|---|---|
+| Relay, blob host | The ARCHITECTURE.md §5 budget, including the access-key chains it follows | §12.3, §12.4, §10.4.1 |
+| Push proxy | Device push handles and wake-up timing | ARCHITECTURE.md §5 item 7, §11.7.1 |
+| TURN server | A valid credential, a source address and opaque media | §6.11 |
+| SFU | Participant connections and encrypted media frames | §6.6 |
+| Sequencer | As stated in §14.4.6 | §14.4.6 |
+| Registration service (CO) | Which authenticated members request its services, and the epoch timing of each chain | §5.2.2, §10.5.1 |
+| Space endpoint (CO) | Which members and invitees fetch Space state and broadcast keys, and when | §3.4 |
+| KeyPackage host (CO) | When a user's KeyPackages are fetched, and which groups send that user a Welcome | §5.2.1.1, §4.6 |
+| TURN credential service (CO) | Which members request credentials, and so call attendance | §6.11 |
+| Provisioning service (CO) | The employee's IdP identity, devices, registrations and revocations | §2.5 |
+| Compliance logger and recorder (CO) | Plaintext and media in scope of the compliance configuration | §7, §6.12 |
+| Group members | Each other's DIDs and devices (MLS leaves), presence, typing and call state | §5.2.1, §5.3, §6.2 |
+| Anyone | DID documents and their full logs, display profiles, and public Space state and advertisements | §2.1, §2.3, §10.3.2 |
+
+**Minimization.** A DID document and its log are public and permanent (§2.1, §2.5.6). A provisioning service SHOULD omit optional verification-method metadata such as `meta.deviceLabel` and `meta.platform` (§2.5.4), or use values that do not contain a person's name. CO services SHOULD NOT retain requester DIDs, network addresses or request timing beyond what operation and abuse handling require, and SHOULD state their retention in the CO's member-facing policy.
+
+**Deletion and erasure.** Content addressing and signed chains limit what can be erased:
+
+- Can be removed: blobs and cached envelopes (unpin, expiry and retention, §5.2.4, §10.4.3), display profiles (by publishing a new profile, §2.3), and records held only at a Space endpoint. Copies that other parties already hold under the same CID remain valid, so removal stops serving and does not recall.
+- Cannot be removed without breaking verification: DID logs (a DID document MAY be blanked but MUST NOT be removed, §2.5.6), the Space state chain (§3.3), the moderation log (§4.5) and the compliance record chain (§7.4).
+- Crypto-shredding: message ciphertext and group-encrypted blobs (§3.4) are keyed from MLS epoch secrets. Once every member has deleted an epoch's secrets (§12.1), ciphertext held by any IO for that epoch can no longer be decrypted.
+
+**Out of scope.** Legal hold, archive disposal after `retentionDays`, and responses to data-subject requests are CO policy carried out on CO records under the CO's own controls (ARCHITECTURE.md §4). An IO holds nothing attributable to a member beyond network-layer metadata within its declared retention (ARCHITECTURE.md §5 item 1).
 
 ---
 
