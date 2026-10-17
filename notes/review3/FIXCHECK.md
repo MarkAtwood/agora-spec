@@ -95,12 +95,12 @@ Problem: The leaver's list (:316) usually arrives after the committer's identica
 Fix: Move the equal-list sentence before the acceptance sentence: "A list with a valid signature and fresh `ts` whose `members` and `complianceLoggers` equal those of the current list is answered `204` without change, whatever its `seq` and signer."
 Needs decision: no
 
-### FC-10: "always sends its merged record" can be read as send-on-receipt
+### FC-10: SpaceMembership merge: send-on-receipt reading and a non-canonical tie-break
 Severity: P3
 Location: spec/02-identity.md:527
-Evidence: "A receiving device merges a record into the one it holds entry by entry ... and always sends its merged record."
-Problem: Read as "on every receipt, send", two devices exchange the same merged record forever. The intent is that whenever a device sends, it sends the merged record.
-Fix: "When it sends a record, it sends its merged record; receiving a record does not by itself trigger a send."
+Evidence: "keeping the entry with the higher `v` (on equal `v`, `left` wins, then the lower `spaceEndpoint` list compared as UTF-8 bytes of its JSON encoding), and always sends its merged record."
+Problem: (1) Read as "on every receipt, send", two devices exchange the same merged record forever; the intent is that whenever a device sends, it sends the merged record. (2) JSON has no canonical encoding (whitespace, escaping such as "\/"), so two devices can serialize the same list differently and pick different winners for an equal `v`. The `v` counter itself is sound: it is deterministic and uses no clock, and the §12.9 row no longer cites §2.6.
+Fix: (1) "When it sends a record, it sends its merged record; receiving a record does not by itself trigger a send." (2) Replace "compared as UTF-8 bytes of its JSON encoding" with "compared element by element as UTF-8 byte strings, a shorter list that is a prefix of the other being lower".
 Needs decision: no
 
 ### FC-11: Consequence of the authorization-after-winner rule is not recorded
