@@ -149,6 +149,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `replicationFloor` | `ServiceAgreement` member | §10.5.1, §10.4.4 |
 | `archive` | `ChannelAdmissionKey` member | §3.4, §10.4.4 |
 | `closingHeads` | Space state member, array of `{channelID, stream, n, hash}` (closing commit-stream heads at a sequencer replacement) | §3.3, §14.4.5 |
+| `pushProxy` | Space state member, object `{did, endpoint}` (the push proxy the CO designates) | §3.3, §11.7 |
 | `broadcasters` | Non-member view member, array of `{channelID, keyEpoch, dids}` | §3.3, §3.4, §5.2.1.4 |
 | `chunkCount`, `thumbnailChunkCount`, `contentKey`, `thumbnailContentKey` | JMAP object extension properties | §14.3.4 |
 | `seed` | `pin-op` operation | §11.4, §10.4.4 |
