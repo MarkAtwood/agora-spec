@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Spec §9 defines what every gateway is and must do: a CO component with its own DID, admitted to the channel MLS group as a member, listed in a `GatewayDescriptor` and announced by a `gateway-added` `SystemEvent` before any message flows through it. This profile describes how a gateway to a particular network does its job inside those rules. It adds no protocol.
+Spec §9 defines what every gateway is and must do: a CO component with its own DID, admitted to the channel MLS group as a member, listed in a `GatewayDescriptor` and announced by a `gateway-added` `SystemEvent` before any message flows through it (on a broadcast channel, a broadcaster disclosed by its descriptor and the `broadcasters` list, spec §9.3). This profile describes how a gateway to a particular network does its job inside those rules. It adds no protocol.
 
 Every gateway described here breaks end-to-end encryption at the gateway, because it holds plaintext. Native MIMI interop would not; section 4 records what it would take.
 

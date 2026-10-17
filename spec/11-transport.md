@@ -315,7 +315,7 @@ Response: 200 { "registered": true, "ttl": 2592000 }
 
 `pushHandle` is the 32-byte handle in base64url without padding (RFC 4648 §5). `deviceToken` is the device token as the platform's API supplies it: for APNs the token bytes in lower-case hexadecimal, for FCM the registration token string. `platform` is `"apns"` or `"fcm"`.
 
-4. Sends a `PushRegister` (§11.4) on its live stream connection to each Relay it uses, with the `pushHandle`, the proxy's `endpoint` (§11.7.2) and the `channelToken`s it wants wake-ups for. The registration carries no identity and is rate-limited per address and per `channelToken` (§11.6). The Relay keys it by `pushHandle` only and answers with `Ack`:
+4. Sends a `PushRegister` (§11.4) on its live stream connection to each Relay it uses, with the `pushHandle`, the proxy's `endpoint` (§11.7.2, or §3.3 for a CO-designated proxy) and the `channelToken`s it wants wake-ups for. The registration carries no identity and is rate-limited per address and per `channelToken` (§11.6). The Relay keys it by `pushHandle` only and answers with `Ack`:
 
 ```
 {"v": 1, "t": "PushRegister", "id": 7,
@@ -326,7 +326,7 @@ Response: 200 { "registered": true, "ttl": 2592000 }
  "ttl": 2592000}
 ```
 
-A client registers a separate `pushHandle` with each proxy it uses, performing steps 1 to 3 for each. It registers with a CO-designated proxy (§3.3) only the `channelToken`s of channels of Spaces whose state names that proxy, and with a Relay-designated proxy all other tokens, including those of DM groups and self-groups.
+A client registers a separate `pushHandle` with each proxy it uses, performing steps 1 to 3 for each. It registers with a CO-designated proxy (§3.3) only the `channelToken`s of channels whose home Space's state names that proxy, and with a Relay-designated proxy all other tokens, including those of DM groups and self-groups.
 
 A `PushRegister` replaces the whole token set registered for its `pushHandle`; an empty `tokens` array deletes the registration. A Relay MUST drop a registration when its `ttl` expires and MUST NOT keep one longer than 30 days (2,592,000 seconds), whatever `ttl` asks for.
 

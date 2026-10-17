@@ -91,6 +91,8 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Canonical-Commit window without a sequencer | 5 s | MUST | §5.1.1 |
 | Delay before republishing a winning Commit taken from the sequencer's log | random 10 to 60 s; not published if a copy arrives first | See section | §5.1.1 |
 | Retention of the previous epoch's sealing key | 60 s | Descriptive | §5.2.2 |
+| Retention of the sealing keys of applied epochs, in a group with no sequencer, for the stale-envelope test only | 24 h | See section | §5.2.2, §5.1.1 |
+| Buffering of an envelope that opens under no sealing key, in a group with no sequencer | until the recipient processes its next Commit, at most 24 h; then tried again and dropped if it still does not open | See section | §5.2.2, §5.1.1 |
 | Admission key fetch while connected | at least once an hour | MUST | §5.2.2 |
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
 | `agora_credentials` entries per leaf; extension data size | 8; 8192 bytes | Over the limit, the extension is ignored | §5.2.1.5 |
@@ -105,8 +107,8 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Directory fetch backoff; unreachable flag | 30 s to 1 h; 7 days | Descriptive | §10.3.4.4 |
 | DM admission host handover fallback | any remaining member that may move the group (§4.6.4) after 24 h without a handover Commit | See section | §4.6.4 |
 | DM admission key rotation fallback | every host's user's client rotates 24 h after a Commit that removed a leaf, if no Commit has changed `agora_admission` | MUST | §4.6 |
-| DM admission host deregisters a group's key | on its issuee's request; 7 days after the issuee of a later key for the group confirms that key's Commit; or 30 days after the issuee is offboarded; never sooner than 300 s after the new key's Commit has won and a Relay in its `relays` has accepted a Subscribe (§4.6) | See section | §4.6 |
-| DM admission key periodic rotation | a host's user's client rotates 7 days after it processed the Commit that put the current key in `agora_admission` | See section | §4.6 |
+| DM admission host deregisters a group's key | on its issuee's request; 7 days after the issuee of a later key for the group confirms that key; or 30 days after the issuee is offboarded; never sooner than 300 s after the new key's Commit has won and a Relay in its `relays` has accepted a Subscribe (§4.6) | See section | §4.6 |
+| DM admission key periodic rotation | the client of the host's user with the lowest leaf index rotates 7 days after it processed the Commit that put the current key in `agora_admission`; every host's user's client 24 h later if none has | MUST | §4.6 |
 | DM admission host engages a replacement Relay | at least 14 days before the departing Relay's `retiresAt` | See section | §10.3.5 |
 | DM member resolves each other member's DID | at least once every 7 days | See section | §4.6, §2.5.6 |
 | Client deletes a DM admission key that a host move replaced | 30 days after the move Commit, and not before a Relay admitted the new key | See section | §4.6.4 |
@@ -149,11 +151,11 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `replicationFloor` | `ServiceAgreement` member | §10.5.1, §10.4.4 |
 | `archive` | `ChannelAdmissionKey` member | §3.4, §10.4.4 |
 | `closingHeads` | Space state member, array of `{channelID, stream, n, hash}` (closing commit-stream heads at a sequencer replacement) | §3.3, §14.4.5 |
-| `pushProxy` | Space state member, object `{did, endpoint}` (the push proxy the CO designates) | §3.3, §11.7 |
+| `pushProxy` | Space state member, an object with the members of the Relay manifest's `pushProxy` (the push proxy the CO designates) | §3.3, §11.7.2 |
 | `broadcasters` | Non-member view member, array of `{channelID, keyEpoch, dids}` | §3.3, §3.4, §5.2.1.4 |
 | `chunkCount`, `thumbnailChunkCount`, `contentKey`, `thumbnailContentKey` | JMAP object extension properties | §14.3.4 |
 | `seed` | `pin-op` operation | §11.4, §10.4.4 |
-| Error codes of the live protocol and of admission key registration | Error codes | §11.4, §10.5.3, §14.4.3 |
+| Error codes of the live protocol, of admission key registration and of the DM admission-key endpoint | Error codes | §4.6, §11.4, §10.5.3, §14.4.3 |
 | `token` | Query parameter of the blob fetch and Peer API blob paths | §10.4.4, §10.2.2 |
 
 **Capability and model strings** (Agora-internal).
