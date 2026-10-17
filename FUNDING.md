@@ -63,7 +63,7 @@ compliance.
 | Signal, WhatsApp | The vendor | Only participants | Weak: regulated firms cannot archive it | No: one network, one operator |
 | Matrix | Each homeserver | Participants, with metadata exposed to servers | Partial | Yes, but servers see who talks to whom |
 | Discord | The vendor | The vendor | Weak | No |
-| Agora | The community operator | Only participants and disclosed compliance archivers | Built in, without weakening encryption for others | Yes: replace any server or operator |
+| Agora | The communications operator | Only participants and disclosed compliance archivers | Built in, without weakening encryption for others | Yes: replace any server or operator |
 
 The gap shows up as real cost:
 
@@ -82,7 +82,7 @@ servers nothing to decide with.
 - **Blind relays.** Relays route encrypted envelopes by an opaque token. They
   never learn a group's members, name, or content. A relay operator served with
   a subpoena can truthfully say it holds nothing useful.
-- **Door keys instead of member lists.** A community operator issues each
+- **Door keys instead of member lists.** A communications operator issues each
   channel an admission key and registers only its public half with the relays.
   Relays admit traffic signed with it and know nothing else. Removing a member
   rotates the key.
@@ -135,6 +135,12 @@ them is rising.
 - **Decentralized identity is usable.** Employer-issued and self-held
   identifiers, and verifiable credentials, now have published standards and
   production tooling.
+- **EU identity wallets arrive in December 2026.** Every EU state must offer
+  its residents a digital identity wallet. Agora's attribute-bridging profile
+  lets public bodies and firms verify members against EU wallets, US CAC and
+  PIV smartcards, and enterprise directories, then show other members only
+  derived claims, never legal identity, and show infrastructure operators
+  nothing.
 - **Trust in single-vendor platforms is low.** Communities have watched
   platforms change terms, prices, and moderation rules overnight, and want a
   home they can leave.
@@ -168,7 +174,7 @@ software.
 | Protocol specification | 14 parts plus appendices: identity, spaces, access control, messaging, calls, compliance, cross-community channels, interoperability, relays, transport, security, encoding, data formats |
 | Independent review | 4 full review rounds covering consistency, operator separation, cryptography, and implementability, with every finding fixed or decided |
 | Test vectors | 11 vector files; every value computed by two independent cryptographic implementations that agree |
-| Deployment profiles | 11, including Microsoft 365, Google Workspace, Microsoft Purview, Discord migration, and radio-mesh gateways |
+| Deployment profiles | 12, including Microsoft 365, Google Workspace, Microsoft Purview, Discord migration, and radio-mesh gateways |
 | Operator guides | 3: relay operators, financial regulators, legal counsel |
 | Implementation | An earlier prototype codebase exists; no implementation of the current specification yet |
 

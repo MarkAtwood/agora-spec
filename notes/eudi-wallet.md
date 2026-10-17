@@ -254,7 +254,7 @@ Neither join needs a core change.
   - It would also reverse a recorded decision (`agora-credentials-defaults`), which is Mark's call.
 - **C. Allow key-bound credentials with no holder proof.** Rejected. Anyone who has seen a presentation could copy it into their own leaf, which the subject check exists to prevent (§12.13).
 
-**Recommendation: option A.** Record in a short profile, for example `profiles/eudi-wallet.md`, that EUDI verification is a CO relying-party function, and define the derived credential's minimal claims. Revisit option B only if the ARF adds remote peer presentation, or wallets gain a way to sign holder-chosen nonces for unregistered verifiers. Neither is in ARF v3.0.0.
+**Recommendation: option A.** Record in a short profile, now `profiles/attribute-bridging.md` section 6, that EUDI verification is a CO relying-party function, and define the derived credential's minimal claims. Revisit option B only if the ARF adds remote peer presentation, or wallets gain a way to sign holder-chosen nonces for unregistered verifiers. Neither is in ARF v3.0.0.
 
 **Plain explanation:** EU wallet credentials prove "the phone that holds this key belongs to a verified person", not "this Agora account belongs to a verified person", and the wallet will only talk to organizations registered with their government. So the organization running the Agora community checks the EU credential itself, and then vouches for the Agora account with its own credential that other members can verify.
 

@@ -393,6 +393,8 @@ The employee's client can also carry the `EmployeeCredential`, or a presentation
 
 By default the client leaves it out of published KeyPackages and adds it to each group by updating its own leaf after joining. Every member of the group, including members outside the organization, sees the claims it carries, so the organization should decide which claims, such as `employeeId`, `department`, or `officeLocation`, employees carry into groups shared with outsiders.
 
+`profiles/attribute-bridging.md` section 3 maps directory attributes to derived claims suited to such groups.
+
 ---
 
 ## 5. Graph Lifecycle Workflow Integration
