@@ -99,11 +99,10 @@ The user profile is stored separately from the DID document, as an IPLD node add
 }
 ```
 
-Profile schema (JSON-LD):
+Profile schema:
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "UserProfile",
   "did": "did:key:z6Mk...",
   "displayName": "alice",
@@ -122,7 +121,7 @@ Loss of all device private keys is permanent identity loss with no protocol-leve
 Applicability by DID method (§2.1):
 
 - **`did:webvh`:** all of §2.4 applies. The recovery key (§2.4.1) and the social recovery key (§2.4.2) MUST also be authorized update keys of the DID log, so that the device key named in a `RecoveryAssertion` is written into the document by a log entry signed with the same key.
-- **`did:plc`:** recovery uses did:plc rotation keys and the recovery window of the did:plc specification. The recovery key and the social recovery key are registered as did:plc rotation keys instead of `recoverableIdentity` verification methods, and a PLC operation signed with one of them takes the place of the `RecoveryAssertion`. Encrypted backup (§2.4.3) applies unchanged.
+- **`did:plc`:** recovery uses did:plc rotation keys and the recovery window of the did:plc specification. The recovery key and the social recovery key are registered as did:plc rotation keys instead of `recoverableIdentity` verification methods, and a PLC operation signed with one of them takes the place of the `RecoveryAssertion`. Because did:plc gives earlier-listed rotation keys priority within the recovery window, the recovery key (§2.4.1) MUST be listed above the social recovery key (§2.4.2): a key kept offline outranks one reconstructed from guardians' shares. Encrypted backup (§2.4.3) applies unchanged.
 - **`did:key`:** only encrypted backup (§2.4.3) applies. There is no recovery once the identity key is lost.
 
 ### 2.4.1 Recovery Key
@@ -153,7 +152,6 @@ The recovery key is **never used for normal protocol operations**. Its only func
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "RecoveryAssertion",
   "did": "did:webvh:QmSCID...:example.com:alice",
   "newDeviceKey": "base64url(new Ed25519 pubkey)",
@@ -180,7 +178,6 @@ seed = HKDF-SHA256(IKM = S, salt = "" (zero-length), info = "agora/v1/social-rec
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "SocialRecoveryConfig",
   "did": "did:webvh:QmSCID...:example.com:alice",
   "threshold": 3,
@@ -241,7 +238,7 @@ Clients SHOULD prompt users to export an encrypted backup at account creation an
 
 The `ts` field of a `RecoveryAssertion` is self-asserted by its signer and MUST NOT be used to order competing assertions: any holder of a recovery credential could backdate it. If multiple recovery mechanisms produce conflicting valid `RecoveryAssertion` messages for the same DID, they are resolved as follows:
 
-- **`did:webvh` identities.** The DID log is the ordering source: the assertion that takes effect is the one written into the log (§2.4). If a resolver sees two different log entries with the same version number for one DID, it MUST treat the DID as in conflict, MUST NOT apply either automatically, and SHOULD surface the conflict to the user.
+- **`did:webvh` identities.** The DID log is the ordering source: the assertion that takes effect is the one written into the log (§2.4). If a resolver sees two different log entries with the same version number for one DID, it MUST treat the DID as in conflict, MUST NOT apply either automatically, and SHOULD surface the conflict to the user. The recovery key (§2.4.1) and the social recovery key (§2.4.2) have equal authority, because both are update keys of the log: when assertions signed by each conflict, the first valid log entry wins. A later entry signed by the other key is an ordinary update applied after it in log order.
 - **`did:plc` identities.** The PLC directory orders operations, subject to the did:plc recovery window.
 - **CO-provisioned identities (§2.5).** In addition, the assertion that takes effect is the one reflected in the DID document update made by the provisioning service and signed by it (§2.5.7); the order in which that service applies updates is the ordering source. The provisioning service MUST apply recovery assertions for a DID one at a time, and MUST NOT apply a second `RecoveryAssertion` for the same DID within 24 hours of applying one without administrator review; it MUST record the conflict in its audit log. Clients act on the signed DID document, not on the assertion alone.
 - **`did:key` identities.** `RecoveryAssertion` does not apply (§2.4).
@@ -271,7 +268,7 @@ did:webvh:{SCID}:{orgDomain}:users:{localIdentifier}
 Resolution: `GET https://{orgDomain}/users/{localIdentifier}/did.jsonl` (the DID log, verified per §2.1)
 
 Example:
-- `did:webvh:QmSCID...:acme.com:users:k7f3qd2m` → `GET https://acme.com/users/k7f3qd2m/did.jsonl`
+- `did:webvh:QmSCID...:example.com:users:k7f3qd2m` → `GET https://example.com/users/k7f3qd2m/did.jsonl`
 
 The `localIdentifier` MUST be stable for the lifetime of the account and MUST NOT be reassigned to a different person after the original user departs. It MUST NOT be derived from a person's name, email address, UPN, or any other attribute that can change. The organization chooses the source: an employee ID, the IdP's immutable user ID, or a random value minted by the provisioning service. The provisioning service keeps the mapping to the IdP principal in its private store; the mapping is not published.
 
@@ -294,7 +291,7 @@ When a user is onboarded to Agora, the organization creates a stub DID document 
 ```json
 {
   "@context": "https://www.w3.org/ns/did/v1",
-  "id": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m",
+  "id": "did:webvh:QmSCID...:example.com:users:k7f3qd2m",
   "verificationMethod": [],
   "authentication": [],
   "keyAgreement": [],
@@ -324,9 +321,8 @@ Neither private key leaves the secure enclave. The client holds only the public 
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "DeviceKeyRegistrationRequest",
-  "did": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m",
+  "did": "did:webvh:QmSCID...:example.com:users:k7f3qd2m",
   "deviceLabel": "Alice's MacBook Pro",
   "deviceEd25519PublicKey": "base64url(Ed25519 pubkey)",
   "deviceX25519PublicKey": "base64url(X25519 pubkey)",
@@ -355,9 +351,9 @@ The request is signed per §13.1.1 by an existing registered device key. For fir
 {
   "verificationMethod": [
     {
-      "id": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m#device-{deviceKeyFingerprint}",
+      "id": "did:webvh:QmSCID...:example.com:users:k7f3qd2m#device-{deviceKeyFingerprint}",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m",
+      "controller": "did:webvh:QmSCID...:example.com:users:k7f3qd2m",
       "publicKeyMultibase": "z...",
       "meta": {
         "deviceLabel": "Alice's MacBook Pro",
@@ -367,14 +363,14 @@ The request is signed per §13.1.1 by an existing registered device key. For fir
       }
     },
     {
-      "id": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m#device-{deviceKeyFingerprint}-x25519",
+      "id": "did:webvh:QmSCID...:example.com:users:k7f3qd2m#device-{deviceKeyFingerprint}-x25519",
       "type": "X25519KeyAgreementKey2020",
-      "controller": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m",
+      "controller": "did:webvh:QmSCID...:example.com:users:k7f3qd2m",
       "publicKeyMultibase": "z..."
     }
   ],
-  "authentication": ["did:webvh:QmSCID...:acme.com:users:k7f3qd2m#device-{deviceKeyFingerprint}"],
-  "keyAgreement": ["did:webvh:QmSCID...:acme.com:users:k7f3qd2m#device-{deviceKeyFingerprint}-x25519"]
+  "authentication": ["did:webvh:QmSCID...:example.com:users:k7f3qd2m#device-{deviceKeyFingerprint}"],
+  "keyAgreement": ["did:webvh:QmSCID...:example.com:users:k7f3qd2m#device-{deviceKeyFingerprint}-x25519"]
 }
 ```
 
@@ -392,10 +388,9 @@ Device revocation can be initiated by the user (lost or retired device) or by th
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "DeviceRevocationRequest",
-  "did": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m",
-  "revokeDeviceKeyID": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m#device-{fingerprint}",
+  "did": "did:webvh:QmSCID...:example.com:users:k7f3qd2m",
+  "revokeDeviceKeyID": "did:webvh:QmSCID...:example.com:users:k7f3qd2m#device-{fingerprint}",
   "reason": "device-lost | device-retired | security-incident",
   "ts": "2026-03-12T12:00:00.000Z"
 }
@@ -407,13 +402,12 @@ The request is signed per §13.1.1 by a surviving device key of `did`.
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "AdminRevocationRequest",
-  "did": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m",
-  "revokeDeviceKeyID": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m#device-{fingerprint}",
+  "did": "did:webvh:QmSCID...:example.com:users:k7f3qd2m",
+  "revokeDeviceKeyID": "did:webvh:QmSCID...:example.com:users:k7f3qd2m#device-{fingerprint}",
   "revokeAll": false,
   "reason": "employee-offboarding | security-incident | policy-violation",
-  "adminDID": "did:webvh:QmSCID...:acme.com:users:it-admin",
+  "adminDID": "did:webvh:QmSCID...:example.com:users:it-admin",
   "ts": "2026-03-12T12:00:00.000Z"
 }
 ```
@@ -449,14 +443,14 @@ The provisioning service itself is a DID-bearing principal:
 ```json
 {
   "@context": "https://www.w3.org/ns/did/v1",
-  "id": "did:webvh:QmSCID...:acme.com:agora:provisioning",
+  "id": "did:webvh:QmSCID...:example.com:agora:provisioning",
   "verificationMethod": [{
-    "id": "did:webvh:QmSCID...:acme.com:agora:provisioning#signing-1",
+    "id": "did:webvh:QmSCID...:example.com:agora:provisioning#signing-1",
     "type": "Ed25519VerificationKey2020",
-    "controller": "did:webvh:QmSCID...:acme.com:agora:provisioning",
+    "controller": "did:webvh:QmSCID...:example.com:agora:provisioning",
     "publicKeyMultibase": "z..."
   }],
-  "authentication": ["did:webvh:QmSCID...:acme.com:agora:provisioning#signing-1"]
+  "authentication": ["did:webvh:QmSCID...:example.com:agora:provisioning#signing-1"]
 }
 ```
 

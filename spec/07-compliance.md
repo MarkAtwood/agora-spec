@@ -27,8 +27,8 @@ Compliance logging is enabled in the Space state document by the space owner:
   "@type": "ComplianceLoggingConfig",
   "schemaVersion": "1",
   "enabled": true,
-  "loggerDID": "did:key:z6MkLogger...",
-  "loggerLabel": "Acme Corp Compliance Archive",
+  "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
+  "loggerLabel": "Example Corp Compliance Archive",
   "logStore": "ipfs://bafyrei...",
   "retentionDays": 2555,
   "scope": "all-channels",
@@ -66,13 +66,18 @@ The logger's DID document identifies it as a compliance logger:
 ```json
 {
   "@context": "https://www.w3.org/ns/did/v1",
-  "id": "did:key:z6MkLogger...",
-  "verificationMethod": [...],
+  "id": "did:webvh:QmSCID...:compliance.example.com:logger",
+  "verificationMethod": [{
+    "id": "did:webvh:QmSCID...:compliance.example.com:logger#key-1",
+    "type": "Ed25519VerificationKey2020",
+    "controller": "did:webvh:QmSCID...:compliance.example.com:logger",
+    "publicKeyMultibase": "z6MkLogger..."
+  }],
   "service": [{
-    "id": "did:key:z6MkLogger...#compliance",
+    "id": "did:webvh:QmSCID...:compliance.example.com:logger#compliance",
     "type": "AgoraComplianceLogger",
-    "serviceEndpoint": "https://archive.acme-corp.internal/v1/agora/compliance",
-    "operator": "Acme Corp Legal",
+    "serviceEndpoint": "https://archive.example.com/v1/agora/compliance",
+    "operator": "Example Corp Legal",
     "regulatoryFramework": ["FINRA 17a-4", "SEC 17a-4"]
   }]
 }
@@ -88,7 +93,6 @@ Every message received by the logger is written as a signed `ComplianceRecord` t
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "ComplianceRecord",
   "envelopeID": "urn:agora:msg:bafyrei...",
   "channel": "agora://bafyrei.../engineering/backend",
@@ -182,9 +186,9 @@ If the regulated member is joining an existing DM group (rather than creating on
 
 ```json
 {
-  "id": "did:key:z6MkLogger...#keypackages",
+  "id": "did:webvh:QmSCID...:compliance.example.com:logger#keypackages",
   "type": "AgoraKeyPackageEndpoint",
-  "serviceEndpoint": "https://archive.acme-corp.internal/v1/agora/keypackages"
+  "serviceEndpoint": "https://archive.example.com/v1/agora/keypackages"
 }
 ```
 
@@ -209,11 +213,10 @@ Before any regulated member sends a message in a DM group with a compliance logg
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "ComplianceDisclosureNotice",
   "dmGroupID": "urn:agora:dmgroup:<uuid>",
-  "loggerDID": "did:key:z6MkLogger...",
-  "loggerLabel": "Acme Corp Compliance Archive",
+  "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
+  "loggerLabel": "Example Corp Compliance Archive",
   "retentionDays": 2555,
   "regulatoryFramework": ["FINRA 17a-4", "SEC 17a-4"],
   "issuedBy": "did:key:z6MkRegulatedMember...",
@@ -251,11 +254,10 @@ The regulated member's Space MUST record each DM group compliance logger admissi
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "DMComplianceAuditEntry",
   "dmGroupID": "urn:agora:dmgroup:<uuid>",
   "dmGroupDescriptorCID": "bafyrei...",
-  "loggerDID": "did:key:z6MkLogger...",
+  "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
   "admittedBy": "did:key:z6MkRegulatedMember...",
   "admittedAt": "2026-03-12T00:00:00Z",
   "removalAttempts": []

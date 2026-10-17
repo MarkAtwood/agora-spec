@@ -29,7 +29,6 @@ Sharing a channel requires bilateral authorization: the home space admin and the
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "ChannelShareAgreement",
   "schemaVersion": "1",
   "id": "urn:agora:csa:bafyrei...",
@@ -113,7 +112,6 @@ Either party MAY revoke the `ChannelShareAgreement` by publishing a `ChannelShar
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "ChannelShareRevocation",
   "agreementCID": "bafyrei...",
   "revokedBy": "did:key:z6MkRevoker...",

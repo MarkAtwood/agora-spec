@@ -542,7 +542,7 @@ admission_pow_load_threshold = 0.8
 admission_pow_difficulty = 20
 
 # Relay's own minimum envelope PoW difficulty (spec §10.5.2). 0 accepts
-# envelopes without a powProof. A channel's own MessageFeePolicy is
+# envelopes without a powProof. A channel's own PowPolicy is
 # enforced by member clients, since the relay cannot map a
 # channelToken to a channel. default: 0
 envelope_pow_min_difficulty = 0
@@ -1972,7 +1972,7 @@ The relay knows no user identities, so its controls key on what it can see: netw
 Two proofs of work apply at a relay, both non-monetary abuse controls:
 
 - **Admission proof** (spec §11.6): the relay asks for it before `RelayHello` under load or for addresses over their limit. Set by `admission_pow_difficulty`.
-- **Envelope proof** (spec §10.5.2): a channel's `MessageFeePolicy` sets the difficulty its members' clients require. The relay cannot see that policy, so it enforces only its own floor, `envelope_pow_min_difficulty`.
+- **Envelope proof** (spec §10.5.2): a channel's `PowPolicy` sets the difficulty its members' clients require. The relay cannot see that policy, so it enforces only its own floor, `envelope_pow_min_difficulty`.
 
 | Context | Admission difficulty | Envelope floor | Rationale |
 |---|---|---|---|

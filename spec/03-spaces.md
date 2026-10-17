@@ -50,7 +50,6 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "SpaceState",
   "schemaVersion": "1",
   "id": "agora://bafyrei...",
@@ -64,7 +63,8 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
       "type": "text",
       "mode": "interactive",
       "name": "general",
-      "pinLimit": 50
+      "pinLimit": 50,
+      "mlsGroupID": "base64url..."
     },
     {
       "path": "announcements",
@@ -134,6 +134,8 @@ The document is signed per §13.1.1 by the Space owner's authentication key or a
 
 `roles` is defined in §4.2. A role's optional `permissions` list uses the permission names of the JMAP Chat specification (draft-atwood-jmap-chat-00) `SpaceRole`. Holders of the `"pin"` permission may change a channel's pin list (§5.2.6). Clients ignore unrecognized permission names.
 
+`mlsGroupID` on a channel entry is the MLS group ID of that channel's group; the Space-level `mlsGroupID` is the group ID of the Space's own MLS group. A channel entry that has an MLS group MUST carry its `mlsGroupID` (§4.3).
+
 `pinLimit` and `noPin` are optional channel-state fields that bound and disable pinning in that channel (§5.2.6).
 
 `customEmoji` lists the Space's custom emoji. Each entry is a JMAP Chat `CustomEmoji` object as defined in draft-atwood-jmap-chat-00, with the Agora constraints of §5.2.8.4; this document does not redefine it.
@@ -167,7 +169,6 @@ GET <spaceEndpoint>/broadcast-key/<channelCID>/<keyEpoch>   → BroadcastKey of 
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "BroadcastKey",
   "channelCID": "bafyrei...",
   "keyEpoch": 7,

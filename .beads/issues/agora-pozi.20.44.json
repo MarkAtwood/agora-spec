@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.44",
   "title": "Rename MessageFeePolicy (payment connotation)",
   "description": "09 §12.4 PoW policy type name implies payment. Rename to e.g. AbusePolicy; relay min-difficulty declaration location unspecified.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:45:00.774126251Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:45:00.774126251Z",
+  "updated_at": "2026-10-17T05:33:21.237680141Z",
+  "closed_at": "2026-10-17T05:33:21.237680141Z",
+  "close_reason": "Resolved in P3 errata pass 2026-10-16",
   "dependencies": [
     {
       "issue_id": "agora-pozi.20.44",

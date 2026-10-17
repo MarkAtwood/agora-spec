@@ -24,7 +24,6 @@ Call state is ephemeral, gossip-propagated, and not stored in IPLD history. It i
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "ParticipantState",
   "sender": "did:key:z6Mk...",
   "channel": "agora://bafyrei.../voice/lounge",
@@ -58,7 +57,6 @@ All WebRTC signaling (SDP offer/answer, ICE candidates) is delivered as `VoiceSi
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "VoiceSignal",
   "signalType": "offer",
   "targetDID": "did:key:z6MkTarget...",
@@ -248,7 +246,6 @@ A channel Admin or the Space Owner issues a `RecordingGrant` as an MLS applicati
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "RecordingGrant",
   "channelCID": "bafyrei...",
   "grantedTo": "did:key:z6MkRecorder...",
@@ -257,7 +254,7 @@ A channel Admin or the Space Owner issues a `RecordingGrant` as an MLS applicati
   "purpose": "compliance",
   "retentionDays": 2555,
   "expiresAt": "2026-03-13T00:00:00Z",
-  "participantDisclosure": "This call is being recorded for regulatory compliance by Acme Corp Compliance Archive.",
+  "participantDisclosure": "This call is being recorded for regulatory compliance by Example Corp Compliance Archive.",
   "ts": "2026-03-12T12:00:00Z"
 }
 ```
@@ -270,7 +267,6 @@ A `RecordingRevoke` terminates the grant early:
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "RecordingRevoke",
   "grantCID": "bafyrei...",
   "revokedBy": "did:key:z6MkAdmin...",
@@ -317,7 +313,6 @@ The recorder writes each recording to CO-controlled storage (ARCHITECTURE S8) an
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "VTCComplianceRecord",
   "grantCID": "bafyrei...",
   "channelCID": "bafyrei...",
@@ -361,7 +356,7 @@ To enable automatic compliance recording for a space's voice channels, the space
   "schemaVersion": "1",
   "enabled": true,
   "recorderDID": "did:key:z6MkRecorder...",
-  "recorderLabel": "Acme Corp VTC Compliance Recorder",
+  "recorderLabel": "Example Corp VTC Compliance Recorder",
   "scope": "audio-video",
   "retentionDays": 2555,
   "autoGrant": true,
@@ -382,7 +377,6 @@ The space's IPLD compliance audit chain receives a `VTCComplianceAuditEntry` for
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "VTCComplianceAuditEntry",
   "channelCID": "bafyrei...",
   "grantCID": "bafyrei...",

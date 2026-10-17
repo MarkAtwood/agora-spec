@@ -46,7 +46,6 @@ Invites are signed tokens linking a specific DID (or an open link) to a Space an
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "SpaceInvite",
   "space": "agora://bafyrei...",
   "issuedTo": "did:key:z6MkInvitee...",
@@ -66,7 +65,6 @@ Link-based invites (no `issuedTo` field) are supported for public spaces. These 
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "InviteRevocation",
   "space": "agora://bafyrei...",
   "inviteCID": "bafyrei...",
@@ -77,7 +75,7 @@ Link-based invites (no `issuedTo` field) are supported for public spaces. These 
 
 `inviteCID` is the CID of the signed `SpaceInvite`; the revocation does not repeat `issuedTo`. It is distributed like moderation records (§4.5): referenced from the Space state chain and served by the Space endpoint (§3.4). Clients MUST validate an `InviteRevocation` against current Space state and MUST ignore one whose signer is not the invite's issuer, the owner or an admin. The Space endpoint MUST NOT resolve a link token to, serve state against, or count a use of a revoked invite. A client MUST NOT add a member to any of the Space's MLS groups on the strength of a revoked invite. Revocation is permanent; re-inviting requires a new invite.
 
-**Welcome acceptance.** A client MUST accept an MLS Welcome to a Space channel group only if the adding member's credential identifies a DID authorized to add members to that channel under current Space state (§4.1, §4.2). A client MUST reject a Welcome whose adder cannot be authenticated from the group's ratchet tree, and MUST reject a Welcome for a group ID for which it already holds group state; a Welcome never replaces an existing group.
+**Welcome acceptance.** A client MUST accept an MLS Welcome to a Space channel group only if the adding member's credential identifies a DID authorized to add members to that channel under current Space state (§4.1, §4.2). A client MUST reject a Welcome whose adder cannot be authenticated from the group's ratchet tree, and MUST reject a Welcome for a group ID for which it already holds group state; a Welcome never replaces an existing group. A client MUST reject a Welcome whose group ID (RFC 9420 GroupContext `group_id`) differs from the `mlsGroupID` that current Space state declares for that channel, or for the Space's own group (§3.3). If no channel in the client's copy of Space state declares that group ID, the client MUST fetch the current Space state (§3.4) before deciding.
 
 ## 4.4 Private Channels
 
@@ -93,7 +91,6 @@ All moderation records (`BanRecord`, `TimeoutRecord` and the moderation log) are
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "BanRecord",
   "space": "agora://bafyrei...",
   "target": "did:key:z6MkBanned...",
@@ -111,7 +108,6 @@ The ban takes effect through the MLS Removes: the banned member does not hold th
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "TimeoutRecord",
   "space": "agora://bafyrei...",
   "target": "did:key:z6MkMuted...",
@@ -132,10 +128,10 @@ A **Direct Message (DM) channel** is an MLS group established between two or mor
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "DMGroupDescriptor",
   "schemaVersion": "1",
   "dmGroupID": "urn:agora:dmgroup:<uuid>",
+  "mlsGroupID": "base64url...",
   "created": "2026-03-12T00:00:00Z",
   "createdBy": "did:key:z6MkCreator...",
   "members": [
@@ -148,13 +144,13 @@ A **Direct Message (DM) channel** is an MLS group established between two or mor
 
 `members` is the initial member DID list. `complianceLoggers` is the list of `ComplianceLogger` DIDs that have been admitted to the group under §7.8. The `DMGroupDescriptor` is updated (new CID) on every membership or logger change. Because it lists member DIDs, it travels only inside the group: the committer of each change sends the updated descriptor to the group as an MLS application message in the new epoch, and members keep it locally. As an inside-group object it carries no object signature; the committer's MLS sender signature authenticates it (§13.1.1). It MUST NOT be stored on IO infrastructure except as a group-encrypted blob (§3.4).
 
-**MLS group initialization:** The DM group creator generates a fresh MLS group, adds KeyPackages for each invited member, and delivers each Welcome by POST to the `KeyPackageEndpoint` in the invitee's DID document (§7.8.2), the endpoint the KeyPackage was fetched from, so delivery reveals nothing to that endpoint beyond what the KeyPackage fetch already did. A Welcome is not sent on any gossipsub topic. There is no Space admin in the invite path; any DM group member may add new members via standard MLS Add + Commit, subject to the consent mechanism in §4.6.1. A client MUST accept a DM Welcome only from an adder authenticated from the group's ratchet tree as a member of the group, MUST NOT accept an anonymous Welcome, and MUST reject a Welcome for a group ID for which it already holds group state.
+**MLS group initialization:** The DM group creator generates a fresh MLS group, adds KeyPackages for each invited member, and delivers each Welcome by POST to the `KeyPackageEndpoint` in the invitee's DID document (§7.8.2), the endpoint the KeyPackage was fetched from, so delivery reveals nothing to that endpoint beyond what the KeyPackage fetch already did. A Welcome is not sent on any gossipsub topic. There is no Space admin in the invite path; any DM group member may add new members via standard MLS Add + Commit, subject to the consent mechanism in §4.6.1. A client MUST accept a DM Welcome only from an adder authenticated from the group's ratchet tree as a member of the group, MUST NOT accept an anonymous Welcome, and MUST reject a Welcome for a group ID for which it already holds group state. `mlsGroupID` in the `DMGroupDescriptor` is the MLS group ID of the DM group. A client MUST ignore a `DMGroupDescriptor` whose `mlsGroupID` differs from the group ID of the group it was received in, and MUST leave a DM group joined by Welcome if the first descriptor it receives there names a different `mlsGroupID`.
 
 The `KeyPackageEndpoint` is hosted by whoever runs the recipient's identity (§5.2.1.1), so only that host observes Welcome deliveries.
 
 **Relay routing:** Because DM groups have no Space affiliation, Relays route DM traffic by `dmGroupToken` alone, identically to channel traffic. A Relay that does not know the `dmGroupToken` will not route DM traffic; the sending client SHOULD use the Relays known to be serving the recipient's DID (discoverable from the recipient's DID document relay hints).
 
-**Cross-topology reachability.** DM reachability is determined by the recipient's relay hints, not by their DID method or the topology of either party's relay. A user with a `did:web:agency.gov` identity can initiate a DM with a user whose only relay hint is a `.onion` address; the initiating client connects to that `.onion` relay via Tor (if available) or routes through an intermediary relay that has Tor reachability. Neither relay learns the other party's identity; relay blindness (§10.4.1) holds across topology boundaries. The only requirement is that the initiating client, or a relay it controls, can reach at least one of the recipient's advertised relay hints. DID method, DNS anchoring, and relay topology are orthogonal to whether two users can exchange messages.
+**Cross-topology reachability.** DM reachability is determined by the recipient's relay hints, not by their DID method or the topology of either party's relay. A user with a `did:web:agency.example` identity can initiate a DM with a user whose only relay hint is a `.onion` address; the initiating client connects to that `.onion` relay via Tor (if available) or routes through an intermediary relay that has Tor reachability. Neither relay learns the other party's identity; relay blindness (§10.4.1) holds across topology boundaries. The only requirement is that the initiating client, or a relay it controls, can reach at least one of the recipient's advertised relay hints. DID method, DNS anchoring, and relay topology are orthogonal to whether two users can exchange messages.
 
 **History and storage:** DM message history is stored in IPFS/IPLD identically to channel history. The `DMGroupDescriptor` CID is the root; history stored on IO infrastructure references the descriptor by CID without containing it in the clear. Members are responsible for pinning their own DM history; there is no Space-level pinning obligation.
 

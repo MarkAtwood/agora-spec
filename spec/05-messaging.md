@@ -180,7 +180,6 @@ The outer envelope contains only what Relays strictly need for delivery routing.
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "RoutingEnvelope",
   "id": "urn:agora:msg:bafyrei...",
   "channelToken": "base64url...",

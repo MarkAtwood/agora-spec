@@ -46,11 +46,10 @@ Every Relay MUST publish a **Relay Manifest** at a well-known URL:
 GET /.well-known/agora-relay
 ```
 
-The manifest is a signed JSON-LD document that serves as the Relay's authoritative self-declaration. It is the single source of truth for a Relay's identity, capabilities, endpoints, and signing keys. Any Relay that can reach this URL can bootstrap a peering relationship without out-of-band coordination.
+The manifest is a signed JSON document that serves as the Relay's authoritative self-declaration. It is the single source of truth for a Relay's identity, capabilities, endpoints, and signing keys. Any Relay that can reach this URL can bootstrap a peering relationship without out-of-band coordination.
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "RelayManifest",
   "version": "1",
   "relayDID": "did:key:z6MkRelay...",
@@ -84,6 +83,7 @@ The manifest is a signed JSON-LD document that serves as the Relay's authoritati
     "peer-api-v1",
     "jmap-sync-v1"
   ],
+  "minPowDifficulty": 0,
   "observationBudget": {
     "connectionLogRetentionDays": 7,
     "extensions": []
@@ -102,6 +102,8 @@ The manifest is a signed JSON-LD document that serves as the Relay's authoritati
 The manifest is signed per §13.1.1 by the Relay operator's key. Peer Relays MUST verify this signature before accepting the manifest.
 
 `observationBudget` declares what the Relay retains beyond transient routing. `connectionLogRetentionDays` is the retention of network-layer connection metadata (ARCHITECTURE §5 item 1), as set by the Relay's `RelayServiceAgreement`s (§10.5.1). `extensions` lists every opt-in extension to the ARCHITECTURE §5 observation budget the Relay has enabled; it MUST be empty unless a CO has opted in (ARCHITECTURE S6). A Relay MUST NOT observe, log or retain anything not covered by ARCHITECTURE §5 or a declared extension.
+
+`minPowDifficulty` is the minimum proof-of-work difficulty, in leading zero bits, that the Relay requires on each `RoutingEnvelope` (§10.5.2). `0` means the Relay requires no proof-of-work, and a Relay that omits the member requires none.
 
 `knownPeers` is the Relay's current peer list. This serves as a mesh map: a new Relay fetching any existing Relay's manifest obtains a list of further Relays to contact, enabling rapid mesh joining without a central directory server.
 
@@ -208,8 +210,11 @@ A new Relay with no existing peers joins the gossipsub mesh using any of the fol
 ```
 _agora-relay._udp.example.com. SRV 10 0 9001 relay.example.com.
 _agora-relay._tcp.example.com. SRV 20 0 443  relay.example.com.
-_agora.relay.example.com.      TXT "did=did:key:z6MkRelay... manifest=https://relay.example.com/.well-known/agora-relay"
+_agora-relay._udp.example.com. TXT "did=did:key:z6MkRelay... manifest=https://relay.example.com/.well-known/agora-relay"
+_agora-relay._tcp.example.com. TXT "did=did:key:z6MkRelay... manifest=https://relay.example.com/.well-known/agora-relay"
 ```
+
+Each SRV record has a TXT record at the same owner name (RFC 6763 §6) carrying the Relay's DID and manifest URL.
 
 Lower SRV priority value means higher preference; QUIC (UDP) is preferred. Relays SHOULD publish both records. Relays that cannot expose UDP MUST publish only the TCP record.
 
@@ -271,7 +276,6 @@ A **SpaceAd** or **UserAd** message is gossiped periodically (default TTL: 60 se
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "SpaceAd",
   "spaceCID": "bafyrei...",
   "name": "Example Corp Dev",
@@ -308,7 +312,7 @@ To bootstrap into the gossip network, a client needs at least one known peer. Ag
 
 ### 10.3.4 Directory Documents
 
-A **directory document** is a static JSON-LD file served at any reachable URL. It lists Spaces, Relays, or both, and MAY include references to other directory documents by URL. Users configure one or more directory source URLs in their client. Clients fetch and merge all configured sources on startup and refresh on a configurable interval (default: 1 hour).
+A **directory document** is a static JSON file served at any reachable URL. It lists Spaces, Relays, or both, and MAY include references to other directory documents by URL. Users configure one or more directory source URLs in their client. Clients fetch and merge all configured sources on startup and refresh on a configurable interval (default: 1 hour).
 
 Directory documents require no special server infrastructure. A file committed to a public GitHub repository and served via `raw.githubusercontent.com` or GitHub Pages is a valid directory source. So is an IPFS CID, a Cloudflare R2 bucket, a `.onion` URL, or any HTTPS endpoint returning valid JSON.
 
@@ -318,7 +322,6 @@ A `RelayDirectory` lists Relays available for client connection:
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "RelayDirectory",
   "schemaVersion": "1",
   "id": "https://raw.githubusercontent.com/example/agora-relays/main/relays.json",
@@ -361,7 +364,6 @@ A `SpaceDirectory` lists Spaces available for browsing or joining:
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "SpaceDirectory",
   "schemaVersion": "1",
   "id": "https://raw.githubusercontent.com/example/agora-spaces/main/spaces.json",
@@ -396,13 +398,14 @@ A single document MAY contain both `relays` and `spaces` arrays, typed as `Agora
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "AgoraDirectory",
-  "relays": [ ... ],
-  "spaces": [ ... ],
-  "includes": [ ... ]
+  "relays": [],
+  "spaces": [],
+  "includes": []
 }
 ```
+
+`relays`, `spaces` and `includes` entries have the forms defined in §10.3.4.1 and §10.3.4.2.
 
 #### 10.3.4.4 Client Behavior
 
@@ -586,7 +589,6 @@ A `RelayServiceAgreement` is a bilaterally signed document between a CO billing 
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
   "@type": "RelayServiceAgreement",
   "id": "urn:agora:rsa:bafyrei...",
   "relay": "did:key:z6MkRelay...",
@@ -662,10 +664,10 @@ A `RelayAd` carries exactly these members. `did` is the manifest's `relayDID`. `
 
 ### 10.5.2 Proof-of-Work Spam Deterrence
 
-Channels that want spam deterrence MAY require proof-of-work:
+Channels that want spam deterrence MAY require proof-of-work. A channel declares this with an optional `powPolicy` member of its entry in Space state (§3.3):
 
 ```json
-{ "@type": "MessageFeePolicy", "scheme": "pow", "difficulty": 18 }
+"powPolicy": { "@type": "PowPolicy", "scheme": "pow", "difficulty": 18 }
 ```
 
 `difficulty` is the number of leading zero bits required in the hash of the message envelope. A client sending a message computes a nonce such that `SHA256(envelopeBytes || nonce)` has at least `difficulty` leading zero bits, then includes the nonce in the outer `RoutingEnvelope`:
@@ -678,5 +680,5 @@ Channels that want spam deterrence MAY require proof-of-work:
 }
 ```
 
-The Relay verifies the PoW before forwarding against its own minimum difficulty. The Relay cannot map a `channelToken` to a channel's `MessageFeePolicy` (§10.4.2), so member clients enforce the channel's difficulty and drop envelopes that do not meet it. Difficulty 18 requires ~262,000 SHA-256 hash operations, roughly 10–50ms on a modern CPU, imperceptible to a human sender, but economically prohibitive for bulk message flooding.
+A Relay declares its own minimum difficulty in the `minPowDifficulty` member of its manifest (§10.2.1). The Relay verifies the PoW before forwarding against that value and MUST NOT require more than it declares. The Relay cannot map a `channelToken` to a channel's `PowPolicy` (§10.4.2), so member clients enforce the channel's difficulty and drop envelopes that do not meet it. Difficulty 18 requires ~262,000 SHA-256 hash operations, roughly 10–50ms on a modern CPU, imperceptible to a human sender, but economically prohibitive for bulk message flooding.
 

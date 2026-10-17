@@ -2,13 +2,15 @@
   "id": "agora-pozi.18",
   "title": "Keep single-use KeyPackages; document nie multidevice anti-pattern",
   "description": "nie multidevice (4de8a35, e9a99a7, f576413): KPs not consumed, vanish on disconnect, device id unstable. Spec rule is right; add rationale. Source: notes/nie-backport-inventory.md",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T02:52:14.458901631Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T02:52:14.458901631Z",
+  "updated_at": "2026-10-17T05:33:21.407379865Z",
+  "closed_at": "2026-10-17T05:33:21.407379865Z",
+  "close_reason": "Verified (single-use rationale present) / WebAuthn asks note drafted",
   "dependencies": [
     {
       "issue_id": "agora-pozi.18",

@@ -12,7 +12,7 @@
 
 ## 1.1 Version Policy
 
-All versioned protocol surfaces in this specification are at **v1** for the initial release. The version appears as a path prefix on HTTP endpoints (`/v1/agora/...`), as a topic prefix on gossip topics (`v1/agora/...`), in JSON-LD context URLs (`/ns/v1`), and in document `schemaVersion` fields.
+All versioned protocol surfaces in this specification are at **v1** for the initial release. The version appears as a path prefix on HTTP endpoints (`/v1/agora/...`), as a topic prefix on gossip topics (`v1/agora/...`), and in document `schemaVersion` fields.
 
 A breaking change to any one surface increments only that surface's version; all other surfaces remain at their current version and are unaffected. Clients and relays MUST reject messages or connections whose version they do not support and MUST NOT silently coerce an unknown version to a known one.
 
@@ -20,7 +20,7 @@ Version negotiation is defined per surface:
 
 - **Transport endpoints:** the URL path version is fixed at connection time; a client connects to `/v1/agora/wt` or `/v1/agora/ws` and the relay either accepts or returns HTTP 404/410.
 - **Gossip topics:** the version is encoded in the topic string; v1 and v2 topics can coexist on the mesh simultaneously; a relay that supports both subscribes to both topic families.
-- **JSON-LD documents:** the `schemaVersion` field carries the document schema version; processors that do not support the declared version MUST reject the document.
+- **Documents:** the `schemaVersion` field carries the document schema version; processors that do not support the declared version MUST reject the document.
 - **Client-relay handshake:** version negotiation occurs as part of the `ClientHello`/`RelayHello` exchange (§11.6).
 - **Relay-to-relay Peer API:** the version is encoded in the URL path; a relay's manifest `capabilities` array declares which versions it supports.
 
@@ -38,7 +38,7 @@ Agora is a decentralized, end-to-end encrypted, real-time group chat protocol. I
 |---|---|
 | **RFC 9420 (MLS)** | Group key agreement and end-to-end encryption |
 | **RFC 9750 (MLS Architecture)** | Informational architecture reference for MLS deployment concepts |
-| **JSON-LD** | Typed, namespace-aware message framing |
+| **JSON (RFC 8259)** | Payload bodies in the typed envelope (§13.1); JSON-LD is an optional content type |
 | **libp2p gossipsub v1.1** | Peer discovery, room advertisement, live message fanout |
 | **IPLD** | Content-addressed data model (CIDv1 dag-cbor); relay-hosted CAS for blob storage |
 | **WebTransport (RFC 9000)** | Primary transport for browsers and native clients |
