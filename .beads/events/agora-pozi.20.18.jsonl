@@ -1,2 +1,3 @@
 {"id":"01a147e2-4bbf-7948-b91c-2245d2844e73","issue_id":"agora-pozi.20.18","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T03:22:55.295609033Z"}
 {"id":"01a147e2-4bc1-7f2d-a980-43c345b9b08a","issue_id":"agora-pozi.20.18","event_type":"label_added","actor":"agent","comment":"Added label: ops","created_at":"2026-10-17T03:22:55.297995323Z"}
+{"id":"01a14851-44c2-70c6-8a62-af303579fc1e","issue_id":"agora-pozi.20.18","event_type":"closed","actor":"agent","old_value":"","new_value":"Resolved in guides/profiles revision (agora-pozi.25) 2026-10-16","created_at":"2026-10-17T05:24:08.002051312Z"}

@@ -8,7 +8,9 @@
 
 ## 1. Purpose
 
-`agora-enroll` is the user-facing counterpart to `discord2agora`. It authenticates a user via Discord OAuth2, generates or recovers their Agora DID and device keypair, and registers that DID against their provisional member record in a target Space. The result is a fully-enrolled Agora identity ready for immediate use.
+`agora-enroll` is the user-facing counterpart to `discord2agora`. It authenticates a user via Discord OAuth2, creates or loads their Agora DID and device keypair, and registers that DID against their provisional member record in a target Space. The result is a fully-enrolled Agora identity ready for immediate use.
+
+**Scope: individuals.** This profile is for people who join a Space as themselves. Each user chooses their own DID method and host (§3.1, spec §2.1). Identities provisioned by an employer follow spec §2.5 and the employer profiles (`profiles/o365-employer-did.md`, `profiles/gsuite-employer-did.md`, `profiles/universal-idp-did.md`), in which the employer runs the DID log and KeyPackage host; `agora-enroll` is not used there.
 
 Two delivery targets are supported:
 
@@ -33,24 +35,27 @@ Both targets share the same backend protocol; the browser and CLI are different 
 │           │                             │                   │
 └───────────┼─────────────────────────────┼───────────────────┘
             │  HTTPS                      │  HTTPS
-            ▼                             ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Enrollment Service  (operator-hosted)                      │
-│                                                             │
-│  - Discord OAuth2 callback handler                          │
-│  - Provisional member registry (from discord2agora output)  │
-│  - DID registration endpoint                                │
-│  - Relay notification (MLS Add trigger)                     │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-              ┌──────────┴──────────┐
-              ▼                     ▼
-        Discord API            Agora Relay
-        (OAuth2)               (Space state,
-                                MLS group)
+            └──────────────┬──────────────┘
+                 ┌─────────┴─────────────────────────┐
+                 ▼                                   ▼
+┌──────────────────────────────────┐  ┌──────────────────────────────┐
+│  Enrollment Service (CO)         │  │  User's identity host        │
+│                                  │  │  (chosen by the user)        │
+│  - Discord OAuth2 callback       │  │                              │
+│  - Provisional member registry   │  │  - did:webvh log (if used)   │
+│  - DID registration endpoint     │  │  - KeyPackageEndpoint:       │
+│  - Enrollment agent: MLS Add,    ├─▶│    KeyPackages, Welcomes     │
+│    Welcome delivery              │  └──────────────────────────────┘
+└───────────────┬──────────────────┘
+                │
+     ┌──────────┴──────────┬────────────────────┐
+     ▼                     ▼                    ▼
+ Discord API          Agora Relay          CO Space endpoint
+ (OAuth2)             (carries MLS         (Space state,
+                       ciphertext only)     spec §3.4)
 ```
 
-The Enrollment Service is stateless beyond the provisional member list. It MUST NOT hold private keys or session state between requests (beyond a short-lived OAuth2 state token), and it MUST NOT have write access to the Relay beyond submitting signed MLS Add commits on behalf of the enrolling user.
+The Enrollment Service is a CO component. It is stateless beyond the provisional member list. It MUST NOT hold users' private keys or session state between requests (beyond a short-lived OAuth2 state token). Its only write path into channels is the enrollment agent's MLS Add commits (§8.2), which a relay carries as ciphertext like any member's commit. The relay learns neither the new member nor the Space.
 
 ---
 
@@ -60,11 +65,30 @@ Both browser and CLI follow the same logical sequence:
 
 1. **Discord OAuth2**: user authenticates with Discord; the tool obtains their Discord user ID.
 2. **Lookup**: the tool queries the Enrollment Service to confirm the Discord user ID is in the provisional member list.
-3. **Key operation**: the tool generates a new DID and device keypair (create path) or loads an existing one (update path), and accepts the public half of a recovery key the user generated offline (§5.2).
-4. **Registration**: the tool POSTs the DID and a signed proof-of-possession to the Enrollment Service.
-5. **MLS Add**: the Enrollment Service submits an MLS Add commit to the Relay for the new member.
-6. **Keyfile export**: the tool produces the encrypted device-key and state backup file for the user to save. It never contains the recovery private key.
-7. **Confirmation**: the tool displays the space URI and the user's DID.
+3. **Method and host**: the user chooses a DID method and an identity host (§3.1).
+4. **Key operation**: the tool generates a device keypair (create path) or loads an existing one (update path), and, for `did:webvh` and `did:plc`, accepts the public half of a recovery key the user generated offline (§5.2).
+5. **Identity publication**: the tool creates the DID with a `KeyPackageEndpoint` at the chosen host: a `did:webvh` genesis log entry published at the host, a `did:plc` genesis operation, or, for `did:key`, a Pkarr pointer record (§3.1).
+6. **KeyPackage upload**: the tool uploads an initial batch of MLS KeyPackages and one last-resort KeyPackage to the user's `KeyPackageEndpoint` (spec §5.2.1.1). KeyPackages never go to a relay or to the Enrollment Service.
+7. **Registration**: the tool POSTs the DID and a signed proof-of-possession to the Enrollment Service (§8).
+8. **MLS Add**: the enrollment agent fetches a KeyPackage from the user's `KeyPackageEndpoint`, commits the Add, and POSTs the Welcome to that endpoint (§8.2).
+9. **Keyfile export**: the tool produces the encrypted device-key and state backup file for the user to save. It never contains the recovery private key.
+10. **Confirmation**: the tool displays the space URI and the user's DID.
+
+### 3.1 DID Method Choice
+
+The user picks one of the three user DID methods of spec §2.1. The tool MUST offer `did:webvh` as the default.
+
+| Method | Identity host | Recovery | Available in |
+|---|---|---|---|
+| `did:webvh` (default) | A did:webvh host the user picks, or their own domain. It serves the DID log and the `KeyPackageEndpoint`. | Recovery key (§5.2) and social recovery (spec §2.4.1, §2.4.2), plus backup | Browser and CLI |
+| `did:plc` (opt-in) | The PLC directory holds the document; the user picks a host for the `KeyPackageEndpoint`. | did:plc rotation keys (spec §2.4) | Browser and CLI |
+| `did:key` (opt-in) | None for the document; the user picks a host for the `KeyPackageEndpoint`, named in a Pkarr pointer record. | Encrypted backup only (spec §2.4.3) | CLI only |
+
+**`did:webvh`.** The tool asks for the host's URL and MAY suggest hosts from operator configuration; any host the user names is accepted, including one the Space operator does not run. The tool builds the genesis log entry with the device key and the recovery public key (§5.2) as authorized update keys (spec §2.4), signs it with the device key, and uploads it through the host's publishing interface, which Agora does not specify. The DID embeds the SCID derived from that entry. The host cannot add a key without breaking the log, and the user can later move to another host while keeping the SCID (spec §2.1, §2.5.2).
+
+**`did:plc`.** Intended for users who already have a Bluesky identity. The tool adds the device verification method and a `KeyPackageEndpoint` service entry by an ordinary PLC operation, signed by a rotation key the user controls (for an existing identity, this may require the user's PDS to sign). A new `did:plc` identity uses the device key and the recovery public key as rotation keys.
+
+**`did:key`.** Before creating a `did:key` identity, the tool MUST show the warning required by spec §2.1: losing the key loses the identity permanently, a lost or stolen device cannot be revoked, and there is no recovery beyond the user's own encrypted backup. The user confirms explicitly. The tool then publishes the user's Pkarr pointer record (spec §2.1, §10.3.4.6) with `_kp._agora.` set to the `KeyPackageEndpoint` URL at the host the user picked; the record MUST NOT name a relay. The client re-publishes the record every 2 hours (spec §10.3.4.6). `did:key` is CLI-only because the Pkarr record must be signed by the raw Ed25519 identity key and the identity key must be exportable to reach the user's other devices (spec §2.1); a WebAuthn credential satisfies neither. The CLI offers `did:key` only with the encrypted file or OS keychain backend, or with PKCS#11 if the user accepts a single-device identity.
 
 ---
 
@@ -136,15 +160,15 @@ const credential = await navigator.credentials.create({
 
 Ed25519 (`alg: -8`) is preferred because Agora uses Ed25519 natively. P-256 (`alg: -7`) is the fallback for authenticators that do not support Ed25519 (most platform authenticators on Windows and older Android). When P-256 is used, the DID document uses a `P-256` verification method type instead of `Ed25519VerificationKey2020`; all other protocol behavior is identical.
 
-DID derivation from the WebAuthn credential:
+The WebAuthn public key becomes the device's `authentication` verification method in the DID document (§5.3):
 
 ```javascript
 const publicKeyBytes = credential.response.getPublicKey(); // COSE-encoded
 const rawPublicKey = coseToRaw(publicKeyBytes);            // strip COSE wrapper
-const did = `did:key:${multibaseEncode('ed25519-pub', rawPublicKey)}`;
+const publicKeyMultibase = multibaseEncode('ed25519-pub', rawPublicKey);
 ```
 
-The private key never exists in JavaScript. `getPublicKey()` returns only the public key; the DID is derived entirely from public material.
+The private key never exists in JavaScript. The DID itself is not derived from this key: a `did:webvh` DID embeds the SCID of its genesis log entry, and a `did:plc` DID comes from its genesis operation (§3.1). The browser path does not offer `did:key` (§3.1).
 
 ### 5.2 Recovery Key (Offline)
 
@@ -152,37 +176,44 @@ The recovery key (Agora spec §2.4.1) MUST NOT be generated by the browser app o
 
 The user generates the recovery key out of band with `agora-enroll recovery-keygen` (§6.6) on an offline device, or on a hardware security key, and gives the enrollment tool the resulting `publicKeyMultibase` (pasted, or scanned as a QR code). The tool MUST validate that the value decodes to a 32-byte Ed25519 public key and MUST show its fingerprint for the user to compare against the offline device.
 
-A user MAY skip this step. The DID document then omits `recoverableIdentity`, and the app MUST warn that no recovery key is registered and point to the other recovery mechanisms (Agora spec §2.4.2, §2.4.3).
+Where the key is registered depends on the method (spec §2.4). For `did:webvh` it is listed as a `recoverableIdentity` verification method and as an authorized update key of the DID log. For `did:plc` it is registered as a rotation key. For `did:key` the tool MUST NOT ask for a recovery key, because no recovery mechanism other than encrypted backup applies (spec §2.4).
+
+A `did:webvh` or `did:plc` user MAY skip this step. The DID document then omits `recoverableIdentity` (or the extra rotation key), and the app MUST warn that no recovery key is registered and point to the other recovery mechanisms (Agora spec §2.4.2, §2.4.3).
 
 ### 5.3 DID Document Assembly
 
-The DID document combines the WebAuthn-bound primary key and the user-supplied recovery public key:
+For `did:webvh`, the DID document in the genesis log entry combines the WebAuthn-bound device key, the user-supplied recovery public key and the `KeyPackageEndpoint` at the chosen host:
 
 ```json
 {
   "@context": "https://www.w3.org/ns/did/v1",
-  "id": "did:key:z6Mk...",
+  "id": "did:webvh:QmSCID...:host.example:alice",
   "verificationMethod": [
     {
-      "id": "did:key:z6Mk...#keys-1",
+      "id": "did:webvh:QmSCID...:host.example:alice#keys-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:key:z6Mk...",
+      "controller": "did:webvh:QmSCID...:host.example:alice",
       "publicKeyMultibase": "z6Mk..."
     },
     {
-      "id": "did:key:z6Mk...#recovery-1",
+      "id": "did:webvh:QmSCID...:host.example:alice#recovery-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:key:z6Mk...",
+      "controller": "did:webvh:QmSCID...:host.example:alice",
       "publicKeyMultibase": "zRECOVERY..."
     }
   ],
-  "authentication": ["did:key:z6Mk...#keys-1"],
+  "authentication": ["did:webvh:QmSCID...:host.example:alice#keys-1"],
   "keyAgreement": [...],
-  "recoverableIdentity": ["did:key:z6Mk...#recovery-1"]
+  "recoverableIdentity": ["did:webvh:QmSCID...:host.example:alice#recovery-1"],
+  "service": [{
+    "id": "did:webvh:QmSCID...:host.example:alice#keypackages",
+    "type": "AgoraKeyPackageEndpoint",
+    "serviceEndpoint": "https://host.example/alice/keypackages"
+  }]
 }
 ```
 
-The `authentication` key is the WebAuthn-bound key. The `recoverableIdentity` key is the offline-generated recovery public key (§5.2). The `keyAgreement` key is a fresh X25519 keypair generated by the browser (WebCrypto, extractable, included in the keyfile).
+The `authentication` key is the WebAuthn-bound key. The `recoverableIdentity` key is the offline-generated recovery public key (§5.2); the log's parameters list it, with the device key, as an update key. The `keyAgreement` key is a fresh X25519 keypair generated by the browser (WebCrypto, extractable, included in the keyfile). A `did:plc` document carries the same verification methods and service entry; the recovery key appears as a rotation key instead of in `recoverableIdentity`.
 
 ### 5.4 Enrollment Challenge
 
@@ -256,10 +287,10 @@ For the OS keychain and encrypted file backends, the CLI generates keys from the
 ```go
 privKey := ed25519.GenerateKey(rand.Reader)   // stdlib crypto/ed25519
 x25519Priv := generateX25519(rand.Reader)      // golang.org/x/crypto/curve25519
-did := deriveDIDKey(privKey.Public())
+did := createDID(method, host, privKey, recoveryPub) // did:webvh genesis, did:plc genesis, or did:key from privKey.Public() (§3.1)
 ```
 
-The CLI MUST NOT generate the recovery key during enrollment; it accepts the recovery public key as in §5.2.
+The CLI MUST NOT generate the recovery key during enrollment; for `did:webvh` and `did:plc` it accepts the recovery public key as in §5.2.
 
 ### 6.6 Offline Recovery Key Generation
 
@@ -269,13 +300,15 @@ The CLI MUST NOT generate the recovery key during enrollment; it accepts the rec
 
 ## 7. Keyfile Format
 
-Both browser and CLI produce a single downloadable keyfile, the user's backup artifact. It holds the recovery public key only (absent if the user skipped §5.2); the recovery private key never enters it. It uses a JSON envelope (chosen over binary for human-inspectability and cross-tool compatibility):
+Both browser and CLI produce a single downloadable keyfile, the user's backup artifact. It holds the recovery public key only (absent for `did:key` or if the user skipped §5.2); the recovery private key never enters it. For `did:key` the keyfile is the identity's only recovery path (spec §2.4.3) and is also how the user copies the identity key to another device (spec §2.1). It uses a JSON envelope (chosen over binary for human-inspectability and cross-tool compatibility):
 
 ```json
 {
   "version": "1",
   "type": "agora-keyfile",
-  "did": "did:key:z6Mk...",
+  "did": "did:webvh:QmSCID...:host.example:alice",
+  "didMethod": "webvh",
+  "keyPackageEndpoint": "https://host.example/alice/keypackages",
   "createdAt": "2026-03-13T00:00:00Z",
   "source": "discord-enrollment",
   "discordUserId": "123456789012345678",
@@ -332,12 +365,11 @@ POST /v1/enroll/register
 Content-Type: application/json
 
 {
-  "did": "did:key:z6Mk...",
+  "did": "did:webvh:QmSCID...:host.example:alice",
   "discordUserId": "123456789012345678",
   "challenge": "<challenge from §5.4>",
-  "proofOfPossession": "<base64url Ed25519 signature over canonical proof payload>",
+  "proofOfPossession": "<signature over the proof payload, see below>",
   "webauthnAssertion": { ... },   // present only in browser/WebAuthn path
-  "keyPackage": "<base64url MLS KeyPackage>",
   "spaceURI": "agora://bafyrei.../"
 }
 ```
@@ -346,7 +378,7 @@ Content-Type: application/json
 
 ```json
 {
-  "did": "did:key:z6Mk...",
+  "did": "did:webvh:QmSCID...:host.example:alice",
   "discordUserId": "123456789012345678",
   "challenge": "<challenge>",
   "spaceURI": "agora://bafyrei.../",
@@ -354,9 +386,9 @@ Content-Type: application/json
 }
 ```
 
-In the WebAuthn path, `proofOfPossession` is the WebAuthn assertion signature (the authenticator signs the challenge), and `webauthnAssertion` carries the full assertion object for verification. In the CLI software key path, `proofOfPossession` is a direct Ed25519 signature by the primary key.
+In the WebAuthn path, `proofOfPossession` is the WebAuthn assertion signature (the authenticator signs the challenge), and `webauthnAssertion` carries the full assertion object for verification. In the CLI path, `proofOfPossession` is a JWS over the proof payload signed by the device key (spec §13.1.1).
 
-The `keyPackage` is an MLS KeyPackage generated by the client's MLS library using the X25519 key agreement key. The Enrollment Service uses this to construct the MLS Add commit.
+The request carries no KeyPackage. The client has already uploaded its KeyPackages to its own `KeyPackageEndpoint` (§3 step 6), and the enrollment agent fetches one from there (§8.2).
 
 ### 8.1 Enrollment Service Validation
 
@@ -366,27 +398,32 @@ On receipt of a registration request, the Enrollment Service MUST:
 2. Verify `discordUserId` matches the active Discord OAuth2 session for this request.
 3. Look up `discordUserId` in the provisional member list; return 404 if not found.
 4. Check the provisional record's `status` field; if `"enrolled"`, return 409 with the existing DID (idempotent re-enrollment is allowed, but the DID MUST NOT change).
-5. Verify `proofOfPossession` against the DID's primary verification method.
+5. Resolve the DID (for `did:webvh`, verifying the full log; spec §2.1) and verify `proofOfPossession` against its `authentication` verification method.
 6. In the WebAuthn path, additionally verify the WebAuthn assertion against the RP origin and the challenge.
-7. Validate the MLS KeyPackage is well-formed and uses a supported ciphersuite.
+7. Locate the user's `KeyPackageEndpoint`: the DID document service entry, or the `_kp._agora.` field of the verified Pkarr record for `did:key` (spec §2.1).
 8. Mark the challenge consumed.
-9. Update the provisional member record: `did = <did>`, `status = "enrolled"`, `keyPackage = <keyPackage>`.
-10. Construct and submit an MLS Add commit to the Relay (see §8.2).
-11. Return success with the space URI and the user's MLS Welcome message.
+9. Update the provisional member record: `did = <did>`, `status = "enrolled"`.
+10. Add the member to the Space's MLS groups (§8.2).
+11. Return success with the space URI. The Welcome is delivered to the user's `KeyPackageEndpoint`, not in this response.
 
 ### 8.2 MLS Add Commit
 
-The Enrollment Service holds the space enrollment agent's MLS credentials, specifically the ability to issue Add commits. This is either the space owner's signing key (if delegated) or a dedicated enrollment agent key added to the space's MLS group at setup time. The service constructs:
+The Enrollment Service holds the space enrollment agent's MLS credentials, specifically the ability to issue Add commits. This is either the space owner's signing key (if delegated) or a dedicated enrollment agent key added to the space's MLS group at setup time. The service:
 
-```
-MLSMessage {
-  Add { KeyPackage: <from registration request> }
-}
-```
+1. Fetches one KeyPackage from the user's `KeyPackageEndpoint`; the fetch consumes it (spec §5.2.1.1). It validates the KeyPackage as in spec §5.2.1.1 (signature and leaf credential match the DID, not expired, ciphersuite matches the group).
+2. Constructs the commit:
 
-This is committed to the Relay via the standard Agora channel state update endpoint. The Relay processes the commit, advances the MLS epoch, and the new member can receive and decrypt space messages from this epoch forward.
+   ```
+   MLSMessage {
+     Add { KeyPackage: <fetched from the user's KeyPackageEndpoint> }
+   }
+   ```
 
-The Welcome message generated by the Add commit is returned to the enrolling client in the registration response. The client uses it to initialize its local MLS state.
+3. Publishes the commit to the channel like any member's handshake message, with the epoch access proof the relay checks (spec §5.2.2). The relay carries ciphertext; it neither processes the commit nor learns who was added.
+4. POSTs the Welcome, with the `ratchet_tree` extension, to the same `KeyPackageEndpoint` (spec §4.6, §5.2.1).
+5. Updates the Space membership in Space state through the CO's Space endpoint (spec §3.4).
+
+The client retrieves the Welcome from its identity host and initializes its local MLS state. It can decrypt space messages from the Add epoch forward.
 
 ---
 
@@ -394,8 +431,8 @@ The Welcome message generated by the Add commit is returned to the enrolling cli
 
 A user who already has a DID (from a prior enrollment or manual setup) can update their record. The flow is identical to the create path except:
 
-- At step 4 of §8.1: if the provisional record already has a DID, the service MUST verify that the new registration's DID matches the existing one. A DID change is not permitted through this flow; it requires a `RecoveryAssertion` (Agora spec §2.4.1).
-- Adding a new device (second hardware key, new phone) uses the standard Agora multi-device enrollment flow from the existing device, not this tool.
+- At step 4 of §8.1: if the provisional record already has a DID, the service MUST verify that the new registration's DID matches the existing one. A DID change is not permitted through this flow. Loss of device keys is handled by recovery, which keeps the DID (Agora spec §2.4); a `did:key` identity has no recovery beyond its backup.
+- Adding a new device (second hardware key, new phone) uses the standard Agora multi-device enrollment flow from the existing device, not this tool. For `did:key`, the user copies the identity key to the new device from the keyfile (spec §2.1).
 
 The update path's primary use case is a user who enrolled but lost their keyfile and needs to re-download it. The tool re-generates the keyfile from the existing registered keypair if it is still accessible via the user's authenticator or CLI keystore.
 
@@ -412,6 +449,8 @@ The update path's primary use case is a user who enrolled but lost their keyfile
 | WebAuthn cancelled by user | "Enrollment paused. Come back when you have your security key ready." | N/A |
 | Challenge expired | Re-fetch challenge automatically and retry once; display error on second failure | Same |
 | Relay unreachable | "Your identity was created but couldn't be registered with the space yet. Your keyfile is safe. Try again later." | Same |
+| Identity host unreachable | "Your identity host (host.example) isn't responding, so the space can't fetch your keys. Try again later or choose another host." | Same |
+| `did:key` chosen in browser | Not offered; the method list explains that `did:key` requires the CLI | N/A |
 | Keyfile passphrase mismatch (CLI) | N/A | Re-prompt up to 3 times, then abort |
 
 ---
@@ -486,6 +525,8 @@ challenge_ttl_seconds = 300
 
 **Enrollment Service privilege.** The Enrollment Service holds the enrollment agent key, which grants the ability to add members to the space MLS group. Compromise of the Enrollment Service allows an attacker to add arbitrary DIDs to the space. The service MUST be hardened accordingly: minimal attack surface, no public write endpoints beyond the registration flow, rate-limited per Discord user ID. The enrollment agent key SHOULD be rotated after the initial enrollment wave completes, or the agent SHOULD be removed from the MLS group entirely if no further enrollments are expected.
 
+**Identity host.** The host the user picks observes KeyPackage fetches and Welcome deliveries for that user (spec §4.6). A `did:webvh` host cannot add a key without producing an invalid log (spec §2.1), so a dishonest host can deny service but cannot impersonate the user. The user can move to a different host.
+
 **Discord OAuth2 scope.** Discord identity is used to match users to provisional records only. It does not serve as a trust anchor beyond confirming control of a Discord account. The cryptographic proof-of-possession is the binding between DID and enrollment.
 
 **Keyfile passphrase strength.** Users who choose weak passphrases expose their device and key-agreement keys. The browser and CLI MUST enforce a minimum entropy check (zxcvbn or equivalent) and MUST reject passphrases scoring below strength 3. Implementations MUST NOT enforce arbitrary character class rules, which reduce entropy by constraining the search space.
@@ -505,3 +546,5 @@ challenge_ttl_seconds = 300
 4. **WebAuthn credential ID storage.** The keyfile stores the WebAuthn credential ID (`primaryKeyCredentialId`). A user who loses the keyfile retains their authenticator but may not know which credential to use if multiple are present. A credential hint stored via the authenticator's `residentKey` (if `residentKey: "preferred"` was honored) mitigates this.
 
 5. **Platform authenticator sync behavior.** Platform authenticators on Windows (Hello) and macOS/iOS (iCloud Keychain) may sync credentials across devices via the platform. This is both a feature (multi-device from day one) and a concern (credentials leave the device). The app SHOULD inform users of this behavior and SHOULD recommend a FIDO2 roaming authenticator (YubiKey, etc.) for higher-assurance deployments.
+
+6. **WebAuthn signatures as protocol signatures.** A WebAuthn authenticator signs `authenticatorData || SHA-256(clientDataJSON)`, not an arbitrary payload. It therefore cannot directly produce the `did:webvh` log proofs, PLC operations or JWS signatures (spec §13.1.1) that a device `authentication` key makes. The browser path as written depends on resolving this, either by a WebAuthn-compatible signature profile or by generating a separate software Ed25519 device key in the browser.

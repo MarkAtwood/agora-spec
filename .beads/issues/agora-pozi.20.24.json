@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.24",
   "title": "ENROLL did:key vs O365/GSUITE did:web",
   "description": "ENROLL produces did:key identities; O365 and GSUITE assume device keys registered into an org did:web document. Unreconciled. Fix: follows from DID method decision agora-pozi.6. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:22:55.578560467Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:22:55.578560467Z",
+  "updated_at": "2026-10-17T05:24:08.198290252Z",
+  "closed_at": "2026-10-17T05:24:08.198290252Z",
+  "close_reason": "Resolved in guides/profiles revision (agora-pozi.25) 2026-10-16",
   "labels": [
     "identity"
   ],

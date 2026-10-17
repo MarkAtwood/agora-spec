@@ -1,0 +1,7 @@
+{
+  "id": "1792214593431057403-1",
+  "issue_id": "agora-pozi.20.60",
+  "author": "agent",
+  "text": "Addition (Mark 2026-10-16): browser clients SHOULD store the WebCrypto device key encrypted under a secret derived from a passkey via the WebAuthn PRF extension, unlocked once per session; a copied browser profile is then useless without the passkey. Verify PRF support in major passkey providers before citing.",
+  "created_at": "2026-10-17T05:23:13.431057403Z"
+}

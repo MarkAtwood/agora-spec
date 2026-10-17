@@ -17,9 +17,11 @@ This specification extends the DID Sidecar's `IdentityProvider` interface to cov
 | **Cat 3**: SAML-only / legacy IdPs | AD FS, Shibboleth, legacy Ping Federate | HR system, AD-LDAP, or manual IT |
 | **Cat 4**: On-premises Active Directory | Any Windows AD forest without Entra sync | LDAP DirSync control or USNChanged polling |
 
-All four categories produce the same output: a populated DID document for `did:web:did.example.com:users:{localIdentifier}` (served at `https://did.example.com/users/{localIdentifier}/did.json`), triggered by the same sidecar event handler introduced in the Google Workspace spec. The categories differ only in which `IdentityProvider` implementation feeds that handler and which JML source drives user lifecycle events.
+All four categories produce the same output: a `did:webvh` identity `did:webvh:{SCID}:did.example.com:users:{localIdentifier}` whose DID log is served at `https://did.example.com/users/{localIdentifier}/did.jsonl` (spec §2.1, §2.5.2), triggered by the same sidecar event handler introduced in the Google Workspace spec. The categories differ only in which `IdentityProvider` implementation feeds that handler and which JML source drives user lifecycle events.
 
-**DID path rule (all categories).** The `localIdentifier` follows spec §2.5.2 and O365 spec §2: stable, never reassigned, and never derived from a name, email, UPN or `userName`. The recommended default is a random lowercase base32 value minted by the sidecar at provisioning (e.g. `k7f3qd2m`). The source's immutable user ID (Okta `id`, SCIM `externalId` or `id`, AD `objectGUID`, HR employee ID) is an allowed alternative. Either way, the sidecar keys its private user record on that source ID (`stableID`) and maps it to the `localIdentifier`; the mapping is never published. A sidecar-minted value is preferred because it survives a change of IdP or JML source. Renames and email or UPN changes update only the private record and credential claims, never the DID; only a move of the DID host changes the DID (O365 spec §6.4).
+**The sidecar is the organization's DID Provisioning Service** (spec §2.5.2), a CO component. It holds an update key for every DID log it creates. Each organizational change to a document (stub creation, device key addition or removal, suspension, deactivation) is a log entry signed with that update key and is visible to every resolver in the DID history (spec §2.5.1). It also hosts each user's KeyPackages: at stub creation it adds a `KeyPackageEndpoint` service entry pointing at itself (spec §2.5.3), stores the KeyPackages the user's devices upload (spec §2.5.4 step 7, §5.2.1.1), and accepts Welcomes by POST at the same endpoint (spec §4.6). Relays play no part in provisioning: they never see IdP tokens, DID logs or KeyPackages.
+
+**DID path rule (all categories).** The `localIdentifier` follows spec §2.5.2 and O365 spec §2: stable, never reassigned, and never derived from a name, email, UPN or `userName`. The recommended default is a random lowercase base32 value minted by the sidecar at provisioning (e.g. `k7f3qd2m`). The source's immutable user ID (Okta `id`, SCIM `externalId` or `id`, AD `objectGUID`, HR employee ID) is an allowed alternative. Either way, the sidecar keys its private user record on that source ID (`stableID`) and maps it to the `localIdentifier`; the mapping is never published. A sidecar-minted value is preferred because it survives a change of IdP or JML source. Renames and email or UPN changes update only the private record and credential claims, never the DID. A move of the DID host keeps the SCID: the sidecar creates DIDs with did:webvh portability enabled, so the log continues at the new domain and records the previous DID in `alsoKnownAs` (spec §2.5.2).
 
 The VC issuance model is identical to the Google Workspace spec: self-issued `EmployeeCredential` signed by the org root key, served via StatusList2021 for revocation. No external VC platform is required for any category.
 
@@ -29,14 +31,26 @@ The VC issuance model is identical to the Google Workspace spec: self-issued `Em
 
 The sidecar event handler and DID document lifecycle (STUB → ACTIVE → SUSPENDED → TOMBSTONED) are unchanged from the Google Workspace spec. The `IdentityProvider` implementation and `JMLSource` configuration are the only per-deployment variables.
 
+Every source's events reduce to five normalized actions. Each source section below maps its native events to these; §7 collects all mappings in one table.
+
+| Normalized action | DID log entry (signed with the sidecar's update key) | `EmployeeCredential` | Resulting state |
+|---|---|---|---|
+| `PROVISION` | Create the stub log: no keys, one `KeyPackageEndpoint` service entry (spec §2.5.3). No-op if the user already exists. | None until first device enrollment | `STUB` |
+| `UPDATE` | None. Claims live in the credential, not the DID document. | Re-issue with new claims | Unchanged |
+| `SUSPEND` | Remove all device keys (spec §2.5.5 `revokeAll`). The sidecar keeps the removed public keys in its private store. | Revoke | `SUSPENDED` |
+| `REACTIVATE` | Restore the device keys removed at suspension. | Re-issue | `ACTIVE` (or `STUB` if no keys were held) |
+| `TERMINATE` | Remove all device keys and deactivate the DID (spec §2.5.6). | Revoke | `TOMBSTONED` |
+
+For `SUSPEND` and `TERMINATE` the sidecar also stops serving the user's KeyPackages and notifies the CO's Enrollment Service, which issues MLS Remove commits for the user's leaves (spec §2.5.5). `TERMINATE` additionally deletes stored KeyPackages. It is final: the log stays resolvable and is never deleted, so archived compliance records keep resolving (spec §2.5.6), and the `localIdentifier` is never reassigned. A returning employee gets a new DID.
+
 ```toml
 # enrollment.toml
 
 [sidecar]
 did_base_url     = "https://did.example.com"
-org_root_did     = "did:web:did.example.com"
+org_root_did     = "did:web:did.example.com"   # EmployeeCredential issuer
 signing_key_type = "file"            # or "awskms", "gcpkms", "azurekv", "pkcs11"
-signing_key_path = "/secrets/org-root-ed25519.pem"
+signing_key_path = "/secrets/org-root-ed25519.pem"   # also signs DID log entries (§9)
 
 [identity_provider]
 type = "okta"                        # okta | jumpcloud | ping | onelogin | scim | saml | ldap
@@ -109,16 +123,16 @@ Okta requires a one-time GET verification before the hook becomes active. The si
 
 **Event → action mapping:**
 
-| Okta Event | Sidecar Action |
+| Okta Event | Normalized Action (§2) |
 |---|---|
-| `user.lifecycle.create` | Provision stub DID |
-| `user.lifecycle.activate` | Provision stub DID (if not already provisioned) |
-| `user.lifecycle.deactivate` | Suspend DID + revoke VC |
-| `user.lifecycle.suspend` | Suspend DID + revoke VC |
-| `user.lifecycle.unsuspend` | Reactivate DID + re-issue VC |
-| `user.lifecycle.delete` | Tombstone DID |
-| `group.user_membership.add` | Fetch updated groups, re-derive roles, re-issue VC |
-| `group.user_membership.remove` | Fetch updated groups, re-derive roles, re-issue VC |
+| `user.lifecycle.create` | `PROVISION` |
+| `user.lifecycle.activate` | `PROVISION` (no-op if already provisioned) |
+| `user.lifecycle.deactivate` | `SUSPEND` |
+| `user.lifecycle.suspend` | `SUSPEND` |
+| `user.lifecycle.unsuspend` | `REACTIVATE` |
+| `user.lifecycle.delete` | `TERMINATE` |
+| `group.user_membership.add` | `UPDATE` (fetch groups, re-derive roles) |
+| `group.user_membership.remove` | `UPDATE` (fetch groups, re-derive roles) |
 
 **Payload extraction:**
 
@@ -214,29 +228,29 @@ The sidecar exposes a SCIM 2.0-compliant Service Provider endpoint. The upstream
 **Endpoints:**
 
 ```
-POST   /scim/v2/Users              Create user → provision stub DID
+POST   /scim/v2/Users              Create user → PROVISION
 GET    /scim/v2/Users              List users (for reconciliation)
 GET    /scim/v2/Users/{id}         Get user
-PUT    /scim/v2/Users/{id}         Full replace → update claims, re-issue VC
-PATCH  /scim/v2/Users/{id}         Partial update → update claims, re-issue VC
-DELETE /scim/v2/Users/{id}         Hard delete → tombstone DID
+PUT    /scim/v2/Users/{id}         Full replace → UPDATE, SUSPEND or REACTIVATE
+PATCH  /scim/v2/Users/{id}         Partial update → UPDATE, SUSPEND or REACTIVATE
+DELETE /scim/v2/Users/{id}         Hard delete → TERMINATE
 POST   /scim/v2/Groups             Create group (role)
-PUT    /scim/v2/Groups/{id}        Update group membership → re-derive roles
-PATCH  /scim/v2/Groups/{id}        Partial group update → re-derive roles
+PUT    /scim/v2/Groups/{id}        Update group membership → UPDATE
+PATCH  /scim/v2/Groups/{id}        Partial group update → UPDATE
 DELETE /scim/v2/Groups/{id}        Delete group
 ```
 
 **SCIM operation → sidecar action mapping:**
 
-| SCIM Operation | User `active` Field | Sidecar Action |
+| SCIM Operation | User `active` Field | Normalized Action (§2) |
 |---|---|---|
-| `POST /Users` | `true` | Provision stub DID |
-| `PUT/PATCH /Users` | `false` | Suspend DID + revoke VC |
-| `PUT/PATCH /Users` | `true` (was `false`) | Reactivate DID + re-issue VC |
-| `PUT/PATCH /Users` (attribute changes) | `true` | Update claims, re-issue VC |
-| `DELETE /Users` | (any) | Tombstone DID |
-| `PATCH /Groups` (membership add) | (any) | Re-derive roles, re-issue VC |
-| `PATCH /Groups` (membership remove) | (any) | Re-derive roles, re-issue VC |
+| `POST /Users` | `true` | `PROVISION` |
+| `PUT/PATCH /Users` | `false` | `SUSPEND` |
+| `PUT/PATCH /Users` | `true` (was `false`) | `REACTIVATE` |
+| `PUT/PATCH /Users` (attribute changes) | `true` | `UPDATE` |
+| `DELETE /Users` | (any) | `TERMINATE` |
+| `PATCH /Groups` (membership add) | (any) | `UPDATE` (re-derive roles) |
+| `PATCH /Groups` (membership remove) | (any) | `UPDATE` (re-derive roles) |
 
 Authentication to the SCIM endpoint uses Bearer token auth. The token is a pre-shared secret configured in the upstream provisioner and stored in the sidecar config. For Azure AD and Okta as upstream provisioners, this is the standard "provisioning secret token" in their SCIM connector configuration.
 
@@ -253,7 +267,7 @@ Authorization: Bearer {scim-token}
 
 Cursoring on `meta.lastModified` is SCIM-standard for change detection. Not all SCIM servers implement this filter reliably. If a filtered query returns no results when changes are expected, the sidecar MUST fall back to a full diff (fetch all users, compare against stored state).
 
-Deletion detection in SCIM client mode is unreliable: deleted users disappear from the user list without emitting a delete event. The sidecar detects deletions by computing the set difference between the last full sync and the current sync on each reconciliation pass and transitions those DIDs to `TOMBSTONED`.
+Deletion detection in SCIM client mode is unreliable: deleted users disappear from the user list without emitting a delete event. The sidecar detects deletions by computing the set difference between the last full sync and the current sync on each reconciliation pass and applies `TERMINATE` to those users.
 
 ```toml
 [identity_provider]
@@ -268,7 +282,7 @@ full_sync_interval = "24h"
 
 SCIM user identifiers MUST be stable through attribute changes (name changes, email changes, org unit moves). The sidecar MUST key its user records on `externalId` if present, falling back to the SCIM server's internal UUID (`id`). The sidecar MUST NOT key on `userName` or `emails[].value` because these can change.
 
-If a provider rotates user IDs on attribute changes, the sidecar treats the rotation as a deletion of the old user and creation of a new one, producing a new DID for the same person. The operator MUST configure `externalId` mapping to avoid this.
+If a provider rotates user IDs on attribute changes, the sidecar treats the rotation as `TERMINATE` of the old user and `PROVISION` of a new one, producing a new DID for the same person. The operator MUST configure `externalId` mapping to avoid this.
 
 ---
 
@@ -276,7 +290,7 @@ If a provider rotates user IDs on attribute changes, the sidecar treats the rota
 
 ### 5.1 Overview
 
-SAML-only IdPs (AD FS, Shibboleth, legacy Ping Federate) provide authentication but expose no user management API. The sidecar can verify a user's identity via SAML during enrollment using the existing SAML enrollment adapter, but it cannot receive JML events from the IdP itself.
+SAML-only IdPs (AD FS, Shibboleth, legacy Ping Federate) provide authentication but expose no user management API. The sidecar can verify a SAML assertion during device key registration (§8), but it cannot receive JML events from the IdP itself.
 
 For these deployments, JML MUST come from a separate source. Three options are available:
 
@@ -284,7 +298,7 @@ For these deployments, JML MUST come from a separate source. Three options are a
 |---|---|---|
 | **HR system** (Workday, BambooHR) | HR system pushes employee events via webhook or SFTP | Near-real-time (webhook) or batch (SFTP) |
 | **Active Directory** (LDAP) | DirSync or USNChanged polling against the underlying AD that feeds the IdP | Configurable poll interval (minimum 5 min) |
-| **Manual IT** | IT calls the sidecar admin API directly | Immediate (human-dependent) |
+| **Manual IT** | IT calls the sidecar admin API (§5.5) directly | Immediate (human-dependent) |
 
 These sources are not mutually exclusive. A production deployment SHOULD use at least two: the HR system as the primary source and AD-LDAP as the reconciliation backstop.
 
@@ -298,7 +312,7 @@ Authorization: Bearer {workday-webhook-secret}
 Content-Type: application/json
 
 {
-  "eventType": "HIRE" | "TERMINATE" | "TRANSFER" | "POSITION_CHANGE",
+  "eventType": "HIRE" | "TERMINATE" | "TRANSFER" | "POSITION_CHANGE" | "LEAVE_OF_ABSENCE" | "RETURN_FROM_LEAVE",
   "worker": {
     "workdayId": "abc123",
     "firstName": "Alice",
@@ -317,14 +331,14 @@ Content-Type: application/json
 
 **Event → action mapping:**
 
-| Workday Event | Sidecar Action |
+| Workday Event | Normalized Action (§2) |
 |---|---|
-| `HIRE` | Provision stub DID, queue enrollment invite |
-| `TERMINATE` | Tombstone DID, revoke VC |
-| `TRANSFER` | Update claims (department, cost center), re-issue VC |
-| `POSITION_CHANGE` | Update claims (job title, department), re-issue VC |
-| `LEAVE_OF_ABSENCE` | Suspend DID, revoke VC |
-| `RETURN_FROM_LEAVE` | Reactivate DID, re-issue VC |
+| `HIRE` | `PROVISION`, then queue enrollment invite |
+| `TERMINATE` | `TERMINATE` |
+| `TRANSFER` | `UPDATE` (department, cost center) |
+| `POSITION_CHANGE` | `UPDATE` (job title, department) |
+| `LEAVE_OF_ABSENCE` | `SUSPEND` |
+| `RETURN_FROM_LEAVE` | `REACTIVATE` |
 
 The sidecar matches Workday workers to DID records using `employeeId` as the `stableID` (`workdayId` is rarely surfaced in other systems). If the email changes (e.g., on a legal name change), the sidecar updates its private record and re-issues the VC; the DID is unchanged (§1).
 
@@ -363,11 +377,12 @@ Content-Type: application/json
 }
 ```
 
-BambooHR delivers webhooks on a configurable frequency, not immediately on change; the minimum interval is one hour. The sidecar normalizes the BambooHR payload to the same `HREvent` struct used by all JML sources:
+BambooHR delivers webhooks on a configurable frequency, not immediately on change; the minimum interval is one hour. Every JML source (Workday, BambooHR, SFTP batch, LDAP, manual) emits the same `HREvent` struct, whose `Action` is one of the normalized actions of §2:
 
 ```go
 type HREvent struct {
-    EventType   string      // HIRE | TERMINATE | TRANSFER | POSITION_CHANGE | LEAVE | RETURN
+    Action      string      // PROVISION | UPDATE | SUSPEND | REACTIVATE | TERMINATE (§2)
+    SourceEvent string      // native event name, e.g. Workday "LEAVE_OF_ABSENCE"; audit only
     EmployeeID  string
     Email       string
     DisplayName string
@@ -379,7 +394,7 @@ type HREvent struct {
 }
 ```
 
-BambooHR does not emit discrete event types; it reports field changes. The sidecar infers the event type from field values: `status == "Inactive"` with `terminationDate` set → `TERMINATE`; `status == "Active"` with no prior record → `HIRE`; department or job title change → `TRANSFER`.
+BambooHR does not emit discrete event types; it reports field changes. The sidecar infers the action from field values: `status == "Inactive"` with `terminationDate` set → `TERMINATE`; `status == "Active"` with no prior record → `PROVISION`; department or job title change → `UPDATE`.
 
 ### 5.4 HR System: Generic SFTP Batch
 
@@ -406,24 +421,26 @@ csv_columns   = {
 }
 ```
 
-The importer downloads the file, diffs it against the previous import keyed on `employee_id`, and emits `HREvent` structs for each changed record: a record present in the new file but not the previous → `HIRE`; a record with `status == "Terminated"` that was previously `Active` → `TERMINATE`.
+The importer downloads the file, diffs it against the previous import keyed on `employee_id`, and emits `HREvent` structs for each changed record: a record present in the new file but not the previous → `PROVISION`; `status` changed to `"Terminated"` → `TERMINATE`; `status` changed from `"Active"` to `"OnLeave"` → `SUSPEND`; `status` changed from `"OnLeave"` to `"Active"` → `REACTIVATE`; other column changes → `UPDATE`. A record that disappears from the file is not treated as a termination; the importer logs it for IT review.
 
 ### 5.5 Manual IT Operations
 
 The sidecar admin API provides full lifecycle control without any automated JML source. This is the minimum viable path for small organizations or during initial rollout before HR integration is complete.
 
-All operations require a Bearer token with `AgoraDIDAdmin` scope.
+All operations require a Bearer token with `AgoraDIDAdmin` scope. The paths match the O365 and Google Workspace sidecars, one endpoint per normalized action (§2):
 
 ```
-POST /v1/admin/provision      Provision a new stub DID
-POST /v1/admin/tombstone      Terminate a user
-POST /v1/admin/suspend        Suspend a user
-POST /v1/admin/reactivate     Reactivate a user
-POST /v1/admin/update-claims  Update department/role claims
-POST /v1/admin/revoke-device  Revoke a specific device key
-GET  /v1/admin/status         List all DID states
-GET  /v1/admin/audit/{localIdentifier}  Audit log for a user
+POST /v1/provision                   PROVISION
+POST /v1/update-claims               UPDATE
+POST /v1/suspend                     SUSPEND
+POST /v1/reactivate                  REACTIVATE
+POST /v1/tombstone                   TERMINATE
+POST /v1/revoke-device-key           Revoke one device key (spec §2.5.5)
+GET  /v1/status/{localIdentifier}    Current state of one DID
+GET  /v1/audit/{localIdentifier}     Audit log for one DID
 ```
+
+Manual calls are applied with `SourceEvent = "manual"`.
 
 The admin API is documented with an OpenAPI spec. A minimal web UI SHOULD be provided for IT helpdesk use to support routine operations such as lost device revocation without requiring raw API calls.
 
@@ -491,7 +508,7 @@ func (p *LDAPProvider) PollChanges(ctx context.Context) ([]*UserRecord, error) {
 }
 ```
 
-**Deletion detection:** AD moves deleted objects to `CN=Deleted Objects` rather than removing them immediately. Reading this container requires explicit `List Contents` permission on `CN=Deleted Objects` and the `LDAP_SERVER_SHOW_DELETED_OID` control. Deleted objects retain `objectGUID` and `lastKnownRDN` but lose most attributes. The sidecar maps `objectGUID` to the DID document on deletion.
+**Deletion detection:** AD moves deleted objects to `CN=Deleted Objects` rather than removing them immediately. Reading this container requires explicit `List Contents` permission on `CN=Deleted Objects` and the `LDAP_SERVER_SHOW_DELETED_OID` control. Deleted objects retain `objectGUID` and `lastKnownRDN` but lose most attributes. The sidecar looks up the user by `objectGUID` and applies `TERMINATE`.
 
 **DC affinity:** `uSNChanged` is not replicated between domain controllers; values at two different DCs are independent. The sidecar MUST bind to the same DC on every poll, configured via `affiliate_dc`. If that DC is unreachable, the sidecar MUST wait rather than failing over to another DC, to prevent missed or duplicate events. After recovery, USNChanged resumes from the stored cursor.
 
@@ -507,9 +524,9 @@ func (p *LDAPProvider) PollChanges(ctx context.Context) ([]*UserRecord, error) {
 | `department` | `department` |
 | `title` | `jobTitle` |
 | `memberOf` | `groups` (DNs resolved to names) |
-| `userAccountControl` bit 0x0002 | `disabled` flag |
-| `pwdLastSet == 0` + `ACCOUNTDISABLE` | Suspended state |
-| Object in Deleted Objects container | Deletion → tombstone |
+| `userAccountControl` bit 0x0002 (`ACCOUNTDISABLE`) set | `SUSPEND` |
+| `ACCOUNTDISABLE` cleared | `REACTIVATE` |
+| Object in Deleted Objects container | `TERMINATE` |
 
 `objectGUID` is the stable identifier and does not change on rename, move, or attribute modification. The DID path follows §1, so a UPN change updates only the sidecar's private record.
 
@@ -535,9 +552,9 @@ func (p *LDAPProvider) PollDirSync(ctx context.Context) ([]*UserRecord, error) {
 }
 ```
 
-DirSync includes deleted objects (tombstones) automatically when the filter matches them. Tombstones retain only `objectGUID`, `isDeleted: TRUE`, and a few system attributes. The sidecar MUST map `isDeleted: TRUE` to a tombstone action.
+DirSync includes deleted objects (tombstones) automatically when the filter matches them. Tombstones retain only `objectGUID`, `isDeleted: TRUE`, and a few system attributes. The sidecar MUST map `isDeleted: TRUE` to `TERMINATE`.
 
-**Cookie persistence:** The DirSync cookie MUST be persisted to durable storage (the same database as DID documents). Loss of the cookie (for example, after a crash) requires a full resync: the sidecar fetches all objects and diffs against stored state.
+**Cookie persistence:** The DirSync cookie MUST be persisted to durable storage (the same database as the DID logs). Loss of the cookie (for example, after a crash) requires a full resync: the sidecar fetches all objects and diffs against stored state.
 
 ### 6.4 Service Account Requirements
 
@@ -577,7 +594,23 @@ If a Global Catalog is available and the operator prefers a single connection po
 
 When `jml_source.type` is not `none`, the sidecar runs both the identity provider and the JML source concurrently, deduplicating events by user stable ID and timestamp. This handles the Cat 3 case (SAML authentication with a separate JML source) and is also applicable to Cat 4 (LDAP for fast change detection, HR system as the authoritative source for hire/terminate decisions).
 
-**Deduplication:** If the same user receives the same action (provision/suspend/tombstone) from two sources within a 60-second window, the second action is a no-op. If two sources disagree within that window, the more restrictive action wins: tombstone beats provision; suspend beats reactivate.
+**Normalized lifecycle mapping.** Every source maps to the actions of §2 as follows. Termination is `TERMINATE` and nothing else: only a hard delete or an HR termination produces it. Disable, deactivate and leave signals produce `SUSPEND`, which is reversible.
+
+| Source | `PROVISION` | `UPDATE` | `SUSPEND` | `REACTIVATE` | `TERMINATE` |
+|---|---|---|---|---|---|
+| Okta (§3.2) | `user.lifecycle.create`, `user.lifecycle.activate` | `group.user_membership.add/remove` | `user.lifecycle.deactivate`, `user.lifecycle.suspend` | `user.lifecycle.unsuspend` | `user.lifecycle.delete` |
+| JumpCloud (§3.3) | `user.create` | `user.update`, `group.member.add/remove` | `user.update` with account suspended | `user.update` with account unsuspended | `user.delete` |
+| PingOne (§3.4) | `USER.CREATE` | `USER.UPDATE`, `ROLE.USER_ROLE_ASSIGNMENT_*` | `USER.UPDATE` with `enabled: false` | `USER.UPDATE` with `enabled: true` | `USER.DELETE` |
+| OneLogin (§3.5) | event 1 | events 2, 35, 36 | event 13 | event 2 with user reactivated | `user.deleted` webhook |
+| SCIM server (§4.2) | `POST /Users` | `PUT/PATCH /Users`, `/Groups` | `active: false` | `active: true` (was `false`) | `DELETE /Users` |
+| SCIM client (§4.3) | new user in poll | changed attributes | `active: false` | `active: true` (was `false`) | user absent from full sync |
+| Workday (§5.2) | `HIRE` | `TRANSFER`, `POSITION_CHANGE` | `LEAVE_OF_ABSENCE` | `RETURN_FROM_LEAVE` | `TERMINATE` |
+| BambooHR (§5.3) | new `Active` record | department or title change | (not inferred) | (not inferred) | `Inactive` with `terminationDate` |
+| SFTP batch (§5.4) | new record | column change | `Active` → `OnLeave` | `OnLeave` → `Active` | → `Terminated` |
+| Manual (§5.5) | `/v1/provision` | `/v1/update-claims` | `/v1/suspend` | `/v1/reactivate` | `/v1/tombstone` |
+| AD LDAP (§6) | new object | attribute change | `ACCOUNTDISABLE` set | `ACCOUNTDISABLE` cleared | object deleted |
+
+**Deduplication:** If the same user receives the same action from two sources within a 60-second window, the second action is a no-op. If two sources disagree within that window, the more restrictive action wins, in the order `TERMINATE` > `SUSPEND` > `UPDATE` > `REACTIVATE` > `PROVISION`. Because `TERMINATE` is final (§2), no later event from any source reverses it.
 
 **Trust hierarchy for conflicting events:**
 
@@ -585,29 +618,30 @@ When `jml_source.type` is not `none`, the sidecar runs both the identity provide
 HR system (Workday/BambooHR) > LDAP > SCIM > webhook IdP > manual
 ```
 
-A Workday `TERMINATE` event always overrides a concurrent LDAP reactivation signal, which may reflect DC replication lag. Manual IT operations bypass the trust hierarchy; they are applied immediately and logged with a `manual-override` flag.
+A Workday `TERMINATE` event always overrides a concurrent LDAP `REACTIVATE`, which may reflect DC replication lag. Manual IT operations bypass the trust hierarchy; they are applied immediately and logged with a `manual-override` flag.
 
 ---
 
-## 8. Auth Adapter Completeness
+## 8. Enrollment Authentication
 
-The enrollment auth adapter maps to the DID sidecar's `IdentityProvider` as follows:
+Device key registration follows spec §2.5.4: the Agora client authenticates the user against the organization's IdP by OIDC or SAML 2.0 and presents the resulting token to the sidecar's `POST /v1/register-device-key`. No separate enrollment tool is involved. (`agora-enroll` in `profiles/discord-onboarding.md` serves individuals migrating from Discord and is not used in employer deployments.)
 
-| `agora-enroll` Auth Adapter | DID Sidecar `IdentityProvider` | Notes |
+The sign-in protocol and the JML source are independent configurations. An org MAY use SAML for sign-in while LDAP drives JML. The sidecar links the sign-in token to the user record by the IdP's immutable user ID, never by email, UPN or `userName`, which can change (spec §2.5.2):
+
+| Sign-in | Token claim used | Must equal the user record's `stableID` source |
 |---|---|---|
-| `okta` | `OktaProvider` | Same Okta org: OAuth2 OIDC on enrollment, event hooks for JML |
-| `teams` (Entra OIDC) | `EntraProvider` (O365 spec) | Same tenant |
-| `slack` | None | Slack auth only for enrollment; no org-managed DID for Slack-primary orgs |
-| `oidc` (generic) | `SCIMProvider` or `SAMLProvider` | Depends on which directory the OIDC issuer fronts |
-| `saml` (generic) | `SAMLProvider` + separate JML source | Auth via SAML, JML from HR or AD |
+| Okta OIDC | `sub` (Okta user `id`) | Okta `id` (Cat 1) or SCIM `externalId` populated with it (Cat 2) |
+| Entra OIDC | `oid` | Entra `objectId` (O365 spec) |
+| Generic OIDC | `sub` | The directory's immutable ID that the issuer places in `sub` |
+| SAML 2.0 | `NameID` with format `persistent`, or an attribute carrying the immutable ID (e.g. `objectGUID` for AD FS) | AD `objectGUID` (Cat 4) or the HR `employeeId` (Cat 3) |
 
-The enrollment auth adapter and the sidecar identity provider are independent configurations. An org MAY use SAML for enrollment authentication while LDAP drives JML. When `externalId` or `objectGUID` cross-referencing is unavailable, the `email` field serves as the common key between the two subsystems.
+The operator MUST configure the IdP to emit a claim that matches the `stableID` source of the configured `IdentityProvider` or JML source. If no such claim is available, the sidecar MUST refuse to register device keys for that configuration rather than fall back to email matching.
 
 ---
 
 ## 9. Signing Key Options
 
-The self-issued `EmployeeCredential` requires the org to hold an Ed25519 signing key. The sidecar supports the following signing key backends:
+The self-issued `EmployeeCredential` requires the org to hold an Ed25519 signing key, and the sidecar signs DID log entries with its update key (§1). The sidecar supports the following backends for both keys:
 
 | Backend | `signing_key_type` | Notes |
 |---|---|---|
@@ -633,13 +667,14 @@ For on-prem deployments (Cat 3 and Cat 4), the PKCS#11 and HashiCorp Vault backe
 | Cat 3 + SFTP batch | Outbound SFTP to HRIS server | On-prem or co-located |
 | Cat 4 (LDAP) | Outbound LDAPS to domain controller (port 636) | On-prem, or cloud with VPN/Direct Connect |
 
-For hybrid deployments (Cat 3 + Cat 4: SAML auth from cloud IdP, LDAP from on-prem AD), the sidecar runs on-prem with a reverse proxy exposing only the enrollment and webhook endpoints to the internet. The LDAP connection remains on the internal network.
+For hybrid deployments (Cat 3 + Cat 4: SAML auth from cloud IdP, LDAP from on-prem AD), the sidecar runs on-prem with a reverse proxy exposing only the public endpoints to the internet. The LDAP connection remains on the internal network.
 
 ```
-Internet → [Reverse Proxy] → /v1/enroll/*      (enrollment)
-                           → /v1/notify         (IdP webhook)
-                           → /v1/hr-event       (HR webhook)
-                           → /users/*/did.json  (DID document serving)
+Internet → [Reverse Proxy] → /v1/register-device-key  (device enrollment, spec §2.5.4)
+                           → /v1/notify               (IdP webhook)
+                           → /v1/hr-event             (HR webhook)
+                           → /users/*/did.jsonl       (DID log serving)
+                           → /users/*/keypackages     (KeyPackageEndpoint: GET fetch, POST publish or Welcome)
 
 Internal only:
   LDAP polling  → DC on port 636
@@ -664,7 +699,7 @@ type OneLoginProvider  struct { ... }
 type SCIMServerProvider struct { ... }   // sidecar acts as SCIM endpoint
 type SCIMClientProvider struct { ... }   // sidecar polls upstream SCIM
 
-// Cat 3: no IdentityProvider; the existing SAML enrollment adapter handles auth.
+// Cat 3: no IdentityProvider; SAML sign-in at device registration (§8), JML from a JMLSource.
 
 // Cat 4
 type LDAPProvider struct {
@@ -700,7 +735,7 @@ New library dependencies:
 
 ## 12. Open Questions
 
-1. **Okta event hook delivery guarantees.** Okta event hooks are asynchronous and best-effort. The System Log API reconciliation poller covers missed events but has up to 24-hour latency. Regulated organizations requiring sub-minute termination enforcement SHOULD also call `POST /v1/admin/tombstone` directly when terminating an employee rather than relying solely on the Okta hook.
+1. **Okta event hook delivery guarantees.** Okta event hooks are asynchronous and best-effort. The System Log API reconciliation poller covers missed events but has up to 24-hour latency. Regulated organizations requiring sub-minute termination enforcement SHOULD also call `POST /v1/tombstone` directly when terminating an employee rather than relying solely on the Okta hook.
 
 2. **SCIM Groups vs. flat role attributes.** Some IdPs encode roles as user profile attributes rather than group membership. The sidecar's SCIM implementation supports both patterns, but the role derivation configuration MUST explicitly specify which is in use rather than auto-detecting.
 
@@ -708,4 +743,4 @@ New library dependencies:
 
 4. **Workday RaaS vs. Studio.** Workday supports both Report-as-a-Service (no coding required) and Studio (full EIB, more control) for outbound data. This spec does not prescribe which Workday integration type to use; the operator's Workday administrator selects based on existing expertise. The sidecar endpoint accepts the same payload regardless of which mechanism produces it.
 
-5. **Air-gapped deployments.** A sidecar in a fully air-gapped environment cannot receive webhooks from cloud IdPs or push DID documents to a public IPFS node. The sidecar MAY operate in a fully internal mode, serving DID documents only on the internal network with the Agora Relay also internal. This eliminates cross-org federation. It is an explicit architectural trade-off for air-gapped deployments, consistent with Agora Protocol Spec Appendix B.
+5. **Air-gapped deployments.** A sidecar in a fully air-gapped environment cannot receive webhooks from cloud IdPs. The sidecar MAY operate in a fully internal mode, serving DID logs and KeyPackages only on the internal network under an internal-only domain, with the relays also internal. This eliminates cross-org federation. It is an explicit architectural trade-off for non-discoverable deployments (spec §10.1.1).

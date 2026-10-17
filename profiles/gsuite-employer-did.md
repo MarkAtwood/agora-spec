@@ -1,14 +1,14 @@
 # Specification: Employer-Managed DIDs via Google Workspace
 
 **Version:** 0.1 Draft
-**Depends On:** Agora Protocol Spec v0.1, `agora-enroll` spec v0.1, O365 Employer-Managed DID spec v0.1
+**Depends On:** the Agora protocol specification (`spec/`, current draft) and `profiles/o365-employer-did.md`
 **Status:** Pre-implementation design
 
 ---
 
 ## 1. Architecture Overview
 
-The Google Workspace architecture is structurally parallel to the O365 spec but collapses the two-component model (Verified ID + DID Sidecar) into one. Google has no native verifiable credential issuance platform and no declarative JML workflow engine. The DID Sidecar carries all three responsibilities that the O365 architecture distributes across three components:
+The Google Workspace architecture is structurally parallel to the O365 spec but collapses the two-component model (Verified ID + DID Sidecar) into one. Google has no native verifiable credential issuance platform and no declarative JML workflow engine. The DID Sidecar, the organization's DID Provisioning Service (spec §2.5.2) and a CO component, carries all three responsibilities that the O365 architecture distributes across three components:
 
 | Concern | O365 Component | Google Workspace Component |
 | ------- | -------------- | -------------------------- |
@@ -16,7 +16,9 @@ The Google Workspace architecture is structurally parallel to the O365 spec but 
 | Org attestation / VC issuance | Entra Verified ID | DID Sidecar (self-issued VC) |
 | JML lifecycle automation | Graph Lifecycle Workflows + Logic App | DID Sidecar (Directory API push + polling fallback) |
 
-The VC layer uses the W3C VC Data Model with the org's own `did:web` as issuer. JML automation uses the Directory API push notification channel plus a daily reconciliation polling loop as a reliability backstop, because the push channel expires and has delivery lag.
+As in the O365 profile, employee identities are `did:webvh` (spec §2.1, §2.5): the sidecar holds the update key of each employee's DID log, and every change it makes is a log entry visible to all resolvers (O365 spec §3). The sidecar also hosts each employee's `KeyPackageEndpoint` (spec §5.2.1.1). Relays play no part: they never receive or verify Google tokens, and hold no KeyPackages (spec §2.5.2).
+
+The VC layer uses the W3C VC Data Model with the org's own `did:web` as issuer (§3.2). JML automation uses the Directory API push notification channel plus a daily reconciliation polling loop as a reliability backstop, because the push channel expires and has delivery lag.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -34,13 +36,14 @@ The VC layer uses the W3C VC Data Model with the org's own `did:web` as issuer. 
 ┌──────────────────────────────────────────────────────────────┐
 │  DID Sidecar  (operator-hosted, registered as GCP OAuth app) │
 │                                                              │
-│  GET  /users/{id}/did.json              Serve DID document   │
+│  GET  /users/{id}/did.jsonl             Serve DID log        │
+│  *    /v1/keypackages/{id}              KeyPackageEndpoint   │
 │  GET  /.well-known/did.json             Org root DID         │
 │  GET  /.well-known/did-configuration.json  Domain linkage    │
 │  POST /v1/notify                        Directory API push   │
 │  POST /v1/register-device-key           Device key reg       │
-│  POST /v1/revoke-device-key             IT key tombstone      │
-│  POST /v1/tombstone                     Full DID revocation   │
+│  POST /v1/revoke-device-key             IT key removal        │
+│  POST /v1/tombstone                     DID deactivation      │
 │  POST /v1/suspend                       Suspend DID           │
 │  POST /v1/reactivate                    Reactivate DID        │
 │  GET  /v1/credentials/:id/employee      Serve employee VC     │
@@ -110,31 +113,31 @@ The poller compares the full user list against the sidecar's DID document regist
 
 - A user present in the Directory but absent from the sidecar MUST be provisioned as a stub DID (Joiner missed by push).
 - A user in the sidecar with `ACTIVE` or `STUB` state but suspended in the Directory MUST be transitioned to `SUSPENDED`.
-- A user in the sidecar with `ACTIVE` or `STUB` state but deleted from the Directory MUST be tombstoned immediately.
+- A user in the sidecar with `ACTIVE` or `STUB` state but deleted from the Directory MUST be deactivated immediately.
 - A user in the sidecar with `SUSPENDED` state but active in the Directory MUST be reactivated.
 
-The reconciliation poller is the reliability backstop, not the primary path. Worst-case latency from a leaver event to DID tombstone via the poller is 24 hours (push channel down, event missed, poller not yet run). §4.4 documents VC revocation as the fast enforcement path for this reason.
+The reconciliation poller is the reliability backstop, not the primary path. Worst-case latency from a leaver event to DID deactivation via the poller is 24 hours (push channel down, event missed, poller not yet run). §4.4 documents VC revocation as the fast enforcement path for this reason.
 
 ---
 
 ## 3. DID Document Structure
 
-The DID document structure is identical to the O365 spec (§3) with the following two differences.
+The DID log and document structure, the absence of an org `controller`, and the lifecycle states (`STUB`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`) are identical to the O365 spec (§3), including the `KeyPackageEndpoint` service entry in the genesis entry and the optional parallel `did:web` document (O365 spec §2). The two differences follow.
 
 ### 3.1 DID Naming
 
-The naming rule is the same as O365 spec §2 and spec §2.5.2: the path segment is a stable `localIdentifier` that is never reassigned and MUST NOT be derived from the primary email, name or any other changeable attribute.
+The naming rule is the same as O365 spec §2 and spec §2.5.2: the DID is `did:webvh:<SCID>:did.example.com:users:<localIdentifier>`, where the path segment is a stable `localIdentifier` that is never reassigned and MUST NOT be derived from the primary email, name or any other changeable attribute.
 
 ```
-did:web:did.example.com:users:k7f3qd2m
-https://did.example.com/users/k7f3qd2m/did.json
+did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m
+https://did.example.com/users/k7f3qd2m/did.jsonl
 ```
 
 **Recommended default:** the sidecar mints a random lowercase base32 value at Joiner time (§4.2), checks it for uniqueness, and stores the mapping to the Google user `id` (the Directory API `id` field, which is also the OIDC `sub` claim) in its private DB. The mapping is never published.
 
 **Allowed alternatives:** the Google user `id`, or an HR employee ID that is never reused. A sidecar-minted random value is preferred because it survives a move to a different IdP; the Google user `id` does not.
 
-A `primaryEmail` change does not change the DID; it is an attribute update handled as a Mover event (§4.3). Only a move of the DID host changes the DID, handled as in O365 spec §6.4.
+A `primaryEmail` change does not change the DID; it is an attribute update handled as a Mover event (§4.3). Only a move of the DID host changes the DID string, and the identity survives it through `did:webvh` portability with the same SCID, handled as in O365 spec §6.4.
 
 ### 3.2 Org Root DID
 
@@ -144,7 +147,7 @@ The org root DID is served at:
 https://did.example.com/.well-known/did.json
 ```
 
-This is the org's signing identity for EmployeeCredential issuance. It carries one key: the org's Ed25519 signing key, stored in Google Cloud KMS.
+This is the org's signing identity for EmployeeCredential issuance. It carries one key: the org's Ed25519 signing key, stored in Google Cloud KMS. It stays a `did:web` because general VC verifiers and the DID Configuration linkage below expect one. It is a separate principal from the sidecar's own provisioning DID (a portable `did:webvh`, O365 spec §6.5) and its key is separate from the update key of the employee logs (§7), so it confers no authority over any employee's DID log. After a domain change (O365 spec §6.4) the sidecar re-issues current credentials under the new issuer DID.
 
 A Well-Known DID Configuration document, following the W3C CCG DID Configuration spec, links the org's DID to its domain:
 
@@ -216,7 +219,7 @@ Actions:
 
 1. Fetch the full user record including custom schema attributes (§4.6) and group memberships.
 2. Derive Agora roles from group membership (§4.7).
-3. Mint the `localIdentifier` (§3.1) and provision a stub DID document (state: `STUB`).
+3. Mint the `localIdentifier` (§3.1) and write the genesis log entry (state: `STUB`), including the `KeyPackageEndpoint` service entry (spec §2.5.3).
 4. Store the user record in the sidecar DB keyed by Google user ID, with the private mapping to the `localIdentifier`.
 5. Send an enrollment invitation email via Google Workspace SMTP relay or Gmail API, including an enrollment URL pre-populated with the user's DID.
 
@@ -230,7 +233,7 @@ Hi Alice,
 Your organization has set up end-to-end encrypted communication via Agora.
 Click the link below to enroll your device:
 
-https://enroll.example.com/?did=did%3Aweb%3Adid.example.com%3Ausers%3Ak7f3qd2m
+https://enroll.example.com/?did=did%3Awebvh%3AQmSCIDa...%3Adid.example.com%3Ausers%3Ak7f3qd2m
 
 This link expires in 7 days. If you need a new link, contact IT.
 ```
@@ -244,21 +247,22 @@ Group membership changes do not trigger a user-level push notification; the Dire
 Actions:
 
 1. Derive updated Agora roles from new group membership.
-2. Update the `status` service entry in the DID document with new claims.
-3. Revoke the existing `EmployeeCredential` VC (mark the status entry as revoked in the status list).
-4. Issue a new `EmployeeCredential` VC with updated `agoraRoles` and department claims.
-5. Notify the Enrollment Service via webhook to update space role assignments.
+2. Revoke the existing `EmployeeCredential` VC (mark the status entry as revoked in the status list).
+3. Issue a new `EmployeeCredential` VC with updated `agoraRoles` and department claims.
+4. Notify the Enrollment Service via webhook to update space role assignments.
+
+The DID log is not changed: the document carries no employment attributes (O365 spec §3.3).
 
 ### 4.4 Leaver
 
 Triggered by a push notification for a user with `suspended: true` (soft leaver) or a deleted user (hard leaver), or by the reconciliation poller finding a discrepancy.
 
-Google has no real-time termination trigger equivalent to Entra Lifecycle Workflows' on-demand execution, and the push notification channel has delivery lag. The fast enforcement path is VC revocation, which the sidecar MUST execute immediately on receiving a suspension or deletion notification, before the DID is tombstoned.
+Google has no real-time termination trigger equivalent to Entra Lifecycle Workflows' on-demand execution, and the push notification channel has delivery lag. The fast enforcement path is VC revocation, which the sidecar MUST execute immediately on receiving a suspension or deletion notification, before the DID is deactivated.
 
 **Phase 1: Immediate** (on notification receipt; target latency: <30 seconds):
 
 - Mark the `EmployeeCredential` status entry as revoked in the status list.
-- Transition the DID document to `SUSPENDED` (soft leaver) or `TOMBSTONED` (hard leaver).
+- Append a log entry moving the DID to `SUSPENDED` (soft leaver) or `DEACTIVATED` (hard leaver), as in O365 spec §3.1 and §5.4.
 - Notify the Enrollment Service to initiate MLS Remove commits.
 
 **Phase 2: Confirmed** (after the reconciliation poller next runs, or on explicit IT action):
@@ -269,14 +273,14 @@ Google has no real-time termination trigger equivalent to Entra Lifecycle Workfl
 
 **Soft vs. hard leaver:**
 
-- `suspended: true` → transition to `SUSPENDED`; preserve device keys in DB. If the user is later reactivated (`suspended: false`), keys are restored and the document returns to `ACTIVE`.
-- Deletion from Directory → tombstone immediately. Device keys are archived (not deleted) for compliance audit purposes.
+- `suspended: true` → transition to `SUSPENDED`; preserve device public keys in DB. If the user is later reactivated (`suspended: false`), a further log entry restores the keys and the document returns to `ACTIVE`. Both entries are visible in the log.
+- Deletion from Directory → deactivate immediately. The log stays resolvable (spec §2.5.6), and device public keys remain in its history for compliance audit purposes.
 
 **Worst-case latency:** If the push channel is down and the poller has not run, a terminated employee retains an active DID for up to 24 hours. This is an accepted operational risk. IT MUST call `POST /v1/tombstone` directly with an admin token for immediate effect when performing involuntary terminations, bypassing the automated path.
 
 ### 4.5 Lost Device
 
-Initiated directly by IT via the sidecar admin API, identical to O365 spec §5.5:
+Initiated directly by IT via the sidecar admin API, identical to O365 spec §5.5 (log entry removing the key, `DeviceRevocation` gossip, MLS Remove of the device's leaves):
 
 ```http
 POST /v1/revoke-device-key
@@ -284,8 +288,8 @@ Authorization: Bearer <admin-token>
 Content-Type: application/json
 
 {
-  "did": "did:web:did.example.com:users:k7f3qd2m",
-  "keyId": "did:web:did.example.com:users:k7f3qd2m#device-macbook-1",
+  "did": "did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m",
+  "keyId": "did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m#device-macbook-1",
   "reason": "lost-device",
   "revokedBy": "helpdesk@example.com"
 }
@@ -305,7 +309,7 @@ Fields:
   - agoraEnrollmentExpiry (string, date) : enrollment link expiry date
 ```
 
-Custom schemas are optional. When absent, roles are derived entirely from group membership (§4.7). The `agoraDIDState` field allows an admin to force-suspend or force-tombstone a DID from the Google Admin console without API access.
+Custom schemas are optional. When absent, roles are derived entirely from group membership (§4.7). The `agoraDIDState` field allows an admin to force-suspend or force-deactivate a DID from the Google Admin console without API access.
 
 ### 4.7 Role Derivation from Groups
 
@@ -343,7 +347,7 @@ The sidecar issues `EmployeeCredential` VCs directly, signed by the org root DID
   "issuanceDate": "2026-03-13T00:00:00Z",
   "expirationDate": "2027-03-13T00:00:00Z",
   "credentialSubject": {
-    "id": "did:web:did.example.com:users:k7f3qd2m",
+    "id": "did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m",
     "employeeId": "EMP-12345",
     "displayName": "Alice Smith",
     "department": "Engineering",
@@ -385,6 +389,8 @@ The sidecar has no push wallet to deliver VCs to. Three delivery options are sup
 
 For initial deployment, Option B is the recommended choice. Options A and C are extensions for orgs with existing wallet infrastructure.
 
+In every option the VC is issued only after the first device key is registered, following the bootstrap order of O365 spec §4.2: the first device registers without a VC (§6), and the VC then names the active DID as its subject. The Option A acceptance link is therefore sent after first-device enrollment, not in the initial invitation.
+
 ### 5.4 VC Serving Endpoint
 
 ```http
@@ -410,9 +416,11 @@ Google does not provide `acr`/`amr` claims in standard OAuth tokens for most Wor
 
 **Enterprise Plus / Frontline:** Context-Aware Access (CAA) policies MAY require hardware security key (`FIDO2`) authentication as a condition for accessing specific OAuth scopes. A CAA policy SHOULD require `security_key` device assurance for the `AgoraDIDKeyRegistration` custom scope. When the enrollment app requests this scope, Google enforces the hardware key requirement at the OAuth consent step.
 
-**Business Starter / Standard / Plus (no CAA):** The sidecar MUST enforce step-up via a challenge-response. On device key registration, the sidecar issues a 32-byte challenge, requires the user to sign it using their WebAuthn credential (browser path) or PKCS#11 key (CLI path), and verifies the signature before writing the key to the DID document. This is equivalent to the WebAuthn proof-of-possession check in the `agora-enroll` spec §5 and does not depend on the Google OAuth token carrying MFA claims.
+**Business Starter / Standard / Plus (no CAA):** The sidecar MUST enforce step-up via a challenge-response. On device key registration, the sidecar issues a 32-byte challenge, requires the user to sign it using their WebAuthn credential (browser path) or PKCS#11 key (CLI path), and verifies the signature before writing the key to the DID log. This is the same proof-of-possession check as O365 spec §5.6 and does not depend on the Google OAuth token carrying MFA claims.
 
-The WebAuthn / PKCS#11 proof-of-possession check (as specified in `agora-enroll` §8) applies in both cases. CAA-based enforcement is an additional layer for Enterprise Plus deployments.
+The WebAuthn / PKCS#11 proof-of-possession check (O365 spec §5.6) applies in both cases. CAA-based enforcement is an additional layer for Enterprise Plus deployments.
+
+The remaining registration checks are those of O365 spec §5.6: the token `sub` maps in the private DB to the requested DID; the first device registers into a `STUB` DID with no existing-device signature and no VC; every later device's request carries a spec §13.1.1 signature by a device key in the current verified log (spec §2.5.4). On success the sidecar appends a log entry signed with its update key and, for the first device, issues the `EmployeeCredential` (§5).
 
 ```toml
 [enrollment]
@@ -446,7 +454,9 @@ mfa_enforcement = "webauthn-pop"   # always require WebAuthn proof-of-possession
 ### Cloud KMS (org root DID signing key)
 
 - Key ring: `agora-did-keys`.
-- Key: `org-root-signing-key` (Ed25519, HSM-backed).
+- Key: `org-root-signing-key` (Ed25519, HSM-backed): VC issuer key (§3.2).
+- Key: `did-log-update-key` (Ed25519, HSM-backed): `did:webvh` update key for employee DID logs. Used only to sign log entries.
+- Key: `provisioning-signing-key` (Ed25519, HSM-backed): the sidecar's own DID signing key for gossiped update announcements and `DeviceRevocation` messages (spec §2.5.7).
 - IAM: sidecar service account MUST have `roles/cloudkms.signerVerifier`.
 
 ### Secret Manager
@@ -557,6 +567,7 @@ Implementations:
 | Cloud KMS | `cloud.google.com/go/kms/apiv1` |
 | Cloud SQL | `cloud.google.com/go/cloudsql` |
 | W3C VC issuance | Internal implementation over `crypto/ed25519` |
+| `did:webvh` log | As O365 spec §9.1 |
 | StatusList2021 | Internal implementation (bitstring + JWT signing) |
 
 ---

@@ -1,0 +1,7 @@
+{
+  "id": "1792214526589639586-1",
+  "issue_id": "agora-pozi.20.60",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: browsers sign with a non-extractable WebCrypto device key (silent, everyday: MLS, JWS). Passkeys/WebAuthn are used only to authenticate the user to the identity host (employer provisioning service or chosen host) when registering the device; only the identity host parses WebAuthn. Storage wipe = re-register device; stolen device = remove from identity log. Native apps SHOULD use hardware-backed keys; browsers best-effort. Fallback if WebCrypto Ed25519 unavailable: reviewed JS/WASM Ed25519 (weaker). Apply to spec §2.2, §12.6, profiles/discord-onboarding Open Q6.",
+  "created_at": "2026-10-17T05:22:06.589639586Z"
+}

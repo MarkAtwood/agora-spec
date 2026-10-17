@@ -1,0 +1,24 @@
+{
+  "id": "agora-pozi.29",
+  "title": "Compliance chain witnessing: suggested practice profile",
+  "description": "Mark 2026-10-16: root hash publication is a FIRM PRACTICE (not normative), with a non-normative suggested-practice document: profiles/compliance-chain-witness.md (signed chain-head record, cadence, independent witness options with RFC 3161 TSA as baseline, examiner verification). No blockchain anchoring.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:19:58.541636932Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:24:08.652663233Z",
+  "closed_at": "2026-10-17T05:24:08.652663233Z",
+  "close_reason": "Guides/profiles revised; payments removed from relay guide; chain-witness profile written",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.29",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:19:58.549871783Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

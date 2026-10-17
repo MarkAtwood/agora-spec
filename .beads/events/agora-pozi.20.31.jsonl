@@ -1,2 +1,3 @@
 {"id":"01a147e2-4e2c-7981-9171-447b9a3f098b","issue_id":"agora-pozi.20.31","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T03:22:55.916623705Z"}
 {"id":"01a147e2-4e2e-7c80-9fab-c2b7c9719805","issue_id":"agora-pozi.20.31","event_type":"label_added","actor":"agent","comment":"Added label: purview","created_at":"2026-10-17T03:22:55.918819763Z"}
+{"id":"01a14851-464c-7405-8afe-b2619a08fb62","issue_id":"agora-pozi.20.31","event_type":"closed","actor":"agent","old_value":"","new_value":"Resolved in guides/profiles revision (agora-pozi.25) 2026-10-16","created_at":"2026-10-17T05:24:08.396264566Z"}

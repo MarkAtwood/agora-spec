@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.30",
+  "title": "Draft WebAuthn upstream asks note",
+  "description": "Mark 2026-10-16: write notes/webauthn-asks.md for Mark to take to the W3C WebAuthn WG (Mark sends; never file or comment upstream ourselves). First verify current WG status: PRF extension (Level 3) support, any general-purpose signing extension draft (recalled: Yubico 'sign' extension related to ARKG; unverified). Asks: arbitrary-byte signing extension (incl. Ed25519) for rare high-value signatures (did:webvh log entries, JWS records); explicitly NOT gesture-free per-message signing. Include Agora use case and design context (agora-pozi.20.60).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:23:13.472762024Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:23:13.472762024Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.30",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:23:13.481035274Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

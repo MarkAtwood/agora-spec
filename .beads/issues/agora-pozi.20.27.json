@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.27",
   "title": "O365 credential precondition/order circular",
   "description": "O365 §1 makes the org credential a precondition, §4.3 makes it optional. §4.2 issues credential after device key registration, but §5.6 cond. 4 requires vcPresentation to register a device key - circular for the first device. Fix: define bootstrap order explicitly. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:22:55.721402999Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:22:55.721402999Z",
+  "updated_at": "2026-10-17T05:24:08.275860231Z",
+  "closed_at": "2026-10-17T05:24:08.275860231Z",
+  "close_reason": "Resolved in guides/profiles revision (agora-pozi.25) 2026-10-16",
   "labels": [
     "identity"
   ],

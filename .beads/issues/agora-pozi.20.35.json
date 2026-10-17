@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.35",
   "title": "LEGAL requires HIPAA BAA with relay operator",
   "description": "LEGAL requires a HIPAA BAA with the relay operator while asserting the relay holds nothing. Fix: reconcile with ARCHITECTURE observation budget - BAA with the CO; state whether IO metadata triggers BAA. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:22:56.099162422Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:22:56.099162422Z",
+  "updated_at": "2026-10-17T05:24:08.507361734Z",
+  "closed_at": "2026-10-17T05:24:08.507361734Z",
+  "close_reason": "Resolved in guides/profiles revision (agora-pozi.25) 2026-10-16",
   "labels": [
     "spec"
   ],

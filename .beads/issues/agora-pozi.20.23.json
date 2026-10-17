@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.23",
   "title": "Ops spec stubs and unverified companion cite",
   "description": "OPS Terraform sketch (l.809-814) and key rotation marked planned (l.1814). REG l.4, 349 cite a Compliance \u0026 Legal Reference Guide - probably LEGAL, unverified. Fix: complete or mark future; confirm and correct the citation. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:22:55.532096707Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:22:55.532096707Z",
+  "updated_at": "2026-10-17T05:24:08.156990098Z",
+  "closed_at": "2026-10-17T05:24:08.156990098Z",
+  "close_reason": "Resolved in guides/profiles revision (agora-pozi.25) 2026-10-16",
   "labels": [
     "ops"
   ],
