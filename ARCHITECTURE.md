@@ -423,6 +423,11 @@ All resolved 2026-10-16 except the external review in Q1.
   admission key keeps working, and a removed member can post junk ciphertext
   until the CO rotates the key. It cannot read: the MLS Remove already cut it
   off. Members' clients drop what it sends.
+- **One unauthorized Commit can force a channel's group to be re-created.**
+  Authorization is checked after the winning Commit is chosen, so a channel
+  member whose valid but unauthorized Commit wins makes every member leave
+  the group; an admin re-creates it and can then remove the sender, whom its
+  MLS signature identifies (protocol spec §4.5, §5.1.1).
 - **Some infrastructure-level abuse controls get coarser.** Without identity, an
   IO rate-limits by routing token, agreement and network address.
 - **Space anonymity at the IO is only as large as the CO.** A CO with one Space

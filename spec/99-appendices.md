@@ -90,13 +90,14 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Full re-registration of current keys | at least every 24 h | MUST | §10.5.3 |
 | Grace before deregistering the previous admission key after rotation | 300 s, for application messages and operations only; no Commit is stamped on the previous key's commit stream once the new key is registered | RECOMMENDED; MUST for the sequencer rule | §10.5.3 |
 | Canonical-Commit window without a sequencer | 5 s | MUST | §5.1.1 |
+| Delay before republishing a winning Commit taken from the sequencer's log | random 10 to 60 s; not published if a copy arrives first | See section | §5.1.1 |
 | Retention of the previous epoch's sealing key | 60 s | Descriptive | §5.2.2 |
 | Admission key fetch while connected | at least once an hour | MUST | §5.2.2 |
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
 | Hold of a Welcome whose authorization cannot yet be decided | 7 days | See section | §4.3 |
 | `DMMembers` freshness | `seq` (the MLS epoch in which the membership takes effect) greater than the current list's; `ts` within 300 s of the host's clock | MUST | §4.6 |
-| DM admission host handover fallback | any remaining member after 24 h without a handover Commit | See section | §4.6.4 |
-| Old DM admission host stops serving | 30 days after no DID it serves remains a member, or once every such DID is offboarded | MAY (from then on) | §4.6.4 |
+| DM admission host handover fallback | any remaining member after 24 h without a handover Commit or a `DMGroupDescriptor` naming a new `admissionHostDID` | See section | §4.6.4 |
+| Old DM admission host stops serving | 30 days after no DID it serves remains a member, or once every such DID is offboarded; it deletes the group's member list when it deregisters the key | MAY (from then on) | §4.6.4 |
 | Non-member view refetch on a post from an unlisted `senderDID` | at most once a minute per Space | See section | §5.2.1.4 |
 | Eager blob replication retry | exponential backoff for at least 24 h, then stop | Descriptive | §10.4.4 |
 | SFU `challenge` freshness for a `join` | 30 s | MUST | §6.6 |
@@ -137,6 +138,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `replaces` | `AdmissionKeyRegistration` entry member (rotated token); also a `PushRegister` member (previous handle) | §10.5.3, §11.7.6 |
 | `replicationFloor` | `ServiceAgreement` member | §10.5.1, §10.4.4 |
 | `archive` | `ChannelAdmissionKey` member | §3.4, §10.4.4 |
+| `closingHeads` | Space state member, array of `{channelID, stream, n, hash}` (closing commit-stream heads at a sequencer replacement) | §3.3, §14.4.5 |
 | `broadcasters` | Non-member view member, array of `{channelID, keyEpoch, dids}` | §3.3, §3.4, §5.2.1.4 |
 | `chunkCount`, `thumbnailChunkCount`, `contentKey`, `thumbnailContentKey` | JMAP object extension properties | §14.3.4 |
 | `seed` | `pin-op` operation | §11.4, §10.4.4 |
