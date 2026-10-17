@@ -13,7 +13,7 @@ This document is the operational companion to the Agora Protocol Specification. 
 
 A relay is an Infrastructure Operator (IO) component (ARCHITECTURE §2.1). It carries ciphertext and decides nothing about any community. It never knows membership, senders, or which Space or channel a routing token belongs to. Everything that requires that knowledge (identity provisioning, KeyPackage hosting, compliance logging, archives, gateways, bridges) is a Communications Operator (CO) component and runs on CO infrastructure, not in the relay.
 
-The audience is infrastructure engineers, platform teams, and SREs at enterprises or service providers running an Agora relay. It assumes familiarity with Linux systems administration, container orchestration (Docker/Kubernetes), and basic distributed systems concepts. No deep knowledge of MLS or DIDs is assumed; protocol concepts are referenced by section number when relevant.
+The audience is infrastructure engineers, platform teams, and site reliability engineers (SREs) at enterprises or service providers running an Agora relay. It assumes familiarity with Linux systems administration, container orchestration (Docker/Kubernetes), and basic distributed systems concepts. It assumes no deep knowledge of MLS or DIDs and cites protocol concepts by section number where relevant.
 
 ---
 
@@ -49,7 +49,7 @@ This guide is non-normative and uses no BCP 14 key words. Where it restates a re
 
 ### 1.1 Purpose and Scope
 
-This document describes how to run an Agora relay across its lifecycle: initial deployment, day-to-day operations, observability, upgrading, and decommissioning. It also describes this implementation's Relay Admin API (§5), which the protocol spec does not cover.
+This document describes how to run an Agora relay across its lifecycle: initial deployment, day-to-day operations, observability, upgrading, and decommissioning. It also describes this implementation's Admin API (§5), which the protocol spec does not cover.
 
 **Section references.** Three kinds of reference appear in this document, always written distinctly:
 
@@ -61,9 +61,21 @@ Where this document and the protocol spec or ARCHITECTURE.md disagree, those doc
 
 ### 1.2 Relationship to the Protocol Specification
 
-The protocol spec lists what a conformant relay must and must not do (spec §10.4.3). In summary: it speaks the live CBOR message set over WebSocket, and preferably WebTransport (spec §11.1, §11.2, §11.4); runs the unauthenticated client hello and connection admission controls (spec §11.6); implements the Peer API and relay-to-relay authentication (spec §10.2); accepts `AdmissionKeyRegistration` and `AdmissionKeyDeregistration` requests from COs at its `admissionKeys` endpoint (spec §10.5.3); carries only the `channelToken`s registered with it under a current `ServiceAgreement` (spec §10.3.1); verifies `admissionSig` on every envelope against the registered admission public key (spec §10.5.4); holds recent envelopes and blobs for each agreement's retention (spec §10.4.4, §10.4.6); enforces each agreement's quotas (spec §10.5.1); and publishes a relay manifest with its observation-budget declaration (spec §10.2.1). A relay stores no KeyPackages, authenticates no client identity, accepts no DID-signed user records from clients, and signs no community state. This document covers how to deploy and operate that relay: config file format, packaging, observability, backup procedures, network requirements, and operational runbooks.
+The protocol spec lists what a conformant relay must and must not do (spec §10.4.3). In summary, a relay:
 
-The binding between a relay operator and each community operator it serves is a `ServiceAgreement` with `serviceType` `relay` (ARCHITECTURE S7, spec §10.5.1). It is signed by the relay (`provider`) and by the CO's billing DID (`billing`), names no Space or channel, and is private between the two parties. It sets retention (`retentionDays`), quotas, the CO's abuse and takedown `contact`, and the connection-log retention the relay declares in its manifest. Under it the CO's registration service registers the channel admission public keys whose envelopes the relay admits (spec §10.5.3). Commercial terms are agreed out of band and are outside the protocol and this document.
+- speaks the live CBOR message set over WebSocket, and preferably WebTransport (spec §11.1, spec §11.2, spec §11.4)
+- runs the unauthenticated client hello and connection admission controls (spec §11.6)
+- implements the Peer API and relay-to-relay authentication (spec §10.2)
+- accepts `AdmissionKeyRegistration` and `AdmissionKeyDeregistration` requests from COs at its `admissionKeys` endpoint (spec §10.5.3)
+- carries only the `channelToken`s registered with it under a current `ServiceAgreement` (spec §10.3.1)
+- verifies `admissionSig` on every envelope against the registered admission public key (spec §10.5.4)
+- holds recent envelopes and blobs for each agreement's retention (spec §10.4.4, spec §10.4.6)
+- enforces each agreement's quotas (spec §10.5.1)
+- publishes a relay manifest with its observation-budget declaration (spec §10.2.1)
+
+A relay stores no KeyPackages, authenticates no client identity, accepts no DID-signed user records from clients, and signs no community state. This document covers how to deploy and operate that relay: config file format, packaging, observability, backup procedures, network requirements, and operational runbooks.
+
+The binding between a relay operator and each CO it serves is a `ServiceAgreement` with `serviceType` `relay` (ARCHITECTURE S7, spec §10.5.1). It is signed by the relay (`provider`) and by the CO's billing DID (`billing`), names no Space or channel, and is private between the two parties. It sets retention (`retentionDays`), quotas, the CO's abuse and takedown `contact`, and the connection-log retention the relay declares in its manifest. Under it the CO's registration service registers the channel admission public keys whose envelopes the relay admits (spec §10.5.3). Commercial terms are agreed out of band and are outside the protocol and this document.
 
 Enterprise components such as the employer DID provisioning service and the Purview bridge are CO components. They are not deployed as part of a relay and need no relay configuration. §14 explains the boundary.
 
@@ -74,7 +86,7 @@ Enterprise components such as the employer DID provisioning service and the Purv
 - **SREs** responsible for relay availability, monitoring, and incident response.
 - **Security engineers** reviewing the relay's security posture.
 
-This document is not aimed at end users, space owners, or Agora client developers.
+This document is not aimed at end users, Space owners, or Agora client developers.
 
 ---
 
@@ -124,35 +136,35 @@ A production Agora relay deployment has these components:
 
 **Required components:**
 - `agora-relay`: the relay process. Implements all protocol-level behavior.
-- Database: SQLite for development/small deployments; PostgreSQL for production. Holds held ciphertext envelopes keyed by `channelToken`, the peer table, loaded agreements, registered admission public keys with their tokens and the `ts` of the last accepted registration request per token (spec §10.5.3), pin state, quota counters, and push registrations.
-- Blob store: content-addressed storage for opaque blobs, each held under every `channelToken` for which it was uploaded, replicated, pulled or pinned, and charged to and retained for the agreement of each such token (spec §10.4.4): the root and chunk blocks of encrypted files (spec §14.3.4), group-encrypted blobs (spec §3.4), pinned CIDs, and records a CO explicitly publishes, such as public Space state and directory documents (spec §10.4.3). Blocks are keyed by multihash, so one stored block answers to both its `raw` and its `dag-pb` CID (spec §10.4.4). Backed by the local filesystem (`blob_backend = "local"`) or an S3-compatible object store (`blob_backend = "s3"`) for HA deployments.
+- Database: SQLite for development/small deployments; PostgreSQL for production. Stores held ciphertext envelopes keyed by `channelToken`, the peer table, loaded agreements, registered admission public keys with their tokens and the `ts` of the last accepted registration request per token (spec §10.5.3), pin state, quota counters, and push registrations.
+- Blob store: content-addressed storage (CAS) for opaque blobs: the root and chunk blocks of encrypted files (spec §14.3.4), group-encrypted blobs (spec §3.4), pinned CIDs, and records a CO explicitly publishes, such as public Space state and directory documents (spec §10.4.3). Each blob is held under every `channelToken` for which it was uploaded, replicated, pulled or pinned, and is charged to and retained for the agreement of each such token (spec §10.4.4). Blocks are keyed by multihash, so one stored block answers to both its `raw` and its `dag-pb` CID (spec §10.4.4). Backed by the local filesystem (`blob_backend = "local"`) or an S3-compatible object store (`blob_backend = "s3"`) for high-availability (HA) deployments.
 
 **Blob access.** Blobs are reachable through exactly two public interfaces, both on the client-facing port:
 
 - `GET /v1/agora/blob/{cid}`: the CAS read endpoint (spec §10.4.4). Unauthenticated, rate-limited per network address (spec §11.6), and served with `Access-Control-Allow-Origin: *` so browser clients can fetch directly. The content is either ciphertext that only group members can decrypt or a record the CO chose to publish. A request may carry `?token=<channelToken>`, which asks for pull-through (below).
-- JMAP upload and download (`/v1/agora/jmap/upload/{accountId}`, `/v1/agora/jmap/download/{accountId}/{blobId}/{name}`, paths under `endpoints.jmapSync`, spec §11.8.1). Downloads follow the same rules as the CAS endpoint. An upload is accepted only with an `Agora-Storage-Auth` header signed with the admission key registered for a `channelToken` (spec §10.4.4, §11.8.2). It counts against the storage quota of the agreement under which that key is registered and is kept for that agreement's retention, or longer if a `PinInstruction` signed with the same key pins it (spec §11.4).
+- JMAP upload and download (`/v1/agora/jmap/upload/{accountId}`, `/v1/agora/jmap/download/{accountId}/{blobId}/{name}`, paths under `endpoints.jmapSync`, spec §11.8.1). Downloads follow the same rules as the CAS endpoint. An upload is accepted only with an `Agora-Storage-Auth` header signed with the admission key registered for a `channelToken` (spec §10.4.4, spec §11.8.2). It counts against the storage quota of the agreement under which that key is registered and is kept for that agreement's retention, or longer if a `PinInstruction` signed with the same key pins it (spec §11.4).
 
 These two HTTPS interfaces are the client fetch path for every blob, including `ipfs://` URIs (spec §10.4.4). "Pinning" means retention in the local blob store under a pin instruction, not pinning on the public IPFS network. Pinning a `dag-pb` root block also pins every chunk block it links to (spec §10.4.4).
 
-**Blob replication.** A client uploads each blob once, to any one relay in the channel's relay list, and the relays carrying that token replicate it among themselves over the Peer API (spec §10.2.2, §10.4.4). A file of up to 2^32 bytes arrives as a root block plus up to 16,384 chunk blocks of 256 KiB each, every one a separate upload and a separate CID (spec §14.3.4).
+There is no admin read endpoint for blob or envelope bytes. The Admin API has two content operations, both for takedown handling (§17): `GET /admin/content/{cid}` returns the agreement and contact for a CID, and `DELETE /admin/content/{cid}` deletes it (§5.2). Both sit behind the same bearer-token authentication as every other admin endpoint.
 
-- *Eager replication.* After answering the upload, the relay pushes the blob with `POST /v1/agora/peer/blob?token=<channelToken>`, forwarding the upload's `Agora-Storage-Auth` header unchanged, to other relays carrying the token (the peers it knows to be subscribed to the token's channel topic) until at least `replicationFloor` relays, counting itself, hold it, or every relay carrying the token if fewer do. `replicationFloor` comes from the agreement under which the token is registered here; it defaults to 2 and is not a relay setting (spec §10.5.1). A peer answers 201 (stored or already held), 403 (header missing or failing its checks), 404 (token not registered there) or 507 (that agreement's storage quota is full). The relay retries peers that are unreachable or answer 507 with exponential backoff for at least 24 hours, then stops and keeps its own copy (spec §10.4.4).
+**Blob replication.** A client uploads each blob once, to any one relay in the channel's relay list, and the relays carrying that token replicate it among themselves over the Peer API (spec §10.2.2, spec §10.4.4). A file of up to 2^32 bytes arrives as a root block plus up to 16,384 chunk blocks of 256 KiB each, every one a separate upload and a separate CID (spec §14.3.4).
+
+- *Eager replication.* After answering the upload, the relay pushes the blob to other relays carrying the token (the peers it knows to be subscribed to the token's channel topic) with `POST /v1/agora/peer/blob?token=<channelToken>`, forwarding the upload's `Agora-Storage-Auth` header unchanged. It pushes until at least `replicationFloor` relays, counting itself, hold the blob. If fewer relays carry the token, it pushes to every one of them. `replicationFloor` comes from the agreement under which the token is registered here; it defaults to 2 and is not a relay setting (spec §10.5.1). A peer answers 201 (stored or already held), 403 (header missing or failing its checks), 404 (token not registered there) or 507 (that agreement's storage quota is full). The relay retries peers that are unreachable or answer 507 with exponential backoff for at least 24 hours, then stops and keeps its own copy (spec §10.4.4).
 - *Pull-through.* When a client fetch with `token` names a CID this relay lacks, and the token is registered here under a current agreement, the relay fetches it from a relay carrying the token with `GET /v1/agora/peer/blob/{cid}?token=<channelToken>`, checks it against the CID, stores it under the token and serves it. The `token` on a peer pull names the token under which the requester will store the blob; the responding relay does not check it and serves any blob it holds (spec §10.2.2). A fetch without `token`, or for a token not registered here, gets 404 and triggers nothing.
-- *Inbound.* The relay accepts pushed blobs only for tokens registered with it under a current agreement. For each push it verifies the forwarded `Agora-Storage-Auth`: `admissionSig` against the key registered for the push's token and `sha256` against the body, without checking `expires` or `nonce`, and answers 403 if the header is missing or fails (spec §10.2.2). It verifies each blob against its CID, charges it to that agreement's storage quota and keeps it for that agreement's `retentionDays` from receipt. It never pushes, pulls or caches blobs for any other token. A blob already held under another token gains the new token as a holder and is charged to that token's agreement as well; a `pin` for a held CID does the same (spec §10.4.4).
+- *Inbound.* The relay accepts pushed blobs only for tokens registered with it under a current agreement. For each push it verifies the forwarded `Agora-Storage-Auth` header: `admissionSig` against the key registered for the push's token, and `sha256` against the body. It does not check `expires` or `nonce`. It answers 403 if the header is missing or fails these checks (spec §10.2.2). It verifies each blob against its CID, charges it to that agreement's storage quota and keeps it for that agreement's `retentionDays` from receipt. It never pushes, pulls or caches blobs for any other token. A blob already held under another token gains the new token as a holder and is charged to that token's agreement as well; a `pin` for a held CID does the same (spec §10.4.4).
 - *Seeding.* A CO that adds this relay to a channel's relay list may send a `seed` pin instruction listing CIDs, signed with the channel's admission key (spec §11.4). The relay acknowledges at once, then pulls each listed CID it lacks from other relays carrying the token and keeps it for the ordinary retention window, without a pin exemption.
 
 Peer API blob requests are authenticated with HTTP Message Signatures like the rest of the Peer API (spec §10.2.3) and travel on port 443 with the relay's other traffic (§11.1). Replication tells a relay nothing new: a peer that pushes or pulls a token's blob already carries that token, which the channel topic mesh shows anyway, and blobs are ciphertext or published records that any requester may fetch (spec §10.4.4). A Level 1 peer may pull blobs and push blobs for tokens registered here (spec §10.2.4).
 
 **Public IPFS.** Spec §10.4.4 forbids announcing on, providing to or requesting from the public IPFS network (its DHT, public Bitswap peers or public gateways) any blob that is not public content, and permits Bitswap for private ciphertext only among a user's own devices and between those devices and the CO archive. Relays exchange blobs only over the Peer API, never by Bitswap, and this relay runs no IPFS node. It also never publishes public content to IPFS, because it cannot tell public content from ciphertext by looking at the bytes. A CO that wants its published records, or the blobs of a public broadcast channel, on the public IPFS network publishes them from its own node.
 
-There is no admin read endpoint for blob or envelope bytes. The Admin API has two content operations, both for takedown handling (§17): `GET /admin/content/{cid}` returns the agreement and contact for a CID, and `DELETE /admin/content/{cid}` deletes it (§5.2). Both sit behind the same bearer-token authentication as every other admin endpoint.
-
-**Admission key registration.** COs send `AdmissionKeyRegistration` and `AdmissionKeyDeregistration` requests to `POST /v1/agora/admission-keys` on the client-facing port. The URL is published as `endpoints.admissionKeys` in the manifest and equals the `endpoint` of each relay agreement (spec §10.2.1, §10.5.1). Each request is one CBOR-encoded typed payload envelope signed by the agreement's billing DID. The relay verifies it, applies it entirely or not at all, and answers 204 or one of the error codes of spec §10.5.3. When it applies a registration whose key names a token in `replaces`, it sends each connection subscribed to that token an `Error` with code `token-rotated` and keeps those subscriptions open (spec §11.4). Registrations are never gossiped and the relay reveals them to no one but the CO that sent them (spec §10.4.3).
+**Admission key registration.** COs send `AdmissionKeyRegistration` and `AdmissionKeyDeregistration` requests to `POST /v1/agora/admission-keys` on the client-facing port. The URL is published as `endpoints.admissionKeys` in the manifest and equals the `endpoint` of each relay agreement (spec §10.2.1, spec §10.5.1). Each request is one CBOR-encoded typed payload envelope signed by the agreement's billing DID. The relay verifies it, applies it entirely or not at all, and answers 204 or one of the error codes of spec §10.5.3. When it applies a registration whose key names a token in `replaces`, it sends each connection subscribed to that token an `Error` with code `token-rotated` and keeps those subscriptions open (spec §11.4). Registrations are never gossiped and the relay reveals them to no one but the CO that sent them (spec §10.4.3).
 
 **Optional components:**
 - SFU (Selective Forwarding Unit): voice/video channel routing (spec §6.6). An IO component that is never an MLS member. Can be a separate process or a separate host.
+- Sequencer: stamps an order on encrypted operations for `sequenced-v1` JMAP types and on concurrent Commits (spec §14.4.1). A CO engages a sequencer under a separate `ServiceAgreement` with `serviceType` `sequencer` and registers its channels' admission keys there as with a relay. Spec §14.4.1 advises a CO to designate a relay it already holds an agreement with. A relay operator asked to do this runs the sequencer service beside the relay under the same `relayDID`, declares `sequencer-v1` in the manifest (spec §10.2.1), and serves it at the endpoint the CO names in its designation (conventionally `/v1/agora/seq`). The sequencer is not part of the relay process described here. It learns what a relay holding the same registrations learns (spec §14.4.6).
 - Push proxy: mobile push notification wake-ups (spec §11.7). Can be co-located or externally hosted; a CO may run its own instead (spec §11.7).
-- Sequencer: stamps an order on encrypted operations for `sequenced-v1` JMAP types and on concurrent Commits (spec §14.4.1). A CO engages a sequencer under a separate `ServiceAgreement` with `serviceType` `sequencer` and registers its channels' admission keys there as with a relay, and spec §14.4.1 advises a CO to designate a relay it already holds an agreement with. A relay operator asked to do this runs the sequencer service beside the relay under the same `relayDID`, declares `sequencer-v1` in the manifest (spec §10.2.1), and serves it at the endpoint the CO names in its designation (conventionally `/v1/agora/seq`). The sequencer is not part of the relay process described here. It learns what a relay holding the same registrations learns (spec §14.4.6).
 
 CO components (employer DID provisioning service and KeyPackage host, compliance logger, Purview bridge, gateways) are not part of a relay deployment. See §14.
 
@@ -160,7 +172,7 @@ CO components (employer DID provisioning service and KeyPackage host, compliance
 
 Single-node deployment is appropriate for:
 - Development and testing environments.
-- Small organizations with fewer than ~200 active users.
+- Small organizations with fewer than about 200 active users.
 - Enterprise deployments where the relay serves only internal users on a reliable LAN.
 
 In a single-node deployment, all components run on one host or in one Docker Compose stack. SQLite is acceptable as the database backend. The local filesystem blob store (`blob_backend = "local"`) is sufficient. No load balancer is required; the relay process handles TLS directly.
@@ -169,7 +181,7 @@ In a single-node deployment, all components run on one host or in one Docker Com
 
 Multi-node HA deployment is required when:
 - The relay must survive single-node failure.
-- Active user count exceeds ~500.
+- Active user count exceeds about 500.
 - The relay serves public community traffic where downtime causes user-visible disruption.
 
 §15 covers multi-node HA in detail. In short: PostgreSQL with streaming replication replaces SQLite; multiple relay instances share the database and an S3-compatible blob store backend (AWS S3, MinIO, Backblaze B2, or equivalent); a load balancer with QUIC affinity fronts the relay instances.
@@ -190,9 +202,9 @@ Multi-node HA deployment is required when:
 
 The relay requires these network interfaces:
 
-- **Public interface**: handles WebTransport (QUIC/UDP), WebSocket (TCP), JMAP HTTPS, the blob CAS endpoint, the admission key registration endpoint, and the well-known relay manifest endpoint. Must be reachable from the internet, or at least from the COs' registration services for the registration endpoint.
-- **Peer gossip interface**: handles libp2p gossipsub QUIC connections from peer relays. may be the same public interface or a separate interface. must not be firewalled from peer relay IP ranges.
-- **Internal/management interface**: handles the Admin API, Prometheus metrics, and database connections. must not be reachable from the internet.
+- **Public interface.** Handles WebTransport (QUIC/UDP), WebSocket (TCP), JMAP HTTPS, the blob CAS endpoint, the admission key registration endpoint, and the well-known relay manifest endpoint. Must be reachable from the internet, or at least from the COs' registration services for the registration endpoint.
+- **Peer gossip interface.** Handles libp2p gossipsub QUIC connections from peer relays. It may be the same public interface or a separate interface. It must not be firewalled from peer relay IP ranges.
+- **Internal/management interface.** Handles the Admin API, Prometheus metrics, and database connections. It must not be reachable from the internet.
 
 ---
 
@@ -656,11 +668,11 @@ All configuration values can be overridden via environment variables using the p
 
 The approach depends on the deployment environment:
 
-**AWS Secrets Manager:** Store each secret as a separate secret. Use the AWS SDK to fetch secrets at startup. The relay process must have an IAM role with `secretsmanager:GetSecretValue` permission for the relevant secret ARNs. Inject secret values as environment variables via the ECS task definition `secrets` field or Kubernetes external-secrets operator.
+**AWS Secrets Manager.** Store each secret as a separate secret. Use the AWS SDK to fetch secrets at startup. The relay process must have an IAM role with `secretsmanager:GetSecretValue` permission for the relevant secret ARNs. Inject secret values as environment variables via the ECS task definition `secrets` field or Kubernetes external-secrets operator.
 
-**HashiCorp Vault:** Use the Vault agent sidecar injector for Kubernetes, or the Vault AWS auth method for ECS. The relay process should not contain Vault credentials; authentication should use the platform identity (EC2 instance profile, Kubernetes service account).
+**HashiCorp Vault.** Use the Vault agent sidecar injector for Kubernetes, or the Vault AWS auth method for ECS. The relay process should not contain Vault credentials; authentication should use the platform identity (EC2 instance profile, Kubernetes service account).
 
-**Kubernetes Secrets:** Acceptable for internal/development deployments. For production, use a secrets operator (External Secrets Operator, Sealed Secrets) that syncs from a trusted secrets store rather than committing plaintext secrets to etcd.
+**Kubernetes Secrets.** Acceptable for internal/development deployments. For production, use a secrets operator (External Secrets Operator, Sealed Secrets) that syncs from a trusted secrets store rather than committing plaintext secrets to etcd.
 
 The relay signing key requires special handling; see §10.1.
 
@@ -704,7 +716,7 @@ ENTRYPOINT ["/usr/local/bin/agora-relay"]
 CMD ["--config", "/etc/agora-relay/relay.toml"]
 ```
 
-**Image tags:** Use digest-pinned references in production. The `:latest` tag must not be used in production deployments. Use immutable tags of the form `agora-relay:0.2.1` and pin to the image digest in your deployment manifests:
+**Image tags.** Use digest-pinned references in production. Do not use the `:latest` tag in production deployments. Use immutable tags of the form `agora-relay:0.2.1` and pin to the image digest in your deployment manifests:
 
 ```
 ghcr.io/agora-protocol/relay:0.2.1@sha256:<digest>
@@ -768,7 +780,7 @@ networks:
   relay-public:
 ```
 
-The `.env` file must not be committed to version control. It must contain at minimum:
+Do not commit the `.env` file to version control. It must contain at least:
 
 ```
 DB_PASSWORD=<strong-random-password>
@@ -880,9 +892,7 @@ This guide does not provide a Terraform module; a sketch would be mistaken for a
 
 ## 5. Relay Admin API
 
-The Relay Admin API is an HTTP API served on the admin listen address (default `127.0.0.1:9099`). It must not be exposed to the public internet. All endpoints require authentication via a static bearer token (see §5.1).
-
-The Admin API is an operator interface defined in this document, outside the Agora protocol.
+The Relay Admin API is an HTTP API served on the admin listen address (default `127.0.0.1:9099`). It must not be exposed to the public internet. All endpoints require authentication via a static bearer token (see §5.1). The Admin API is an operator interface defined in this document, outside the Agora protocol.
 
 The Admin API reports per-token and per-agreement counters only. It never reports Space or channel names, types, Space CIDs, channel IDs, or member counts (ARCHITECTURE §7 item 7); the relay does not have them (spec §10.4.1). Agreements are identified by their `id`, the CID of the agreement body bytes both parties signed (spec §10.5.1), and their billing DID, which is what the relay holds (ARCHITECTURE §5 item 6). The Admin API never returns registered admission keys or agreement documents to anyone; they stay private between the relay and each CO (spec §10.4.3).
 
@@ -960,7 +970,7 @@ Lists all known peers with current trust level, reachability, and traffic statis
 
 #### `POST /admin/peers/{did}/trust`
 
-Manually set the trust level for a peer. Trust level 3 is the maximum; level 0 effectively blocks the peer from gossiping (manifest fetch only).
+Sets the trust level for a peer manually. Trust level 3 is the maximum; level 0 effectively blocks the peer from gossiping (manifest fetch only).
 
 **Request body:**
 ```json
@@ -979,7 +989,7 @@ Manually set the trust level for a peer. Trust level 3 is the maximum; level 0 e
 
 #### `DELETE /admin/peers/{did}`
 
-Remove a peer and add it to the permanent blocklist. This action is irreversible via the API; to unblock, restart the relay with the peer removed from `peering.blocked_peers`.
+Removes a peer and adds it to the permanent blocklist. This action is irreversible via the API; to unblock, restart the relay with the peer removed from `peering.blocked_peers`.
 
 **Request body:**
 ```json
@@ -1085,9 +1095,9 @@ Lists the busiest `channelToken`s by traffic over a window, for capacity and abu
 }
 ```
 
-`agreement_id` is the agreement under which the token's admission key is registered. `key_status` is `registered`; `suspended` for a token this relay has suspended (spec §10.4.7); or `withdrawn` for a token whose key was deregistered or whose agreement ended while the relay still holds envelopes under it (spec §11.4). A token changes only when the CO rotates the channel's admission key, not on MLS epochs (spec §10.4.2). Counters are per token. The relay uses a registration's `replaces` only to send `token-rotated` to the old token's subscribers (spec §10.5.3, §11.4) and keeps no link between a token and the one that replaces it.
+`agreement_id` is the agreement under which the token's admission key is registered. `key_status` is one of `registered`; `suspended`, for a token this relay has suspended (spec §10.4.7); or `withdrawn`, for a token whose key was deregistered or whose agreement ended while the relay still holds envelopes under it (spec §11.4). Counters are per token. A token changes only when the CO rotates the channel's admission key, not on MLS epochs (spec §10.4.2). The relay uses a registration's `replaces` only to send `token-rotated` to the old token's subscribers (spec §10.5.3, spec §11.4) and keeps no link between a token and the one that replaces it.
 
-Admission is normally decided by the CO's registrations: to cut a token off, the CO deregisters its key (spec §10.5.3). The relay may also suspend one token under its own policy and law (spec §10.4.7); see the next two operations.
+The CO's registrations normally decide admission: to cut a token off, the CO deregisters its key (spec §10.5.3). The relay may also suspend one token under its own policy and law (spec §10.4.7); see the next two operations.
 
 #### `POST /admin/tokens/{token}/suspend`
 
@@ -1140,7 +1150,7 @@ Looks up a CID named in a takedown request (spec §10.4.5). Returns what the rel
 
 #### `DELETE /admin/content/{cid}`
 
-Stops serving a blob or envelope and deletes it, and adds the CID to a deny list so that a re-upload of the same bytes is refused. Spec §10.4.5 allows this as a storage decision under the operator's own policy and law; it removes this relay's copy only and is not a moderation decision. Copies on other relays and in members' stores are unaffected; because blobs are replicated, other relays carrying the token usually hold a copy. The deny list also refuses the CID in replication pushes, pull-through and `seed` fetches. If `{cid}` is a `dag-pb` root block (spec §14.3.4), the relay also deletes and deny-lists the chunk blocks it links to, as pinning a root covers its chunks (spec §10.4.4).
+Stops serving a blob or envelope, deletes it, and adds the CID to a deny list so that the relay refuses a re-upload of the same bytes. Spec §10.4.5 allows this as a storage decision under the operator's own policy and law; it removes this relay's copy only and is not a moderation decision. Copies on other relays and in members' stores are unaffected; because blobs are replicated, other relays carrying the token usually hold a copy. The deny list also refuses the CID in replication pushes, pull-through and `seed` fetches. If `{cid}` is a `dag-pb` root block (spec §14.3.4), the relay also deletes and deny-lists the chunk blocks it links to, as pinning a root covers its chunks (spec §10.4.4).
 
 **Request body:**
 ```json
@@ -1165,7 +1175,7 @@ Returns a redirect to the Prometheus metrics endpoint.
 
 #### `POST /admin/reload`
 
-Reload non-breaking configuration changes without restarting the relay process. Reloadable fields: `peering.bootstrap_peers`, `peering.blocked_peers`, `peering.trusted_peers`, `rate_limits.*`, `logging.level`, `identity.signing_key_path`, `identity.signing_key_deprecated_path`, `identity.revoked_key_ids`, `agreements.registrations_per_agreement_per_minute`, `server.tls_cert`, `server.tls_key`, `server.accepting_new_connections`, and the contents of `agreements.agreements_dir`. Non-reloadable fields (require restart): all other `server.*` and `identity.*` fields, `storage.*`, and `observation.*`.
+Reloads non-breaking configuration changes without restarting the relay process. Reloadable fields: `peering.bootstrap_peers`, `peering.blocked_peers`, `peering.trusted_peers`, `rate_limits.*`, `logging.level`, `identity.signing_key_path`, `identity.signing_key_deprecated_path`, `identity.revoked_key_ids`, `agreements.registrations_per_agreement_per_minute`, `server.tls_cert`, `server.tls_key`, `server.accepting_new_connections`, and the contents of `agreements.agreements_dir`. Non-reloadable fields (require restart): all other `server.*` and `identity.*` fields, `storage.*`, and `observation.*`.
 
 **Response 200:**
 ```json
@@ -1360,18 +1370,18 @@ Example log line:
 **Log levels and what goes at each level:**
 
 - `error`: conditions that require operator attention: failed TLS handshake, database write failure, blob store write failure, agreement file that fails signature verification or names another provider or endpoint.
-- `warn`: conditions that are notable but not immediately actionable: peer heartbeat miss (first occurrence), agreement above 90% of a quota, rate limit triggered for the first time on a channelToken, admission proof of work switched on.
+- `warn`: conditions that are notable but not immediately actionable: peer heartbeat miss (first occurrence), agreement above 90% of a quota, rate limit triggered for the first time on a `channelToken`, admission proof of work switched on.
 - `info`: normal operational events: relay startup and shutdown, peer connect/disconnect, TLS cert renewal, GC completed, config reload.
 - `debug`: per-request events useful for troubleshooting: individual client hellos, `admissionSig` failures, registration request outcomes, JMAP method calls, gossip message receipt/forward.
 - `trace`: verbose internal state: frame parsing, gossipsub scoring events, blob store write operations. Not for production use.
 
-**Relay blindness in logs:** Logs hold only what the observation budget allows (ARCHITECTURE §5, spec §10.4.1). They never contain sender DIDs, member DIDs, Space CIDs, channel IDs or MLS group IDs; the relay does not have them. They never contain registered admission keys, agreement contents or push registrations. Logs that carry `remote_addr` are connection metadata, and ARCHITECTURE §5 item 1 limits their retention to the value the relay declares in its manifest, here `observation.connection_log_retention_days` (see also ARCHITECTURE §7 item 11). Ship logs only to a collector that enforces the same retention; a log pipeline that keeps them longer puts the relay outside its declared budget.
+**Relay blindness in logs.** Logs hold only what the observation budget allows (ARCHITECTURE §5, spec §10.4.1). They never contain sender DIDs, member DIDs, Space CIDs, channel IDs or MLS group IDs; the relay does not have them. They never contain registered admission keys, agreement contents or push registrations. Logs that carry `remote_addr` are connection metadata. ARCHITECTURE §5 item 1 limits their retention to the value the relay declares in its manifest, here `observation.connection_log_retention_days` (see also ARCHITECTURE §7 item 11). Ship logs only to a collector that enforces the same retention; a log pipeline that keeps them longer puts the relay outside its declared budget.
 
 ---
 
 ## 7. Alerting
 
-Configure at least these alert rules for a production relay. Rules are expressed in Prometheus alerting rule format.
+Configure at least these alert rules for a production relay. The rules use Prometheus alerting rule format.
 
 ```yaml
 # agora-relay-alerts.yaml
@@ -1555,13 +1565,13 @@ groups:
 | Config file | Medium | Reconstructible, but restoring it avoids reconfiguring from scratch. |
 | TLS private key | Medium | Loss requires certificate reissuance (fast with ACME, but causes a brief outage). |
 
-**Backups and retention.** Backups of the database and blob store hold envelopes and blobs, and access logs if they are backed up, so they fall under the same retention limits as the live relay (spec §10.4.1, spec §10.4.2). Expire database and blob backups within the shortest `retentionDays` among loaded agreements, since a backup holds every agreement's data, and back up access logs, if at all, only within `observation.connection_log_retention_days`. Pinned CIDs are the exception: they are kept until unpinned. The relay is never the authoritative record for a community. Older history lives in members' stores and the CO's archive (spec §5.2.5, ARCHITECTURE §4).
+**Backups and retention.** Backups of the database and blob store hold envelopes and blobs, and they hold access logs too if you back those up, so they fall under the same retention limits as the live relay (spec §10.4.1, spec §10.4.2). Expire database and blob backups within the shortest `retentionDays` among loaded agreements, because a backup holds every agreement's data. Back up access logs, if at all, only within `observation.connection_log_retention_days`. Pinned CIDs are the exception: they are kept until unpinned. The relay is never the authoritative record for a community. Older history lives in members' stores and the CO's archive (spec §5.2.5, ARCHITECTURE §4).
 
-The relay holds no secret admission material. It stores only admission public keys and tokens, so a backup leaks no key that lets anyone post or read; it does reveal which tokens each agreement registered, so protect it like the database.
+The relay holds no secret admission material. It stores only admission public keys and tokens, so a backup leaks no key that lets anyone post or read. It does reveal which tokens each agreement registered, so protect it like the database.
 
 ### 8.2 Relay Signing Key Backup
 
-The relay signing key must be backed up before the relay is first deployed. For a `did:key` relay there is no recovery path if it is lost, because the DID is the key. A `did:web` relay that loses its key keeps its DID and recovers by publishing a new key in `did.json` and the manifest (§10.1, spec §10.2.1). Procedure:
+Back up the relay signing key before you first deploy the relay. For a `did:key` relay there is no recovery path if it is lost, because the DID is the key. A `did:web` relay that loses its key keeps its DID and recovers by publishing a new key in `did.json` and the manifest (§10.1, spec §10.2.1). Procedure:
 
 1. Generate the key using the relay CLI:
    ```bash
@@ -1642,7 +1652,7 @@ Because blobs are content-addressed, incremental backups are efficient: unchange
 
 **S3 backend (`blob_backend = "s3"`):**
 
-Enable S3 bucket versioning and cross-region replication in your S3 provider. No additional backup tooling is required; the object store is the durable store. Add a lifecycle rule that expires noncurrent versions within the retention limit above; otherwise a deleted or taken-down blob survives as an old version. Verify versioning is enabled:
+Enable S3 bucket versioning and cross-region replication in your S3 provider. No additional backup tooling is required; the object store is the durable store. Add a lifecycle rule that expires noncurrent versions within the retention limit in §8.1; otherwise a deleted or taken-down blob survives as an old version. Verify versioning is enabled:
 
 ```bash
 aws s3api get-bucket-versioning --bucket agora-relay-blobs-prod
@@ -1669,22 +1679,22 @@ aws s3api get-bucket-versioning --bucket agora-relay-blobs-prod
        -c "SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY n_live_tup DESC;"
    ```
 
-3. Update the config to point at the restored database (if database name changed).
+3. Discard every admission key registration. Before the relay admits any traffic, delete every registered admission key and every per-token registration `ts` record from the restored database. The relay must not reinstate registrations from a backup, because a key the CO deregistered after the backup was taken would be admitted again (spec §10.4.7). It starts with no registrations and answers `unknown-token` for every token (spec §11.4); clients use another relay in the channel's relay list meanwhile (spec §10.3.5). Dropping the `ts` records is safe, because the CO re-registers with fresh requests.
 
-4. Restart the relay:
+4. Update the config to point at the restored database (if database name changed).
+
+5. Restart the relay:
    ```bash
    systemctl start agora-relay
    ```
 
-5. Verify recovery via the Admin API:
+6. Verify recovery via the Admin API:
    ```bash
    curl -s -H "Authorization: Bearer $ADMIN_TOKEN" \
        http://localhost:9099/admin/status | jq .
    ```
 
-6. Check that peer connections are re-established within 5 minutes. If not, check `GET /admin/peers` for peer reachability.
-
-7. Discard every admission key registration. Before the relay admits any traffic, delete every registered admission key and every per-token registration `ts` record from the restored database. The relay must not reinstate registrations from a backup, because a key the CO deregistered after the backup was taken would be admitted again (spec §10.4.7). It starts with no registrations and answers `unknown-token` for every token (spec §11.4); clients use another relay in the channel's relay list meanwhile (spec §10.3.5). Dropping the `ts` records is safe, because the CO re-registers with fresh requests.
+7. Check that peer connections are re-established within 5 minutes. If not, check `GET /admin/peers` for peer reachability.
 
 8. Notify every CO. Send each loaded agreement's `contact` a notice that this relay lost its registrations and the time of the restore. The CO's registration service then re-registers every current key under that agreement (spec §10.5.3). Without the notice, the CO's periodic re-registration restores them within 24 hours. Restored envelopes and blobs may be kept within their retention; the relay serves them again once their token is registered again.
 
@@ -1736,7 +1746,7 @@ curl -s -H "Authorization: Bearer $ADMIN_TOKEN" localhost:9099/admin/peers | jq 
 For multi-node HA deployments (§15), upgrade one node at a time:
 
 1. Remove one relay node from the load balancer target group (mark as unhealthy or detach).
-2. Wait for in-flight WebTransport/WebSocket connections to drain. Clients will reconnect to surviving nodes. Allow 60 seconds for drain.
+2. Wait for in-flight WebTransport/WebSocket connections to drain. Clients reconnect to surviving nodes. Allow 60 seconds for drain.
 3. Run database migrations on the removed node (safe: migrations must be backward-compatible, see §9.4).
 4. Upgrade the node to the new image.
 5. Restart the node and verify it connects to peers and passes health checks.
@@ -1761,8 +1771,8 @@ agora-relay migrate --down --steps 1
 ```
 
 Migrations are versioned and tracked in the `schema_migrations` table. All migrations must be:
-- **Backward-compatible for one version**: a migration that adds a column must have a default value so the old relay binary can continue to read the table. Dropping columns requires a two-version process (deprecate in v0.2, remove in v0.3).
-- **Idempotent**: running the same migration twice must produce the same result.
+- **Backward-compatible for one version.** A migration that adds a column must have a default value so the old relay binary can continue to read the table. Dropping columns requires a two-version process (deprecate in v0.2, remove in v0.3).
+- **Idempotent.** Running the same migration twice must produce the same result.
 
 ### 9.5 Post-Upgrade Verification
 
@@ -1788,9 +1798,9 @@ A relay upgrade is **breaking** if:
 - It removes or renames config fields that were previously set.
 - Database migrations drop or rename columns.
 - The relay manifest declares a new required capability that peer relays must support.
-- The protocol spec version incremented on any transport surface.
+- The protocol spec version increments on any transport surface.
 
-Breaking changes must be called out explicitly in release notes and must not be deployed via rolling upgrade without coordination across all relay nodes sharing the same relay DID.
+Release notes must call out breaking changes explicitly. A breaking change must not be deployed by rolling upgrade without coordination across all relay nodes sharing the same relay DID.
 
 ### 9.7 Rollback Procedure
 
@@ -1820,9 +1830,9 @@ agora-relay keygen --output /etc/agora-relay/keys/relay-signing.key
 # The corresponding relay DID is printed to stdout.
 ```
 
-**File permissions:** The key file must have permissions `0600` and be owned by the relay process user. Any other permissions must be rejected at startup.
+**File permissions.** The key file must have permissions `0600` and be owned by the relay process user. The relay must reject any other permissions at startup.
 
-**HSM storage (recommended for production):** Store the key in a hardware security module or cloud HSM. Options are below. Validation levels, product names, Ed25519 support and pricing change; verify each against current vendor documentation (table written 2026-10, not re-verified).
+**HSM storage (recommended for production).** Store the key in a hardware security module or cloud HSM. Options are below. Validation levels, product names, Ed25519 support and pricing change; verify each against current vendor documentation (table written 2026-10, not re-verified).
 
 | Option | Notes |
 |---|---|
@@ -1863,7 +1873,7 @@ Key rotation uses the overlap window of spec §10.2.6, which requires the relay 
 
 If `relayDID` is a `did:key`, the DID is the key, so a new key is a new relay identity: peers treat it as a new relay, and each CO must sign a new agreement naming it as `provider`. Where the relay has a DNS name, use `did:web` (spec §10.2.1) so that rotation keeps the DID and the agreements. For `did:web`, update the DID document at `/.well-known/did.json` to list both keys during the overlap.
 
-**Emergency key rotation:** If the signing key is believed compromised, do not use the overlap. Spec §12.12 has the relay publish its manifest with the compromised key's `status` set to `revoked`, and peers reject every request signed with a revoked key:
+**Emergency key rotation.** If you believe the signing key is compromised, do not use the overlap. Spec §12.12 has the relay publish its manifest with the compromised key's `status` set to `revoked`, and peers reject every request signed with a revoked key:
 
 1. Generate a new key and set it as `signing_key_path`.
 2. Add the compromised key's manifest `id` to `identity.revoked_key_ids` and leave `signing_key_deprecated_path` empty.
@@ -1871,11 +1881,11 @@ If `relayDID` is a `did:key`, the DID is the key, so a new key is a new relay id
 4. Reload. The relay publishes a manifest listing the new key as `active` and the old one as `revoked`.
 5. Notify each CO you hold a `ServiceAgreement` with through the agreement's `contact` (spec §12.12), and notify Level 3 peer operators.
 
-Peers that still hold the old manifest may reject requests until they refetch it; spec §12.12 asks them to refetch when a signature fails, and their cache lasts at most one hour (spec §10.2.3). The relay key signs no member-visible content and is not an admission key, so members need do nothing.
+Peers that still hold the old manifest may reject requests until they refetch it; spec §12.12 asks them to refetch when a signature fails, and their cache lasts at most one hour (spec §10.2.3). The relay key signs no member-visible content and is not an admission key, so members need to do nothing.
 
 ### 10.2 TLS Certificates
 
-**Let's Encrypt (recommended):** Set `tls_acme = true` in the config. The relay handles ACME certificate negotiation, renewal, and reload automatically. No operator action is required for normal renewals.
+**Let's Encrypt (recommended).** Set `tls_acme = true` in the config. The relay handles ACME certificate negotiation, renewal, and reload automatically. No operator action is required for normal renewals.
 
 **Manual certificate management:**
 ```bash
@@ -1939,7 +1949,7 @@ _agora-relay._tcp.example.com.  IN  TXT  "did=did:web:relay.example.com manifest
 push.relay.example.com.  IN  A  203.0.113.1
 ```
 
-Spec §10.2.5 asks relays to publish both SRV records, and a relay that cannot expose UDP to publish only the `_agora-relay._tcp` record; spec §10.2 has it omit `gossipsub-quic-v1` from its manifest capabilities.
+Spec §10.2.5 asks relays to publish both SRV records, and asks a relay that cannot expose UDP to publish only the `_agora-relay._tcp` record. Spec §10.2 has such a relay omit `gossipsub-quic-v1` from its manifest capabilities.
 
 ### 11.3 Firewall Rules
 
@@ -1965,12 +1975,11 @@ Peer traffic shares 443 with client traffic, so a public relay cannot restrict p
 WebTransport (QUIC) connections are stateful: a client maintains a QUIC connection to a specific relay instance. Standard round-robin load balancing breaks QUIC connections by routing packets to different backends.
 
 **QUIC load balancing requirements:**
-- Use a Network Load Balancer (Layer 4) with UDP support, not an Application Load Balancer (which does not support QUIC for WebTransport).
+- Use a Network Load Balancer (NLB, Layer 4) with UDP support, not an Application Load Balancer (which does not support QUIC for WebTransport).
 - Configure the NLB with **connection tracking** so that UDP flows from the same source IP:port are consistently forwarded to the same backend. AWS NLB does this automatically for UDP.
 - For Kubernetes, use a Service of type `LoadBalancer` with `externalTrafficPolicy: Local` to prevent SNAT from breaking connection tracking.
 
-**WebSocket sticky sessions:**
-WebSocket connections are long-lived TCP connections. Any TLS-terminating load balancer may be used, but must be configured for **sticky sessions** (source IP or cookie-based affinity). Without sticky sessions, WebSocket upgrade attempts may be routed to a different backend than the original HTTP request.
+**WebSocket sticky sessions.** WebSocket connections are long-lived TCP connections. Any TLS-terminating load balancer works, but it must be configured for **sticky sessions** (source IP or cookie-based affinity). Without sticky sessions, WebSocket upgrade attempts may be routed to a different backend than the original HTTP request.
 
 ### 11.5 Tor Hidden Service (Optional)
 
@@ -1988,9 +1997,9 @@ To expose the relay as a Tor v3 hidden service:
 
 3. Configure the relay with `tor_enabled = true`, the control port address, and `tor_ws_listen` set to the loopback address that `HiddenServicePort` forwards to. That listener speaks plaintext WebSocket, not TLS: forwarding onion port 80 to the TLS listener on 443 would break the advertised `ws://` endpoint.
 
-4. The relay will publish the `.onion` address in its manifest under `endpoints.onion` as `ws://examplerelay3xyz.onion/v1/agora/ws`.
+4. The relay publishes the `.onion` address in its manifest under `endpoints.onion` as `ws://examplerelay3xyz.onion/v1/agora/ws`.
 
-The `.onion` key file at `/var/lib/tor/agora-relay/hs_ed25519_secret_key` must be backed up with the same rigor as the relay signing key. If lost, the hidden service address changes permanently.
+Back up the `.onion` key file at `/var/lib/tor/agora-relay/hs_ed25519_secret_key` with the same rigor as the relay signing key. If it is lost, the hidden service address changes permanently.
 
 ---
 
@@ -1998,10 +2007,10 @@ The `.onion` key file at `/var/lib/tor/agora-relay/hs_ed25519_secret_key` must b
 
 ### 12.1 Storage
 
-**Message store (database):** Each held routing envelope is approximately 2 to 10 KB (sealed MLS ciphertext plus the CBOR routing fields and the 64-byte `admissionSig`), and never more than 65,536 bytes (spec §11.4). For a typical text message:
+**Message store (database).** Each held routing envelope is approximately 2 to 10 KB (sealed MLS ciphertext plus the CBOR routing fields and the 64-byte `admissionSig`), and never more than 65,536 bytes (spec §11.4). For a typical text message:
 
-- Average encrypted message size: ~2 KB (short messages) to ~8 KB (rich text + reactions)
-- Routing envelope overhead per message: ~150 bytes (`signed` fields and `admissionSig`)
+- Average encrypted message size: about 2 KB (short messages) to about 8 KB (rich text + reactions)
+- Routing envelope overhead per message: about 150 bytes (`signed` fields and `admissionSig`)
 - Effective planning estimate: **4 KB per message**
 
 Storage growth formula:
@@ -2014,11 +2023,11 @@ For 500 active users sending 50 messages/day each:
 500 × 50 × 4096 = 102,400,000 bytes ≈ 98 MB/day
 ```
 
-At 30-day retention: ~2.9 GB. At 90-day retention: ~8.8 GB. Retention is set per agreement (`retentionDays`). Relay-held envelopes are only the recent part of a channel's history; older history lives in members' stores and the CO's archive (spec §5.2.5). Regulatory retention periods are met by the CO's archive, not by relay retention (ARCHITECTURE §4); a CO that asks for multi-year relay retention is asking for storage, and the agreement's `storageQuotaGb` should reflect it.
+At 30-day retention: about 2.9 GB. At 90-day retention: about 8.8 GB. Retention is set per agreement (`retentionDays`). Relay-held envelopes are only the recent part of a channel's history; older history lives in members' stores and the CO's archive (spec §5.2.5). Regulatory retention periods are met by the CO's archive, not by relay retention (ARCHITECTURE §4); a CO that asks for multi-year relay retention is asking for storage, and the agreement's `storageQuotaGb` should reflect it.
 
 The relay sees users only as connections, so size from the storage quotas in your agreements rather than from user counts where you can: the sum of `storageQuotaGb` across agreements is the upper bound on agreement-covered storage.
 
-**Blob store:** Blobs are content-addressed, but expect little deduplication: files are encrypted under a fresh key per upload, so the same file uploaded twice is two sets of blocks (spec §14.3.4). Each file costs its size plus 16 bytes per 256 KiB chunk and a small root block. Replicated and pulled copies count against your agreement for the token, so with the default `replicationFloor` of 2 each uploaded blob sits on at least two relays. Plan for the sum of agreement storage quotas, less what the database already holds, plus CO-published records (public Space state and directory documents, typically tens of KB each).
+**Blob store.** Blobs are content-addressed, but expect little deduplication: files are encrypted under a fresh key per upload, so the same file uploaded twice is two sets of blocks (spec §14.3.4). Each file costs its size plus 16 bytes per 256 KiB chunk and a small root block. Replicated and pulled copies count against your agreement for the token, so with the default `replicationFloor` of 2 each uploaded blob sits on at least two relays. Plan for the sum of agreement storage quotas, less what the database already holds, plus CO-published records (public Space state and directory documents, typically tens of KB each).
 
 ### 12.2 Memory
 
@@ -2056,7 +2065,7 @@ Message fan-out is the dominant CPU workload. For 500 active users in 50 active 
 
 TLS is offloaded by the kernel or hardware in modern Linux systems and is not a significant CPU consumer.
 
-**Baseline recommendation:** 2 vCPU for up to 1,000 concurrent connections, 4 vCPU for up to 5,000. Gossipsub fanout scales linearly with subscriber count; scale horizontally before vertically when fanout is the bottleneck.
+**Baseline recommendation.** 2 vCPU for up to 1,000 concurrent connections, 4 vCPU for up to 5,000. Gossipsub fan-out scales linearly with subscriber count; scale horizontally before vertically when fan-out is the bottleneck.
 
 ### 12.4 Network Bandwidth
 
@@ -2076,7 +2085,7 @@ For 500 active users:
 - Peer mesh: 6 peers × 500 KB/s = 3 MB/s
 - Total estimated peak: ~55 MB/s ≈ 440 Mbps
 
-A 1 Gbps uplink is sufficient for up to ~1,000 concurrent active users. For larger deployments, scale horizontally.
+A 1 Gbps uplink is sufficient for up to about 1,000 concurrent active users. For larger deployments, scale horizontally.
 
 ### 12.5 Vertical vs Horizontal Scaling
 
@@ -2085,7 +2094,7 @@ Scale **vertically** (larger instance) when:
 - Single-node latency is acceptable and operational complexity matters more than raw capacity.
 
 Scale **horizontally** (add relay nodes, see §15) when:
-- Connection count exceeds ~5,000 (QUIC connection table becomes a bottleneck).
+- Connection count exceeds about 5,000 (QUIC connection table becomes a bottleneck).
 - Network bandwidth approaches 1 Gbps.
 - Geographic diversity is needed (deploy in multiple regions).
 - HA without a maintenance window is required.
@@ -2139,8 +2148,8 @@ The relay knows no user identities, so its controls key on what it can see: netw
 
 Two proofs of work apply at a relay, both non-monetary abuse controls:
 
-- **Admission proof** (spec §11.6): the relay asks for it before `RelayHello` under load or for addresses over their limit. Set by `admission_pow_difficulty`.
-- **Envelope proof** (spec §10.5.2): a channel's `PowPolicy` sets the difficulty its members' clients require. The relay cannot see that policy, so it enforces only its own floor, `envelope_pow_min_difficulty`, published as manifest `minPowDifficulty`. Spec §10.5.2 forbids it to require more than it declares.
+- **Admission proof (spec §11.6).** The relay asks for it before `RelayHello` under load or for addresses over their limit. `admission_pow_difficulty` sets its difficulty.
+- **Envelope proof (spec §10.5.2).** A channel's `PowPolicy` sets the difficulty its members' clients require. The relay cannot see that policy, so it enforces only its own floor, `envelope_pow_min_difficulty`, published as manifest `minPowDifficulty`. Spec §10.5.2 forbids it to require more than it declares.
 
 | Context | Admission difficulty | Envelope floor | Rationale |
 |---|---|---|---|
@@ -2154,13 +2163,13 @@ Difficulty above 24 is not recommended for either proof because it begins to deg
 
 Minimal practical checklist for the relay host:
 
-- **Minimal OS install**: Do not install unnecessary packages. Use a minimal container base image (Debian slim or distroless).
-- **Non-root process**: Run the relay as a non-root user (uid 1000 in the reference Dockerfile). Never run as uid 0.
-- **No SSH access in containers**: Use `kubectl exec` or `docker exec` for debugging. Remove SSH daemon from container images.
-- **Read-only filesystem where possible**: Mount `/etc/agora-relay/keys` and `/etc/agora-relay/relay.toml` as read-only. Only `/var/lib/agora-relay` needs write access.
-- **Seccomp profile**: Apply a restrictive seccomp profile to the relay container. The relay requires a limited syscall set (network I/O, file I/O, time); deny the rest.
-- **No capability escalation**: Run containers with `--no-new-privileges` and `CAP_DROP ALL`, adding back only `CAP_NET_BIND_SERVICE` if binding to port 443 directly.
-- **Automatic security updates**: Enable unattended upgrades for the OS. Relay binary upgrades follow the procedure in §9.
+- **Minimal OS install.** Do not install unnecessary packages. Use a minimal container base image (Debian slim or distroless).
+- **Non-root process.** Run the relay as a non-root user (uid 1000 in the reference Dockerfile). Never run as uid 0.
+- **No SSH access in containers.** Use `kubectl exec` or `docker exec` for debugging. Remove SSH daemon from container images.
+- **Read-only filesystem where possible.** Mount `/etc/agora-relay/keys` and `/etc/agora-relay/relay.toml` as read-only. Only `/var/lib/agora-relay` needs write access.
+- **Seccomp profile.** Apply a restrictive seccomp profile to the relay container. The relay requires a limited syscall set (network I/O, file I/O, time); deny the rest.
+- **No capability escalation.** Run containers with `--no-new-privileges` and `CAP_DROP ALL`, adding back only `CAP_NET_BIND_SERVICE` if binding to port 443 directly.
+- **Automatic security updates.** Enable unattended upgrades for the OS. Relay binary upgrades follow the procedure in §9.
 
 ### 13.6 Dependency Supply Chain
 
@@ -2179,7 +2188,7 @@ Enterprise integrations are CO components (ARCHITECTURE §2.3). They hold identi
 
 ### 14.1 DID Sidecar (O365/Entra ID)
 
-The employer DID provisioning service (spec §2.5) is a CO component. It serves the organization's `did:webvh` user documents, registers device keys, and hosts its users' KeyPackages at the `KeyPackageEndpoint` named in each DID document, where Welcomes are delivered (spec §2.5.3). The relay never resolves member DIDs, never authenticates clients by DID, and stores no KeyPackages (spec §10.4.3, spec §11.6). There is no relay-side setting that restricts a relay to an organization's members; membership is enforced by MLS, and relay admission by the CO-issued admission key that only current members hold (ARCHITECTURE §6.2). The same holds for DM groups: the initiator's identity host, often the employer's provisioning service, issues and registers a DM group's admission key (spec §10.5.3).
+The employer DID provisioning service (spec §2.5) is a CO component. It serves the organization's `did:webvh` user documents, registers device keys, and hosts its users' KeyPackages at the `KeyPackageEndpoint` named in each DID document, where Welcomes are delivered (spec §2.5.3). The relay never resolves member DIDs, never authenticates clients by DID, and stores no KeyPackages (spec §10.4.3, spec §11.6). No relay-side setting restricts a relay to an organization's members. MLS enforces membership, and the CO-issued admission key that only current members hold enforces relay admission (ARCHITECTURE §6.2). The same holds for direct message (DM) groups: the initiator's identity host, often the employer's provisioning service, issues and registers a DM group's admission key (spec §10.5.3).
 
 Deployment guidance: `profiles/o365-employer-did.md`, `profiles/gsuite-employer-did.md`, and `profiles/universal-idp-did.md`.
 
@@ -2191,7 +2200,7 @@ Deployment guidance: `profiles/purview-bridge.md`.
 
 ### 14.3 SAML/OIDC Configuration
 
-None on the relay. SAML and OIDC are consumed by the CO's provisioning service during onboarding and device registration (spec §2.5.3, spec §2.5.4). The relay processes no IdP tokens and no assertions.
+None on the relay. SAML and OIDC are consumed by the CO's provisioning service during onboarding and device registration (spec §2.5.3, spec §2.5.4). The relay processes no identity provider (IdP) tokens and no assertions.
 
 ---
 
@@ -2225,9 +2234,9 @@ A multi-relay HA deployment runs two or more relay instances sharing a common da
 
 ### 15.2 Active-Active vs Active-Passive
 
-**Active-active** (recommended): Both relay instances accept connections simultaneously. The load balancer distributes connections across instances. The database is the shared state layer; both instances read and write to it. This configuration requires the load balancer to provide QUIC affinity (§11.4) to ensure packets from the same QUIC connection go to the same backend.
+**Active-active (recommended).** Both relay instances accept connections simultaneously. The load balancer distributes connections across instances. The database is the shared state layer; both instances read and write to it. This configuration requires the load balancer to provide QUIC affinity (§11.4), so that packets from the same QUIC connection go to the same backend.
 
-**Active-passive**: One relay handles all traffic; the second is a hot standby that becomes active only when the primary fails. Simpler to reason about but wastes the capacity of the standby. Use only when active-active QUIC affinity is not available in the load balancer.
+**Active-passive.** One relay handles all traffic; the second is a hot standby that becomes active only when the primary fails. It is simpler to reason about but wastes the capacity of the standby. Use only when active-active QUIC affinity is not available in the load balancer.
 
 ### 15.3 Database: PostgreSQL HA
 
@@ -2244,9 +2253,9 @@ Alternatively, use **CockroachDB** for a distributed-by-default PostgreSQL-compa
 
 All relay instances must share the same blob store so that any instance can serve any CID. Use `blob_backend = "s3"` and configure all instances to point at the same bucket:
 
-- **AWS S3**: Set `blob_s3_endpoint`, `blob_s3_bucket`, and `blob_s3_region` identically across all relay instances. Use an IAM role or access key with `s3:GetObject` and `s3:PutObject` on the bucket.
-- **MinIO** (self-hosted): Deploy a MinIO cluster with erasure coding for durability. All relay instances connect to the same MinIO endpoint. Simpler to control than AWS; requires operating the MinIO cluster.
-- **Cloudflare R2 / Backblaze B2**: S3-compatible APIs; configure `blob_s3_endpoint` to the provider's S3-compatible URL. Zero egress cost (R2) or very low cost (B2) makes these attractive for read-heavy relay workloads.
+- **AWS S3.** Set `blob_s3_endpoint`, `blob_s3_bucket`, and `blob_s3_region` identically across all relay instances. Use an IAM role or access key with `s3:GetObject` and `s3:PutObject` on the bucket.
+- **MinIO (self-hosted).** Deploy a MinIO cluster with erasure coding for durability. All relay instances connect to the same MinIO endpoint. Simpler to control than AWS; requires operating the MinIO cluster.
+- **Cloudflare R2 / Backblaze B2.** S3-compatible APIs; configure `blob_s3_endpoint` to the provider's S3-compatible URL. Zero egress cost (R2) or very low cost (B2) makes these attractive for read-heavy relay workloads.
 
 Do not use a shared NFS/EFS volume as a blob store backend. NFS introduces a single point of failure and does not provide the atomic put semantics required for correct CID-keyed storage.
 
@@ -2256,15 +2265,15 @@ WebTransport (QUIC) connections maintain cryptographic state (QUIC connection ID
 
 WebSocket connections are long-lived TCP connections. The load balancer must not terminate and re-route WebSocket connections mid-stream.
 
-**For AWS NLB:** UDP flows are tracked by 5-tuple (source IP, source port, destination IP, destination port, protocol) for the duration of the flow idle timeout. Set the NLB idle timeout to at least 350 seconds (longer than the QUIC idle timeout of 300 seconds).
+**For AWS NLB.** UDP flows are tracked by 5-tuple (source IP, source port, destination IP, destination port, protocol) for the duration of the flow idle timeout. Set the NLB idle timeout to at least 350 seconds (longer than the QUIC idle timeout of 300 seconds).
 
-**For Kubernetes:** Use a Service with `sessionAffinity: ClientIP` and `sessionAffinityConfig.clientIP.timeoutSeconds: 10800` (3 hours).
+**For Kubernetes.** Use a Service with `sessionAffinity: ClientIP` and `sessionAffinityConfig.clientIP.timeoutSeconds: 10800` (3 hours).
 
 ### 15.6 Peer Mesh: Per-Instance Peering
 
-Each relay instance must independently participate in the gossipsub peer mesh. Do not front the peer API behind the load balancer; peer relays should connect to individual relay instance endpoints for gossip.
+Each relay instance must independently participate in the gossipsub peer mesh. Do not front the Peer API behind the load balancer; peer relays should connect to individual relay instance endpoints for gossip.
 
-Each instance announces itself with the same `relay_did` (the shared identity) but a distinct physical endpoint. The relay manifest should list the load balancer endpoint for client-facing transports and instance-specific endpoints for the peer API and gossipsub:
+Each instance announces itself with the same `relay_did` (the shared identity) but a distinct physical endpoint. The relay manifest should list the load balancer endpoint for client-facing transports and instance-specific endpoints for the Peer API and gossipsub:
 
 ```json
 "endpoints": {
@@ -2277,7 +2286,7 @@ Each instance announces itself with the same `relay_did` (the shared identity) b
 }
 ```
 
-Relay instances 2, 3, etc. publish their own manifest entries with their instance-specific peer API endpoints. `admissionKeys` stays on the shared hostname, because it must equal the `endpoint` in every relay agreement (spec §10.5.1), and every instance must see every registration through the shared database before it admits envelopes for the token.
+Every other relay instance publishes its own manifest entries with its instance-specific Peer API endpoint. `admissionKeys` stays on the shared hostname because it must equal the `endpoint` in every relay agreement (spec §10.5.1). Every instance must see every registration through the shared database before it admits envelopes for the token.
 
 ### 15.7 Health Check and Failover
 
@@ -2306,9 +2315,9 @@ Decommissioning a relay is a multi-step process designed to minimize disruption 
    ```
    Spec §10.4.7 requires the 30 days unless the relay and a CO have agreed a different notice period out of band for that CO.
 
-2. Gossip a `RelayAd` update on `v1/agora/discovery`.
+2. At the same time as step 1, notify every loaded agreement's CO at the agreement's `contact`, giving the `retiresAt` time (spec §10.4.7). The relay knows which COs it serves only through their agreements (ARCHITECTURE §5 item 6); it has no list of Spaces to notify. Each CO removes this relay from its relay lists and deregisters its keys here before `retiresAt` (spec §10.3.5).
 
-3. At the same time as step 1, notify every loaded agreement's CO at the agreement's `contact`, giving the `retiresAt` time (spec §10.4.7). The relay knows which COs it serves only through their agreements (ARCHITECTURE §5 item 6); it has no list of Spaces to notify. Each CO removes this relay from its relay lists and deregisters its keys here before `retiresAt` (spec §10.3.5).
+3. Gossip a `RelayAd` update on `v1/agora/discovery`.
 
 ### 16.3 Drain
 
@@ -2339,7 +2348,7 @@ Content stored under an agreement belongs to that agreement's CO. The relay cann
        > "cids-$AGREEMENT_ID.txt"
    ```
 
-2. The CO arranges for its other relays to hold what it needs. Envelopes on tokens it registered at several relays already exist there through mesh fan-out. Blobs already exist on at least `replicationFloor` relays carrying the token, where that many carry it (spec §10.4.4). For the rest, the CO adds a successor relay to the channel's relay list and either lets it pull blobs as clients ask for them or sends it a `seed` instruction listing the CIDs (spec §11.4); either way the successor pulls from you over the Peer API, so keep the Peer API up and the tokens registered until the CO confirms. Pins apply per relay, so the CO pins what must outlive retention at the successor with a `PinInstruction`. A CO may instead ask you to copy the blobs to a successor relay directly; the blobs are ciphertext, so a copy from your blob store (filesystem or S3 bucket) to the successor's storage under the CO's agreement with the successor discloses nothing new.
+2. The CO arranges for its other relays to hold what it needs. Envelopes on tokens it registered at several relays already exist there through mesh fan-out. Blobs already exist on at least `replicationFloor` relays carrying the token, where that many carry it (spec §10.4.4). For the rest, the CO adds a successor relay to the channel's relay list and either lets it pull blobs as clients ask for them or sends it a `seed` instruction listing the CIDs (spec §11.4). Either way, the successor pulls from you over the Peer API, so keep the Peer API up and the tokens registered until the CO confirms. Pins apply per relay, so the CO pins what must outlive retention at the successor with a `PinInstruction`. A CO may instead ask you to copy the blobs to a successor relay directly; the blobs are ciphertext, so a copy from your blob store (filesystem or S3 bucket) to the successor's storage under the CO's agreement with the successor discloses nothing new.
 
 3. Before shutdown, check that each listed CID is served by at least one other relay the CO named:
    ```bash
@@ -2364,9 +2373,9 @@ Content stored under an agreement belongs to that agreement's CO. The relay cann
 
    `announce` is an authenticated Peer API call, so the request must also carry the RFC 9421 signature of spec §10.2.3; the `curl` line shows only the body and content type. Send it with the relay's Peer API client.
 
-2. Update the relay manifest to remove the relay from `knownPeers` entries gossipped by this relay.
+2. Update the relay manifest to remove the relay from `knownPeers` entries gossiped by this relay.
 
-3. Stop the peer heartbeat daemon. Peer relays will detect the relay as unreachable after 3 missed heartbeats (180 seconds) and mark it for removal from their peer tables per spec §10.2.6.
+3. Stop the peer heartbeat daemon. Peer relays detect the relay as unreachable after 3 missed heartbeats (180 seconds) and mark it for removal from their peer tables per spec §10.2.6.
 
 ### 16.6 DID Tombstone
 
@@ -2421,12 +2430,12 @@ A relay is blind by design (spec §10.4.1), so abuse handling at a relay acts on
 
 Publish a working `abuseContact` in the manifest (spec §10.2.1). Ask reporters for what the relay can act on:
 
-- a CID (for example, from a link to `/v1/agora/blob/{cid}`);
-- a `channelToken`, if the reporter is a member and their client can show it;
-- network addresses and times, for connection floods;
-- for a public Space, its SpaceAd, which names the CO (`advertisedBy`) and the CO's Space endpoint (spec §10.3.2).
+- a CID (for example, from a link to `/v1/agora/blob/{cid}`)
+- a `channelToken`, if the reporter is a member and their client can show it
+- network addresses and times, for connection floods
+- for a public Space, its SpaceAd, which names the CO (`advertisedBy`) and the CO's Space endpoint (spec §10.3.2)
 
-A report that names only a Space, a channel or a user cannot be mapped to anything the relay holds. Forward it to the CO named in the SpaceAd, if there is one; otherwise tell the reporter the relay cannot identify the community. The one exception is a `keyAccess: public` broadcast channel, whose token the CO publishes with its public Space (spec §10.4.1).
+A report that names only a Space, a channel or a user cannot be mapped to anything the relay holds. The one exception is a `keyAccess: public` broadcast channel, whose token the CO publishes with its public Space (spec §10.4.1). Forward any other such report to the CO named in the SpaceAd, if there is one; otherwise tell the reporter the relay cannot identify the community.
 
 ### 17.2 What an Operator Can Do
 
@@ -2446,7 +2455,7 @@ A report that names only a Space, a channel or a user cannot be mapped to anythi
 | Terminate an agreement | `POST /admin/agreements/{id}/terminate` (§5.2) | Ends service for every token the CO registered under it, under the agreement's notice terms. Clients receive `token-withdrawn`. |
 | Decline peering | `POST /admin/peers/{did}/trust` or `DELETE /admin/peers/{did}` (§5.2) | Stops gossip from an abusive peer relay (spec §10.2.4). |
 
-Admitting a token is the CO's decision, made by registering or deregistering its key (spec §10.5.3). Suspending a token (§5.2), deleting a CID or terminating an agreement is the relay declining service. It is not a moderation decision about any member, and do not present it as one.
+Admitting a token is the CO's decision, made by registering or deregistering its key (spec §10.5.3). Suspending a token (§5.2), deleting a CID or terminating an agreement is the relay declining service. It is not a moderation decision about any member; do not present it as one.
 
 ### 17.3 What an Operator Cannot Do
 

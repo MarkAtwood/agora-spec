@@ -1,17 +1,16 @@
-# Agora Protocol: Microsoft Purview Bridge
-## Implementation Specification v0.1
+# Profile: Microsoft Purview Bridge
 
 > Non-normative. Capitalized BCP 14 key words (RFC 2119, RFC 8174) in this profile state what a deployment that follows it requires of its own components; they bind only implementations that claim conformance to this profile and are not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source. Where this profile conflicts with the spec or ARCHITECTURE.md, those govern.
 
 **Status:** Draft
+**Version:** 0.1
+**Depends on:** the Agora protocol specification (`spec/`, current draft), spec §4.6 (Direct Message Channels), spec §5.2.3 (Message Types), spec §6.12 (Recording Grant Sub-Protocol), spec §7 (Compliance Logging), spec §13.1 (Typed Payload Envelope)
 
-**Scope:** This document specifies the Agora Purview Bridge, a compliance gateway that ingests Agora `ComplianceRecord` objects (spec §7.4) and VTC compliance records (spec §6.12.4, spec §6.12.6) into Microsoft Exchange Online mailboxes for processing by Microsoft Purview Communication Compliance, eDiscovery, retention policies, and litigation hold.
-
-**Dependencies:** the Agora protocol specification (`spec/`, current draft), spec §7 (Compliance Logging), spec §6.12 (Recording Grant Sub-Protocol), spec §4.6 (Direct Message Channels), spec §5.2.3 (Message Types), spec §13.1 (Typed Payload Envelope).
+**Scope.** This document specifies the Agora Purview Bridge, a compliance gateway that ingests Agora `ComplianceRecord` objects (spec §7.4) and video teleconferencing (VTC) compliance records (spec §6.12.4, spec §6.12.6) into Microsoft Exchange Online mailboxes, where Microsoft Purview Communication Compliance, eDiscovery, retention policies and litigation hold can process them.
 
 **Microsoft behavior in this document.** Statements marked "verify against current Microsoft Graph documentation" or "verify against current Purview documentation" describe Microsoft behavior this profile depends on but has not confirmed. An implementer MUST confirm each one before production deployment.
 
-**Citations.** "spec §N" refers to the Agora Protocol Specification; a bare "§N" refers to a section of this document.
+**Citations.** "spec §N" refers to the Agora protocol specification; a bare "§N" refers to a section of this document.
 
 ---
 
@@ -47,12 +46,12 @@ The bridge reads signed `ComplianceRecord` envelopes from the logger's local rec
 
 The bridge performs the following functions:
 
-- Translates each `ComplianceRecord` and its payload (a typed envelope, for example a JMAP Chat `Message`; spec §5.2.3) into an Exchange item with a human-readable body, defined `x-agora-*` headers, and the signed record attached byte-for-byte.
+- Translates each `ComplianceRecord` and its payload (a typed envelope, for example a JMAP Chat `Message`; spec §5.2.3) into an Exchange item with a human-readable body, defined `x-agora-*` headers and the signed record attached byte-for-byte.
 - Creates items in the compliance archive folder of each target regulated member's mailbox (§4.1).
-- Handles new Messages, edits, deletions, reactions, pin changes, file attachments, DM group messages, and other logged payload types.
+- Handles new Messages, edits, deletions, reactions, pin changes, file attachments, messages in direct message (DM) groups and other logged payload types.
 - Exports VTC compliance metadata and references to the sealed recordings (not raw media; see §5).
-- Maintains idempotency; no duplicate items are created on retry.
-- Is append-only. The bridge never deletes, moves or modifies an item it has created. Edits, deletions and expiry are recorded by appending items or headers, never by changing earlier items (§6).
+- Maintains idempotency: a retry creates no duplicate items.
+- Is append-only. The bridge never deletes, moves or modifies an item it has created. It records edits, deletions and expiry by appending items or headers, never by changing earlier items (§6).
 - Tracks bridge delivery state separately from the IPLD compliance log.
 
 The bridge does not perform the following:
@@ -64,12 +63,12 @@ The bridge does not perform the following:
 
 ### 1.3 Deployment Model
 
-The bridge runs on CO infrastructure, co-located with or directly connected to the ComplianceLogger. It handles plaintext and member identities and MUST NOT run on a relay or any other IO component (ARCHITECTURE S8). It requires:
+The bridge runs on CO infrastructure, co-located with or directly connected to the compliance logger. It handles plaintext and member identities and MUST NOT run on a relay or any other Infrastructure Operator (IO) component (ARCHITECTURE S8). It requires:
 
 - Service principal credentials for the Microsoft 365 tenant (Entra ID app registration; §2.1).
-- Read access to the CO's private mapping from Agora DIDs to Exchange Online UPNs (§2.3).
+- Read access to the CO's private mapping from Agora DIDs to Exchange Online User Principal Names (UPNs) (§2.3).
 - Network access to `https://graph.microsoft.com` and `https://login.microsoftonline.com`.
-- Read access to the ComplianceLogger's record stream (§8.3).
+- Read access to the compliance logger's record stream (§8.3).
 
 ---
 
@@ -77,7 +76,7 @@ The bridge runs on CO infrastructure, co-located with or directly connected to t
 
 ### 2.1 Entra ID App Registration
 
-The bridge authenticates to Microsoft Graph using the OAuth 2.0 client credentials flow (application permissions, no user context). The app registration requires the following application permissions (not delegated):
+The bridge authenticates to Microsoft Graph with the OAuth 2.0 client credentials flow (application permissions, no user context). The app registration requires the following application permissions (not delegated):
 
 - `Mail.ReadWrite`: create items and folders in regulated members' mailboxes. The permission also allows deletion; the bridge never uses it for that (§6).
 - `User.Read.All`: read display names of mapped users (§3.2).
@@ -86,7 +85,7 @@ The bridge authenticates to Microsoft Graph using the OAuth 2.0 client credentia
 
 The bridge MUST authenticate using a certificate credential, not a client secret. Certificate rotation SHOULD be automated via Azure Key Vault or an equivalent HSM-backed credential store.
 
-Tenant admin consent is required for all application permissions above. The bridge operator provisions consent once; it applies tenant-wide.
+All application permissions above require tenant admin consent. The bridge operator grants consent once, and it applies tenant-wide.
 
 ```powershell
 # Provision service principal (run once per tenant, as Global Admin)
@@ -100,9 +99,7 @@ az ad app permission admin-consent --id <bridge-app-client-id>
 
 The bridge creates items in a dedicated subfolder of each regulated member's primary mailbox, not in their Inbox, to keep compliance items out of the user's active mail view.
 
-**Folder name:** `Agora Compliance Archive`
-
-The bridge creates this folder on first deposit for each user:
+The folder name is `Agora Compliance Archive`. The bridge creates this folder on first deposit for each user:
 
 ```http
 POST https://graph.microsoft.com/v1.0/users/{targetUPN}/mailFolders
@@ -114,9 +111,9 @@ Content-Type: application/json
 }
 ```
 
-`isHidden: true` hides the folder in Outlook. Whether items in hidden folders are indexed, searchable and retained the same as items in visible folders must be confirmed (verify against current Purview documentation). An operator that cannot confirm it SHOULD create the folder with `isHidden: false`.
+`isHidden: true` hides the folder in Outlook. This profile has not confirmed whether items in hidden folders are indexed, searchable and retained the same as items in visible folders (verify against current Purview documentation). An operator that cannot confirm it SHOULD create the folder with `isHidden: false`.
 
-Subfolders within the archive folder are organized as follows:
+The archive folder has this subfolder layout:
 
 ```
 Agora Compliance Archive/
@@ -126,19 +123,19 @@ Agora Compliance Archive/
   └── Direct Messages/
 ```
 
-The bridge creates subfolders lazily on first item for each Space and channel. Space and channel names come from the Space state document served by the CO's Space endpoint (spec §3.4); the channel is identified by the record's `channelID` field, and a DM group by its `mlsGroupID` field (spec §7.4). Names are sanitized for Exchange folder name constraints (maximum 255 characters; the characters `\ / : * ? " < > |` are prohibited).
+The bridge creates subfolders lazily on first item for each Space and channel. The record's `channelID` field identifies the channel, and its `mlsGroupID` field identifies a DM group (spec §7.4). Space and channel names come from the Space state document served by the CO's Space endpoint (spec §3.4). The bridge sanitizes names for Exchange folder name constraints (maximum 255 characters; the characters `\ / : * ? " < > |` are prohibited).
 
 ### 2.3 DID-to-M365 Identity Mapping
 
-The bridge maintains a mapping table `{ agoraDID → m365UPN }`. The mapping is private CO data: it MUST be held only in the CO's directory, the DID provisioning service's database and the bridge's own store, and MUST NOT be written into any DID document, profile, Space state or other published record (spec §2.5.2). The table is populated by one of the following methods:
+The bridge maintains a mapping table `{ agoraDID → m365UPN }`. The mapping is private CO data: it MUST be held only in the CO's directory, the DID provisioning service's database and the bridge's own store, and MUST NOT be written into any DID document, profile, Space state or other published record (spec §2.5.2). The table comes from one of two sources:
 
-1. **Provisioning-service record** (preferred for enterprise deployments): at onboarding and device registration (spec §2.5.3, §2.5.4 Step 4) the DID provisioning service validates the IdP token, whose SAML attribute (`urn:oid:1.2.840.113549.1.9.1` / email) or OIDC claim (`upn` or `email`) carries the M365 UPN. The provisioning service records `{ agoraDID → m365UPN }` in its private store, and the bridge reads it over an authenticated internal interface. The Agora client takes no part in the mapping.
+- **Provisioning-service record.** This is the preferred source for enterprise deployments. At onboarding and device registration (spec §2.5.3, spec §2.5.4 Step 4), the DID provisioning service validates the identity provider (IdP) token. The token's SAML attribute (`urn:oid:1.2.840.113549.1.9.1` / email) or OIDC claim (`upn` or `email`) carries the M365 UPN. The provisioning service records `{ agoraDID → m365UPN }` in its private store, and the bridge reads it over an authenticated internal interface. The Agora client takes no part in the mapping.
 
-2. **Manual provisioning**: an admin-supplied CSV mapping `agoraDID,m365UPN` loaded at bridge startup. This is the fallback for environments without SAML/OIDC integration.
+- **Manual provisioning.** An admin supplies a CSV mapping `agoraDID,m365UPN`, which the bridge loads at startup. This is the fallback for environments without SAML/OIDC integration.
 
 The bridge MUST NOT derive a UPN from a DID. Employer-provisioned DIDs use a `localIdentifier` that is never derived from a name, email address or UPN (spec §2.5.2), so the DID carries no usable mailbox address.
 
-The mapping is required for every DID in `regulatedMembers`, since those are the mailboxes items go to (§4.1). Senders need no mapping. If a regulated member has no mapping, the bridge MUST create that member's items in a designated catch-all mailbox (`agora-compliance-catchall@<tenant>`), with the member's DID in the `x-agora-target-did` header, and MUST alert the compliance officer. Items in the catch-all mailbox are subject to Purview policies like any other mailbox item.
+Every DID in `regulatedMembers` needs a mapping, because items go to those members' mailboxes (§4.1). Senders need no mapping. If a regulated member has no mapping, the bridge MUST create that member's items in a designated catch-all mailbox (`agora-compliance-catchall@<tenant>`), with the member's DID in the `x-agora-target-did` header, and MUST alert the compliance officer. Items in the catch-all mailbox are subject to Purview policies like any other mailbox item.
 
 ---
 
@@ -177,9 +174,16 @@ Content-Type: application/json
 - `AgoraDedupKey` is a named property in a GUID namespace the bridge operator generates once. It carries the record's `outerEnvelopeCID`, the `id` of the routing envelope that carried the message, for the duplicate check in §4.1.
 - Attachments (the signed record, §3.2, and file content, §3.5) are added after creation with `POST .../messages/{id}/attachments`, or with an attachment upload session for files above the inline request size limit.
 
-This method depends on the following Graph behavior, none of which this profile has confirmed (verify against current Microsoft Graph documentation): that a message created with these extended properties is stored as a non-draft item; that `from` and `internetMessageHeaders` may be set on create, including any limit on the number or length of custom headers; that the MAPI time properties may be set on create; and the request size limits for inline and upload-session attachments. If custom header limits prevent writing every header in §3.3, the bridge writes the headers marked "required" in §3.3 and relies on the body marker block (§3.4) and the attached record for the rest.
+This method depends on the following Graph behavior. This profile has confirmed none of it (verify against current Microsoft Graph documentation):
 
-The bridge MUST NOT call `/send`, `sendMail`, or any other Graph operation that transmits mail.
+- Storage of a message created with these extended properties as a non-draft item
+- Setting `from` and `internetMessageHeaders` on create, and any limit on the number or length of custom headers
+- Setting the MAPI time properties on create
+- The request size limits for inline and upload-session attachments
+
+If custom header limits prevent writing every header in §3.3, the bridge writes the headers marked "required" in §3.3 and relies on the body marker block (§3.4) and the attached record for the rest.
+
+The bridge MUST NOT call `/send`, `sendMail` or any other Graph operation that transmits mail.
 
 ### 3.2 Item Structure
 
@@ -194,11 +198,13 @@ The bridge MUST NOT call `/send`, `sendMail`, or any other Graph operation that 
 | Attachment `agora-compliance-record.cbor` | The `ComplianceRecord` exactly as stored by the logger: its encoded typed envelope (spec §13.1), including the logger's JWS in `sig` (spec §13.1.1). Content type `application/cbor`. |
 | Further attachments | File content (§3.5) |
 
-The `ComplianceRecord` is a signed typed envelope whose `body` holds the record fields (`channelID` or, for a DM group, `mlsGroupID`; `senderDID`, `epoch`, `seq`, `ts`, `plaintextPayload`, `senderMessage`, `messageKeys`, `groupContext`, `senderLeaf`, `outerEnvelopeCID`, `prevRecordCID`; spec §7.4). `plaintextPayload` is the decrypted inner payload envelope, itself a typed envelope whose `type` names the payload (for example `urn:ietf:params:jmap:chat#Message`) and whose `body` holds the payload bytes as sent (spec §5.2.2). The attachment MUST be the exact stored bytes (spec §13.1.1 byte-for-byte rule) so an investigator can verify the logger's signature without Agora client software beyond a JWS and CBOR library. The same bytes carry the verification material (`senderMessage`, `messageKeys`, `groupContext`, `senderLeaf`) for the third-party check of spec §7.4, which shows that a device key of `senderDID` signed the message without relying on the logger; that check needs an MLS library and the sender's DID log.
-
 `agora.invalid` uses the `.invalid` top-level domain (RFC 6761), which cannot be registered, so a synthetic sender address can never reach a real mailbox.
 
 **Display names.** For a mapped sender, the display name is the M365 directory display name. For any other sender, it is the `displayName` in the sender's Agora profile (spec §2.3), cached for 1 hour. A display name is a label for investigators; identity matching uses `x-agora-sender-did`.
+
+The `ComplianceRecord` is a signed typed envelope whose `body` holds the record fields (`channelID` or, for a DM group, `mlsGroupID`; `senderDID`, `epoch`, `seq`, `ts`, `plaintextPayload`, `senderMessage`, `messageKeys`, `groupContext`, `senderLeaf`, `outerEnvelopeCID`, `prevRecordCID`; spec §7.4). `plaintextPayload` is the decrypted inner payload envelope, itself a typed envelope whose `type` names the payload (for example `urn:ietf:params:jmap:chat#Message`) and whose `body` holds the payload bytes as sent (spec §5.2.2).
+
+The attachment MUST be the exact stored bytes (spec §13.1.1 byte-for-byte rule) so an investigator can verify the logger's signature without Agora client software beyond a JWS and CBOR library. The same bytes carry the verification material (`senderMessage`, `messageKeys`, `groupContext`, `senderLeaf`) for the third-party check of spec §7.4, which shows that a device key of `senderDID` signed the message without relying on the logger; that check needs an MLS library and the sender's DID log.
 
 ### 3.3 Custom Header Index (`x-agora-*`)
 
@@ -207,7 +213,7 @@ The bridge writes the following headers. A header whose value is absent for a gi
 | Header | Required | Source | Description |
 |---|---|---|---|
 | `x-agora-record-version` | yes | constant | Version of this item format. Currently `1`. |
-| `x-agora-envelope-id` | yes | record `outerEnvelopeCID` | Envelope `id` of the routing envelope that carried the message: the CID of its `signed` bytes (spec §5.2.2, §7.4). Unique per logged MLS message. Duplicate-check key. |
+| `x-agora-envelope-id` | yes | record `outerEnvelopeCID` | Envelope `id` of the routing envelope that carried the message: the CID of its `signed` bytes (spec §5.2.2, spec §7.4). Unique per logged MLS message. Duplicate-check key. |
 | `x-agora-record-cid` | yes | logger | CID of the stored `ComplianceRecord` envelope. |
 | `x-agora-prev-record-cid` | no | record `prevRecordCID` | Chain link to the previous record in the channel's log. |
 | `x-agora-logger-did` | yes | record `sig` `kid` | DID of the logger that signed the record. |
@@ -293,19 +299,21 @@ A new Message with `attachments` adds one line per attachment:
   Attachment: {name}, {size} bytes, {type}, blobId {blobId}
 ```
 
-Markdown stripping for text bodies: remove `**bold**`, `*italic*`, `~~strikethrough~~`, `` `code` ``, and heading markers. Preserve URLs as plain text. The exact `body` and `bodyType` are preserved in the attached record (spec §5.2.7).
+To strip Markdown from a text body, the bridge removes `**bold**`, `*italic*`, `~~strikethrough~~`, `` `code` `` and heading markers, and preserves URLs as plain text. The exact `body` and `bodyType` are preserved in the attached record (spec §5.2.7).
 
-Whether Purview keyword search tokenizes the marker block lines so that a full DID or URN matches as one term is not confirmed (verify against current Purview documentation).
+This profile has not confirmed whether Purview keyword search tokenizes the marker block lines so that a full DID or URN matches as one term (verify against current Purview documentation).
 
 ### 3.5 File Attachment Handling
 
-An attachment's file is stored as a chunked content-key blob: 256 KiB chunks, each encrypted separately, whose `blobId` is the CID of the root block, with `chunkCount` giving the number of chunks; the captured Message's `Attachment` carries the per-attachment `contentKey` and the plaintext `sha256` (spec §5.2.2, spec §14.3.4). The bridge never fetches blobs from IPFS or any relay. The logger fetches each attachment's blocks from the channel's relays (spec §10.4.4), decrypts them with the `contentKey`, checks the plaintext against `sha256`, stores it in its archive, and records a `ComplianceGapEntry` with `missingBlobId` for a file it cannot capture (spec §7.4). In this deployment it also passes the plaintext to the bridge over the record stream (§8.3).
+An attachment's file is stored as a chunked content-key blob of 256 KiB chunks, each encrypted separately. Its `blobId` is the CID of the root block, and `chunkCount` gives the number of chunks. The captured Message's `Attachment` carries the per-attachment `contentKey` and the plaintext `sha256` (spec §5.2.2, spec §14.3.4).
+
+The bridge never fetches blobs from IPFS or any relay. The logger fetches each attachment's blocks from the channel's relays (spec §10.4.4), decrypts them with the `contentKey`, checks the plaintext against `sha256` and stores it in its archive. For a file it cannot capture, the logger records a `ComplianceGapEntry` with `missingBlobId` (spec §7.4). In this deployment it also passes the plaintext to the bridge over the record stream (§8.3).
 
 1. If the file fits within the tenant's configured maximum message size and the Graph attachment upload limits (verify against current Microsoft Graph documentation), the bridge adds it as a file attachment with its original filename, sanitized for Exchange, and its declared media type, falling back to `application/octet-stream` if unknown.
 2. If the file is too large, the bridge records only the metadata (name, size, type, `blobId`) in the body, and the item points investigators to the logger's archived copy on CO storage.
-3. If the logger could not decrypt or fetch the blob, the bridge MUST log the failure, record the metadata in the body with the line `Attachment content not captured`, and create the item without the file. The bridge MUST NOT block the deposit pipeline on attachment failures.
+3. If the logger could not decrypt or fetch the blob, the bridge MUST log the failure, record the metadata in the body with the line `Attachment content not captured` and create the item without the file. The bridge MUST NOT block the deposit pipeline on attachment failures.
 
-`contentKey` and `sha256` must never be sent to any IO (spec §5.2.2). Each Exchange item carries the captured Message, and with it `contentKey` and `sha256`, so for attachments it is plaintext-equivalent: anyone who reads the item and obtains the ciphertext blob can decrypt the file. Protect the compliance mailbox accordingly.
+Spec §5.2.2 forbids sending `contentKey` and `sha256` to any IO. Each Exchange item carries the captured Message, and with it `contentKey` and `sha256`. For attachments the item is therefore plaintext-equivalent: anyone who reads the item and obtains the ciphertext blob can decrypt the file. Protect the compliance mailbox accordingly.
 
 ---
 
@@ -362,7 +370,7 @@ The bridge creates items; Purview's retention machinery governs their lifecycle 
 
 ## 5. VTC Compliance Records (spec §6.12)
 
-The bridge handles VTC compliance records differently from text records. Media is not deposited into Exchange. The recorder stores each recording on CO storage, sealed with HPKE to the recorder's `keyAgreement` key (spec §6.12.4), and records its metadata as signed `VTCComplianceRecord` entries (one per epoch) and one `VTCComplianceAuditEntry` per session (spec §6.12.6). The bridge reads these, and the other audit-chain entries listed in §8.3, from the recorder's record stream, which has the same form as the logger's (§8.3); the recorder may be the same principal as the logger (spec §7.6).
+The bridge handles VTC compliance records differently from text records: it does not deposit media into Exchange. The recorder stores each recording on CO storage, sealed with Hybrid Public Key Encryption (HPKE) to the recorder's `keyAgreement` key (spec §6.12.4). It records the metadata as signed `VTCComplianceRecord` entries (one per epoch) and one `VTCComplianceAuditEntry` per session (spec §6.12.6). The recorder may be the same principal as the logger (spec §7.6). The bridge reads these entries, and the other audit-chain entries listed in §8.3, from the recorder's record stream, which has the same form as the logger's (§8.3).
 
 ### 5.1 VTC Notification Item
 
@@ -403,15 +411,15 @@ When an eDiscovery investigator needs the recording:
 
 1. Read the `x-agora-vtc-media-cid` values from the VTC notification item.
 2. Request the media from the CO's recording archive operator. The media objects are sealed to the recorder's key and only the CO can unseal them (spec §6.12.4); a copy held on IO storage is ciphertext only.
-3. Verify the JWS on the attached `VTCComplianceRecord` envelopes against the recorder's DID (spec §13.1.1), and confirm that each sealed object matches its `mediaCID`, before treating the media as authentic. If the archive key was rotated, the object now held has a different CID: follow the `ArchiveResealEntry` whose `oldCID` is the `mediaCID` to its `newCID` (repeating for each later re-seal), verify each entry's signature, and match the sealed object against the last `newCID` (spec §7.9).
+3. Verify the JWS on the attached `VTCComplianceRecord` envelopes against the recorder's DID (spec §13.1.1), and confirm that each sealed object matches its `mediaCID`, before treating the media as authentic. If the archive key was rotated, the object now held has a different CID. In that case, follow the `ArchiveResealEntry` whose `oldCID` is the `mediaCID` to its `newCID` (repeating for each later re-seal), verify each entry's signature and match the sealed object against the last `newCID` (spec §7.9).
 
-**Epoch gap handling:** If `x-agora-vtc-epochs-gapped` is present, the recording has gaps (spec §6.12.6). The investigator SHOULD check the compliance audit chain for a matching gap record. A gap the recorder documented (for example, the recorder was offline) is distinct from an undocumented gap, which may indicate a removal attempt; no audit field records recorder removals; `removalAttempts` (spec §7.8.8) covers only the logger.
+**Epoch gap handling.** If `x-agora-vtc-epochs-gapped` is present, the recording has gaps (spec §6.12.6). The investigator SHOULD check the compliance audit chain for a matching gap record. A gap the recorder documented (for example, the recorder was offline) is distinct from an undocumented gap, which may indicate a removal attempt. No audit field records recorder removals: `removalAttempts` (spec §7.8.8) covers only the logger.
 
 ---
 
 ## 6. Edit, Delete, and Expiry Handling
 
-The bridge is append-only. It MUST NOT delete, move or modify any item it has created, for any reason, including a deletion record, an expiry time, or a later correction. Every change in the conversation is recorded as a new item.
+The bridge is append-only. It MUST NOT delete, move or modify any item it has created, for any reason, including a deletion record, an expiry time or a later correction. Every change in the conversation is recorded as a new item.
 
 The bridge classifies each record by its payload envelope `type` and body (spec §5.2.3):
 
@@ -442,7 +450,7 @@ For a deletion (a `Message` update carrying the target's `senderMsgId`, `deleted
 2. Leave the original item unchanged. The original is part of the compliance record whether or not litigation hold applies.
 3. The body is the deletion rendering of §3.4.
 
-The investigator sees the original item followed by the deletion item. An Admin's moderation deletion of another member's Message (spec §4.5) is logged and deposited the same way, with the Admin as sender.
+The investigator sees the original item followed by the deletion item. An admin's moderation deletion of another member's Message (spec §4.5) is logged and deposited the same way, with the admin as sender.
 
 ### 6.3 Expiry Override (spec §7.5)
 
@@ -503,7 +511,7 @@ Failed deposits retry with exponential backoff:
 | 5       | 2 hours    |
 | 6+      | 6 hours    |
 
-After 7 days without a successful deposit, the status transitions to `failed` and a compliance alert is raised. A row in `failed` state is a compliance gap requiring investigation.
+After 7 days without a successful deposit, the row's status transitions to `failed` and the bridge raises a compliance alert. A row in `failed` state is a compliance gap requiring investigation.
 
 Graph API throttling limits constrain throughput during backlog catch-up (current per-mailbox and per-app limits: verify against current Microsoft Graph documentation). The bridge SHOULD use a token bucket rate limiter set below those limits and MUST honor `Retry-After` on HTTP 429 responses.
 
@@ -511,7 +519,7 @@ Graph API throttling limits constrain throughput during backlog catch-up (curren
 
 The bridge tracks its read position in the IPLD compliance log per channel as a cursor: the CID of the last-processed `ComplianceRecord`. On restart, the bridge resumes from the cursor.
 
-Gap detection: if a `ComplianceRecord`'s `prevRecordCID` does not match the bridge's last-processed record CID for that channel, a chain gap exists. The bridge MUST alert on this condition and MUST attempt to backfill by walking the chain backwards from the current head to the last-known cursor position.
+**Gap detection.** If a `ComplianceRecord`'s `prevRecordCID` does not match the bridge's last-processed record CID for that channel, a chain gap exists. The bridge MUST alert on this condition and MUST attempt to backfill by walking the chain backwards from the current head to the last-known cursor position.
 
 ---
 
@@ -536,10 +544,10 @@ The bridge caches the token and refreshes it 5 minutes before its `expires_in` e
 
 ### 8.2 Bridge Process Security
 
-- The bridge process MUST run as a dedicated service account with no network access beyond the Microsoft endpoints in §1.3, the ComplianceLogger's local socket, the CO's mapping interface (§2.3), and the CO's DID and profile resolver (§3.2).
+- The bridge process MUST run as a dedicated service account with no network access beyond the Microsoft endpoints in §1.3, the compliance logger's local socket, the CO's mapping interface (§2.3) and the CO's DID and profile resolver (§3.2).
 - The delivery state store MUST reside on an encrypted volume (LUKS or equivalent).
 - The certificate private key for Entra authentication MUST be stored in an HSM or TPM-backed keystore, never in a file. `PKCS#11` or `tpm2-pkcs11` are the required interfaces on Linux.
-- Bridge logs MUST NOT contain message plaintext or UPNs. Log `envelope_id`, `record_cid`, `sender_did`, `target_did`, and `status` only.
+- Bridge logs MUST NOT contain message plaintext or UPNs. Log `envelope_id`, `record_cid`, `sender_did`, `target_did` and `status` only.
 
 ### 8.3 ComplianceLogger Payload Access
 
@@ -566,11 +574,13 @@ Each line:   {
              }
 ```
 
-The second line form carries the Space's compliance audit chain entries (spec §6.12.6, §7.8.8, §7.8.9, §7.9) as the logger or recorder writes them. The bridge verifies each against its signer's DID like a record, attaches every entry to an item in the compliance folder, uses `ComplianceGapEntry` and `DMComplianceAuditEntry` for the alerts of §9.2, uses `VTCComplianceAuditEntry` for §5, and keeps `ArchiveResealEntry` mappings for §5.2.
+`attachments` lists decrypted attachment files the logger has written to a local directory readable by the bridge (§3.5); an entry without `path` means the logger could not capture that blob.
 
-`attachments` lists decrypted attachment files the logger has written to a local directory readable by the bridge (§3.5); an entry without `path` means the logger could not capture that blob. The bridge SHOULD verify each record's JWS against the logger DID (spec §13.1.1) before depositing it, and MUST alert on a verification failure. It verifies against the logger DID document version in effect when the record was signed, taken from the DID log, so that records signed before a rotation of the logger's signing key still verify (spec §7.9).
+The bridge SHOULD verify each record's JWS against the logger DID (spec §13.1.1) before depositing it, and MUST alert on a verification failure. It verifies against the logger DID document version in effect when the record was signed, taken from the DID log, so that records signed before a rotation of the logger's signing key still verify (spec §7.9).
 
-The bridge processes records in order. If the bridge is offline, the logger buffers records to a local queue (configurable; default 10,000 records). On bridge reconnect, the queue is drained in order.
+The second line form carries the Space's compliance audit chain entries (spec §6.12.6, spec §7.8.8, spec §7.8.9, spec §7.9) as the logger or recorder writes them. The bridge verifies each entry against its signer's DID, as it does a record, and attaches every entry to an item in the compliance folder. It uses `ComplianceGapEntry` and `DMComplianceAuditEntry` for the alerts of §9.2 and `VTCComplianceAuditEntry` for §5, and it keeps `ArchiveResealEntry` mappings for §5.2.
+
+The bridge processes records in order. If the bridge is offline, the logger buffers records to a local queue (configurable; default 10,000 records). When the bridge reconnects, the queue is drained in order.
 
 ---
 
@@ -582,7 +592,7 @@ The bridge MUST expose the following metrics (Prometheus format):
 
 | Metric                                     | Type    | Description                                     |
 |--------------------------------------------|---------|-------------------------------------------------|
-| `agora_bridge_records_received_total`      | counter | Records received from ComplianceLogger          |
+| `agora_bridge_records_received_total`      | counter | Records received from the compliance logger    |
 | `agora_bridge_items_deposited_total`       | counter | Items created in Exchange                       |
 | `agora_bridge_items_failed_total`          | counter | Rows in `failed` state                          |
 | `agora_bridge_records_skipped_total`       | counter | Records skipped, by reason                      |
@@ -612,15 +622,15 @@ The following conditions MUST trigger an alert to the compliance officer (email 
 
 ## 10. Purview Policy Configuration
 
-After the bridge is operational, the compliance administrator configures the following in the Microsoft Purview portal. Each configuration below must be checked against what the tenant's Purview edition supports (verify against current Purview documentation).
+After the bridge is operational, the compliance administrator configures the following in the Microsoft Purview portal. The administrator checks each configuration below against what the tenant's Purview edition supports (verify against current Purview documentation).
 
 ### 10.1 Communication Compliance Policy
 
 Create a policy whose supervised users are the regulated members, with the following conditions:
 
-- **Scope to Agora items** by the subject prefix `[Agora` or the body marker `Agora-Envelope-ID:`.
-- **Record kind filter:** scope classifiers to items whose body contains `Agora-Record-Kind: message` or `Agora-Record-Kind: edit`, excluding reactions, pins and system events, since classifiers are designed for human-authored text.
-- **Built-in classifiers:** financial regulatory language, sensitive information types (SSNs, account numbers), etc., applied to the item body.
+- **Scope.** Select Agora items by the subject prefix `[Agora` or the body marker `Agora-Envelope-ID:`.
+- **Record kind filter.** Scope classifiers to items whose body contains `Agora-Record-Kind: message` or `Agora-Record-Kind: edit`, excluding reactions, pins and system events, since classifiers are designed for human-authored text.
+- **Built-in classifiers.** Apply financial regulatory language, sensitive information types (SSNs, account numbers) and similar classifiers to the item body.
 
 ### 10.2 Retention Policy
 
@@ -628,7 +638,7 @@ Create a policy whose supervised users are the regulated members, with the follo
 |------------------|------------------------------------------------------------------------|
 | Target           | Regulated members' mailboxes and the catch-all mailbox                 |
 | Scope            | Agora items, selected by a retention label auto-applied on the subject prefix or body marker, or the whole mailbox |
-| Duration         | At least `complianceLogging.retentionDays`: the period the firm's applicable rule requires (e.g., SEC Rule 17a-4(b)(4): three years, the first two easily accessible); many firms configure longer |
+| Duration         | At least `complianceLogging.retentionDays`: the period the firm's applicable rule requires (for example, SEC Rule 17a-4(b)(4): three years, the first two easily accessible); many firms configure longer |
 | Action           | Retain only                                                            |
 
 Purview retention policies apply to whole mailboxes; selecting only the Agora items requires a retention label (verify against current Purview documentation).
@@ -639,7 +649,7 @@ Apply litigation hold to all regulated user mailboxes and the catch-all mailbox.
 
 ### 10.4 eDiscovery Search Templates
 
-Recommended saved searches for Agora data. They use body marker text and the subject prefix, which are ordinary item content. Whether a full DID or URN matches as a single keyword term is not confirmed (§3.4); test each template against known items before relying on it.
+The following saved searches are recommended for Agora data. They use body marker text and the subject prefix, which are ordinary item content. Whether a full DID or URN matches as a single keyword term is not confirmed (§3.4); test each template against known items before relying on it.
 
 ```
 # All items from a specific Agora DID
@@ -662,10 +672,10 @@ subject:"[Agora VTC]"
 
 ## 11. Open Issues
 
-1. **Item creation method:** §3.1 depends on Graph creating a non-draft, unsent item when `PidTagMessageFlags` and the MAPI time properties are set on create, and on `from` and custom headers being settable on create. None of this is confirmed in this profile (verify against current Microsoft Graph documentation). If it does not hold, the alternative is the Exchange mailbox import interface that Graph exposes for migration tools, which must be evaluated for permissions, item format and availability before adoption.
+1. **Item creation method.** §3.1 depends on Graph creating a non-draft, unsent item when `PidTagMessageFlags` and the MAPI time properties are set on create, and on `from` and custom headers being settable on create. None of this is confirmed in this profile (verify against current Microsoft Graph documentation). If it does not hold, the alternative is the Exchange mailbox import interface that Graph exposes for migration tools, which must be evaluated for permissions, item format and availability before adoption.
 
-2. **Header searchability:** Whether Purview Communication Compliance and eDiscovery can match `x-agora-*` header values is unconfirmed. This profile does not rely on it: searches and policies use the subject prefix and body marker block (§3.4, §10). If header matching is confirmed, operators MAY add header-based conditions.
+2. **Header searchability.** Whether Purview Communication Compliance and eDiscovery can match `x-agora-*` header values is unconfirmed. This profile does not rely on it: searches and policies use the subject prefix and body marker block (§3.4, §10). If header matching is confirmed, operators MAY add header-based conditions.
 
-3. **Large attachments:** Files above the tenant's message size or Graph upload limits are deposited as metadata with a pointer to the logger's archived copy on CO storage (§3.5). Whether a pointer to a CO-held archive satisfies the applicable retention rule SHOULD be confirmed with the organization's compliance counsel before production deployment.
+3. **Large attachments.** Files above the tenant's message size or Graph upload limits are deposited as metadata with a pointer to the logger's archived copy on CO storage (§3.5). Whether a pointer to a CO-held archive satisfies the applicable retention rule SHOULD be confirmed with the organization's compliance counsel before production deployment.
 
-4. **Catch-all mailbox governance:** Items deposited to the catch-all mailbox because a regulated member has no mapping are regulated communications. The compliance officer MUST review and resolve mapping gaps promptly. A backlog in the catch-all mailbox is a compliance gap as well as an operational issue.
+4. **Catch-all mailbox governance.** Items deposited to the catch-all mailbox because a regulated member has no mapping are regulated communications. The compliance officer MUST review and resolve mapping gaps promptly. A backlog in the catch-all mailbox is a compliance gap as well as an operational issue.

@@ -1,6 +1,6 @@
 # Agora test vectors
 
-Test vectors for the Agora specification. Every value is computed by two independent toolchains, and a vector is installed only when both agree byte for byte:
+Test vectors for the Agora specification. Two independent toolchains compute every value, and a vector is installed only when both agree byte for byte:
 
 | Toolchain | Version | Primitives used |
 |---|---|---|
@@ -16,14 +16,14 @@ Before computing any vector, each toolchain checks its primitives against publis
 - SHA-256 and SHA-1 `"abc"` (FIPS 180-2)
 - Ed25519 RFC 8032 §7.1 TEST 1 (public key and signature)
 - HKDF-SHA256 RFC 5869 A.1 (PRK and OKM) and A.3 (zero-length salt and info)
-- AES-128-GCM, McGrew–Viega GCM specification Test Cases 2 and 4
+- AES-128-GCM, McGrew-Viega GCM specification Test Cases 2 and 4
 - base58btc, draft-msporny-base58 examples; base32, RFC 4648 §10
 - CIDv1 `raw`/sha2-256 of the empty byte string (`bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku`)
 - dag-pb + UnixFS: the IPFS empty directory (`QmUNLLsPACCz1vLxQVkXqqLX5R1X345qqfHbsf67hvA3Nn`, and its CIDv1) and the empty file (`QmbFMke1KXqnYyBBWxB74N4c5SBnJMVAiMNRcGu6x1AwQH`). These cover the PBNode `Data` field and the UnixFS `Type` and `filesize` fields. The `PBLink` and `blocksizes` encodings are checked only by agreement between the two toolchains.
 
 ## Files
 
-Fixed inputs named by a label are `SHA-256(UTF-8("agora-test-vectors/" || label))`, truncated to the stated length. Where the spec requires randomness (nonces, content keys, PoW and SFU challenges), the value is fixed for the vector and the file says so. CBOR maps use RFC 8949 §4.2.1 deterministic key order. The spec does not require that order; it is one valid encoding, and receivers use the bytes as received.
+Fixed inputs named by a label are `SHA-256(UTF-8("agora-test-vectors/" || label))`, truncated to the stated length. Where the spec requires randomness (nonces, content keys, proof-of-work (PoW) and Selective Forwarding Unit (SFU) challenges), the value is fixed for the vector and the file says so. CBOR maps use RFC 8949 §4.2.1 deterministic key order. The spec does not require that order; it is one valid encoding, and receivers use the bytes as received.
 
 | File | Construction | Spec |
 |---|---|---|
@@ -39,7 +39,9 @@ Fixed inputs named by a label are `SHA-256(UTF-8("agora-test-vectors/" || label)
 | `device-binding.json` | `did:key` identity, leaf `signature_key`, `agora_device_binding` extension data | §5.2.1, §2.1 |
 | `http-pow.json` | `Agora-PoW-Challenge` / `Agora-PoW` headers, difficulty 20, smallest 8-byte nonce meeting it, a negative nonce, and a check of the spec's example | §10.5.2, §11.6 |
 
-The header negatives in `jws.json` each carry an Ed25519 signature that is valid over that entry's own signing input, so a verifier must reject them on the header checks. Blocks larger than 4 KiB in `chunked-blob.json` are stored as length, SHA-256 and first/last 64 bytes; both check scripts recompute each full block and compare its SHA-256.
+The header negatives in `jws.json` each carry an Ed25519 signature that is valid over that entry's own signing input, so a verifier must reject them on the header checks.
+
+Blocks larger than 4 KiB in `chunked-blob.json` are stored as length, SHA-256 and first/last 64 bytes; both check scripts recompute each full block and compare its SHA-256.
 
 ## Regenerate and verify
 
@@ -51,13 +53,13 @@ python3 tools/agora_tv.py primitives   # published-vector checks only
 (cd tools/go && go run . primitives)
 ```
 
-The Go check compares in both directions: every value it computes must match the file, and every non-descriptive value in the file must be one it recomputed. Only the keys `construction`, `spec`, `notes`, `reason` and `pattern` are skipped. Go also reaches the `accept`/`reject` verdicts on its own, from the §13.1.1 header, signature and signer-set checks; Python's verdicts are written by hand.
+The Go check compares in both directions: every value it computes must match the file, and every non-descriptive value in the file must be one it recomputed. It skips only the keys `construction`, `spec`, `notes`, `reason` and `pattern`. Go also reaches the `accept`/`reject` verdicts on its own, from the spec §13.1.1 header, signature and signer-set checks; Python's verdicts are written by hand.
 
 ## Not covered
 
-- **MLS exporter labels** (`agora sealed envelope`, `agora blob`, `agora-media-key`, `agora data channel`) need an MLS implementation. The exporter output is taken as a given input. The SFrame per-KID derivation (RFC 9605 §4.4.2) and the KID vectors that §6.9 requires are not produced.
-- **HPKE labels** (`agora/v1/recovery-share`, `agora-recording-archive-v1`) are not produced. pyca/cryptography 41.0.7 has no HPKE, so there is no second toolchain. The Shamir share encoding of §2.4.2 is not covered either.
-- **WebAuthn `wrapKey` output** (§12.6) is local storage only. These vectors cover the PRF input and the wrapping key, not the wrapped PKCS#8 bytes.
+- **MLS exporter labels** (`agora sealed envelope`, `agora blob`, `agora-media-key`, `agora data channel`) need an MLS implementation. The exporter output is taken as a given input. The SFrame per-KID derivation (RFC 9605 §4.4.2) and the KID vectors that spec §6.9 requires are not produced.
+- **Hybrid Public Key Encryption (HPKE) labels** (`agora/v1/recovery-share`, `agora-recording-archive-v1`) are not produced. pyca/cryptography 41.0.7 has no HPKE, so there is no second toolchain. The Shamir share encoding of spec §2.4.2 is not covered either.
+- **WebAuthn `wrapKey` output** (spec §12.6) is local storage only. These vectors cover the PRF input and the wrapping key, not the wrapped PKCS#8 bytes.
 - **`ComplianceRecord`** needs real MLS message, key and `GroupContext` bytes.
 
 ## Spec ambiguities

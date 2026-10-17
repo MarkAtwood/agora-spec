@@ -3,7 +3,7 @@
 **Audience:** FINRA, SEC, FCA, BaFin, and MiFID II examination staff; supervisory technology analysts; enforcement counsel
 **Companion document:** `guides/counsel.md` (for the regulated firm's compliance team and counsel)
 **Purpose:** How Agora's communications archive works, what an examination will find, how to verify authenticity, and what a regulated firm is and is not required to produce
-**Document version:** Aligned to the Agora Protocol Specification 0.2 (Draft, `spec/`) and `ARCHITECTURE.md` (2026-10-16). Section references are to those documents. No conformant implementation exists yet.
+**Document version:** Aligned to the Agora Protocol Specification v0.2 (Draft, `spec/`) and `ARCHITECTURE.md` (2026-10-16). Section references are to those documents. No conformant implementation exists yet.
 
 ---
 
@@ -15,18 +15,16 @@
 
 ### The Core Architecture
 
-Agora is an open protocol for end-to-end encrypted (E2EE) group communication. In Microsoft Teams, Slack, or Bloomberg Terminal, the platform operator holds message encryption keys and can produce plaintext in response to a subpoena. Agora's architecture prevents any server from reading message content.
+Agora is an open protocol for end-to-end encrypted (E2EE) group communication. In Microsoft Teams, Slack, or Bloomberg Terminal, the platform operator holds message encryption keys and can produce plaintext in response to a subpoena. Agora's architecture prevents any server from reading message content. This follows from the encryption design itself, independent of any policy or contractual commitment.
 
-This follows from the encryption design itself, independent of any policy or contractual commitment.
+**Two operators, two roles.** Agora separates the party that runs infrastructure from the party that runs the communications (ARCHITECTURE §1–§2):
 
-**Two operators, two roles.** Agora separates the party that runs infrastructure from the party that runs the communications (ARCHITECTURE §1-§2):
-
-- An **infrastructure operator** runs relays, storage pinning, media servers, and push proxies. It carries ciphertext, decides nothing about any community, and can be replaced without changing the firm's identities, membership, history, or policy.
-- The **communications operator** is the regulated firm itself. It holds identity provisioning, membership, roles, policy, compliance logging, and the archive. Every authority over the firm's communications is exercised with the firm's keys.
+- An **Infrastructure Operator (IO)** runs relays, storage pinning, media servers, and push proxies. It carries ciphertext, decides nothing about any community, and can be replaced without changing the firm's identities, membership, history, or policy.
+- The **Communications Operator (CO)** is the regulated firm itself. It holds identity provisioning, membership, roles, policy, compliance logging, and the archive. Every authority over the firm's communications is exercised with the firm's keys.
 
 A firm may run its own relays, in which case it fills both roles with distinct keys (ARCHITECTURE §2.4). The relay still holds only what any relay holds.
 
-**Key architectural elements for examiners:**
+Three architectural elements matter most to examiners.
 
 **MLS encryption (RFC 9420).** The sender's device encrypts every message before it leaves that device. Relays receive and route ciphertext only. A relay does not hold decryption keys and cannot produce message plaintext.
 
@@ -38,7 +36,7 @@ A firm may run its own relays, in which case it fills both roles with distinct k
 
 ### Why This Architecture Matters for Examiners
 
-**It addresses the DM capture gap at the firm's endpoints.** FINRA and SEC examinations have found, with increasing frequency, that regulated employees conduct business communications via personal messaging applications (WhatsApp, Signal, iMessage, personal SMS) that firm archiving systems do not capture. Policy prohibition has not been effective. In Agora, a regulated employee's capture obligation follows them into every direct message conversation (spec §7.8.1). The regulated employee's client adds the compliance logger to the DM group automatically and will not send a message into a group that lacks it.
+**It addresses the direct message (DM) capture gap at the firm's endpoints.** FINRA and SEC examinations have found, with increasing frequency, that regulated employees conduct business communications via personal messaging applications (WhatsApp, Signal, iMessage, personal SMS) that firm archiving systems do not capture. Policy prohibition has not been effective. In Agora, a regulated employee's capture obligation follows them into every DM conversation (spec §7.8.1). The regulated employee's client adds the compliance logger to the DM group automatically and will not send a message into a group that lacks it.
 
 **Enforcement sits at the firm's endpoints.** Relays do not know who is in a group or who is regulated, so they cannot and do not enforce capture (spec §7.8.9). Enforcement happens at the firm's own enforcement points: the client software on managed devices the firm issues and controls, the compliance logger, and the firm's archive and audit pipeline (ARCHITECTURE §6.3). The accepted cost is that a tampered or non-conformant client can create a group without the logger, and no infrastructure component will stop it (ARCHITECTURE §9). The mitigation is the managed endpoint, the same trust boundary firms rely on for every other channel.
 
@@ -60,9 +58,9 @@ A properly configured Agora compliance archive contains the following for every 
 - Channel identifier
 - MLS epoch and sequence number (establishing order within the group)
 - Edits: each edit is a separate `Message` record referencing the original; the original and every version are preserved
-- Deletions: a deletion is a separate record carrying the deletion timestamp, sent by the original sender (or, for moderation, by an administrator); the original message record remains in the archive
+- Deletions: a deletion is a separate record carrying the deletion timestamp, sent by the original sender (or, for moderation, by an admin); the original message record remains in the archive
 
-**File attachments.** Each archived message records, for every attached file, the file's SHA-256 hash and size, the key that decrypts it, and the content identifier (CID) of its encrypted copy (spec §5.2.2). The logger also archives the file itself: it fetches the encrypted file, decrypts it, checks it against the recorded SHA-256 hash, and stores the plaintext in the archive for the record's retention period (spec §7.4). Files travel and are stored on relays in encrypted 256 KiB pieces, up to 4 GiB per file (spec §14.3.4), but the archive holds the whole plaintext file. A file the logger could not fetch, or that failed the hash check, appears as a capture gap record naming the message and the missing file (spec §7.4, §7.8.9); ask for those records with the archive. If the SHA-256 hash of a file produced in a proceeding matches the hash in the archived signed message, the file has not been altered. The CID identifies only the encrypted copy and is not the comparison to make.
+**File attachments.** Each archived message records, for every attached file, the file's SHA-256 hash and size, the key that decrypts it, and the content identifier (CID) of its encrypted copy (spec §5.2.2). The logger also archives the file itself: it fetches the encrypted file, decrypts it, checks it against the recorded SHA-256 hash, and stores the plaintext in the archive for the record's retention period (spec §7.4). Files travel and are stored on relays in encrypted 256 KiB pieces, up to 4 GiB per file (spec §14.3.4), but the archive holds the whole plaintext file. If the SHA-256 hash of a file produced in a proceeding matches the hash in the archived signed message, the file has not been altered. The CID identifies only the encrypted copy and is not the comparison to make. A file the logger could not fetch, or that failed the hash check, appears as a capture gap record naming the message and the missing file (spec §7.4, §7.8.9); ask for those records with the archive.
 
 **Reactions.** Emoji responses to messages are JMAP Chat `Reaction` objects carried as ordinary group messages and archived identically to text messages.
 
@@ -78,7 +76,7 @@ A properly configured Agora compliance archive contains the following for every 
 
 ### Archive Format and Structure
 
-The archive is a sequence of `ComplianceRecord` objects (spec §7.4) in a per-channel IPLD structure, with a Space-level index pointing to the head of each channel's chain. Each record is a signed envelope: a typed payload envelope (spec §13.1) whose body is the record and whose `sig` field holds the logger's JWS signature (spec §13.1.1). The record body contains:
+The archive is a sequence of `ComplianceRecord` objects (spec §7.4) in a per-channel IPLD structure, with an index for the whole Space (the firm's Agora workspace) pointing to the head of each channel's chain. Each record is a signed envelope: a typed payload envelope (spec §13.1) whose body is the record and whose `sig` field holds the logger's JWS signature (spec §13.1.1). The record body contains:
 
 ```
 ComplianceRecord {
@@ -140,9 +138,9 @@ A standard Agora records request should include:
 
 6. **DM compliance audit records.** All `DMComplianceAuditEntry` records for relevant custodians, showing logger admission to DM groups and any removal attempts, and the logger's gap records.
 
-7. **VTC compliance records.** If voice/video communications are within scope: call recordings, per-call metadata, and `VTCComplianceAuditEntry` records for the relevant period.
+7. **Video teleconferencing (VTC) compliance records.** If voice/video communications are within scope: call recordings, per-call metadata, and `VTCComplianceAuditEntry` records for the relevant period.
 
-8. **Space state history.** The current and historical configuration of the firm's Agora workspace (a "Space"), signed with the firm's keys and served from the firm's own Space endpoint (spec §3.4). It shows the compliance logging settings, the explicit list of regulated employees (`regulatedMembers`), scope, retention period, and when compliance logging took effect.
+8. **Space state history.** The current and historical configuration of the firm's Space, signed with the firm's keys and served from the firm's own Space endpoint (spec §3.4). It shows the compliance logging settings, the explicit list of regulated employees (`regulatedMembers`), scope, retention period, and when compliance logging took effect.
 
 ### What You Cannot Get From a Relay Operator
 
@@ -158,16 +156,16 @@ A relay operator's accurate response to a production request for message content
 
 ### What a Relay Operator Can Produce
 
-A demand on a relay operator yields only what falls within its observation budget (ARCHITECTURE §4-§5):
-- Network-layer connection metadata (source address, timing, volume) for the retention period set in its service agreement with the firm and declared publicly in its relay manifest (`observationBudget.connectionLogRetentionDays`, spec §10.2.1)
+A demand on a relay operator yields only what falls within its observation budget (ARCHITECTURE §4–§5):
+- Network-layer connection metadata (source address, timing, volume) for the retention period set in its `ServiceAgreement` with the firm and declared publicly in its relay manifest (`observationBudget.connectionLogRetentionDays`, spec §10.2.1)
 - Opaque ciphertext, its size and timing, and the rotating routing tokens it was addressed to
 - The recent encrypted envelopes it holds for each routing token, kept for the retention period of the agreement under which the token is registered (spec §10.4.6)
-- The identity of each customer it holds a service agreement with (the customer's billing DID), which routing tokens and admission keys that customer registered and when, and quota counters per agreement (ARCHITECTURE §5 item 6)
+- The identity of each customer it holds an agreement with (the customer's billing DID), which routing tokens and admission keys that customer registered and when, and quota counters per agreement (ARCHITECTURE §5 item 6)
 - For push proxies, opaque device push handles and wake-up timing. A relay that serves push also knows which routing tokens wake the same device; users may turn push off (ARCHITECTURE §5 item 7)
 
 From these a relay operator can say which network addresses used a given firm's service. It cannot say which Space, channel, or sender any traffic belonged to: the firm's agreement names no Space or channel, and the billing identity never appears in any Space record (ARCHITECTURE §6.1). If a firm runs several Spaces through one relay, the relay cannot tell them apart.
 
-**Takedown requests.** A relay that receives a takedown request naming a stored CID cannot read the content, so it cannot judge it. It forwards the request to the firm through the contact in its service agreement, and it may stop serving and delete its copy as a storage decision (spec §10.4.5). Deleting a relay copy does not touch the firm's archive.
+**Takedown requests.** A relay that receives a takedown request naming a stored CID cannot read the content, so it cannot judge it. It forwards the request to the firm through the contact in its agreement, and it may stop serving and delete its copy as a storage decision (spec §10.4.5). Deleting a relay copy does not touch the firm's archive.
 
 ---
 
@@ -183,9 +181,9 @@ Agora addresses this in the client software. A regulated employee is one the fir
 2. Adds the logger to the DM group as a group member with full decryption rights
 3. Sends a mandatory disclosure notice to all other DM participants before any message is sent
 
-The client will not send any message into the group until both steps are complete (spec §7.8.1). The compliance logger then receives and archives every subsequent message in that DM group to the same tamper-evident archive as Space channel messages.
+The client will not send any message into the group until the logger is a member and the disclosure notice has been sent (spec §7.8.1). The compliance logger then receives and archives every subsequent message in that DM group to the same tamper-evident archive as Space channel messages.
 
-**This is an endpoint control.** On a managed device, the regulated employee cannot disable it. The DM counterparty cannot prevent it, though they can leave the group after receiving the disclosure. No member may remove the logger: if another participant removes it, the regulated employee's client re-adds it, and the removal is recorded in the `DMComplianceAuditEntry` (spec §7.8.3, §7.8.8). The messages sent between removal and re-add are not captured; the logger records the missing epochs (spec §7.8.9).
+**This is an endpoint control.** On a managed device, the regulated employee cannot disable it. The DM counterparty cannot prevent it, though they can leave the group after receiving the disclosure. No member may remove the logger: if another participant removes it anyway, the regulated employee's client re-adds it, and the removal is recorded in the `DMComplianceAuditEntry` (spec §7.8.3, §7.8.8). The messages sent between removal and re-add are not captured; the logger records the missing epochs (spec §7.8.9).
 
 The control depends on the regulated employee's client being conformant. Relays play no part and cannot detect a group that lacks the logger.
 
@@ -202,9 +200,9 @@ For any DM group involving a regulated employee, the archive contains:
 
 **Gap: non-Agora applications.** DM compliance applies to conversations conducted via Agora (including conversations in Space channels bridged by a disclosed gateway to Slack or Teams). If the regulated employee conducts the same conversation via WhatsApp, iMessage, or another non-Agora application, Agora does not capture it.
 
-**Not a gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request (spec §4.6.3). A regulated employee's client still processes the Welcome, admits the logger and captures while the request is pending (spec §4.6.3, §7.8.7); the request state suppresses only notifications, read receipts and typing indicators. Messages sent into the group while the employee has not yet accepted are therefore in the archive.
-
 **Gap: tampered clients.** A modified client can join or create a DM group without the logger. Such a group is invisible to the logger. The firm's controls here are managed devices and reconciliation of audit records against the groups the logger actually holds (spec §7.8.9).
+
+**Not a gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request (spec §4.6.3). A regulated employee's client still processes the Welcome, admits the logger and captures while the request is pending (spec §4.6.3, §7.8.7); the request state suppresses only notifications, read receipts and typing indicators. Messages sent into the group while the employee has not yet accepted are therefore in the archive.
 
 ### What an Examiner Should Check
 
@@ -258,7 +256,7 @@ A firm with chain heads recorded in an independent system, and a chain that veri
 
 ### FINRA Rule 4511 / SEC Rule 17a-4
 
-**Requirement summary.** Rule 17a-4(b)(4) requires broker-dealers to keep business communications sent and received for not less than three years, the first two in an easily accessible place. Other record classes have other periods (six years under 17a-4(a), life of the enterprise under 17a-4(d)); FINRA Rule 4511 applies a six-year default to records with no period specified in 17a-4. Many firms configure a longer period by policy. Electronic records must be kept either in non-rewriteable, non-erasable (WORM) form or, since the October 2022 amendments, in a system with a complete time-stamped audit trail (17a-4(f)(2)(i)). Ability to produce records promptly. Confirm the periods that apply to each record class with counsel.
+**Requirement summary.** Rule 17a-4(b)(4) requires broker-dealers to keep business communications sent and received for not less than three years, the first two in an easily accessible place. Other record classes have other periods (six years under 17a-4(a), life of the enterprise under 17a-4(d)); FINRA Rule 4511 applies a six-year default to records with no period specified in 17a-4. Many firms configure a longer period by policy. Confirm the periods that apply to each record class with counsel. Electronic records must be kept either in non-rewriteable, non-erasable (WORM) form or, since the October 2022 amendments, in a system with a complete time-stamped audit trail (17a-4(f)(2)(i)). The rules also require the ability to produce records promptly.
 
 **What Agora provides.** The IPLD hash chain makes alteration detectable. The Space state sets the retention period (`retentionDays`). The firm owns the archive, with no third-party platform operator involved, which supports the control requirement.
 
@@ -266,7 +264,7 @@ A firm with chain heads recorded in an independent system, and a chain that veri
 - `retentionDays` is at least the period the firm's applicable rule requires (for example, 1095 days for 17a-4(b)(4) communications), or the firm's longer policy period
 - Archive pruning is suspended for any records subject to legal hold
 - The archive backend (the storage system the compliance logger writes to) is configured to prevent administrative deletion during the retention period
-- An independent auditor has reviewed the archive configuration and issued a written opinion (no such opinion yet exists for Agora deployments; this is a known gap firms are expected to be actively working to close)
+- An independent auditor has reviewed the archive configuration and issued a written opinion (no such opinion yet exists for Agora deployments; see the examiner note below)
 
 **Examiner note: the auditor gap.** As of this writing, no qualified third-party archiving vendor (or designated third party under 17a-4(f)) has issued a written certification that a specific Agora deployment satisfies Rule 17a-4, and no conformant implementation exists. Firms relying on Agora for Rule 17a-4 compliance should be required to produce a timeline and vendor engagement for obtaining third-party certification. Absence of a certification plan is a deficiency.
 
@@ -282,9 +280,9 @@ A firm with chain heads recorded in an independent system, and a chain that veri
 
 ### HIPAA Security Rule (§164.312): Electronic Communications Containing ePHI
 
-**Requirement summary.** Technical safeguards for electronic protected health information in electronic communications. Business Associate Agreements (BAA) with service providers that create, receive, maintain, or transmit ePHI.
+**Requirement summary.** Technical safeguards for electronic protected health information (ePHI) in electronic communications. Business Associate Agreements (BAA) with service providers that create, receive, maintain, or transmit ePHI.
 
-**What Agora provides.** MLS end-to-end encryption protects ePHI in transit and in relay storage: a relay holds only ciphertext it cannot decrypt, plus connection metadata within its declared retention window (ARCHITECTURE §4-§5). The compliance archive contains plaintext ePHI and must be treated as a covered system under the Security Rule.
+**What Agora provides.** MLS end-to-end encryption protects ePHI in transit and in relay storage: a relay holds only ciphertext it cannot decrypt, plus connection metadata within its declared retention window (ARCHITECTURE §4–§5). The compliance archive contains plaintext ePHI and must be treated as a covered system under the Security Rule.
 
 **What to verify.**
 - The firm has a documented legal determination on whether its relay operator requires a BAA, based on what the relay holds (ciphertext and connection metadata, no keys and no plaintext). That determination is for the firm's counsel; this guide states only the facts
@@ -361,13 +359,13 @@ When examining a firm's Agora deployment:
 
 **CID (Content Identifier).** A cryptographic hash used as a file or record identifier. Because the hash is computed from the content, the same content always has the same CID. Any change to the content produces a different CID, so alteration is detectable.
 
-**Communications operator.** The party that runs a community: for a regulated firm, the firm itself. It holds identity, membership, policy, compliance logging, and the archive.
+**Communications Operator (CO).** The party that runs a community: for a regulated firm, the firm itself. It holds identity, membership, policy, compliance logging, and the archive.
 
 **Compliance logger.** A firm-operated participant in the Agora message group that receives and archives all messages. It shows no join notice in the message feed, and its presence is disclosed in the Space's compliance configuration, in the retention notice members see on joining, in DM disclosure notices, and in the group's membership (spec §7.7). It is a passive member: it receives all messages but sends none.
 
 **DID (Decentralized Identifier).** A cryptographic identifier for a user or system. In Agora, each employee has a DID, which maps to a named employee in the firm's identity management system. The archive identifies message senders by DID; the firm maintains the DID-to-employee mapping.
 
-**Infrastructure operator.** A party that runs relays or other infrastructure for communities without being part of them. It holds ciphertext and connection metadata, decides nothing about any community, and can be replaced by the firm at will.
+**Infrastructure Operator (IO).** A party that runs relays or other infrastructure for communities without being part of them. It holds ciphertext and connection metadata, decides nothing about any community, and can be replaced by the firm at will.
 
 **IPLD (InterPlanetary Linked Data).** A data model for content-addressed records, used in Agora for the compliance archive. Each record is identified by a hash of its content; records link to prior records by hash, forming a tamper-evident chain.
 

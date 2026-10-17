@@ -9,12 +9,15 @@
 | E2EE group key management | RFC 9420 (MLS) | `openmls` (Rust), `mlspp` (C++) |
 | Payload envelope | Typed payload envelope (§13.1), CBOR (RFC 8949) | See Wire encoding |
 | Identity | W3C DID Core; user DID methods in the rows below; `did:web` for relay DIDs only (§10.2.1) | `ssi` (Rust), `go-did` (Go) |
+| Default user DID method | `did:webvh` (DIF did:webvh specification) | `didwebvh-py`, `didwebvh-ts` |
+| Opt-in user DID method | `did:plc` (did:plc specification v0.1) | `did-method-plc` (TS, Bluesky) |
+| `did:key` pointer records | Pkarr (BEP-44 mutable items on the Mainline DHT) | `pkarr` (Rust) |
 | Content addressing | IPFS / IPLD (CIDv1, `raw` codec, sha2-256, §13.1) | `go-ipfs`, `helia` (JS), `rust-ipfs` |
-| Peer discovery / fanout | libp2p gossipsub v1.1 | `go-libp2p-pubsub`, `libp2p` (Rust) |
+| Peer discovery / fan-out | libp2p gossipsub v1.1 | `go-libp2p-pubsub`, `libp2p` (Rust) |
 | Primary transport | WebTransport (RFC 9000) | Native browser; `webtransport-go`, `wtransport` (Rust) |
 | Fallback transport | WebSocket (RFC 6455) | Native in all environments |
 | Voice/video media | WebRTC | Native browser; `pion` (Go) |
-| SFU | WebRTC SFU | `mediasoup`, `Pion ion-sfu`, `LiveKit` |
+| SFU | WebRTC Selective Forwarding Unit (SFU) | `mediasoup`, `Pion ion-sfu`, `LiveKit` |
 | TURN relay | RFC 5766 / RFC 7065 | `coturn` |
 | Wire encoding | CBOR (RFC 8949) | `fxamacker/cbor` (Go), `cbor2` (Python) |
 | Relay-to-relay auth | RFC 9421 HTTP Message Signatures | `httpsig` (Go), `httpbis-message-signatures` (JS) |
@@ -27,25 +30,22 @@
 | Relay bootstrap DNS | DNS-SD / SRV / TXT records | Standard DNS libraries |
 | Object signatures | JWS (RFC 7515), unencoded detached payload (RFC 7797), EdDSA/Ed25519 in JOSE (RFC 8037) | `jose` (JS); any JOSE library supporting RFC 7797 |
 | Chat and collaboration data model | JMAP Core (RFC 8620); JMAP Chat (draft-atwood-jmap-chat-00) and companion drafts (chat-did, chat-push, chat-wss, chat-calendars, chat-tasks, chat-filenode, jmap-did, jmap-cid, scene, scene-wss, vtc, vtc-wss) | TBD (drafts in progress) |
-| Default user DID method | `did:webvh` (DIF did:webvh specification) | `didwebvh-py`, `didwebvh-ts` |
-| Opt-in user DID method | `did:plc` (did:plc specification v0.1) | `did-method-plc` (TS, Bluesky) |
-| `did:key` pointer records | Pkarr (BEP-44 mutable items on the Mainline DHT) | `pkarr` (Rust) |
 
 ---
 
 ## Appendix B: Open Questions
 
-1. **Cross-space identity and reputation**: there is currently no mechanism for carrying moderation history or reputation across Space boundaries. A user banned from one Space can freely join another. Whether this is a feature (clean-slate by design, prevents monoculture moderation) or a gap (enables bad actors to evade consequences) depends on use case. A voluntary cross-space reputation attestation format is worth considering as an optional extension.
+1. **Cross-Space identity and reputation.** There is currently no mechanism for carrying moderation history or reputation across Space boundaries. A user banned from one Space can freely join another. Whether this is a feature (clean-slate by design, prevents monoculture moderation) or a gap (enables bad actors to evade consequences) depends on use case. A voluntary cross-Space reputation attestation format is worth considering as an optional extension.
 
 ---
 
 ## Appendix C: Protocol Limits
 
-This table collects the protocol's numeric limits in one place. The defining section governs; if this table and a defining section disagree, the defining section is correct and the table is an erratum. "Example" means the value appears only in an example and is not normative.
+This table collects the protocol's numeric limits in one place. If this table and a defining section disagree, the defining section governs and the table is an erratum. "Example" means the value appears only in an example and is not normative.
 
 | Limit | Value | Strength | Defined in |
 |---|---|---|---|
-| Leaves in any MLS group, including DM groups | 4096 | MUST NOT exceed | §5.2.1 |
+| Leaves in any MLS group, including direct message (DM) groups | 4096 | MUST NOT exceed | §5.2.1 |
 | Members of an `interactive` channel group | 200 | Descriptive; the enforced cap is the 4096-leaf limit (§5.2.1) | §3.2, §5.2.1 |
 | Community speaker group (`speakerCap`) | default 200, maximum 500 | Default; maximum MUST NOT be exceeded | §5.2.1.2 |
 | Idle speaker eviction (`idleEvictDays`) | default 7 days | Default | §5.2.1.2 |
@@ -82,9 +82,9 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | `SpaceAd` TTL; re-advertise | 60 s; 45 s | Default | §10.3.2 |
 | Directory refresh | 1 h | Default | §10.3.4 |
 | Relay envelope cache | lesser of `expiryHint` and the agreement's `retentionDays` | MUST | §10.4.3, §10.4.6 |
-| Publish `ts` ahead of the Relay's clock before `expired` | 300 s | MUST | §11.4 |
+| Publish `ts` ahead of the relay's clock before `expired` | 300 s | MUST | §11.4 |
 | Push registration TTL | default 30 days, maximum 30 days | Default; MUST NOT keep longer; renewal MUST | §11.7.3 |
-| `PinInstruction`, upload and sequencer submission `expires` | at most 600 s ahead of the Relay's clock | MUST | §11.4, §11.8.2, §14.4.3 |
+| `PinInstruction`, upload and sequencer submission `expires` | at most 600 s ahead of the relay's clock | MUST | §11.4, §11.8.2, §14.4.3 |
 | Admission key registration request | 1 to 1000 keys or tokens; `ts` within 300 s | MUST | §10.5.3 |
 | Full re-registration of current keys | at least every 24 h | MUST | §10.5.3 |
 | Grace before deregistering the previous admission key after rotation | 300 s, for application messages and operations only; no Commit is stamped on the previous key's commit stream once the new key is registered | RECOMMENDED; MUST for the sequencer rule | §10.5.3 |
@@ -96,7 +96,7 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
 | `agora_credentials` entries per leaf; extension data size | 8; 8192 bytes | Over the limit, the extension is ignored | §5.2.1.5 |
 | Hold of a Welcome whose authorization cannot yet be decided | 7 days | See section | §4.3 |
-| Guardian transfer proposal `ts` window; objection period | 300 s; default 259200 s | MUST; Default | §4.1, §3.3 |
+| Guardian transfer proposal `ts` window; objection period | 300 s; default 259200 s | MUST; default | §4.1, §3.3 |
 | KeyPackage upload `ts` window | 300 s | MUST | §5.2.1.1 |
 | BEP-5 re-announce | 30 min | SHOULD | §10.3.4.6 |
 | Pkarr re-publish | 2 h | SHOULD | §10.3.4.6 |
@@ -106,11 +106,11 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Directory fetch backoff; unreachable flag | 30 s to 1 h; 7 days | Descriptive | §10.3.4.4 |
 | DM admission host handover fallback | any remaining member that may move the group (§4.6.4) after 24 h without a handover Commit | See section | §4.6.4 |
 | DM admission key rotation fallback | every host's user's client rotates 24 h after a Commit that removed a leaf, if no Commit has changed `agora_admission` | MUST | §4.6 |
-| DM admission host deregisters a group's key | on its issuee's request; 7 days after the issuee of a later key for the group confirms that key; or 30 days after the issuee is offboarded; never sooner than 300 s after the new key's Commit has won and a Relay in its `relays` has accepted a Subscribe (§4.6) | See section | §4.6 |
+| DM admission host deregisters a group's key | on its issuee's request; 7 days after the issuee of a later key for the group confirms that key; or 30 days after the issuee is offboarded; never sooner than 300 s after the new key's Commit has won and a relay in its `relays` has accepted a Subscribe (§4.6) | See section | §4.6 |
 | DM admission key periodic rotation | the client of the host's user with the lowest leaf index rotates 7 days after it processed the Commit that put the current key in `agora_admission`; every host's user's client 24 h later if none has | MUST | §4.6 |
-| DM admission host engages a replacement Relay | at least 14 days before the departing Relay's `retiresAt` | See section | §10.3.5 |
+| DM admission host engages a replacement relay | at least 14 days before the departing relay's `retiresAt` | See section | §10.3.5 |
 | DM member resolves each other member's DID | at least once every 7 days | See section | §4.6, §2.5.6 |
-| Client deletes a DM admission key that a host move replaced | 30 days after the move Commit, and not before a Relay admitted the new key | See section | §4.6.4 |
+| Client deletes a DM admission key that a host move replaced | 30 days after the move Commit, and not before a relay admitted the new key | See section | §4.6.4 |
 | Client deletes its user's DM admission keys after the user's last leaf is removed | 30 days after that Commit | See section | §4.6.4 |
 | Non-member view refetch on a post from an unlisted `senderDID` | at most once a minute per Space | See section | §5.2.1.4 |
 | Eager blob replication retry | exponential backoff for at least 24 h, then stop | Descriptive | §10.4.4 |
@@ -122,7 +122,7 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Second `RecoveryAssertion` for one DID | not within 24 h without admin review | MUST NOT | §2.4.4 |
 | Per-`channelToken` publication rate | Relay local policy, but at least 20 envelopes per second and 256 KiB per second sustained | MUST enforce; MUST admit at least the floor | §11.6, §12.5 |
 
-A DM group is bounded only by the 4096-leaf limit, and a message body only by the routing envelope size. This version defines no limit for: Space state document size, the number of KeyPackages in one upload, channel count per Space, or TURN credential lifetime.
+A direct message (DM) group is bounded only by the 4096-leaf limit, and a message body only by the routing envelope size. This version defines no limit for Space state document size, the number of KeyPackages in one upload, channel count per Space, or TURN credential lifetime.
 
 ---
 
@@ -150,14 +150,14 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `replicationFloor` | `ServiceAgreement` member | §10.5.1, §10.4.4 |
 | `archive` | `ChannelAdmissionKey` member | §3.4, §10.4.4 |
 | `closingHeads` | Space state member, array of `{channelID, stream, n, hash}` (closing commit-stream heads at a sequencer replacement) | §3.3, §14.4.5 |
-| `pushProxy` | Space state member, an object with the members of the Relay manifest's `pushProxy` (the push proxy the CO designates) | §3.3, §11.7.2 |
+| `pushProxy` | Space state member, an object with the members of the relay manifest's `pushProxy` (the push proxy that the Communications Operator, or CO, designates) | §3.3, §11.7.2 |
 | `broadcasters` | Non-member view member, array of `{channelID, keyEpoch, dids}` | §3.3, §3.4, §5.2.1.4 |
 | `chunkCount`, `thumbnailChunkCount`, `contentKey`, `thumbnailContentKey` | JMAP object extension properties | §14.3.4 |
 | `seed` | `pin-op` operation | §11.4, §10.4.4 |
 | Error codes of the live protocol, of admission key registration and of the DM admission-key endpoint | Error codes | §4.6, §11.4, §10.5.3, §14.4.3 |
 | `token` | Query parameter of the blob fetch and Peer API blob paths | §10.4.4, §10.2.2 |
 
-**Capability and model strings** (Agora-internal).
+**Capability and model strings.** These strings are Agora-internal.
 
 | Strings | Use | Defined in |
 |---|---|---|
@@ -196,10 +196,12 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 
 ---
 
-*End of specification.*
-
 ## Appendix E: Acknowledgments
 
 This appendix is non-normative.
 
 Agora's relay peering design (§10.2: signed relay manifest, key lifecycle, request signing and graduated trust levels) derives from the operator federation design of the CORUNDUM federated social protocol. Agora applies it one layer down, between relays that hold no identity or membership knowledge.
+
+---
+
+*End of specification.*

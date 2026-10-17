@@ -1,21 +1,19 @@
 # 13. Encoding and Extensions
 
-> Binds: both. Source: import/agora-protocol-spec-unified.md lines 3353–3426 (§14–15).
+> Binds: both. Source: import/agora-protocol-spec-unified.md lines 3353–3426 (§14–§15).
 
 ## 13.1 Typed Payload Envelope
 
-*Binds: both.*
-
 Every Agora payload is carried in a **typed payload envelope**. The envelope names what the payload is, says how its bytes are encoded, and carries those bytes unchanged. Agora computes no canonical form of any payload.
 
-The routing envelope that Relays carry is not a typed payload envelope and is defined in §5.2.2. It follows the same exact-bytes rule: its `signed` field is a CBOR byte string holding the encoded routing fields that `admissionSig` covers, and its `id` is the CID of those `signed` bytes. Neither is computed over a re-encoding.
+The routing envelope that relays carry is not a typed payload envelope and is defined in §5.2.2. It follows the same exact-bytes rule: its `signed` field is a CBOR byte string holding the encoded routing fields that `admissionSig` covers, and its `id` is the CID of those `signed` bytes. Neither is computed over a re-encoding.
 
 **Fields.**
 
 | Field | Type | Required | Meaning |
 |---|---|---|---|
 | `type` | text | yes | Absolute URI naming the object type (see "Type URIs" below). |
-| `contentType` | text | yes | Media type of `body` (RFC 6838), with parameters if any, e.g. `application/json`, `application/ld+json`, `application/cbor`. |
+| `contentType` | text | yes | Media type of `body` (RFC 6838), with parameters if any, for example `application/json`, `application/ld+json`, `application/cbor`. |
 | `body` | bytes | yes | The exact bytes of the object, encoded as `contentType` says. |
 | `sig` | text | no | JWS General JSON Serialization over `body`, one entry per required signer (§13.1.1). REQUIRED where §13.1.1 or the section defining the object requires an object-level signature; otherwise absent. |
 | `seq` | unsigned integer | MLS only | The sending device's sequence number in the group, counted per MLS leaf (§5.1.1). Present only when the envelope is the `application_data` of an MLS application message; covered by the MLS signature. |
@@ -24,13 +22,13 @@ The routing envelope that Relays carry is not a typed payload envelope and is de
 
 **Common value encodings.** Unless a section says otherwise, objects in this specification use these encodings. Timestamps are RFC 3339 strings in UTC with a `Z` suffix and at most millisecond precision. Integers are unsigned and fit in 64 bits; counters that can wrap (sequence numbers, key epochs) do not wrap within the lifetime of their key. Binary values inside JSON objects are base64url without padding (RFC 4648 §5); inside CBOR they are byte strings. Keys and identifiers that are multibase use the `z` (base58btc) prefix. JSON text is UTF-8 (RFC 8259) and carries no byte order mark.
 
-**Inside an MLS application message.** The `application_data` of every MLS application message (§5.2.3) is exactly one encoded envelope. The MLS sender signature authenticates the sender and the envelope, so `sig` is absent unless the object is one that is also verified outside the group (below), in which case it is carried with its `sig` so that it can be forwarded or archived byte-for-byte.
+**Inside an MLS application message.** The `application_data` of every MLS application message (§5.2.3) is exactly one encoded envelope. The MLS sender signature authenticates the sender and the envelope, so `sig` is absent. The exception is an object that is also verified outside the group (see "Stored and published objects" below): it is carried with its `sig` so that it can be forwarded or archived byte-for-byte.
 
 **Inside a broadcast payload.** The `plaintext` sealed into a routing envelope's `broadcastPayload` (§5.2.1.4) is exactly one encoded envelope. No MLS sender signature covers it, so its `sig` MUST be present and recipients MUST verify it per §13.1.1 before acting on the payload. The binding of the signer to the channel, key epoch and broadcaster roles is defined in §5.2.1.4.
 
-**Stored and published objects.** An object verified outside an MLS group (for example Space state, compliance records, `ServiceAgreement`, `AdmissionKeyRegistration`, `AdmissionKeyDeregistration`, `ChannelAdmissionKey` other than a DM group's (§3.4), `BroadcastKey`, discovery records and `ChannelShareAgreement`) is stored, served and forwarded as its encoded envelope with `sig` present. Where such an object is content-addressed, its CID is computed over the encoded envelope bytes as stored, except a `ServiceAgreement`, which is identified by the CID of its body bytes (§10.5.1).
+**Stored and published objects.** An object verified outside an MLS group (for example Space state, compliance records, `ServiceAgreement`, `AdmissionKeyRegistration`, `AdmissionKeyDeregistration`, `ChannelAdmissionKey` other than a direct message (DM) group's (§3.4), `BroadcastKey`, discovery records and `ChannelShareAgreement`) is stored, served and forwarded as its encoded envelope with `sig` present. Where such an object is content-addressed, its CID is computed over the encoded envelope bytes as stored, except a `ServiceAgreement`, which is identified by the CID of its body bytes (§10.5.1).
 
-**Content identifiers.** Every CID this specification computes, whether of an encoded envelope, a routing envelope's `signed` bytes (§5.2.2) or a blob block, is a CIDv1 with multicodec `raw` (0x55) and multihash `sha2-256` (0x12, 32-byte digest), computed over exactly those bytes. The one exception is the root block of a chunked file (§14.3.4), whose CID is a CIDv1 with multicodec `dag-pb` (0x70) and multihash `sha2-256`. A CID carried in CBOR or used as input to a derivation is in binary form. A CID written in text, JSON or a URI is in multibase base32 lower-case form (prefix `b`), its CID text form.
+**Content identifiers.** Every CID this specification computes, whether of an encoded envelope, a routing envelope's `signed` bytes (§5.2.2) or a blob block, is a CIDv1 with multicodec `raw` (0x55) and multihash `sha2-256` (0x12, 32-byte digest), computed over exactly those bytes. The one exception is the root block of a chunked file (§14.3.4), whose CID is a CIDv1 with multicodec `dag-pb` (0x70) and multihash `sha2-256`. A CID carried in CBOR or used as input to a derivation is in binary form. A CID written in text, JSON or a URI is in multibase base32 lowercase form (prefix `b`), its CID text form.
 
 **Type URIs.** `type` values are compared as exact, case-sensitive strings. No normalization is applied.
 
@@ -67,7 +65,7 @@ This is the single normative object-signing procedure of this specification. Whe
 | `alg` | `"EdDSA"` |
 | `b64` | `false` |
 | `crit` | `["b64"]` |
-| `kid` | DID URL of the signing verification method, e.g. `did:webvh:QmSCID...:example.com:alice#keys-1` or `did:key:z6Mk...#z6Mk...` |
+| `kid` | DID URL of the signing verification method, for example `did:webvh:QmSCID...:example.com:alice#keys-1` or `did:key:z6Mk...#z6Mk...` |
 | `cty` | The envelope's `contentType`, exactly |
 | `agoraType` | The envelope's `type`, exactly |
 
@@ -81,8 +79,8 @@ This is the single normative object-signing procedure of this specification. Whe
 
 1. The entry has exactly the members `protected` and `signature`, each a base64url string.
 2. The protected header decodes to a JSON object with exactly the members above; `alg` is `"EdDSA"`, `b64` is `false`, `crit` is `["b64"]`, `cty` equals the envelope's `contentType` and `agoraType` equals the envelope's `type`.
-3. `kid` is a DID URL whose DID resolves (§2.1; a `did:web` IO principal such as a Relay, §10.2.1, per the `did:web` method specification) to a DID document containing a verification method whose `id` equals `kid`, holding an Ed25519 public key, and referenced from the document's `authentication` relationship unless the section defining the object names another relationship. For an object being received, the verifier uses the DID's current document. For an object it accepted earlier and stored, it uses the document version in effect when it accepted the object, which it records with the object (`versionId` for `did:webvh`, the operation CID for `did:plc`). A later key revocation does not invalidate an object accepted before it.
-4. The DID in `kid` is the signer that the section defining the object requires (for example the Space's CO DID, or the message's `senderDID`).
+3. `kid` is a DID URL whose DID resolves to a DID document containing a verification method whose `id` equals `kid`. That verification method holds an Ed25519 public key and is referenced from the document's `authentication` relationship, unless the section defining the object names another relationship. The DID resolves per §2.1, or, for a `did:web` Infrastructure Operator (IO) principal such as a relay (§10.2.1), per the `did:web` method specification. For an object being received, the verifier uses the DID's current document. For an object it accepted earlier and stored, it uses the document version in effect when it accepted the object, which it records with the object (`versionId` for `did:webvh`, the operation CID for `did:plc`). A later key revocation does not invalidate an object accepted before it.
+4. The DID in `kid` is the signer that the section defining the object requires (for example the DID of the Space's Communications Operator (CO), or the message's `senderDID`).
 5. The Ed25519 signature verifies over the JWS Signing Input built from the entry's received `protected` value and the `body` bytes exactly as received.
 
 A verifier MUST reject the object if any entry fails these checks, including an entry from a signer that is not required, and if two entries name the same DID in `kid`.
@@ -93,9 +91,9 @@ Verification MUST NOT fetch any resource named inside `body`.
 
 **Test vectors.** A JWS signing test-vector set MUST be published containing at minimum: (a) at least five representative signed object types, including at least one multi-signer object, each with its envelope fields, `body` bytes in hex, the Ed25519 test private key, and the expected `sig`; and (b) negative cases that a verifier MUST reject, including `b64` set to `true` or absent, an `alg` other than `EdDSA`, `cty` or `agoraType` not matching the envelope, a body that was re-serialized after signing, a multi-signer object missing one required signer's entry, and a threshold object whose k entries include two from the same DID. Because Ed25519 signatures are deterministic, expected `sig` values are byte-exact. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
 
-Test vectors are in the repository's `test-vectors/` directory, computed with two independent implementations that agree byte for byte.
+Test vectors are in the repository's `test-vectors/` directory, computed with two independent implementations that agree byte-for-byte.
 
-> **Open (agora-pozi.31.69):** Still missing: vectors that need an MLS implementation (MLS exporter outputs, SFrame per-KID keys, `ComplianceRecord`) and HPKE vectors, which need a second independent HPKE implementation.
+> **Open (agora-pozi.31.69):** Still missing: vectors that need an MLS implementation (MLS exporter outputs, SFrame per-KID keys, `ComplianceRecord`) and Hybrid Public Key Encryption (HPKE) vectors, which need a second independent HPKE implementation.
 
 ### 13.1.2 Context Document Caching
 
@@ -105,17 +103,15 @@ Retired. Signatures are computed over exact `body` bytes (§13.1.1) and involve 
 
 ## 13.2 Extension Points
 
-*Binds: both.*
-
 The protocol is designed to be extended without breaking existing clients:
 
 - **Types are extensible by URI.** New payload types are added by defining a new `type` URI (§13.1). Types defined outside this specification MUST use a URI under the definer's control; the `urn:agora:type:` namespace is reserved for this specification. No registry is needed.
 - **Unknown types are ignored.** A recipient that does not understand an envelope's `type` MUST ignore the payload: it does not display it, MUST NOT treat it as an error, and MUST continue processing the MLS group or channel normally. A recipient that keeps such a payload (for example in history storage or a compliance archive) MUST keep the encoded envelope byte-for-byte. A recipient that understands the `type` but not the `contentType` MUST treat the payload as an unknown type.
-- Space state documents MAY include extension fields whose names are URIs under the definer's control; recipients MUST ignore extension fields they do not understand. A field that a CO enforcement point (ARCHITECTURE §6.3) depends on MUST NOT be added as such an extension. It requires a new `schemaVersion`, so that a client that does not understand it rejects the document instead of ignoring the field.
-- New channel types MAY be introduced by defining new values of the channel `type` field.
-- The live client-relay protocol is versioned and negotiated in the hello exchange (§11.6).
+- **Space state is extensible by field.** Space state documents MAY include extension fields whose names are URIs under the definer's control; recipients MUST ignore extension fields they do not understand. A field that a CO enforcement point (ARCHITECTURE §6.3) depends on MUST NOT be added as such an extension. It requires a new `schemaVersion`, so that a client that does not understand it rejects the document instead of ignoring the field.
+- **Channel types are extensible.** New channel types MAY be introduced by defining new values of the channel `type` field.
+- **The live protocol is negotiated.** The live client-relay protocol is versioned and negotiated in the hello exchange (§11.6).
 
-**Version surface registry.** The following table lists every versioned protocol surface, its current version, and the mechanism by which it is negotiated or detected. A protocol surface is an interface whose requests or messages this specification defines; a URL that appears only as a DID service endpoint, with no request format defined here (for example the `AgoraComplianceLogger` endpoint, §7.3), is not one. URL-versioned surfaces answer a request under an unknown version prefix with HTTP 404.
+**Version surface registry.** A protocol surface is an interface whose requests or messages this specification defines. A URL that appears only as a DID service endpoint, with no request format defined here (for example the `AgoraComplianceLogger` endpoint, §7.3), is not one. The following table lists every versioned protocol surface, its current version, and the mechanism by which it is negotiated or detected. URL-versioned surfaces answer a request under an unknown version prefix with HTTP 404.
 
 | Surface | Current Version | Location | Negotiation Mechanism |
 |---|---|---|---|
@@ -128,25 +124,21 @@ The protocol is designed to be extended without breaking existing clients:
 | Gossip topics | v1 | Topic string prefix `v1/` (§10.3.1) | Relays subscribe to every version they serve |
 | KeyPackage Store API | v1 | URL path prefix `/v1/agora/kp/` (§5.2.1.1) | HTTP 404 on unknown version |
 | Peer API | v1 | URL path prefix `/v1/agora/peer/` + `peer-api-v1` capability | HTTP 404; capability string |
-| Push Proxy API | v1 | URL path prefix `/v1/agora/push/` + `push-proxy-v1` capability | HTTP 404; capability string |
-| Relay Manifest schema | 1 | `version` field | Field value; reject unsupported |
-| Relay Manifest location | 1 | `GET /.well-known/agora-relay` (§10.2.1) | Manifest `version` field |
+| Push proxy API | v1 | URL path prefix `/v1/agora/push/` + `push-proxy-v1` capability | HTTP 404; capability string |
+| Relay manifest schema | 1 | `version` field | Field value; reject unsupported |
+| Relay manifest location | 1 | `GET /.well-known/agora-relay` (§10.2.1) | Manifest `version` field |
 | JMAP sync API | v1 | Base URL `endpoints.jmapSync`, conventionally `/v1/agora/jmap` + capability `urn:agora:v1` + `jmap-sync-v1` capability string (§11.8) | JMAP `using`; capability string |
 | Relay blob API | v1 | URL path prefix `/v1/agora/blob/` (§10.4.4) | HTTP 404 on unknown version |
 | Space endpoint | v1 | URL from `spaceEndpoint`, conventionally under `/v1/agora/space/` (§3.4) | HTTP 404 on unknown version |
 | Sequencer API | v1 | Sequencer `endpoint`, conventionally `/v1/agora/seq` (§14.4) | HTTP 404 on unknown version |
-| SFU signaling | v1 | `SFUDescriptor.endpoint`, conventionally `/v1/agora/sfu` (§6.6) | HTTP 404 on unknown version |
+| Selective Forwarding Unit (SFU) signaling | v1 | `SFUDescriptor.endpoint`, conventionally `/v1/agora/sfu` (§6.6) | HTTP 404 on unknown version |
 | TURN credential service | v1 | `TURNDescriptor.credentialEndpoint`, conventionally `/v1/agora/turn` (§6.11) | HTTP 404 on unknown version |
-| Admission key registration | v1 | `ServiceAgreement.endpoint`, conventionally `/v1/agora/admission-keys`; Relay Manifest `endpoints.admissionKeys` (§10.2.1, §10.5.3) | HTTP 404 on unknown version |
+| Admission key registration | v1 | `ServiceAgreement.endpoint`, conventionally `/v1/agora/admission-keys`; relay manifest `endpoints.admissionKeys` (§10.2.1, §10.5.3) | HTTP 404 on unknown version |
 | DM admission host API | v1 | URL path prefix `/v1/agora/admission-key/` at the origin of the user's `KeyPackageEndpoint` (§4.6) | HTTP 404 on unknown version |
 
 ## 13.3 Derivation Label Registry
 
-*Binds: both.*
-
-Every MLS exporter label, KDF and HPKE `info` string, AEAD associated-data prefix, signature context string and hash-input prefix that this specification defines is listed below. A new label MUST NOT equal a label in this table, and a section that defines a new label MUST add it here. The labels are opaque byte strings (UTF-8, no terminator); their spelling style carries no meaning. Every Agora MLS exporter call other than the SFrame ones (RFC 9605 §5.2) uses the group's MLS `group_id` as its context, for channels and DM groups alike. Every channel and DM group, broadcast channels included, derives its `channelToken` from its admission key with `agora channel token`; no other token label exists.
-
-The test-vector set of §13.1.1 MUST also cover each derivation in this table, the `admissionSig` input, CID computation, and each AEAD layout (sealed envelope §5.2.2, broadcast payload §5.2.1.4, group-encrypted blob §3.4, chunked content-key blob §14.3.4, including a multi-chunk file with its root block), giving key, nonce, associated data, plaintext and expected ciphertext in hex.
+Every MLS exporter label, KDF and Hybrid Public Key Encryption (HPKE) `info` string, AEAD associated-data prefix, signature context string and hash-input prefix that this specification defines is listed below. A new label MUST NOT equal a label in this table, and a section that defines a new label MUST add it here. The labels are opaque byte strings (UTF-8, no terminator); their spelling style carries no meaning. Every Agora MLS exporter call other than the SFrame ones (RFC 9605 §5.2) uses the group's MLS `group_id` as its context, for channels and DM groups alike. Every channel and DM group, broadcast channels included, derives its `channelToken` from its admission key with `agora channel token`; no other token label exists.
 
 | Label | Kind | Context or input | Defined in |
 |---|---|---|---|
@@ -171,5 +163,7 @@ The test-vector set of §13.1.1 MUST also cover each derivation in this table, t
 | `agora/commits/v1` | SHA-256 input prefix, followed by `channelToken` | commit stream name | §5.1.1, §14.4 |
 | `agora-recording-archive-v1` | HPKE `info` prefix | recording archive | §6.12.4 |
 | `agora-relay-v1` | SHA-1 input | Mainline DHT infohash | §10.3.4.6 |
+
+The test-vector set of §13.1.1 MUST also cover each derivation in this table, the `admissionSig` input, CID computation, and each AEAD layout (sealed envelope §5.2.2, broadcast payload §5.2.1.4, group-encrypted blob §3.4, chunked content-key blob §14.3.4, including a multi-chunk file with its root block), giving key, nonce, associated data, plaintext and expected ciphertext in hex.
 
 ---

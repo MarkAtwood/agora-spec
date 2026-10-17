@@ -1,16 +1,16 @@
-# Specification: Employer-Managed DIDs via Google Workspace
+# Profile: Employer-Managed DIDs via Google Workspace
 
 > Non-normative. Capitalized BCP 14 key words (RFC 2119, RFC 8174) in this profile state what a deployment that follows it requires of its own components; they bind only implementations that claim conformance to this profile and are not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source. Where this profile conflicts with the spec or ARCHITECTURE.md, those govern.
 
-**Version:** 0.1 Draft
-**Depends On:** the Agora protocol specification (`spec/`, current draft) and `profiles/o365-employer-did.md`
 **Status:** Pre-implementation design
+**Version:** 0.1 Draft
+**Depends on:** the Agora protocol specification (`spec/`, current draft) and `profiles/o365-employer-did.md`
 
 ---
 
 ## 1. Architecture Overview
 
-The Google Workspace architecture is structurally parallel to the O365 spec but collapses the two-component model (Verified ID + DID Sidecar) into one. Google has no native verifiable credential issuance platform and no declarative JML workflow engine. The DID Sidecar, the organization's DID Provisioning Service (spec §2.5.2) and a CO component, carries all three responsibilities that the O365 architecture distributes across three components:
+The Google Workspace architecture is structurally parallel to the O365 profile but collapses its two-component model (Verified ID + DID Sidecar) into one. Google has no native verifiable credential (VC) issuance platform and no declarative joiner-mover-leaver (JML) workflow engine. The DID Sidecar is the organization's DID provisioning service (spec §2.5.2) and a Communications Operator (CO) component. It carries all three responsibilities that the O365 architecture distributes across three components:
 
 | Concern | O365 Component | Google Workspace Component |
 | ------- | -------------- | -------------------------- |
@@ -18,9 +18,9 @@ The Google Workspace architecture is structurally parallel to the O365 spec but 
 | Org attestation / VC issuance | Entra Verified ID | DID Sidecar (self-issued VC) |
 | JML lifecycle automation | Graph Lifecycle Workflows + Logic App | DID Sidecar (Directory API push + polling fallback) |
 
-As in the O365 profile, employee identities are `did:webvh` (spec §2.1, §2.5): the sidecar holds the update key of each employee's DID log, and every change it makes is a log entry visible to all resolvers (O365 spec §3). Each entry is co-signed by at least one witness the organization does not control, which spec §2.1 requires for a CO-provisioned DID, and clients verify those proofs (O365 spec §6.6). The sidecar also hosts each employee's `KeyPackageEndpoint` (spec §5.2.1.1) and, as the employee's identity host, issues the admission keys of DM groups its employees start and of their self-groups (spec §4.6, O365 spec §6.7). Relays play no part in provisioning: they never receive or verify Google tokens (spec §2.5.2) and hold no KeyPackages (spec §5.2.1.1).
-
 The VC layer uses the W3C VC Data Model with the org's own `did:web` as issuer (§3.2). JML automation uses the Directory API push notification channel plus a daily reconciliation polling loop as a reliability backstop, because the push channel expires and has delivery lag.
+
+As in the O365 profile, employee identities are `did:webvh` (spec §2.1, §2.5): the sidecar holds the update key of each employee's DID log, and every change it makes is a log entry visible to all resolvers (O365 profile §3). Each entry is co-signed by at least one witness the organization does not control, which spec §2.1 requires for a CO-provisioned DID. Clients verify those proofs (O365 profile §6.6). The sidecar also hosts each employee's `KeyPackageEndpoint` (spec §5.2.1.1). As the employee's identity host, it issues the admission keys of the direct message (DM) groups its employees start and of their self-groups (spec §4.6, O365 profile §6.7). Relays play no part in provisioning: they never receive or verify Google tokens (spec §2.5.2) and hold no KeyPackages (spec §5.2.1.1).
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -125,22 +125,22 @@ The reconciliation poller is the reliability backstop, not the primary path. Wor
 
 ## 3. DID Document Structure
 
-The DID log and document structure, the absence of an org `controller`, and the lifecycle states (`STUB`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`) are identical to the O365 spec (§3), including the `KeyPackageEndpoint` and `AgoraProvisioning` service entries and the `witness` parameter in the genesis entry, and the optional parallel `did:web` document (O365 spec §2). The two differences follow.
+The following are identical to O365 profile §3: the DID log and document structure, the absence of an org `controller`, the lifecycle states (`STUB`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`), the `KeyPackageEndpoint` and `AgoraProvisioning` service entries and the `witness` parameter in the genesis entry. The optional parallel `did:web` document is also as in O365 profile §2. The two differences follow.
 
 ### 3.1 DID Naming
 
-The naming rule is the same as O365 spec §2 and spec §2.5.2: the DID is `did:webvh:<SCID>:did.example.com:users:<localIdentifier>`, where the path segment is a stable `localIdentifier` that is never reassigned and MUST NOT be derived from the primary email, name or any other changeable attribute.
+The naming rule is the same as O365 profile §2 and spec §2.5.2: the DID is `did:webvh:<SCID>:did.example.com:users:<localIdentifier>`, where the path segment is a stable `localIdentifier` that is never reassigned and MUST NOT be derived from the primary email, name or any other changeable attribute.
 
 ```
 did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m
 https://did.example.com/users/k7f3qd2m/did.jsonl
 ```
 
-**Recommended default:** the sidecar mints a random lowercase base32 value at Joiner time (§4.2), checks it for uniqueness, and stores the mapping to the Google user `id` (the Directory API `id` field, which is also the OIDC `sub` claim) in its private DB. The mapping is never published.
+**Recommended default.** The sidecar mints a random lowercase base32 value at Joiner time (§4.2), checks it for uniqueness, and stores the mapping to the Google user `id` (the Directory API `id` field, which is also the OIDC `sub` claim) in its private DB. The mapping is never published.
 
-**Allowed alternatives:** the Google user `id`, or an HR employee ID that is never reused. A sidecar-minted random value is preferred because it survives a move to a different IdP; the Google user `id` does not.
+**Allowed alternatives.** The Google user `id`, or an HR employee ID that is never reused. A sidecar-minted random value is preferred because it survives a move to a different identity provider (IdP); the Google user `id` does not.
 
-A `primaryEmail` change does not change the DID; it is an attribute update handled as a Mover event (§4.3). Only a move of the DID host changes the DID string, and the identity survives it through `did:webvh` portability with the same SCID, handled as in O365 spec §6.4.
+A `primaryEmail` change does not change the DID; it is an attribute update handled as a Mover event (§4.3). Only a move of the DID host changes the DID string, and the identity survives it through `did:webvh` portability with the same SCID, handled as in O365 profile §6.4.
 
 ### 3.2 Org Root DID
 
@@ -150,7 +150,7 @@ The org root DID is served at:
 https://did.example.com/.well-known/did.json
 ```
 
-This is the org's signing identity for EmployeeCredential issuance. It carries one key: the org's Ed25519 signing key, stored in Google Cloud KMS. It stays a `did:web` because general VC verifiers and the DID Configuration linkage below expect one. It is a separate principal from the sidecar's own provisioning DID (a portable `did:webvh`, O365 spec §6.5) and its key is separate from the update key of the employee logs (§7), so it confers no authority over any employee's DID log. After a domain change (O365 spec §6.4) the sidecar re-issues current credentials under the new issuer DID.
+This is the org's signing identity for EmployeeCredential issuance. It carries one key: the org's Ed25519 signing key, stored in Google Cloud KMS. It stays a `did:web` because general VC verifiers and the DID Configuration linkage below expect one. It is a separate principal from the sidecar's own provisioning DID (a portable `did:webvh`, O365 profile §6.5) and its key is separate from the update key of the employee logs (§7), so it confers no authority over any employee's DID log. After a domain change (O365 profile §6.4), the sidecar re-issues current credentials under the new issuer DID.
 
 A Well-Known DID Configuration document, following the DIF Well Known DID Configuration specification, links the org's DID to its domain:
 
@@ -243,7 +243,7 @@ This link expires in 7 days. If you need a new link, contact IT.
 
 ### 4.3 Mover
 
-Triggered by a push notification for an existing user with changed attributes (`orgUnitPath`, `primaryEmail`, custom schema attributes, or group membership changes). A `primaryEmail` change updates only the sidecar's private record and, if a credential claim changed, the `EmployeeCredential`; the DID is unchanged (§3.1).
+Triggered by a push notification for an existing user with changed attributes (`orgUnitPath`, `primaryEmail`, custom schema attributes or group membership changes).
 
 Group membership changes do not trigger a user-level push notification; the Directory API push fires only on user object changes. The sidecar MUST therefore poll `groups.list` on a configurable schedule (default: 1 hour) for users with active DID documents, comparing group membership against stored state. This is the primary limitation relative to the O365 Mover workflow, which triggers declaratively on group membership changes.
 
@@ -252,38 +252,38 @@ Actions:
 1. Derive updated Agora roles from new group membership.
 2. Revoke the existing `EmployeeCredential` VC (mark the status entry as revoked in the status list).
 3. Issue a new `EmployeeCredential` VC with updated `agoraRoles` and department claims.
-4. Notify the Enrollment Service via webhook to update space role assignments.
+4. Notify the Enrollment Service via webhook to update Space role assignments.
 
-The DID log is not changed: the document carries no employment attributes (O365 spec §3.3).
+The DID log is not changed: the document carries no employment attributes (O365 profile §3.3). A `primaryEmail` change updates only the sidecar's private record and, if a credential claim changed, the `EmployeeCredential`; the DID is unchanged (§3.1).
 
 ### 4.4 Leaver
 
 Triggered by a push notification for a user with `suspended: true` (soft leaver) or a deleted user (hard leaver), or by the reconciliation poller finding a discrepancy.
 
-Google has no real-time termination trigger equivalent to Entra Lifecycle Workflows' on-demand execution, and the push notification channel has delivery lag. On receiving a suspension or deletion notification, the sidecar MUST immediately revoke the VC, which blocks future Space admissions, and notify the Enrollment Service. Membership in the MLS group is the only read access control (ARCHITECTURE §6.2), so the MLS Remove commits in Phase 1 are what cut off the user's access to Spaces they already belong to. VC revocation alone does not.
+Google has no real-time termination trigger equivalent to Entra Lifecycle Workflows' on-demand execution, and the push notification channel has delivery lag. On receiving a suspension or deletion notification, the sidecar MUST immediately revoke the VC, which blocks future Space admissions, and notify the Enrollment Service. Membership in the MLS group is the only read access control (ARCHITECTURE §6.2), so the MLS Remove Commits in Phase 1 are what cut off the user's access to Spaces they already belong to. VC revocation alone does not.
 
-**Phase 1: Immediate** (on notification receipt; target latency: <30 seconds):
+**Phase 1: Immediate.** On notification receipt (target latency: <30 seconds):
 
 - Mark the `EmployeeCredential` status entry as revoked in the status list.
-- Append a log entry moving the DID to `SUSPENDED` (soft leaver) or `DEACTIVATED` (hard leaver), as in O365 spec §3.1 and §5.4.
-- Notify the Enrollment Service to initiate MLS Remove commits. This is the access cut-off.
+- Append a log entry moving the DID to `SUSPENDED` (soft leaver) or `DEACTIVATED` (hard leaver), as in O365 profile §3.1 and §5.4.
+- Notify the Enrollment Service to initiate MLS Remove Commits. This is the access cut-off.
 
-**Phase 2: Confirmed** (after the reconciliation poller next runs, or on explicit IT action):
+**Phase 2: Confirmed.** After the reconciliation poller next runs, or on explicit IT action:
 
 - Verify deletion or suspension state against the live Directory API.
-- Confirm MLS Remove commits have propagated (via Enrollment Service ACK).
+- Confirm MLS Remove Commits have propagated (via Enrollment Service ACK).
 - Log the final leaver audit record.
 
-**Soft vs. hard leaver:**
+**Soft and hard leavers.**
 
 - `suspended: true` → transition to `SUSPENDED`; preserve device public keys in DB. If the user is later reactivated (`suspended: false`), a further log entry restores the keys and the document returns to `ACTIVE`. Both entries are visible in the log.
 - Deletion from Directory → deactivate immediately. The log stays resolvable (spec §2.5.6), and device public keys remain in its history for compliance audit purposes.
 
-**Worst-case latency:** If the push channel is down and the poller has not run, a terminated employee retains an active DID for up to 24 hours. This is an accepted operational risk. IT MUST call `POST /v1/tombstone` directly with an admin token for immediate effect when performing involuntary terminations, bypassing the automated path.
+**Worst-case latency.** If the push channel is down and the poller has not run, a terminated employee retains an active DID for up to 24 hours. This is an accepted operational risk. IT MUST call `POST /v1/tombstone` directly with an admin token for immediate effect when performing involuntary terminations, bypassing the automated path.
 
 ### 4.5 Lost Device
 
-Initiated directly by IT via the sidecar admin API, identical to O365 spec §5.5: a witnessed log entry removing the key, no gossiped announcement (the user's remaining devices send an `IdentityChanged` notice, spec §2.7), and MLS Remove of the device's leaves:
+Initiated directly by IT via the sidecar admin API, identical to O365 profile §5.5: a witnessed log entry removing the key, no gossiped announcement (the user's remaining devices send an `IdentityChanged` notice, spec §2.7), and MLS Remove of the device's leaves:
 
 ```http
 POST /v1/revoke-device-key
@@ -337,7 +337,7 @@ A user's Agora roles are the union of all matched group mappings. A user in both
 
 ### 5.1 Self-Issued VC
 
-The sidecar issues `EmployeeCredential` VCs directly, signed by the org root DID's Ed25519 key stored in Google Cloud KMS. The credential schema is identical to the O365 spec (§4.1) with the issuer DID changed:
+The sidecar issues `EmployeeCredential` VCs directly, signed by the org root DID's Ed25519 key stored in Google Cloud KMS. The credential schema is identical to O365 profile §4.1, with the issuer DID changed:
 
 ```json
 {
@@ -378,23 +378,23 @@ GET https://did.example.com/v1/status/2026
 
 One status list is maintained per year (configurable), with a maximum of 131,072 entries. Status list indices are assigned at VC issuance and MUST NOT be reused. The status list MUST be regenerated and re-signed whenever a VC is revoked.
 
-**Privacy note:** A public status list is observable: an external party can infer employee terminations by monitoring newly flipped bits. For orgs with privacy requirements, large lists with random index assignment reduce what an observer learns, and the list can be served only to authorized verifiers. The W3C Bitstring Status List specification (the StatusList2021 successor) defines no encrypted entries, so migrating to it does not address this. Migration is still a matter of changing the served format and updating the `type` field; the `statusListCredential` pointer in the credential schema is unchanged.
+**Privacy note.** A public status list is observable: an external party can infer employee terminations by monitoring newly flipped bits. For orgs with privacy requirements, large lists with random index assignment reduce what an observer learns, and the list can be served only to authorized verifiers. The W3C Bitstring Status List specification (the StatusList2021 successor) defines no encrypted entries, so migrating to it does not address this. Migration itself only changes the served format and the `type` field; the `statusListCredential` pointer in the credential schema is unchanged.
 
 ### 5.3 VC Delivery
 
 The sidecar has no push wallet to deliver VCs to. Three delivery options are supported:
 
-**Option A, deep link in enrollment email:** The enrollment invitation includes a second link for VC acceptance. When clicked, the browser calls the sidecar's issuance endpoint, which returns the signed VC as a JSON file download for import into a W3C VC-compatible wallet.
+**Option A: deep link in enrollment email.** The enrollment invitation includes a second link for VC acceptance. When clicked, the browser calls the sidecar's issuance endpoint, which returns the signed VC as a JSON file download for import into a W3C VC-compatible wallet.
 
-**Option B, Agora client built-in wallet:** The Agora client (web or CLI) stores the `EmployeeCredential` in its local keystore alongside device keys and presents the VC automatically during space enrollment. This option requires no external wallet app and keeps the credential collocated with the keys it attests.
+**Option B: Agora client built-in wallet.** The Agora client (web or CLI) stores the `EmployeeCredential` in its local keystore alongside device keys and presents the VC automatically during Space enrollment. This option requires no external wallet app and keeps the credential collocated with the keys it attests.
 
-**Option C, OID4VCI:** The sidecar implements the OpenID for Verifiable Credential Issuance protocol, allowing any OID4VCI-compatible wallet to pull the VC via a standard issuance flow. This is the most interoperable option and the correct long-term path as wallet support matures.
+**Option C: OID4VCI.** The sidecar implements the OpenID for Verifiable Credential Issuance protocol, allowing any OID4VCI-compatible wallet to pull the VC via a standard issuance flow. This is the most interoperable option and the correct long-term path as wallet support matures.
 
 For initial deployment, Option B is the recommended choice. Options A and C are extensions for orgs with existing wallet infrastructure.
 
-With Option B the client can also carry the `EmployeeCredential` in the `agora_credentials` leaf extension (spec §5.2.1.5), as O365 spec §4.4 describes; the trusted issuer is the org root DID (§3.2).
+With Option B the client can also carry the `EmployeeCredential` in the `agora_credentials` leaf extension (spec §5.2.1.5), as O365 profile §4.4 describes; the trusted issuer is the org root DID (§3.2).
 
-In every option the VC is issued only after the first device key is registered, following the bootstrap order of O365 spec §4.2: the first device registers without a VC (§6), and the VC then names the active DID as its subject. The Option A acceptance link is therefore sent after first-device enrollment, not in the initial invitation.
+In every option the VC is issued only after the first device key is registered, following the bootstrap order of O365 profile §4.2: the first device registers without a VC (§6), and the VC then names the active DID as its subject. The Option A acceptance link is therefore sent after first-device enrollment, not in the initial invitation.
 
 ### 5.4 VC Serving Endpoint
 
@@ -411,22 +411,28 @@ Content-Type: application/json
 }
 ```
 
-Only the credential subject MAY fetch their own VC (the token `sub`, the Google user `id`, MUST map in the sidecar's private DB to the credential subject's DID). Admins holding the sidecar-side `AgoraDIDAdmin` role (§4.5, the `sub` mapping to the sidecar's admin list) MAY fetch any user's VC for audit purposes.
+Only the credential subject MAY fetch their own VC: the token `sub` (the Google user `id`) MUST map in the sidecar's private DB to the credential subject's DID. Admins holding the sidecar-side `AgoraDIDAdmin` role (§4.5: the token `sub` maps to the sidecar's admin list) MAY fetch any user's VC for audit purposes.
 
 ---
 
 ## 6. MFA Step-Up for Device Key Registration
 
-Google does not provide `acr`/`amr` claims in standard OAuth tokens for most Workspace tiers. The step-up enforcement mechanism varies by Workspace edition.
+Google does not provide `acr`/`amr` claims in standard OAuth tokens for most Workspace tiers, and what Google can enforce varies by Workspace edition.
 
 Step-up for device key registration in this profile has two parts, on every Workspace edition:
 
-1. **Google-enforced 2-Step Verification with security keys.** The organization SHOULD enforce 2SV with security keys only for the users who enroll Agora devices, so that the Google sign-in that yields the enrollment OAuth token requires a hardware key. Google enforces this at sign-in; the token does not say which second factor was used, so the sidecar cannot check it, and the guarantee rests on the Workspace policy. Google issues only Google-defined OAuth scopes, so the profile does not rely on a custom scope gated by Context-Aware Access. Enterprise Plus deployments MAY add Context-Aware Access rules that apply to the enrollment OAuth client, if their edition supports this. Verify both controls against current Google documentation (written 2026-10, not re-verified).
+1. **Google-enforced 2-Step Verification (2SV) with security keys.** The organization SHOULD enforce 2SV with security keys only for the users who enroll Agora devices, so that the Google sign-in that yields the enrollment OAuth token requires a hardware key. Google enforces this at sign-in. The token does not say which second factor was used, so the sidecar cannot check it; the guarantee rests on the Workspace policy. Google issues only Google-defined OAuth scopes, so the profile does not rely on a custom scope gated by Context-Aware Access (CAA). Enterprise Plus deployments MAY add Context-Aware Access rules that apply to the enrollment OAuth client, if their edition supports this. Verify both controls against current Google documentation (written 2026-10, not re-verified).
 2. **Device-key signatures.** Every registration request is signed by the new device key as proof of possession, and every later device's request is also signed by a device key already in the verified log (spec §2.5.4 Step 3).
 
 The sidecar runs no WebAuthn or PKCS#11 challenge of its own. It has no enrolled credential to check one against, and a passkey is never a device key (spec §2.2). Business Starter, Standard and Plus have no Context-Aware Access, so for them the two parts above are the whole of step-up. An organization that does not enforce security-key 2SV gets, at first-device enrollment, only the strength of its ordinary Google sign-in policy; later devices still need a signature from an existing device.
 
-The remaining registration checks are those of O365 spec §5.6: the token `sub` maps in the private DB to the requested DID; the first device registers into a `STUB` DID with no existing-device signature and no VC; every later device's request carries a spec §13.1.1 signature by a device key in the current verified log (spec §2.5.4). On success the sidecar appends a log entry signed with its update key and co-signed by witnesses (O365 spec §6.6) and, for the first device, issues the `EmployeeCredential` (§5).
+The remaining registration checks are those of O365 profile §5.6:
+
+- The token `sub` maps in the private DB to the requested DID.
+- The first device registers into a `STUB` DID with no existing-device signature and no VC.
+- Every later device's request carries a spec §13.1.1 signature by a device key in the current verified log (spec §2.5.4).
+
+On success, the sidecar appends a log entry signed with its update key and co-signed by witnesses (O365 profile §6.6). For the first device, it also issues the `EmployeeCredential` (§5).
 
 ---
 
@@ -456,7 +462,7 @@ The remaining registration checks are those of O365 spec §5.6: the token `sub` 
 - Key ring: `agora-did-keys`.
 - Key: `org-root-signing-key` (Ed25519, HSM-backed): VC issuer key (§3.2).
 - Key: `did-log-update-key` (Ed25519, HSM-backed): `did:webvh` update key for employee DID logs. Used only to sign log entries.
-- Key: `provisioning-signing-key` (Ed25519, HSM-backed): `authentication` key of the sidecar's own DID (O365 spec §6.5). As spec §2.5.7 requires, `did-log-update-key` is also a verification method of that DID.
+- Key: `provisioning-signing-key` (Ed25519, HSM-backed): `authentication` key of the sidecar's own DID (O365 profile §6.5). As spec §2.5.7 requires, `did-log-update-key` is also a verification method of that DID.
 - IAM: sidecar service account MUST have `roles/cloudkms.signerVerifier`.
 
 ### Secret Manager
@@ -496,9 +502,9 @@ spec:
               value: "cloudsql"    # or "cloudspanner" for higher scale
 ```
 
-**Storage:** Cloud SQL (PostgreSQL) for most deployments. Schema is identical to the O365 sidecar PostgreSQL option.
+**Storage.** Cloud SQL (PostgreSQL) for most deployments. Schema is identical to the O365 sidecar PostgreSQL option.
 
-**Background workers:** Cloud Scheduler triggers Cloud Tasks for the reconciliation poller and channel renewal worker. These run as separate invocations of the same service binary, not as persistent goroutines in the main serving instance.
+**Background workers.** Cloud Scheduler triggers Cloud Tasks for the reconciliation poller and channel renewal worker. These run as separate invocations of the same service binary, not as persistent goroutines in the main serving instance.
 
 ---
 
@@ -507,7 +513,7 @@ spec:
 | Aspect | O365 | Google Workspace |
 | ------ | ---- | ---------------- |
 | JML automation | Graph Lifecycle Workflows (declarative, UI-configurable) | Directory API push + sidecar event handler (code) |
-| JML reliability | Push + Logic App retry + Entra audit log | Push + polling fallback (24h worst-case lag) |
+| JML reliability | Push + Logic App retry + Entra audit log | Push + polling fallback (24 h worst-case lag) |
 | Immediate termination | On-demand Lifecycle Workflow execution (seconds) | IT calls `/v1/tombstone` directly (manual step) |
 | VC issuance | Entra Verified ID (managed service, Authenticator wallet) | Sidecar self-issued VC, Agora client wallet |
 | Admission block speed (VC revocation) | StatusList2021 via Verified ID (seconds) | StatusList2021 served by sidecar (seconds, same) |
@@ -567,23 +573,23 @@ Implementations:
 | Cloud KMS | `cloud.google.com/go/kms/apiv1` |
 | Cloud SQL | `cloud.google.com/go/cloudsql` |
 | W3C VC issuance | Internal implementation over `crypto/ed25519` |
-| `did:webvh` log | As O365 spec §9.1 |
+| `did:webvh` log | As O365 profile §9.1 |
 | StatusList2021 | Internal implementation (bitstring + JWT signing) |
 
 ### 10.3 DM Message Requests for Colleagues
 
-The organization's managed client configuration (MDM or enrollment policy) can add a rule to the user's accepted senders (spec §4.6.3), for example every DID under the organization's `did:webvh` domain, or every member of the organization's Spaces. DMs from matching senders then skip the message request state. Whether users may decline or block colleagues is also client configuration. Attributes that must be trusted across organizations need a credential format and are out of scope here.
+The organization's managed client configuration (mobile device management (MDM) or enrollment policy) can add a rule to the user's accepted senders (spec §4.6.3), for example every DID under the organization's `did:webvh` domain, or every member of the organization's Spaces. DMs from matching senders then skip the message request state. Whether users may decline or block colleagues is also client configuration. Attributes that other organizations need to trust require a credential format and are out of scope here.
 
 ---
 
 ## 11. Open Questions
 
-1. **Google Workspace Events API vs. Directory API push.** The newer Google Workspace Events API (`workspace.googleapis.com`) supports subscriptions to changes across Workspace applications and may eventually supersede the Directory API's per-resource push channels. It currently supports Chat, Meet, and limited Workspace resources; Directory/user events may be added. The sidecar's `IdentityProvider` interface is designed so migration is a drop-in replacement rather than a rewrite.
+1. **Google Workspace Events API vs. Directory API push.** The newer Google Workspace Events API (`workspace.googleapis.com`) supports subscriptions to changes across Workspace applications and may eventually supersede the Directory API's per-resource push channels. It currently supports Chat, Meet and limited Workspace resources; Directory/user events may be added. The sidecar's `IdentityProvider` interface is designed so migration is a drop-in replacement rather than a rewrite.
 
 2. **Primary email as DID path.** Resolved: the DID path is a stable `localIdentifier`, not the email (§3.1).
 
-3. **OID4VCI implementation scope.** §5.3 Option C identifies OID4VCI as the long-term VC delivery path but defers implementation. When implemented, the sidecar acts as an OID4VCI Authorization Server and Credential Issuer. The OAuth authorization server endpoint is the same Google OAuth app used for enrollment auth; the credential endpoint is `/v1/credentials/{localIdentifier}/employee`. The primary outstanding question is wallet interoperability: no widely-deployed mobile wallet currently handles org-issued `EmployeeCredential` types with custom `credentialSubject` schemas.
+3. **OID4VCI implementation scope.** §5.3 Option C identifies OID4VCI as the long-term VC delivery path but defers implementation. When implemented, the sidecar acts as an OID4VCI Authorization Server and Credential Issuer. The OAuth authorization server endpoint is the same Google OAuth app used for enrollment auth; the credential endpoint is `/v1/credentials/{localIdentifier}/employee`. The primary outstanding question is wallet interoperability: no widely deployed mobile wallet currently handles org-issued `EmployeeCredential` types with custom `credentialSubject` schemas.
 
 4. **Restricted Workspace editions.** The Admin SDK Directory API is available on all Workspace editions, but domain-wide delegation requires a Super Admin to configure it. The service account JSON key approach (§7) works on all editions. The Cloud KMS dependency requires a linked GCP project, which is standard for Workspace Business/Enterprise but may require additional setup for legacy G Suite Basic accounts.
 
-5. **HR system integration.** Both this spec and the O365 spec treat the directory as the system of record, but most orgs use an HRIS (Workday, BambooHR, etc.) as the upstream source of truth, synced into the directory. Sync lag between the HRIS and the directory adds latency on top of the push notification lag. For regulated environments where termination must be effective within minutes of an HRIS update, a direct HRIS webhook to the sidecar that bypasses the directory is a candidate extension.
+5. **HR system integration.** Both this profile and the O365 profile treat the directory as the system of record. Most orgs, however, use an HR information system (HRIS), such as Workday or BambooHR, as the upstream source of truth and sync it into the directory. Sync lag between the HRIS and the directory adds latency on top of the push notification lag. For regulated environments where termination must be effective within minutes of an HRIS update, a direct HRIS webhook to the sidecar that bypasses the directory is a candidate extension.
