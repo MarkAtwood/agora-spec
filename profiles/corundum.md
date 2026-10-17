@@ -54,8 +54,8 @@ What follows in practice:
 
 **Key custody (C4).** Users hold their own identity keys. The operator never receives them.
 
-- **The delegated posting key.** The operator gets a separate posting key, listed in the user's DID document and therefore visible in the `did:webvh` log. It signs only the user's public content index, the RootManifest. It cannot change the identity, add devices or act in Agora.
-- **Keeping it out of Agora.** List the posting key under a verification relationship other than `authentication`; this profile suggests `assertionMethod`. An Agora verifier accepts only `authentication` keys unless a section names another relationship (spec §13.1.1, Verification step 3). A posting key therefore fails every Agora signature check without any new rule.
+- **The delegated posting key.** The operator gets a separate posting key, named in the CORUNDUM service entry of the user's DID document (section 9, question 1) and therefore visible in the `did:webvh` log. It signs only the user's public content index, the RootManifest. It cannot change the identity, add devices or act in Agora.
+- **Keeping it out of Agora and generic DID tooling.** The posting key appears only in that service entry, as a multibase Ed25519 key, and in no verification relationship (`verificationMethod`, `authentication`, `assertionMethod` or any other). An Agora verifier accepts only `authentication` keys unless a section names another relationship (spec §13.1.1, Verification step 3), so a posting key fails every Agora signature check without any new rule. Generic DID software does not treat service entries as keys, so it never takes the posting key as able to authenticate or assert claims for the user. CORUNDUM readers take the key from the service entry. For a `did:key` user the same key sits in the `_corundum._agora` Pkarr record (spec §10.3.4.6).
 - **Switching operators.** Remove the old posting key and add the new one, both as DID log entries signed by the user's update keys. This replaces CORUNDUM's cooperative and hostile migration flows (Ch 7) and Earl handing his IPNS private key to Birdsite (Ch 3). A hostile old operator cannot block the move, because it never held an update key.
 
 **One DID document, both protocols.** Each protocol finds its entries by `type`:
@@ -65,7 +65,7 @@ What follows in practice:
 | `authentication` Ed25519 device keys, `keyAgreement` X25519 (spec §2.1) | Agora | User devices |
 | `AgoraKeyPackageEndpoint`, `AgoraProfile` services (spec §2.1, §2.3) | Agora | Not applicable |
 | CORUNDUM identity service with the RootManifest CID and the operator endpoint | CORUNDUM | Not applicable |
-| Posting key (`assertionMethod`) | CORUNDUM | Operator, delegated |
+| Posting key (CORUNDUM service entry) | CORUNDUM | Operator, delegated |
 | Update or rotation keys, recovery keys | Both | User only |
 
 No key appears in two rows. Anyone who resolves the DID can see both sets of service entries (section 5).
@@ -148,7 +148,7 @@ None of these changes have been made in CORUNDUM. Each is a proposal, mapped to 
 
 1. **Pointer update cadence.** Resolved (Mark, 2026-10-16, C2a): the DID document carries a stable service entry naming the operator's content endpoint and the posting key. The operator serves each new RootManifest signed by the posting key, with a sequence number and the CID of the previous manifest. Readers check the key against the DID document, the signature, the rising sequence and the chain, and remember the highest sequence seen. The DID log changes only when the operator or posting key changes.
 2. **`did:key` users.** Resolved (Mark, 2026-10-16, C2b): the Pkarr record carries an optional `_corundum._agora` service record with the operator's content endpoint and the posting key (spec §10.3.4.6). The user's device updates it only when switching operators; the operator re-publishes the unchanged signed record to keep it alive.
-3. **The posting key relationship.** Is `assertionMethod` right, or should CORUNDUM define its own relationship so generic DID tooling does not treat the key as able to assert claims for the identity?
+3. **The posting key relationship.** Resolved (Mark, 2026-10-17, C): the posting key is in no verification relationship. It appears only in the CORUNDUM service entry (question 1), or the `_corundum._agora` Pkarr record for `did:key` users (question 2), so generic DID tooling never treats it as able to authenticate or assert claims for the user.
 4. **JWS header members.** CORUNDUM needs its own protected-header member in place of Agora's `agoraType` (spec §13.1.1). Should both protocols share one header profile, so that one test-vector set (agora-pozi.31.69) covers both?
 5. **Follow list encryption.** Which construction (for example HPKE to the user's `keyAgreement` key and an operator key), and how re-encryption works when the user switches operators.
 6. **Witnesses.** When a CORUNDUM operator hosts an individual's `did:webvh` log but holds no update key, is that DID individual (witnesses optional) or CO-provisioned (witnesses required, spec §2.1)?
