@@ -67,7 +67,7 @@ A component's role is determined by what it holds, not by who runs it:
 | Archive / Purview bridge | CO | Holds plaintext |
 | IdP / DID sidecar, enrollment service | CO | Holds or controls identity keys |
 | Gateways (Matrix, Slack, Teams) | CO | Break E2EE by design |
-| MIMI provider endpoint | CO | Knows room membership |
+| MIMI hub or follower (future option, `profiles/gateways.md`) | CO | Knows room membership |
 | Community-mode SpeakerBot | CO | MLS member |
 | Managed endpoint devices | CO | Enforcement point for org policy (§6.3) |
 

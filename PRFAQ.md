@@ -18,7 +18,7 @@ Every major platform today fuses those two roles. When Slack or Microsoft runs t
 
 **For regulated firms**, Agora captures communications without breaking encryption. A compliance logger, run by the firm, is a disclosed member of each regulated conversation, and the capture obligation follows a regulated employee into direct messages. Records flow into the firm's own archive and, through a gateway, into Microsoft Purview, where legal hold and e-discovery work as they do today.
 
-Agora is built on MLS (RFC 9420), the IETF standard for group end-to-end encryption, and interoperates natively with MIMI, the IETF's cross-platform messaging work. Employees sign in through Okta, Entra or Google Workspace. The specification is public and anyone may implement a client, run a relay, or operate a community.
+Agora is built on MLS (RFC 9420), the IETF standard for group end-to-end encryption, and shares that foundation with MIMI, the IETF's cross-platform messaging work, which makes native MIMI interop a future option. Employees sign in through Okta, Entra or Google Workspace. The specification is public and anyone may implement a client, run a relay, or operate a community.
 
 ---
 
@@ -52,7 +52,7 @@ The firm designates which employees are regulated. The firm's compliance logger 
 
 **Q: How do our people talk to counterparties on Teams or Slack?**
 
-Through a gateway your organization runs. E2EE does not survive the gateway, and every member of a bridged channel sees a persistent indicator saying so. With MIMI-compatible platforms, a single MLS group spans both systems and E2EE is preserved end to end. The peer MIMI provider learns the room's participant list, and members should be told so.
+Through a gateway your organization runs. E2EE does not survive the gateway, and every member of a bridged channel sees a persistent indicator saying so. Native MIMI interop, where a single MLS group spans both systems and E2EE survives, is a future option; the specification does not define it yet because no major provider ships MIMI.
 
 **Q: What can Agora carry besides chat?**
 

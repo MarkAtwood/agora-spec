@@ -64,10 +64,10 @@ tampered client. Both are stated as accepted costs.
 |---|---|
 | `spec/01`–`04` | Overview, identity (DIDs, recovery, employer provisioning), Spaces and state distribution, access control |
 | `spec/05`–`06` | MLS messaging, channel admission, encrypted broadcast, voice and video |
-| `spec/07`–`09` | Compliance logging, cross-Space channels, MIMI and gateways |
+| `spec/07`–`09` | Compliance logging, cross-Space channels, gateways |
 | `spec/10`–`13` | Relays and federation, transport, security considerations, encoding and signing |
 | `spec/14` | JMAP-family data on Agora: replicated stores, the blind sequencer, the Agora profile of each JMAP draft |
-| `profiles/` | Non-normative deployment designs: Entra, Google Workspace, generic IdP, Purview, Discord onboarding, compliance chain witnessing, CORUNDUM, Parlance, radio mesh gateway |
+| `profiles/` | Non-normative deployment designs: Entra, Google Workspace, generic IdP, Purview, Discord onboarding, compliance chain witnessing, CORUNDUM, Parlance, radio mesh gateway, gateways (Matrix, Slack, Teams; native MIMI as a future option) |
 | `guides/` | Relay operator, regulator and counsel guides |
 
 Built on MLS (RFC 9420), HPKE (RFC 9180), SFrame (RFC 9605), JMAP (RFC 8620),
@@ -116,7 +116,7 @@ Design decisions made in this revision:
    17a-4, FINRA and MiFID II.
 3. **Implementers** for a reference relay and client, to find what the text gets
    wrong.
-4. **MIMI participants'** view on aligning content formats and delivery with
-   `spec/09`.
+4. **MIMI participants'** view on the path to native MIMI interop, a future
+   option described in `profiles/gateways.md`.
 
 The longer case, including customers and risks, is in `PRFAQ.md`.

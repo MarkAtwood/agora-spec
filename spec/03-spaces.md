@@ -256,7 +256,6 @@ The Space `name`, each channel `name` and each role `label` are text for people 
 | `powPolicy` | `PowPolicy` | optional | §10.5.2 |
 | `e2eeMedia` | boolean | required, `true`, on a channel that uses an SFU | §6.9 |
 | `gateways` | array of `GatewayDescriptor` | optional | §9.2 |
-| `mimiInterop` | `MIMIInteropConfig` | optional | §9.1 |
 | `archived` | boolean, default `false` | optional | §3.6 |
 
 

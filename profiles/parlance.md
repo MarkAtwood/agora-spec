@@ -3,7 +3,7 @@
 > Non-normative. Describes one way to carry Parlance device data (IPSO/LwM2M typed objects in canonical units) across Agora. Uses only mechanisms the Agora spec already defines; adds no protocol. Bead agora-pozi.28.8. Capitalized BCP 14 key words here state what a deployment that follows this profile requires of its own components, not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source.
 
 **Status:** Draft, 2026-10-16
-**Depends on:** ARCHITECTURE.md; spec §6.13, §9.2-§9.3, §13.1, §14.2-§14.5
+**Depends on:** ARCHITECTURE.md; spec §6.13, §9.1-§9.3, §13.1, §14.2-§14.5
 **Parlance sources (read only):** WHITEPAPER-2099-Substrate-Parlance-Surface.md §2.2; SPEC-Substrate.md §3.4, §11.3-§11.5, §12, §19; SUBSTRATE/docs/strand/id-atwood-strand-arch.md §4-§5; id-atwood-strand-data.md §2, §4-§8
 
 ---
@@ -63,7 +63,7 @@ Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `
 
 **Devices are not members.** Strand devices are constrained and speak CoAP with DTLS and OSCORE over Thread, Wi-Fi or Ethernet. Each holds an OSCORE context with its own controller (strand-arch §4.3, §4.6). They run no MLS. Device trust ends at the realm's controller. Federation is controller-to-controller, never device-to-device (strand-arch §5; SPEC-Substrate §19.1).
 
-**The site gateway bridges.** The Substrate federation gateway (SPEC-Substrate §19.3) subscribes to site MQTT topics and is admitted to Agora channels as a gateway (§9.2):
+**The site gateway bridges.** The Substrate federation gateway (SPEC-Substrate §19.3) subscribes to site MQTT topics and is admitted to Agora channels as a gateway (§9.1):
 
 - It is a CO component (ARCHITECTURE §2.3, S8). It holds plaintext on the site side and runs under the site owner's control, with its own DID and keys.
 - It is disclosed: a `GatewayDescriptor` in channel state with `protocol` `"substrate"`, a `gateway-added` `SystemEvent`, and the persistent client badge (§9.3). Its `e2eeNote` should say that readings are plaintext on the source site's own fabric. That data never left the owner's control, so the badge flags no loss of confidentiality to a third party, unlike a Matrix bridge.
@@ -109,7 +109,7 @@ Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `
 ## 8. Open questions
 
 1. Versioning of `urn:parlance:` names: per §13.1 a breaking change defines a new name; confirm the Parlance editors accept that rule.
-2. Cross-org gateways. §9.2 requires a gateway to run under the CO that operates the channel. In an installer's fleet Space, the customer's gateway is run by a different CO. Does a disclosed gateway of another CO need a distinct descriptor field?
+2. Cross-org gateways. §9.1 requires a gateway to run under the CO that operates the channel. In an installer's fleet Space, the customer's gateway is run by a different CO. Does a disclosed gateway of another CO need a distinct descriptor field?
 3. Topic-prefix authorship. Where is the mapping from topic prefix to authoring gateway DID recorded so that receivers can enforce single-author? A channel state field signed by the CO is the obvious place.
 4. Intent rejection. A rejected intent produces no state change. Should the Arbiter send an explicit decision message, or is silence plus TTL enough?
 5. Spec §5.2.1 recommends padding to a multiple of 256 bytes. Is that enough for telemetry, or should this profile name larger bucket sizes?

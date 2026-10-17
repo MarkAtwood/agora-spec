@@ -9,7 +9,7 @@
 
 Organizations in regulated industries (financial services, healthcare, legal, government) are subject to message retention and audit requirements that conflict with the default Agora model of E2EE with relay-opaque content. Agora supports compliance logging as an **optional, space-level feature** that satisfies these requirements without architectural kludges.
 
-Mechanically, compliance logging is implemented as a **passive member** (§5.2.1.3), a `ComplianceLogger` principal, that silently receives and archives all messages in every MLS group it is admitted to. This applies to Space channels (§4) and Direct Message groups (§4.6) alike. It is structurally identical to a gateway (§9.2) but treated differently at the protocol and UI layers:
+Mechanically, compliance logging is implemented as a **passive member** (§5.2.1.3), a `ComplianceLogger` principal, that silently receives and archives all messages in every MLS group it is admitted to. This applies to Space channels (§4) and Direct Message groups (§4.6) alike. It is structurally identical to a gateway (§9.1) but treated differently at the protocol and UI layers:
 
 - It does not appear as a chat participant in client UI.
 - It does not generate join/leave events in the message stream.

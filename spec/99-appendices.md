@@ -22,7 +22,7 @@
 | Argon2id KDF | RFC 9106 | `golang.org/x/crypto/argon2`, `argon2` crate |
 | Shamir Secret Sharing | None | `hashicorp/vault` shamir (Go), `sharks` (Rust) |
 | Spam deterrence (proof-of-work) | Hashcash-style PoW | SHA-256 (standard library) |
-| Native cross-system interop | MIMI (drafts; delivery layer stalled as of 2026-04) | TBD (spec in progress) |
+| Native cross-system interop | MIMI (drafts; future option, not specified, `profiles/gateways.md`) | None |
 | Matrix gateway | Matrix Application Service API | `mautrix-go`, `mautrix-python` |
 | Relay bootstrap DNS | DNS-SD / SRV / TXT records | Standard DNS libraries |
 | Object signatures | JWS (RFC 7515), unencoded detached payload (RFC 7797), EdDSA/Ed25519 in JOSE (RFC 8037) | `jose` (JS); any JOSE library supporting RFC 7797 |
@@ -120,8 +120,6 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 
 **Derivation labels.** §13.3 lists every MLS exporter label, KDF `info` string and AEAD associated-data prefix. The entries of kind "MLS exporter" are MLS exporter labels and need entries in the IANA "MLS Exporter Labels" registry (RFC 9420 §17). The other entries are Agora-internal.
 
-**MLS credential types.** `AgoraMIMICredential` (§9.1) uses credential type 0xF0A2 from the RFC 9420 private-use range until it is registered. Interoperating with MIMI providers outside Agora requires a codepoint from the IANA "MLS Credential Types" registry (RFC 9420 §17.5), or use of a credential type MIMI defines. Outside MIMI interop, Agora leaves use the registered `basic` credential type (§5.2.1).
-
 **MLS extension types.** `agora_admission` (0xF0A0, GroupContext of DM groups and self-groups, §4.6), `agora_device_binding` (0xF0A1, LeafNode, §5.2.1), `agora_space_membership` (0xF0A3, GroupContext of self-groups, §2.6) `agora_compliance` (0xF0A4, GroupContext of DM groups, §7.8.2) and `agora_credentials` (0xF0A5, LeafNode, optional, §5.2.1.5) use the RFC 9420 private-use range and need no IANA registration.
 
 **URN namespaces.**
@@ -166,7 +164,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `AgoraProfile` | §2.3 |
 | `AgoraSpaceEndpoint` | §3.4 |
 | `AgoraComplianceLogger` | §7.3 |
-| `AgoraMatrixGateway` | §9.2 |
+| `AgoraMatrixGateway` | `profiles/gateways.md` (non-normative) |
 | `AgoraTextFormatCapabilities` | §5.2.7.4 |
 
 **Web and DNS identifiers.**

@@ -3,7 +3,7 @@
 > Non-normative. Describes one way to carry data from constrained radio meshes (IRONWEED, LICHEN) across Agora through a gateway. Uses only mechanisms the Agora spec already defines; adds no protocol. Bead agora-pozi.28.11.
 
 **Status:** Draft, 2026-10-16
-**Depends on:** ARCHITECTURE.md; spec §5.2.1.4, §6.9, §6.13, §9.2-§9.3, §13.1, §14.2-§14.5
+**Depends on:** ARCHITECTURE.md; spec §5.2.1.4, §6.9, §6.13, §9.1-§9.3, §13.1, §14.2-§14.5
 **Research:** notes/lichen-ironweed.md
 **IRONWEED sources (read only):** IRONWEED/SPEC.md §4.1, §4.4, §5.4-§5.5, §6.2-§6.5, §7, §8.1, §9, §10, §11.4-§11.9
 **LICHEN sources (read only):** project-LICHEN/spec/02-physical-link.md, 02a-coordinated-capacity.md §2a.9.1, 06-security.md §8.5, §15.4-§15.5, 07-transport-app.md §10.1, 12-apps.md §18, appendix-border-router.md
@@ -23,7 +23,7 @@ Shared rules are in §2-§9. System specifics are in Annex A (IRONWEED) and Anne
 
 ## 2. Gateway role
 
-The gateway is a CO component under §9.2-§9.3 and ARCHITECTURE S8:
+The gateway is a CO component under §9.1-§9.3 and ARCHITECTURE S8:
 
 - It runs under the control of the CO operating the channel, with its own DID and keys, and never in or as part of a relay.
 - It is an MLS member of each bridged channel, admitted by a normal Add Commit.
