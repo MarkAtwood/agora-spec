@@ -2,56 +2,87 @@
 
 > Binds: both. Source: import/agora-protocol-spec-unified.md lines 3353–3426 (§14–15).
 
-## 13.1 JSON-LD Context and Canonicalization
+## 13.1 Typed Payload Envelope
 
 *Binds: both.*
 
-The canonical Agora JSON-LD context is published at:
+Every Agora payload is carried in a **typed payload envelope**. The envelope names what the payload is, says how its bytes are encoded, and carries those bytes unchanged. Agora computes no canonical form of any payload.
+
+**Fields.**
+
+| Field | Type | Required | Meaning |
+|---|---|---|---|
+| `type` | text | yes | Absolute URI naming the object type (see "Type URIs" below). |
+| `contentType` | text | yes | Media type of `body` (RFC 6838), with parameters if any, e.g. `application/json`, `application/ld+json`, `application/cbor`. |
+| `body` | bytes | yes | The exact bytes of the object, encoded as `contentType` says. |
+| `sig` | text | no | JWS over `body` (§13.1.1). REQUIRED where §13.1.1 or the section defining the object requires an object-level signature; otherwise absent. |
+
+**Encoding.** An envelope is encoded as a CBOR map (RFC 8949) with the text-string keys `type`, `contentType`, `body` and `sig`. `type`, `contentType` and `sig` are CBOR text strings; `body` is a CBOR byte string holding the object bytes verbatim, never a nested CBOR or JSON value. Receivers MUST ignore map keys they do not recognize. The map itself is not signed, so its key order and integer widths carry no meaning.
+
+**Inside an MLS application message.** The `application_data` of every MLS application message (§5.2.3) is exactly one encoded envelope. The MLS sender signature authenticates the sender and the envelope, so `sig` is absent unless the object is one that is also verified outside the group (below), in which case it is carried with its `sig` so that it can be forwarded or archived byte-for-byte.
+
+**Inside a broadcast payload.** The `plaintext` sealed into a routing envelope's `broadcastPayload` (§5.2.1.4) is exactly one encoded envelope. No MLS sender signature covers it, so its `sig` MUST be present and recipients MUST verify it per §13.1.1 before acting on the payload. The binding of the signer to the channel, key epoch and broadcaster roles is defined in §5.2.1.4.
+
+**Stored and published objects.** An object verified outside an MLS group (for example Space state, compliance records, `RelayServiceAgreement`, `AccessChainRegistration`, the `accessKeyAnnouncement` countersignature, `BroadcastKey`, discovery records and `ChannelShareAgreement`) is stored, served and forwarded as its encoded envelope with `sig` present. Where such an object is content-addressed, its CID is computed over the encoded envelope bytes as stored.
+
+**Type URIs.** `type` values are compared as exact, case-sensitive strings. No normalization is applied.
+
+- A JMAP data type is named by the URN of the capability that defines it, a `#`, and the data type name as the defining specification spells it. For example, the `Message` type of the JMAP Chat specification (draft-atwood-jmap-chat-00) is `urn:ietf:params:jmap:chat#Message`. The `body` of a JMAP object is its JSON representation as defined by that specification and RFC 8620, with `contentType` `application/json`.
+- An Agora protocol type is named `urn:agora:type:` followed by the type name, for example `urn:agora:type:SpaceState` or `urn:agora:type:PresenceEvent`. The `urn:agora:type:` namespace is reserved for types defined by this specification. A type name is never reused for an incompatible definition; a breaking change defines a new name. Unless its defining section states otherwise, an Agora type has `contentType` `application/json` and its `body` is the JSON object shown in that section. A `@context` or `@type` member in such a body is ordinary JSON and carries no meaning for Agora processing.
+- Any other type is named by an absolute URI under the control of whoever defines it, such as an HTTPS IRI or a URN in a namespace they control (§13.2).
+
+**JSON-LD.** JSON-LD remains usable: a body MAY have `contentType` `application/ld+json`, with `type` set to the JSON-LD type IRI of the object. Such bodies are carried and signed as bytes like any other. Agora performs no JSON-LD expansion, RDF conversion or canonicalization, and no Agora processing step dereferences a body's `@context`.
+
+**Example.** A chat message (a JMAP Chat `Message`) inside an MLS application message, shown with `body` decoded for readability:
 
 ```
-https://agora.protocol/ns/v1
+{
+  "type": "urn:ietf:params:jmap:chat#Message",
+  "contentType": "application/json",
+  "body": h'7b226964223a...'      / the exact JSON bytes of the Message /
+}
 ```
 
-It maps all Agora message types and properties to globally unique IRIs and declares their relationship to relevant external vocabularies (schema.org, W3C DID Core, ActivityStreams where applicable).
+### 13.1.1 Signing
 
-All Agora messages MUST include `"@context": "https://agora.protocol/ns/v1"` or an equivalent inline context. Processors that do not perform full JSON-LD expansion MAY treat the context URL as a version tag, but MUST NOT reject messages that include additional `@context` entries for extension vocabularies.
+This is the single normative object-signing procedure of this specification. Wherever another section says an object is "signed", "signed per §13.1.1", or signed over its "canonical" form, this procedure is meant. It applies to every content type: signatures cover the exact `body` bytes, and no canonical CBOR, JCS (RFC 8785) or RDF form is computed. Objects exchanged only inside an MLS group need no object-level signature; the MLS sender signature suffices.
 
-The context URL is versioned: `/ns/v1` is the v1 schema. A breaking change to the type system produces `/ns/v2`. The context URL is frozen once published: `/ns/v1` will always describe the v1 schema without modification.
+**Format.** An object-level signature is a JWS (RFC 7515) in compact serialization with a detached payload, using the unencoded payload option (RFC 7797) and the EdDSA algorithm with Ed25519 (RFC 8037). It is placed in the envelope's `sig` field and is never embedded in the `body` it signs.
 
-### 13.1.1 Canonicalization and Signing Pipeline
+**Protected header.** The JWS Protected Header MUST be a JSON object containing exactly these members:
 
-This is the single normative signing pipeline for JSON-LD documents. It applies to every signed JSON-LD document in this specification; wherever another section says a JSON-LD document is "signed", "signed per §13.1.1", or signed over its "canonical" form, this pipeline is meant. No JSON-LD document is signed over a CBOR or other serialization. CBOR wire frames (§11.4) are not JSON-LD documents and are outside this pipeline.
+| Member | Value |
+|---|---|
+| `alg` | `"EdDSA"` |
+| `b64` | `false` |
+| `crit` | `["b64"]` |
+| `kid` | DID URL of the signing verification method, e.g. `did:webvh:QmSCID...:example.com:alice#keys-1` or `did:key:z6Mk...#z6Mk...` |
+| `cty` | The envelope's `contentType`, exactly |
+| `agoraType` | The envelope's `type`, exactly |
 
-The pipeline is:
+`cty` and `agoraType` bind the signature to the declared encoding and type, so a signed body cannot be presented as another type.
 
-1. **Expand** the document using the Agora JSON-LD context, resolving all terms to absolute IRIs. Use a strict JSON-LD 1.1 processor. Unknown terms MUST be dropped during expansion, not passed through.
-2. **Serialize** the expanded document to RDF N-Quads (one quad per line, no trailing blank line).
-3. **Canonicalize** the N-Quads dataset using **URDNA2015** (W3C RDF Dataset Normalization Algorithm). This deterministically renames blank nodes and sorts quads, producing a stable byte string regardless of input key ordering or whitespace.
-4. **Hash** the canonical N-Quads byte string with **SHA-256**, producing a 32-byte digest.
-5. **Sign** the digest with **Ed25519** using the signer's authentication key. The signature is 64 bytes (RFC 8032).
+**Signing.** The signer computes the JWS Signing Input as `ASCII(BASE64URL(UTF8(protected header))) || "." || body`, where `body` is the exact byte string placed in the envelope, signs it with the Ed25519 private key of the verification method named by `kid` (RFC 8032), and sets `sig` to `BASE64URL(UTF8(protected header)) || ".." || BASE64URL(signature)`.
 
-The resulting signature is encoded as **base64url** (no padding) and placed in the document's `proof.signatureValue` field (W3C Data Integrity Proofs format), or carried out-of-band in the enclosing envelope depending on context.
+**Byte-for-byte rule.** A signed `body` MUST be stored, forwarded, archived and re-published as the exact bytes that were signed. Parties MUST NOT substitute a parsed and re-serialized body for the original bytes, including to change whitespace, key order, number formatting or character escaping. An implementation that needs a modified object creates a new object and, if required, a new signature.
 
-This pipeline is identical to **W3C Data Integrity Proofs** with the `eddsa-rdna-2022` cryptosuite, which is the signing layer used by W3C Verifiable Credentials. Implementations SHOULD use an existing conformant library rather than implementing the pipeline from scratch.
+**Verification.** A verifier MUST reject the object unless all of the following hold:
 
-**Reference implementations:**
-- TypeScript/JS: [`jsonld`](https://github.com/digitalbazaar/jsonld.js) + [`rdf-canonize`](https://github.com/digitalbazaar/rdf-canonize) (Digital Bazaar, the W3C reference implementations)
-- Go: [`go-jsonld-signatures`](https://github.com/go-jsonld-signatures) or FFI binding to the above for correctness during initial development
-- Rust: [`json-ld` crate](https://crates.io/crates/json-ld) + [`rdf-types`](https://crates.io/crates/rdf-types) + [`ssi` crate (Spruce Systems)](https://github.com/spruceid/ssi)
+1. `sig` consists of three base64url segments separated by `.`, with an empty middle segment.
+2. The protected header decodes to a JSON object with exactly the members above; `alg` is `"EdDSA"`, `b64` is `false`, `crit` is `["b64"]`, `cty` equals the envelope's `contentType` and `agoraType` equals the envelope's `type`.
+3. `kid` is a DID URL whose DID resolves (§2.1) to a DID document containing a verification method whose `id` equals `kid`, holding an Ed25519 public key, and referenced from the document's `authentication` relationship unless the section defining the object names another relationship.
+4. The DID in `kid` is the signer that the section defining the object requires (for example the Space's CO DID, or the message's `senderDID`).
+5. The Ed25519 signature verifies over the JWS Signing Input built from the received protected header segment and the `body` bytes exactly as received.
 
-**Test vectors:** A canonicalization test-vector set MUST be published containing at minimum: (a) five representative Agora document types in their pre-signing JSON-LD form, (b) the expected N-Quads output after expansion and URDNA2015 normalization, and (c) the expected SHA-256 digest. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
+Verification MUST NOT fetch any resource named inside `body`.
 
-> **Open (agora-pozi.20.16):** The test-vector set does not exist yet; no `test-vectors/` directory is present in the repository.
+**Test vectors.** A JWS signing test-vector set MUST be published containing at minimum: (a) at least five representative signed object types, each with its envelope fields, `body` bytes in hex, the Ed25519 test private key, and the expected `sig`; and (b) negative cases that a verifier MUST reject, including `b64` set to `true` or absent, an `alg` other than `EdDSA`, `cty` or `agoraType` not matching the envelope, and a body that was re-serialized after signing. Because Ed25519 signatures are deterministic, expected `sig` values are byte-exact. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
+
+> **Open (agora-pozi.20.16):** The JWS test-vector set does not exist yet; no `test-vectors/` directory is present in the repository.
 
 ### 13.1.2 Context Document Caching
 
-Because URDNA2015 requires a JSON-LD expansion step, implementations need access to the context document at `https://agora.protocol/ns/v1`. Fetching this document over the network at signing or verification time is unacceptable for latency and offline operation.
-
-Implementations MUST cache the context document locally. The canonical context document for each published version is pinned by its SHA-256 hash. Implementations MUST verify the cached document against the pinned hash before use.
-
-> **Open (agora-pozi.20.16):** The v1 context document has not been published and its pinned SHA-256 hash is not yet specified.
-
-Implementations MUST NOT fetch the context document from the network during signature verification of an untrusted message; this is a denial-of-service vector (an adversary could stall verification by making the context URL slow or unreachable). The context document MUST be loaded from the local cache only.
+Retired. Signatures are computed over exact `body` bytes (§13.1.1) and involve no JSON-LD expansion, so implementations fetch and cache no JSON-LD context document for signing or verification. A body with `contentType` `application/ld+json` MAY be processed by an application that understands its type, and that processing is outside this specification.
 
 ---
 
@@ -61,20 +92,18 @@ Implementations MUST NOT fetch the context document from the network during sign
 
 The protocol is designed to be extended without breaking existing clients:
 
-- Unknown `@type` values in inner payloads MUST be ignored by clients that do not understand them (forward compatibility).
-- Space state documents MAY include extension fields prefixed with a registered namespace.
-
-- New channel types MAY be introduced by extending the channel `type` enum in the JSON-LD context.
+- **Types are extensible by URI.** New payload types are added by defining a new `type` URI (§13.1). Types defined outside this specification MUST use a URI under the definer's control; the `urn:agora:type:` namespace is reserved for this specification. No registry is needed.
+- **Unknown types are ignored.** A recipient that does not understand an envelope's `type` MUST ignore the payload: it MUST NOT display it, MUST NOT treat it as an error, and MUST continue processing the MLS group or channel normally. A recipient that keeps such a payload (for example in history storage or a compliance archive) MUST keep the encoded envelope byte-for-byte. A recipient that understands the `type` but not the `contentType` MUST treat the payload as an unknown type.
+- Space state documents MAY include extension fields whose names are URIs under the definer's control; recipients MUST ignore extension fields they do not understand.
+- New channel types MAY be introduced by defining new values of the channel `type` field.
 - Transport encodings beyond CBOR/JSON MAY be negotiated via WebTransport stream headers.
-
-> **Open (agora-pozi.20.16):** No extension namespace registry exists yet; its location and registration procedure are unspecified.
 
 **Version surface registry.** The following table lists every versioned protocol surface, its current version, and the mechanism by which it is negotiated or detected:
 
 | Surface | Current Version | Location | Negotiation Mechanism |
 |---|---|---|---|
-| JSON-LD context | v1 | `@context` URL | Static; reject unknown context URLs |
-| Canonicalization pipeline | URDNA2015 + Ed25519 | §13.1.1; `proof.cryptosuite` field | Static for v1; new cryptosuite = new surface version |
+| Payload type | per type | Envelope `type` URI (§13.1) | New type = new URI; unknown types ignored (§13.2) |
+| Object signature | JWS, EdDSA/Ed25519, `b64` false | §13.1.1; JWS `alg` and `crit` header members | Static for v1; new algorithm = new surface version |
 | Document schema | 1 | `schemaVersion` field | Field presence; reject unsupported values |
 | WebTransport endpoint | v1 | URL path prefix `/v1/agora/wt` | HTTP 404 on unknown version |
 | WebSocket endpoint | v1 | URL path prefix `/v1/agora/ws` | HTTP 404 on unknown version |

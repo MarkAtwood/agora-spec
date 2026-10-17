@@ -42,11 +42,11 @@ For display purposes, neither side needs to parse the other's identifier format:
 
 ### Content Format
 
-Agora inner payloads use JSON-LD (`@type: ChatMessage` etc.). MIMI defines its own content format (`draft-ietf-mimi-content-08`). A channel in MIMI interop mode MUST negotiate a shared content format. Two modes are supported:
+Agora inner payloads are typed payload envelopes (§13.1); chat content is JMAP Chat objects such as `urn:ietf:params:jmap:chat#Message` (§5.2.3). MIMI defines its own content format (`draft-ietf-mimi-content-08`). A channel in MIMI interop mode MUST negotiate a shared content format. Two modes are supported:
 
 **MIMI content format mode**: the channel uses the MIMI content format as the canonical inner payload. Agora clients serialize outgoing messages to MIMI content format and deserialize incoming MIMI content to their local display model. Agora-specific features not representable in MIMI content format are carried as MIMI content extensions using the MIMI extension mechanism.
 
-**Agora content format mode**: the channel uses Agora JSON-LD as the canonical inner payload. MIMI clients that support Agora content format (via a registered MIMI content type) can participate natively. MIMI clients that do not support Agora content format receive a fallback plain-text rendering negotiated at join time.
+**Agora content format mode**: the channel uses Agora typed payload envelopes carrying JMAP Chat objects (§5.2.3) as the canonical inner payload. MIMI clients that support Agora content format (via a registered MIMI content type) can participate natively. MIMI clients that do not support Agora content format receive a fallback plain-text rendering negotiated at join time.
 
 The content format in use is declared in the channel state document:
 
@@ -114,11 +114,11 @@ The channel state document records the gateway's presence and type:
 1. Gateway receives an MLS-encrypted message from the Agora channel gossip topic.
 2. Gateway decrypts it using its MLS leaf key (it is a full group member).
 3. Gateway translates Agora inner payload to Matrix event format:
-   - `TextBody` → `m.room.message` with `msgtype: m.text`
-   - `MediaBody` → `m.room.message` with `msgtype: m.image/m.file` etc.; media fetched from IPFS and re-uploaded to the Matrix media server
-   - `EditEvent` → `m.room.message` with `m.new_content` relation
-   - `DeleteEvent` → `m.room.redaction`
-   - `ReactionEvent` → `m.reaction`
+   - New `urn:ietf:params:jmap:chat#Message` → `m.room.message` with `msgtype: m.text`
+   - New `Message` with `attachments` → `m.room.message` with `msgtype: m.image/m.file` etc.; media fetched from IPFS and re-uploaded to the Matrix media server
+   - `Message` edit (body contains `editedAt`, §5.2.3) → `m.room.message` with `m.new_content` relation
+   - `Message` deletion (body contains `deletedAt` and `deletedForAll: true`, §5.2.3) → `m.room.redaction`
+   - `urn:ietf:params:jmap:chat#Reaction` → `m.reaction`
 4. Gateway sends the translated event to the bridged Matrix room via the Matrix Client-Server API, attributed to a virtual Matrix user representing the Agora sender (`@agora_z6Mk...:example.com`).
 5. If the Matrix room has Megolm E2EE enabled, the gateway re-encrypts the event using Megolm before sending.
 
@@ -128,12 +128,13 @@ The channel state document records the gateway's presence and type:
 2. Gateway translates the Matrix event to Agora inner payload format.
 3. Gateway encrypts the payload using its MLS group membership.
 4. Gateway publishes the outer `RoutingEnvelope` to the Agora channel gossip topic.
-5. Agora clients see the message as coming from the gateway DID with a `bridgedFrom` field in the inner payload identifying the original Matrix sender:
+5. Agora clients see the message as coming from the gateway DID. The payload is a `urn:ietf:params:jmap:chat#Message` whose body carries a `bridgedFrom` field identifying the original Matrix sender:
 
 ```json
 {
-  "@type": "ChatMessage",
-  "body": { "@type": "TextBody", "text": "hello from matrix" },
+  "senderMsgId": "01J3XQ7Z8W6V5T4S3R2Q1P0N9M",
+  "body": "hello from matrix",
+  "bodyType": "text/plain",
   "bridgedFrom": {
     "protocol": "matrix",
     "senderID": "@alice:example.com",
@@ -178,7 +179,7 @@ Any gateway admitted to an Agora channel (Matrix, or any future gateway type) is
 
 **Channel state disclosure.** The `gateways` array in the channel state document (§9.2) is visible to all MLS group members. Clients MUST display a visible indicator when a channel has active gateways. The indicator MUST identify the gateway protocol and target system. A channel with an active gateway is not E2EE-private for bridged traffic; members must be able to determine this without reading protocol documentation.
 
-**Gateway transparency message.** When a gateway DID is added to a channel's MLS group, the adding Admin MUST also send a signed `SystemEvent` inner payload to the channel announcing the gateway:
+**Gateway transparency message.** When a gateway DID is added to a channel's MLS group, the adding Admin MUST also send a `SystemEvent` MLS application message (§5.2.3) to the channel announcing the gateway. As an inside-group object it carries no object signature; the Admin's MLS sender signature authenticates it (§13.1.1):
 
 ```json
 {

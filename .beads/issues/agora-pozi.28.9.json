@@ -1,0 +1,24 @@
+{
+  "id": "agora-pozi.28.9",
+  "title": "urn:agora is not a registered URN namespace",
+  "description": "spec/13 §13.1 defines urn:agora:type:*; RFC 8141 requires NID registration. Options: register 'agora' NID, use https:// URIs under a domain Mark controls, or tag: URIs. Needs Mark's call.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:01:08.195882253Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:02:24.659645113Z",
+  "closed_at": "2026-10-17T05:02:24.659645113Z",
+  "close_reason": "Mark 2026-10-16: treat urn:agora: as registered; keep urn:agora:type:* as written.",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.28.9",
+      "depends_on_id": "agora-pozi.28",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:01:08.202877742Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

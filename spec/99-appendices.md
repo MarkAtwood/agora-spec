@@ -7,7 +7,7 @@
 | Component | Specification | Reference Implementation |
 |---|---|---|
 | E2EE group key management | RFC 9420 (MLS) | `openmls` (Rust), `mlspp` (C++) |
-| Message framing | JSON-LD (W3C) | `jsonld` + `rdf-canonize` (JS) |
+| Payload envelope | Typed payload envelope (§13.1), CBOR (RFC 8949) | See Wire encoding |
 | Identity | W3C DID Core, `did:key`, `did:web` | `ssi` (Rust), `go-did` (Go) |
 | Content addressing | IPFS / IPLD (CIDv1, dag-cbor) | `go-ipfs`, `helia` (JS), `rust-ipfs` |
 | Peer discovery / fanout | libp2p gossipsub v1.1 | `go-libp2p-pubsub`, `libp2p` (Rust) |
@@ -25,7 +25,11 @@
 | Native cross-system interop | MIMI (drafts; delivery layer stalled as of 2026-04) | TBD (spec in progress) |
 | Matrix gateway | Matrix Application Service API | `mautrix-go`, `mautrix-python` |
 | Relay bootstrap DNS | DNS-SD / SRV / TXT records | Standard DNS libraries |
-| JSON-LD canonicalization | URDNA2015 | `rdf-canonize` (JS), `ssi` (Rust) |
+| Object signatures | JWS (RFC 7515), unencoded detached payload (RFC 7797), EdDSA/Ed25519 in JOSE (RFC 8037) | `jose` (JS); any JOSE library supporting RFC 7797 |
+| Chat and collaboration data model | JMAP Core (RFC 8620); JMAP Chat (draft-atwood-jmap-chat-00) and companion drafts (chat-did, chat-push, chat-wss, chat-calendars, chat-tasks, chat-filenode, jmap-did, jmap-cid, scene, scene-wss, vtc, vtc-wss) | TBD (drafts in progress) |
+| Default user DID method | `did:webvh` (DIF did:webvh specification) | `didwebvh-py`, `didwebvh-ts` |
+| Opt-in user DID method | `did:plc` (did:plc specification v0.1) | `did-method-plc` (TS, Bluesky) |
+| `did:key` pointer records | Pkarr (BEP-44 mutable items on the Mainline DHT) | `pkarr` (Rust) |
 
 ---
 

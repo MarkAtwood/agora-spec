@@ -10,11 +10,13 @@
 
 Agora uses **best-effort causal ordering**. Gossipsub does not guarantee total message order and does not need to. The requirement is that messages arrive in approximately the right order on average, with clients able to reconstruct causal order locally.
 
-Each message envelope carries a `seq` (monotonically increasing integer per sender per channel) and an optional `causalRefs` array of message CIDs that the sender had observed before composing the message. This gives clients enough information to:
+Each message envelope carries a `seq` (monotonically increasing integer per sender per channel). A JMAP Chat `Message` (§5.2.3) refers to earlier Messages by `senderMsgId` in `replyTo` and `threadRootId`, and edits, deletions and reactions name their target Message the same way (§5.2.2). This gives clients enough information to:
 
 - Detect gaps (missing `seq` values from a given sender)
 - Buffer out-of-order arrivals and flush the buffer when gaps close
 - Detect and display causal relationships for reply threading and reaction targets
+
+Clients order Messages by this model. `sentAt` is the sender's claim and MUST NOT be used for ordering, as the JMAP Chat specification (draft-atwood-jmap-chat-00) requires; `receivedAt` in a member's store records when that store applied the Message.
 
 Clients SHOULD buffer messages for up to 500ms waiting for a gap to close before rendering out-of-order. After 500ms, the client should display what is available and backfill visually when the missing message eventually arrives.
 
@@ -89,11 +91,10 @@ A `community` channel has a bounded MLS group called the **speaker group**. Only
 
 **Idle eviction.** A speaker who has not sent any `ApplicationMessage` in the channel within `idleEvictDays` days (default 7) is eligible for eviction. The channel's designated **SpeakerBot** (a DID listed in the channel state as `speakerBot`) issues periodic Remove commits for idle speakers. If no `speakerBot` is configured, channel admins perform evictions manually. Eviction is not punitive: evicted members are eligible for immediate re-admission when they next request to speak.
 
-**SpeakRequest.** A space member who is not currently in the speaker group and wants to post sends a `SpeakRequest` as an MLS application message in a DM group (§4.6) with the channel's `speakerBot`, or with a channel admin if no `speakerBot` is configured. The requester holds no key for the speaker group, so the request cannot travel in the channel's own envelopes; it MUST NOT be sent in the clear on any topic. The requester's identity is carried and authenticated by the sealed envelope (§5.2.2), so the inner payload carries only the channel:
+**SpeakRequest.** A space member who is not currently in the speaker group and wants to post sends a `SpeakRequest` as an MLS application message in a DM group (§4.6) with the channel's `speakerBot`, or with a channel admin if no `speakerBot` is configured. The requester holds no key for the speaker group, so the request cannot travel in the channel's own envelopes; it MUST NOT be sent in the clear on any topic. The requester's identity is carried and authenticated by the sealed envelope (§5.2.2), so the inner payload, an envelope of type `urn:agora:type:SpeakRequest` (§5.2.3), carries only the channel:
 
 ```json
 {
-  "@type": "SpeakRequest",
   "channelCID": "bafyrei...",
   "ts": "2026-04-22T09:00:00Z"
 }
@@ -140,25 +141,23 @@ A `broadcast` channel is a one-to-many CO publication. Posts are encrypted under
 broadcastPayload = nonce || AEAD-Seal(key, nonce, plaintext, aad = "agora/broadcast/v1" || channelToken)
 ```
 
-The AEAD is that of the default ciphersuite (§5.2.1), AES-128-GCM. `nonce` is 12 bytes, freshly random for every message; because many posters share one key, counter nonces are not used. Recipients MUST reject a `broadcastPayload` whose associated data does not match the `channelToken` of the envelope it arrived in. `plaintext` is the signed JSON-LD body:
+The AEAD is that of the default ciphersuite (§5.2.1), AES-128-GCM. `nonce` is 12 bytes, freshly random for every message; because many posters share one key, counter nonces are not used. Recipients MUST reject a `broadcastPayload` whose associated data does not match the `channelToken` of the envelope it arrived in. `plaintext` is one typed payload envelope (§13.1) of type `urn:agora:type:BroadcastMessage` with `sig` present. Its body binds a JMAP Chat `Message` (§5.2.3) to the channel, key epoch and poster:
 
 ```json
 {
-  "@type": "BroadcastMessage",
   "channelCID": "bafyrei...",
   "keyEpoch": 7,
-  "body": {
-    "@type": "TextBody",
-    "content": "v2.1.0 released; see release notes for details.",
-    "mimeType": "text/markdown;variant=commonmark"
-  },
   "senderDID": "did:key:z6Mk...",
-  "ts": "2026-04-22T09:00:00Z",
-  "sig": "base64url..."
+  "message": {
+    "senderMsgId": "01J3XM2C4V0Q6R9T8Y7W5E3B1A",
+    "body": "v2.1.0 released; see release notes for details.",
+    "bodyType": "text/markdown;variant=commonmark",
+    "sentAt": "2026-04-22T09:00:00Z"
+  }
 }
 ```
 
-`sig` is the sender's Ed25519 signature, signed per §13.1.1. Recipients MUST verify `sig` against the sender's DID document before displaying the message, MUST verify that `channelCID` and `keyEpoch` match the key used to decrypt, and MUST verify that `senderDID` holds a space role listed in `broadcasterRoles`.
+`message` carries the fields of a new Message as defined in §5.2.2. Subscribers are not members of the publisher group, so no MLS sender signature covers the payload; `sig` is the poster's JWS, signed per §13.1.1. Recipients MUST verify `sig` per §13.1.1 with the DID of its `kid` equal to `senderDID` before displaying the message, MUST verify that `channelCID` and `keyEpoch` match the key used to decrypt, and MUST verify that `senderDID` holds a space role listed in `broadcasterRoles`.
 
 **Relay handling.** The Relay stores broadcast messages as ciphertext blobs, identical to any other channel message. It learns a `channelToken`, the publisher group's epoch access signature, a sequence number, a timestamp and an opaque blob, and nothing about who posted. Clients MUST display a visible indicator (e.g., a megaphone icon) on broadcast channels to make clear to users that the channel has the weaker properties stated below.
 
@@ -236,65 +235,102 @@ This design is derived from Signal's Sealed Sender construction. A Relay process
 
 #### Inner Payload (After MLS Decryption)
 
-```json
+The `application_data` of every MLS application message is exactly one typed payload envelope (§13.1). The envelope's `type` names the object (§5.2.3) and its `body` holds the object's exact bytes.
+
+Objects carried inside MLS have no object-level signature and no sender field. The MLS sender signature authenticates the sender (§13.1.1), and the sender is the DID in the sending leaf's credential (§5.2.1). Recipients MUST reject a sealed envelope whose `sender` differs from that DID. An object that is also verified outside the group carries `sig` per §13.1.1 so that it can be forwarded or archived byte-for-byte.
+
+A chat message is a `Message` of the JMAP Chat specification (draft-atwood-jmap-chat-00), shown here with `body` decoded:
+
+```
 {
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "ChatMessage",
-  "body": {
-    "@type": "TextBody",
-    "text": "the fips conversion is green",
-    "format": "markdown"
-  },
-  "expiry": "2026-03-19T12:00:00.000Z",
-  "attachments": [],
-  "replyTo": null,
-  "mentions": [],
-  "causalRefs": []
+  "type": "urn:ietf:params:jmap:chat#Message",
+  "contentType": "application/json",
+  "body":                         / the exact JSON bytes of: /
+    {
+      "senderMsgId": "01J3XM2C4V0Q6R9T8Y7W5E3B1A",
+      "body": "the fips conversion is green",
+      "bodyType": "text/markdown;variant=commonmark",
+      "sentAt": "2026-03-12T12:00:00Z",
+      "senderExpiresAt": "2026-03-19T12:00:00Z",
+      "attachments": [],
+      "mentions": []
+    }
 }
 ```
 
+The body of a new `Message` carries the fields that the JMAP Chat federation specification (draft-atwood-jmap-chat-federation-00) defines for the `message` object of `Peer/deliver`, under these rules:
+
+- `senderMsgId` is the sender-assigned ULID and identifies the Message to every member. Every cross-member reference to a Message (`replyTo`, `threadRootId`, edit, deletion and reaction targets, `pinnedMessageIds`) uses its `senderMsgId`.
+- `chatId` and the sender are not carried. The Chat is the channel or DM group whose MLS group carried the envelope, and the sender is the MLS sender.
+- Each member's client or daemon keeps the Message in its own JMAP store and sets the server-set fields there: `id`, `senderId` (the sender's DID, or `"self"`), `receivedAt` and the delivery fields.
+- An attachment's `blobId` is the CID of the file stored as a group-encrypted blob (§3.4); `fetchUrl` is not used. `sha256` is a hash of the plaintext and MUST NOT be sent to any IO.
+
+A receiving client performs the checks that the JMAP Chat federation specification assigns to a receiving server (New Message Validation, Edit and Reaction Validation), evaluating membership, bans and permissions against current signed Space state (§3.3).
+
 ### 5.2.3 Message Types
 
-All inner payload types are defined in the Agora JSON-LD context namespace (`https://agora.protocol/ns/v1`):
+The `type` of an inner payload envelope is one of the values below or a type defined in another section or by an extension (§13.2).
 
-| `@type` | Description |
+#### Chat objects (JMAP Chat)
+
+Chat content uses the data types and ephemeral events of the JMAP Chat specifications. Agora defines no chat object of its own.
+
+| `type` | Body | JMAP Chat definition |
+|---|---|---|
+| `urn:ietf:params:jmap:chat#Message` | New Message, edit, or deletion (below) | `Message`, with embedded `Attachment`, `Mention`, `BroadcastMention` and `MessageAction`; rich text per the Rich Body Format |
+| `urn:ietf:params:jmap:chat#Reaction` | The fields of the federation `reactionUpdate` object (§5.2.8.2) | `Reaction` |
+| `urn:ietf:params:jmap:chat#Chat` | `pinnedMessageIds` only (§5.2.6) | `Chat.pinnedMessageIds` |
+| `urn:ietf:params:jmap:chat:websocket#ChatTypingEvent` | §5.3.2 | `ChatTypingEvent` (draft-atwood-jmap-chat-wss-00) |
+| `urn:ietf:params:jmap:chat:websocket#ChatPresenceEvent` | §5.3.1 | `ChatPresenceEvent` (draft-atwood-jmap-chat-wss-00) |
+
+A `Message` body is one of:
+
+- **New Message:** the fields described in §5.2.2.
+- **Edit:** the target's `senderMsgId` and the fields of the federation `edit` object (`body`, `bodyType`, `editedAt`, and optionally `mentions` and `broadcastMentions`). A body containing `editedAt` is an edit.
+- **Deletion for all:** the target's `senderMsgId`, `deletedAt`, and `deletedForAll: true`, with the effect of `Peer/retract`. A body containing `deletedAt` is a deletion.
+
+Receivers MUST apply an edit or deletion only if its MLS sender is the sender of the target Message. Deletion of another member's Message by an Admin is a moderation operation (§4.5).
+
+#### Agora protocol types
+
+These types have no JMAP Chat equivalent and are defined by this specification:
+
+| `type` | Description |
 |---|---|
-| `TextBody` | Formatted text; `format` field declares the content type (see §5.2.7) |
-| `MediaBody` | Reference to IPFS-hosted media (CID + MIME type + size) |
-| `EmbedBody` | URL unfurl card (title, description, image CID) |
-| `SpeakRequest` | Request for admission to a `community` channel's speaker group, sent in a DM group (§5.2.1.2) |
-| `ReactionEvent` | Emoji reaction add/remove targeting a message CID (see §5.2.8) |
-| `EditEvent` | Replacement body for a prior message CID |
-| `DeleteEvent` | Tombstone for a prior message CID |
-| `PinEvent` | Pin a CID to the channel's persistent pin list (§5.2.6) |
-| `UnpinEvent` | Remove a CID from the channel's pin list (§5.2.6) |
-| `SystemEvent` | Protocol-level event (member join, role change, gateway added, etc.) |
-| `VoiceSignal` | WebRTC SDP offer/answer/ICE candidate, targeted to a specific DID |
-| `ParticipantState` | Ephemeral VTC room presence (joined/left, muted, video on/off, screen share) |
-| `RecordingGrant` | Admin authorization for an SFU DID to decrypt media for recording |
-| `RecordingRevoke` | Revocation of a prior `RecordingGrant` |
-| `TypingEvent` | Ephemeral typing indicator; not stored |
-| `PresenceEvent` | Ephemeral online/idle/dnd status; not stored |
+| `urn:agora:type:SpeakRequest` | Request for admission to a `community` channel's speaker group, sent in a DM group (§5.2.1.2) |
+| `urn:agora:type:SpaceStateHead` | Notice of a new Space state head CID (§3.4) |
+| `urn:agora:type:ClientCapabilities` | Ephemeral per-device list of renderable body types (§5.2.7.4) |
+| `urn:agora:type:SystemEvent` | Protocol-level event (member join, role change, gateway added (§9.3), etc.) |
+| `urn:agora:type:VoiceSignal` | WebRTC SDP offer/answer/ICE candidate, targeted to a specific DID (§6.4) |
+| `urn:agora:type:ParticipantState` | Ephemeral call presence (joined/left, muted, video on/off, screen share) (§6.2) |
+| `urn:agora:type:RecordingGrant` | Authorization and disclosure record admitting a CO-run recorder to a call (§6.12) |
+| `urn:agora:type:RecordingRevoke` | Revocation of a prior `RecordingGrant` (§6.12) |
+| `urn:agora:type:JmapSet` | Patch to JMAP-family objects (§14.3.2); for a `sequenced-v1` type, carries the `after` head (§14.4.3) |
+| `urn:agora:type:SequencedOp` | A sequencer stamp with the operation it orders (§14.4.3) |
+| `urn:agora:type:SequencerFork` | Proof of sequencer equivocation: two conflicting stamps (§14.4.5) |
 
-Ephemeral events (`TypingEvent`, `PresenceEvent`, `ParticipantState`) are MLS application messages sent as `PrivateMessage`, never as `PublicMessage` application data, and are excluded from history storage.
+`urn:agora:type:BroadcastMessage` (§5.2.1.4) is carried only in a `broadcastPayload`, never in an MLS application message. `urn:agora:type:SequenceStamp` (§14.4.2) is issued by the sequencer and carried only inside a `SequencedOp` body or returned by the sequencer's endpoint, never as an MLS application message by itself. Access key announcements travel in the routing envelope (§5.2.2), and compliance records (§7.4) are written by the logger; neither is an MLS application message.
+
+Ephemeral events (`ChatTypingEvent`, `ChatPresenceEvent`, `ParticipantState`) are MLS application messages sent as `PrivateMessage`, never as `PublicMessage` application data, and are excluded from history storage.
 
 ### 5.2.4 Message Expiry
 
-Message lifetime is a **sender-side cryptographic commitment**. The sender encodes an `expiry` timestamp in the inner payload, inside the MLS ciphertext and therefore invisible to Relays. Recipients' clients are bound by protocol to honor it because the expiry is part of the authenticated message content signed by the sender.
+Message lifetime is a **sender-side commitment**. The sender sets the JMAP Chat `senderExpiresAt` field of a `Message` (§5.2.3), inside the MLS ciphertext and therefore invisible to Relays. Recipients' clients are bound by protocol to honor it because it is part of the message content authenticated by the MLS sender signature.
 
 Expiry semantics:
 
-- `expiry` is an ISO 8601 timestamp in the inner payload. Absence means no expiry (persistent by default).
-- On receipt, the client schedules local deletion of the decrypted message at the expiry time.
-- On expiry, clients SHOULD also submit a signed `DeleteEvent` to the channel, so that the IPLD history DAG records a tombstone. Relays cannot read a `DeleteEvent` and do not act on it; they drop the cached envelope by `expiryHint`.
+- `senderExpiresAt` has the meaning the JMAP Chat specification gives it: each member's store hard-deletes the Message at or before that time and keeps no tombstone. Absence means no expiry (persistent by default). A pinned Message is the one exception (§5.2.6, Message Expiry Interaction).
+- Clients send no deletion message on expiry; every member already holds the deadline. Relays drop the cached envelope by `expiryHint`.
 - Relays that cache message envelopes MUST respect the `expiryHint` field in the outer `RoutingEnvelope` as a cache TTL. This field is unauthenticated at the outer layer; Relays use it as a hint only, not as authoritative content.
-- The authoritative expiry is always the inner payload value, verified by recipients after MLS decryption.
+- The authoritative expiry is always `senderExpiresAt`, read by recipients after MLS decryption.
 
 ### 5.2.5 Message History
 
 Message history is stored as an IPLD linked list. Each message envelope CID is appended to the channel's history DAG, and the channel state document tracks the latest history CID.
 
 Clients fetch history by walking the IPLD DAG backwards from the latest CID. Relays SHOULD pin recent history within the retention window set by the `RelayServiceAgreement` (§10.5.1). Long-term archival beyond the retention window is the responsibility of space operators or interested members.
+
+History entries are envelope CIDs, while Messages refer to each other by `senderMsgId` (§5.2.2). A client records the envelope CID that carried each Message, so that it can resolve references and send relay pin instructions (§5.2.6) for a Message.
 
 IPFS provides content-addressed deduplication automatically: the same message stored at multiple Relays has the same CID.
 
@@ -305,90 +341,42 @@ IPFS provides content-addressed deduplication automatically: the same message st
 
 ### 5.2.6 Pinned Content
 
-Channels support a **pin list**: a set of CID references in the channel's IPLD state that mark specific content as persistent and surfaced. Pinning is a preservation signal: pinned CIDs are exempt from relay retention expiry (see Retention Exemption) and are surfaced by clients as a dedicated "pinned messages" view. Pin semantics (who may pin, limits, validity) are validated by clients against signed Space and channel state; relays never read pin records.
+A channel's **pin list** is the JMAP Chat `pinnedMessageIds` property of its Chat, listing pinned Messages by `senderMsgId`. Pinning is a preservation signal: the envelopes of pinned Messages are exempt from relay retention expiry (see Retention Exemption), and clients surface pinned Messages in a dedicated "pinned messages" view. Clients validate pin updates against signed Space and channel state; relays never read them.
 
 #### What Can Be Pinned
 
-Any content that already has a CID may be pinned:
+Only Messages can be pinned, as in the JMAP Chat specification. A file or an external URL is pinned by pinning the Message that carries it. To preserve an external URL, the pinner archives it to IPFS and pins a Message that attaches the archived copy, since URLs rot and CIDs do not.
 
-- A message envelope CID (a specific chat message, a file share, a thread root)
-- A media attachment CID (an image, document, or other file already stored in IPFS)
-- An archived external URL: clients MUST archive external URLs to IPFS and pin the resulting CID rather than the URL itself. URLs rot; CIDs do not. The `label` field carries the human-readable original URL or description.
-
-Pinning does not copy data. It records a reference that tells relays and clients "this CID must be retained and displayed prominently."
+Pinning does not copy data. It records a reference that tells clients, and through pin instructions tells relays, that the Message must be retained and displayed prominently.
 
 #### Pin List in Channel IPLD State
 
-The channel's IPLD state document includes a `pins` array. Each entry is a signed pin record:
+Retired. The pin list is `Chat.pinnedMessageIds` in each member's JMAP store, changed by the pin updates below; channel state carries no `pins` array. Two Agora fields remain in CO-signed channel state (§3.3):
 
-```json
-{
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "ChannelState",
-  "channelCID": "bafyrei...",
-  "latestHistoryCID": "bafyrei...",
-  "pins": [
-    {
-      "cid": "bafyrei...",
-      "pinnedBy": "did:key:z6Mk...",
-      "pinnedAt": "2026-03-12T12:00:00Z",
-      "label": "onboarding guide",
-      "sig": "base64url..."
-    },
-    {
-      "cid": "bafyrei...",
-      "pinnedBy": "did:key:z6MkAdmin...",
-      "pinnedAt": "2026-03-12T10:00:00Z",
-      "label": "https://example.com/rules (archived)",
-      "sig": "base64url..."
-    }
-  ],
-  "pinLimit": 50
-}
-```
-
-`sig` is the pinner's Ed25519 signature over the pin entry, signed per §13.1.1. Pins are attributable and tamper-evident: adding or removing a pin without a valid signature MUST be rejected.
-
-`pinLimit` is the maximum number of simultaneous pins for the channel. Default is 50. Space Admins may set a different limit in the CO-signed channel state. Clients MUST ignore `PinEvent` messages that would cause the pin count to exceed `pinLimit`. Relays do not enforce `pinLimit`.
+- `pinLimit`: the maximum number of simultaneous pins for the channel. Default is 50. Space Admins may set a different limit. Clients MUST ignore a pin update that would make `pinnedMessageIds` longer than `pinLimit`. Relays do not enforce `pinLimit`.
+- `noPin`: a boolean, default false. When true, clients MUST ignore every pin update for the channel (see Message Expiry Interaction).
 
 #### Authorization
 
-- **Any current MLS group member** MAY add a pin (`PinEvent`).
-- **Space/Channel Admins and the original pinner** MAY remove a pin (`UnpinEvent`). Other members MUST NOT remove pins they did not add.
-- Clients validate these rules against current signed Space and channel state and MUST ignore pin operations that fail them. Only current MLS group members can produce pin operations at all; relays admit them only with a valid epoch access proof (§5.2.2).
+Who may change `pinnedMessageIds` is defined by the JMAP Chat specification: in a channel, members holding the `"pin"` Space permission; in a group chat, admins. Clients evaluate this against current signed Space and channel state (§3.3) and MUST ignore pin updates that fail it. Only current MLS group members can produce pin updates at all; relays admit them only with a valid epoch access proof (§5.2.2).
 
 #### PinEvent and UnpinEvent
 
-Pin and unpin operations are MLS application messages with the following inner payload types:
+Retired. A pin or unpin is an MLS application message of type `urn:ietf:params:jmap:chat#Chat` (§5.2.3) whose body carries the complete new list:
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "PinEvent",
-  "cid": "bafyrei...",
-  "label": "onboarding guide",
-  "pinnedBy": "did:key:z6Mk...",
-  "ts": "2026-03-12T12:00:00Z",
-  "sig": "base64url..."
+  "pinnedMessageIds": ["01J3XM2C4V0Q6R9T8Y7W5E3B1A", "01J3XKZQN4MWVT8PPBEHTJ3HX0"]
 }
 ```
 
-```json
-{
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "UnpinEvent",
-  "cid": "bafyrei...",
-  "unpinnedBy": "did:key:z6MkAdmin...",
-  "ts": "2026-03-12T12:30:00Z",
-  "sig": "base64url..."
-}
-```
+Several members may write the list, so `Chat` is a sequenced type: clients apply pin updates in sequencer order, run the checks above on each, and each valid update replaces the list. Pin updates are kept in the channel's history DAG, and the MLS sender signature on each records who changed the pin list and when.
 
-Both are stored in the channel's IPLD history DAG; the audit trail records who pinned and unpinned what and when, non-repudiably.
+Pin updates are written under the `sequenced-v1` consistency model and ordered by the Space's blind sequencer as defined in §14.4. A client MUST submit a pin update per §14.4.3 and MUST apply pin updates only in the stamped order validated per §14.4.4.
 
 #### Retention Exemption
 
-Pinned CIDs are **exempt from relay retention expiry**. A relay cannot read the channel's `pins` array. Instead, a client that has validated a `PinEvent` sends the relay a pin instruction for the CID, carried with an epoch access proof (§5.2.2); an `UnpinEvent` is mirrored by an unpin instruction the same way. Within the storage quota of its `RelayServiceAgreement` (§10.5.1), a relay MUST NOT evict a CID for which it holds a valid pin instruction, regardless of:
+Pinned Messages are **exempt from relay retention expiry**. A relay cannot read `pinnedMessageIds`. Instead, a client that has applied a pin update adding a Message sends the relay a pin instruction for the CID of the envelope that carried that Message (§5.2.5), carried with an epoch access proof (§5.2.2); a pin update removing a Message is mirrored by an unpin instruction the same way. Within the storage quota of its `RelayServiceAgreement` (§10.5.1), a relay MUST NOT evict a CID for which it holds a valid pin instruction, regardless of:
 
 - The configured retention window
 - The `expiryHint` on the original envelope
@@ -396,31 +384,25 @@ Pinned CIDs are **exempt from relay retention expiry**. A relay cannot read the 
 
 The relay MUST continue to serve pinned CIDs via IPFS until it receives a valid unpin instruction. If a relay is running low on storage, it MUST evict unpinned content before considering eviction of pinned content, and MUST alert the CO party to the `RelayServiceAgreement` before evicting any pinned CID.
 
-The retention exemption applies only to the pinned CID itself, not to the full IPLD history DAG. Because a relay cannot see what a pinned envelope references, the pinning client sends pin instructions for the pinned CID and for its directly referenced content (e.g., a media attachment CID referenced by a pinned message envelope).
+The retention exemption applies only to the pinned CID itself, not to the full IPLD history DAG. Because a relay cannot see what a pinned envelope references, the pinning client sends pin instructions for the envelope CID and for its directly referenced content (e.g., the `blobId` CIDs of the Message's attachments).
 
 #### Message Expiry Interaction
 
-A pinned message whose inner payload contains an `expiry` timestamp presents a conflict: the sender requested deletion, but a subsequent pinner requested retention. The resolution: **explicit unpinning is required before expiry takes effect on a pinned CID**. A relay MUST NOT evict a CID it holds a pin instruction for on expiry; it honors `expiryHint` for all other envelopes. The channel admin responsible for the pin SHOULD unpin expired content; if they do not, the content persists until explicitly unpinned. Clients SHOULD warn admins when a pinned message's inner payload expiry has passed without an unpin action.
+A pinned Message that carries `senderExpiresAt` presents a conflict: the sender requested deletion, but a subsequent pinner requested retention. The resolution: **explicit unpinning is required before expiry takes effect on a pinned Message**. Clients MUST NOT hard-delete a pinned Message at `senderExpiresAt`; they delete it when it is unpinned if the deadline has passed. This overrides the JMAP Chat hard-deletion rule for pinned Messages only. A relay MUST NOT evict a CID it holds a pin instruction for on expiry; it honors `expiryHint` for all other envelopes. The channel admin responsible for the pin SHOULD unpin expired content; if they do not, the content persists until explicitly unpinned. Clients SHOULD warn admins when a pinned Message's `senderExpiresAt` has passed without an unpin action.
 
-This is a deliberate policy choice: pinning is an admin override of sender expiry. Users who post content they intend to be ephemeral should be aware that an admin may pin it. Channels with strict expiry requirements SHOULD configure a `noPin` policy (a boolean flag in channel state, default false) that disables the pin feature entirely for that channel.
+This is a deliberate policy choice: pinning is an admin override of sender expiry. Users who post content they intend to be ephemeral should be aware that an admin may pin it. Channels with strict expiry requirements SHOULD set `noPin` in channel state, which disables the pin feature entirely for that channel.
 
 ### 5.2.7 TextBody Content Format
 
+Retired as an Agora format. Message text is the JMAP Chat `Message.body` with its `bodyType` (§5.2.3). The subsections below keep only the Agora rules that the JMAP Chat specification does not state.
+
 #### 5.2.7.1 Baseline Format: CommonMark
 
-The `body` field of a `ChatMessage` inner payload carries a `TextBody` object. The `format` field of `TextBody` declares the content type of the `text` field. The baseline and default format is **CommonMark** ([spec.commonmark.org](https://spec.commonmark.org/)), specifically the most recent stable release at the time of implementation (currently 0.31.2).
+The baseline `bodyType` is `text/markdown;variant=commonmark`: **CommonMark** ([spec.commonmark.org](https://spec.commonmark.org/)), the most recent stable release at the time of implementation (currently 0.31.2). Clients MUST treat `text/markdown` without a `variant` parameter as CommonMark, the profile the JMAP Chat specification names.
 
-```json
-{
-  "@type": "TextBody",
-  "text": "**hello** from `agora`",
-  "format": "text/markdown;variant=commonmark"
-}
-```
+Clients MUST support CommonMark rendering and `text/plain`. Clients that cannot render CommonMark MUST display `body` verbatim.
 
-Clients MUST support CommonMark rendering. Clients that cannot render CommonMark MUST display the `text` field verbatim.
-
-**Permitted CommonMark features:** All constructs defined in the CommonMark spec are in-scope. No extensions are included in the baseline. The following are explicitly **not** in the CommonMark baseline and MUST NOT be rendered unless negotiated as an extension (§5.2.7.2):
+The following are not in the CommonMark baseline and MUST NOT be rendered unless the `bodyType` names an extension that includes them (§5.2.7.2):
 
 - Tables (GFM extension)
 - Strikethrough (GFM extension)
@@ -429,42 +411,39 @@ Clients MUST support CommonMark rendering. Clients that cannot render CommonMark
 - Math / LaTeX blocks
 - Raw HTML blocks or inline HTML
 
-Clients MUST strip or escape any raw HTML in a CommonMark `text` field rather than rendering it. A `text` field containing raw HTML is not a conformance violation at the protocol layer, but clients MUST treat it as literal text.
+Clients MUST strip or escape any raw HTML in a Markdown `body` rather than rendering it. A `body` containing raw HTML is not a conformance violation at the protocol layer, but clients MUST treat it as literal text.
 
 #### 5.2.7.2 Extension Formats
 
-Additional `format` values MAY be defined as named extensions. An extension format is identified by a MIME-type-style string in the `format` field. Clients that do not recognize a `format` value MUST fall back to rendering `text` verbatim.
+`bodyType` values are media types, as defined by the JMAP Chat specification. Values with defined meaning on Agora:
 
-Reserved extension format strings:
-
-| `format` value | Meaning |
+| `bodyType` value | Meaning |
 |---|---|
 | `text/markdown;variant=commonmark` | CommonMark baseline (default) |
 | `text/markdown;variant=gfm` | GitHub Flavored Markdown (CommonMark + tables, strikethrough, task lists) |
 | `text/plain` | Literal plaintext; no markup rendering |
+| `application/jmap-chat-rich` | JMAP Chat Rich Body Format |
 
-The `format` field is extensible: implementations MAY define additional values using reverse-domain namespacing (e.g., `text/markdown;variant=com.example.custom`). Unknown `format` values MUST be treated as `text/plain` by conformant clients.
-
-If `format` is absent, clients MUST treat the `text` field as `text/markdown;variant=commonmark`.
+Implementations MAY define additional values using reverse-domain namespacing (e.g., `text/markdown;variant=com.example.custom`). A JMAP server rejects a `bodyType` outside its `supportedBodyTypes`; an Agora receiver has no server to do so, and MUST render a `body` whose `bodyType` it does not recognize as `text/plain`.
 
 #### 5.2.7.3 Compliance Logger Behavior
 
-Compliance loggers (§7) store the raw `text` field as-is in `plaintextPayload`. The `format` field is preserved alongside it. Loggers are not required to render or interpret the markup; the stored `text` is the authoritative record.
+Compliance loggers (§7) store the decrypted envelope as received in `plaintextPayload` (§7.4), so a Message's `body` and `bodyType` are kept exactly as sent. Loggers are not required to render or interpret the markup; the stored `body` is the authoritative record.
 
 #### 5.2.7.4 Format Capability Advertisement
 
-A sender composing a message has no way to know whether a recipient can render a non-baseline `format` value unless capabilities are advertised. Agora provides two complementary advertisement mechanisms: a persistent declaration in the DID document and an ephemeral declaration inside the MLS group.
+A sender composing a message has no way to know whether a recipient can render a non-baseline `bodyType` unless capabilities are advertised. The JMAP Chat `supportedBodyTypes` account capability describes one server and does not reach other members, so Agora provides two complementary advertisement mechanisms: a persistent declaration in the DID document and an ephemeral declaration inside the MLS group. Both use the JMAP Chat name `supportedBodyTypes`.
 
 **DID document declaration (persistent)**
 
-A client MAY publish its supported text formats as a service entry in its DID document:
+A client MAY publish its supported body types as a service entry in its DID document:
 
 ```json
 {
   "id": "did:key:z6Mk...#text-formats",
   "type": "AgoraTextFormatCapabilities",
   "serviceEndpoint": "inline",
-  "supportedTextFormats": [
+  "supportedBodyTypes": [
     "text/markdown;variant=commonmark",
     "text/markdown;variant=gfm",
     "text/plain"
@@ -474,12 +453,11 @@ A client MAY publish its supported text formats as a service entry in its DID do
 
 **In-group declaration (ephemeral)**
 
-A device MAY announce its current rendering capabilities to a group in an ephemeral MLS application message (sent as `PrivateMessage`, not stored in history):
+A device MAY announce its current rendering capabilities to a group in an ephemeral MLS application message of type `urn:agora:type:ClientCapabilities` (sent as `PrivateMessage`, not stored in history):
 
 ```json
 {
-  "@type": "ClientCapabilities",
-  "supportedTextFormats": [
+  "supportedBodyTypes": [
     "text/markdown;variant=commonmark",
     "text/markdown;variant=gfm",
     "text/plain"
@@ -491,106 +469,95 @@ Relays do not cache or serve client capabilities; doing so would require the rel
 
 **Sender behavior**
 
-When composing a message with a non-baseline `format`, a conformant client SHOULD:
+When composing a message with a non-baseline `bodyType`, a conformant client SHOULD:
 
 1. Use the most recent in-group `ClientCapabilities` from each recipient (in DM groups) or check the DID document (in space channels, where per-member checking at compose time is impractical).
-2. If all reachable recipients declare support for the chosen format, send with that format.
-3. If any recipient's capabilities are unknown or do not include the chosen format, either fall back to `text/markdown;variant=commonmark` or send with the preferred format and accept that some recipients will display raw markup.
+2. If all reachable recipients declare support for the chosen body type, send with it.
+3. If any recipient's capabilities are unknown or do not include the chosen body type, either fall back to `text/markdown;variant=commonmark` or send with the preferred body type and accept that some recipients will display raw markup.
 
-In space channels with many members, per-member capability queries at compose time are not required. Clients MAY display a warning when a non-baseline format is selected without blocking the send.
+In space channels with many members, per-member capability queries at compose time are not required. Clients MAY display a warning when a non-baseline body type is selected without blocking the send.
 
 **Multi-device considerations**
 
-A user's devices may have different rendering capabilities. The DID document entry SHOULD reflect the union of all active devices' capabilities, declaring a format only if all devices the user actively uses can render it. An in-group `ClientCapabilities` message reflects the specific device that sent it and MAY differ from the DID document entry.
+A user's devices may have different rendering capabilities. The DID document entry SHOULD reflect the union of all active devices' capabilities, declaring a body type only if all devices the user actively uses can render it. An in-group `ClientCapabilities` message reflects the specific device that sent it and MAY differ from the DID document entry.
 
 ### 5.2.8 Emoji and Reactions
 
 #### 5.2.8.1 Emoji in Message Text
 
-Unicode emoji are valid UTF-8 content in any `TextBody` `text` field. No special handling is required.
+Unicode emoji are valid UTF-8 content in any Message `body`. No special handling is required.
 
-**Shortcodes** (`:thumbsup:`, `:example_logo:`) are a client-side rendering convenience, not a wire format. Shortcodes MUST NOT appear on the wire in `TextBody.text` unless the sender intentionally wants the literal text to appear. Clients that support shortcode input MUST expand shortcodes to their Unicode codepoint(s) (for standard emoji) or to a custom emoji reference (for space emoji, see §5.2.8.4) before constructing the `TextBody`.
+**Shortcodes** (`:thumbsup:`, `:example_logo:`) are a client-side rendering convenience, not a wire format. Shortcodes MUST NOT appear on the wire in a Message `body` unless the sender intentionally wants the literal text to appear. Clients that support shortcode input MUST expand shortcodes to their Unicode codepoint(s) (for standard emoji) or to a custom emoji reference (for space emoji, see §5.2.8.4) before constructing the Message.
 
-**ZWJ sequences and skin tone modifiers** are treated as atomic units. A `ReactionEvent` targeting a message with `"emoji": "👍🏽"` (thumbs up + medium skin tone) is a distinct reaction from `"emoji": "👍"` (thumbs up, no modifier). Clients SHOULD display them as separate reaction types.
+**ZWJ sequences and skin tone modifiers** are treated as atomic units. A Reaction with `"emoji": "👍🏽"` (thumbs up + medium skin tone) is a distinct reaction from one with `"emoji": "👍"` (thumbs up, no modifier). Clients SHOULD display them as separate reaction types.
 
 #### 5.2.8.2 ReactionEvent Schema
 
-A reaction is an MLS application message of type `ReactionEvent`:
+Retired. A reaction is an MLS application message of type `urn:ietf:params:jmap:chat#Reaction` (§5.2.3). Its body carries the fields of the federation `reactionUpdate` object and follows the add and remove semantics of the JMAP Chat `Reaction` type:
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "ReactionEvent",
-  "targetCID": "bafyrei...",
+  "senderMsgId": "01J3XM2C4V0Q6R9T8Y7W5E3B1A",
+  "senderReactionId": "01J3XN7D2K8F4G6H0J9M1P3Q5R",
   "emoji": "👍",
   "action": "add",
-  "senderDID": "did:key:z6Mk...",
-  "ts": "2026-03-12T12:00:00.000Z",
-  "sig": "base64url..."
+  "sentAt": "2026-03-12T12:00:00Z"
 }
 ```
 
-`targetCID` is the `envelopeID` CID of the message being reacted to. `emoji` is either a Unicode emoji string (one or more codepoints forming a single grapheme cluster, including ZWJ sequences and modifier sequences) or a custom emoji reference string of the form `:space:<shortcode>:` (see §5.2.8.4). `action` is `"add"` or `"remove"`. `sig` is the sender's Ed25519 signature, signed per §13.1.1.
-
-`targetCID` MUST refer to a message in the same MLS group. Reactions targeting messages in other groups or channels are invalid and MUST be rejected by clients.
+`senderMsgId` names the target Message, which MUST be in the same Chat, as the JMAP Chat specifications require. For a custom emoji, `customEmojiId` is set and `emoji` carries the `:space:<name>:` reference as the fallback (§5.2.8.4).
 
 #### 5.2.8.3 Reaction Semantics
 
-**One reaction per emoji per sender per target.** A sender MUST NOT add the same `emoji` value to the same `targetCID` more than once. A second `"action": "add"` for the same `(senderDID, targetCID, emoji)` tuple is a no-op; clients MUST deduplicate and MUST NOT display it as a separate reaction.
+**One reaction per emoji per sender per target.** A sender MUST NOT add a second Reaction with the same `emoji` value, or the same `customEmojiId`, to the same Message while its first such Reaction is present. A receiving client MUST treat such a second add as a no-op and MUST NOT display it as a separate reaction.
 
-**Reaction state is derived from the ordered event stream.** Clients reconstruct the current reaction set for a message by replaying all `ReactionEvent` messages targeting that CID in `seq` order. The canonical reaction state at any point is:
-
-```
-reactionSet[(targetCID, emoji, senderDID)] = last action seen for that tuple
-```
+**Reaction state.** The reaction set of a Message is its JMAP Chat `reactions` map: an add stores the Reaction under its `senderReactionId`, and a remove deletes that entry.
 
 **Aggregation.** Clients SHOULD aggregate reactions by `emoji` value, displaying a count and (on hover or tap) the list of sender display names. A reaction count of zero MUST NOT be displayed.
 
-**Reactions on deleted messages.** If the `targetCID` has been tombstoned by a `DeleteEvent`, clients MUST NOT display reactions for it. Reactions in the event stream targeting a deleted message CID are silently ignored on render.
+**Reactions on deleted messages.** If the target Message has `deletedAt` set or has been hard-deleted, clients MUST NOT display reactions for it. Reactions targeting such a Message are silently ignored on render.
 
-**Reactions and compliance logging.** `ReactionEvent` messages are logged by the compliance logger identically to `ChatMessage` messages: they are MLS application messages and the logger holds group membership.
+**Reactions and compliance logging.** Reactions are logged by the compliance logger identically to Messages: they are MLS application messages and the logger holds group membership.
 
 #### 5.2.8.4 Custom Emoji
 
-Spaces MAY define custom emoji: space-specific images referenced by shortcode. Custom emoji are IPFS-hosted and declared in the space state document.
+Spaces MAY define custom emoji: space-specific images referenced by name. A custom emoji is a JMAP Chat `CustomEmoji`, declared in the CO-signed space state document.
 
 **Space state declaration:**
 
 ```json
 "customEmoji": [
   {
-    "shortcode": "example_logo",
-    "imageCID": "bafyrei...",
-    "mimeType": "image/png",
-    "width": 64,
-    "height": 64,
-    "addedBy": "did:key:z6MkAdmin...",
-    "addedAt": "2026-03-12T00:00:00Z"
+    "id": "01J3XP0A1B2C3D4E5F6G7H8J9K",
+    "name": "example_logo",
+    "blobId": "bafyrei...",
+    "createdBy": "did:key:z6MkAdmin...",
+    "createdAt": "2026-03-12T00:00:00Z"
   }
 ]
 ```
 
-`shortcode` MUST match `[a-z0-9_]{1,32}`: lowercase alphanumeric and underscores, 1–32 characters. Shortcodes MUST be unique within a space. `imageCID` is the IPFS CID of the image file. `mimeType` MUST be `image/png`, `image/gif`, or `image/webp`. Images SHOULD be square and SHOULD be 64×64 or 128×128 pixels.
+`name` follows the JMAP Chat rules and on Agora MUST be at most 32 characters. `blobId` is the CID of the image file, which MUST be `image/png`, `image/gif`, or `image/webp`. Images SHOULD be square and SHOULD be 64×64 or 128×128 pixels.
 
-**Wire format for custom emoji reactions:**
+**Custom emoji reactions:**
 
-When a custom emoji is used in a `ReactionEvent`, the `emoji` field uses the reference string:
+A Reaction using a custom emoji sets `customEmojiId` to the emoji's `id` and `emoji` to the reference string:
 
 ```json
 "emoji": ":space:example_logo:"
 ```
 
-Clients resolve `:space:<shortcode>:` by looking up `shortcode` in the current space's `customEmoji` array, fetching the image from IPFS at `imageCID`, and rendering it inline. Clients that cannot resolve the shortcode MUST display the literal reference string `:space:example_logo:` as a fallback.
+Clients resolve `customEmojiId` against the current space's `customEmoji` array, fetch the image at `blobId`, and render it inline. Clients that cannot resolve it MUST display the `emoji` string `:space:example_logo:` as a fallback.
 
 **Custom emoji in message text:**
 
-Custom emoji MAY appear inline in `TextBody.text` using the same `:space:<shortcode>:` reference syntax. Clients resolve and render them inline alongside the surrounding text.
+Custom emoji MAY appear inline in a Message `body` using the `:space:<name>:` reference syntax. Clients resolve and render them inline alongside the surrounding text.
 
 **Custom emoji management:**
 
 Adding or removing a custom emoji is a signed `SpaceState` mutation by a Space Admin or Owner. The `customEmoji` array in the space state document is the authoritative list. Removing a custom emoji from the array does not delete the IPFS content, but clients MUST stop rendering it after the next space state refresh.
 
-Spaces SHOULD pin custom emoji image CIDs to prevent relay eviction.
+Spaces SHOULD send relay pin instructions (§5.2.6) for custom emoji image CIDs to prevent relay eviction.
 
 ---
 
@@ -600,37 +567,32 @@ Spaces SHOULD pin custom emoji image CIDs to prevent relay eviction.
 
 ### 5.3.1 Presence
 
-Presence is sent as a `PresenceEvent` MLS application message (`PrivateMessage`, §5.2.3) inside an ordinary routing envelope on `v1/agora/channel/<channelToken>`. Nothing about presence is visible to relays beyond an ordinary envelope. Inner payload:
+Presence is a JMAP Chat `ChatPresenceEvent` (draft-atwood-jmap-chat-wss-00) sent as an MLS application message (`PrivateMessage`, §5.2.3) of type `urn:ietf:params:jmap:chat:websocket#ChatPresenceEvent` inside an ordinary routing envelope on `v1/agora/channel/<channelToken>`. Nothing about presence is visible to relays beyond an ordinary envelope. Body:
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "PresenceEvent",
-  "sender": "did:key:z6Mk...",
-  "channel": "agora://bafyrei.../general",
-  "status": "online",
-  "ts": "2026-03-12T12:00:00.000Z",
-  "ttl": 30
+  "presence": "online",
+  "lastActiveAt": "2026-03-12T12:00:00Z",
+  "statusText": null,
+  "statusEmoji": null
 }
 ```
 
-`status` values: `online`, `idle`, `dnd`, `invisible`. `ttl` is the number of seconds this presence state is valid without a refresh. Clients treat absence of a refresh within the TTL window as offline. Clients MUST publish a fresh `PresenceEvent` before TTL expiry if they remain in the stated status.
+`contactId` is not carried; the receiver sets it to the MLS sender's DID before handing the event to a local JMAP client. `presence` takes the JMAP Chat values, and a client whose own presence is `"invisible"` sends `"offline"`, as draft-atwood-jmap-chat-wss-00 requires.
+
+A client MUST re-send its `ChatPresenceEvent` every 30 seconds while its state is unchanged, matching the JMAP Chat presence rate limit. Recipients treat a sender from whom no `ChatPresenceEvent` has arrived for 60 seconds as `"offline"`.
 
 ### 5.3.2 Typing Indicators
 
-`TypingEvent` is sent as an MLS application message (`PrivateMessage`, §5.2.3) inside an ordinary routing envelope on the channel topic, so relays see only an ordinary envelope, and it is never written to persistent storage. Inner payload:
+Typing is a JMAP Chat `ChatTypingEvent` (draft-atwood-jmap-chat-wss-00) sent as an MLS application message (`PrivateMessage`, §5.2.3) of type `urn:ietf:params:jmap:chat:websocket#ChatTypingEvent` inside an ordinary routing envelope on the channel topic, so relays see only an ordinary envelope, and it is never written to persistent storage. Body:
 
 ```json
 {
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "TypingEvent",
-  "sender": "did:key:z6Mk...",
-  "channel": "agora://bafyrei.../general",
-  "ts": "2026-03-12T12:00:00.000Z"
+  "typing": true
 }
 ```
 
-A client that receives no `TypingEvent` from a sender for 5 seconds SHOULD clear their typing indicator for that sender.
+`chatId` and `senderId` are not carried; the receiver sets them from the carrying group and the MLS sender. A client sends at most one `ChatTypingEvent` per 3 seconds per Chat while its user is typing, and sends `"typing": false` when typing stops. A client that receives no `ChatTypingEvent` from a sender for 10 seconds SHOULD clear the typing indicator for that sender, as the JMAP Chat specification recommends.
 
 
 ---

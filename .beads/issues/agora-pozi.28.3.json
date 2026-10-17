@@ -1,0 +1,24 @@
+{
+  "id": "agora-pozi.28.3",
+  "title": "D3: real-time data path (decided)",
+  "description": "DECIDED (Mark 2026-10-16), option A: two speeds. Slow updates (few/sec or less: durable scene records, object placed) = ordinary MLS application messages through relays (ephemeral where appropriate). Fast updates (10-60 Hz poses, input) = WebRTC data channel on the call path (mesh ≤4, SFU above), E2EE with MLS-exporter-derived keys (SFrame-style), SFU forwards blindly and is not an MLS member. A scene is a call that may have no audio.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T04:47:30.009027541Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:04:08.972213813Z",
+  "closed_at": "2026-10-17T05:04:08.972213813Z",
+  "close_reason": "Decided by Mark 2026-10-16 and applied in spec (13, 05, 06, 11, 14, profiles of jmap family)",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.28.3",
+      "depends_on_id": "agora-pozi.28",
+      "type": "parent-child",
+      "created_at": "2026-10-17T04:47:30.017656503Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

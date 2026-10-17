@@ -63,14 +63,16 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
       "path": "general",
       "type": "text",
       "mode": "interactive",
-      "name": "general"
+      "name": "general",
+      "pinLimit": 50
     },
     {
       "path": "announcements",
       "type": "text",
       "mode": "broadcast",
       "name": "Announcements",
-      "keyAccess": "members"
+      "keyAccess": "members",
+      "noPin": true
     },
     {
       "path": "community",
@@ -94,8 +96,31 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
       "type": "voice"
     }
   ],
-  "roles": [...],
-  "customEmoji": [],
+  "roles": [
+    {
+      "id": "member",
+      "label": "Member",
+      "channelAccess": ["general", "engineering/*"],
+      "canInvite": false,
+      "permissions": ["view", "send", "pin"]
+    }
+  ],
+  "customEmoji": [
+    {
+      "id": "01J3XP0A1B2C3D4E5F6G7H8J9K",
+      "name": "example_logo",
+      "blobId": "bafyrei...",
+      "createdBy": "did:webvh:QmSCID...:example.com:alice",
+      "createdAt": "2026-03-12T00:00:00Z"
+    }
+  ],
+  "sequencer": {
+    "did": "did:webvh:QmSCID...:seq.example.com",
+    "endpoint": "https://seq.example.com/agora/v1"
+  },
+  "consistencyModels": {
+    "urn:ietf:params:jmap:tasks#Task": "sequenced-v1"
+  },
   "vtcCompliance": {},
   "mlsGroupID": "base64url...",
   "prevStateCID": "bafyrei...",
@@ -107,6 +132,16 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
 `sig` is an Ed25519 signature over the document, signed per §13.1.1 by the Space owner's authentication key or a delegated admin's key. Space state and channel state are signed only by these CO keys (ARCHITECTURE S4). A Relay or other IO key MUST NOT sign Space or channel state, and clients MUST reject Space or channel state that is not signed by the owner or by an admin authorized under the prior state.
 
 `acceptedDIDMethods` is an optional list of the user DID methods (§2.1) the CO accepts for members of the Space. When it is absent, all methods of §2.1 are accepted. Clients enforce it: a client MUST NOT issue a `SpaceInvite` (§4.3) to, or add to any of the Space's MLS groups, a DID whose method is not listed, and MUST NOT join a Space whose list excludes its own DID method. A client that sees a member with an unlisted method (for example, after the list is narrowed) SHOULD flag that member to admins, who MAY remove them. The list applies to user identities only, not to device keys or service identities.
+
+`roles` is defined in §4.2. A role's optional `permissions` list uses the permission names of the JMAP Chat specification (draft-atwood-jmap-chat-00) `SpaceRole`. Holders of the `"pin"` permission may change a channel's pin list (§5.2.6). Clients ignore unrecognized permission names.
+
+`pinLimit` and `noPin` are optional channel-state fields that bound and disable pinning in that channel (§5.2.6).
+
+`customEmoji` lists the Space's custom emoji. Each entry is a JMAP Chat `CustomEmoji` object as defined in draft-atwood-jmap-chat-00, with the Agora constraints of §5.2.8.4; this document does not redefine it.
+
+`sequencer` is optional and designates the blind sequencer (`did`, `endpoint`) for the Space's `sequenced-v1` data types (§14.4.1). If it is absent, those types are read-only in the Space.
+
+`consistencyModels` is optional and maps a JMAP data type URI to the consistency model identifier the Space selects for that type, overriding the type's default (§14.2.2).
 
 
 ## 3.4 Space State Distribution

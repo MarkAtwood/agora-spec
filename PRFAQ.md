@@ -54,6 +54,10 @@ The firm designates which employees are regulated. The firm's compliance logger 
 
 Through a gateway your organization runs. E2EE does not survive the gateway, and every member of a bridged channel sees a persistent indicator saying so. With MIMI-compatible platforms, a single MLS group spans both systems and E2EE is preserved end to end.
 
+**Q: What can Agora carry besides chat?**
+
+Any typed data: JSON-LD, and the JMAP family of specifications, which covers chat, calendars, tasks, shared files, spatial scenes and call coordination. Data that only its author edits is replicated to each member's own device. Data that several people edit, such as a shared folder, gets its order from a sequencer that stamps encrypted edits without reading them. Fast real-time data, such as avatar movement in a scene, travels encrypted alongside call media.
+
 **Q: How are voice and video handled?**
 
 WebRTC with MLS-encrypted signaling. Calls of up to four people are peer-to-peer. Larger calls use a forwarding server that carries end-to-end encrypted media it cannot decode, and that is never a member of the conversation.

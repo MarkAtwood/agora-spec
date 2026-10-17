@@ -5,6 +5,10 @@ A federated, end-to-end encrypted group communication protocol in which
 Relays carry ciphertext and decide nothing; the community or organization that
 owns a Space holds every authority over it. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
+Agora carries typed data of any kind: JSON-LD, and the JMAP family of
+specifications (chat, calendars, tasks, files, scenes, calls) as first-class
+payloads.
+
 Status: draft specification. No conformant implementation exists.
 
 ## Layout

@@ -51,7 +51,7 @@ Tor proxies TCP only. This has the following protocol-level consequences:
 
 ## 11.4 Frame Format
 
-All frames are CBOR-encoded (compact binary), with a JSON-LD-compatible schema. Clients MAY use JSON encoding for debugging purposes; Relays MUST accept both JSON and CBOR.
+All frames are CBOR-encoded (compact binary). Every Agora object carried in a frame's `payload` is a typed payload envelope (§13.1), carried as its exact encoded bytes. Clients MAY use JSON encoding for debugging purposes; Relays MUST accept both JSON and CBOR.
 
 Frame structure:
 
@@ -140,16 +140,16 @@ Privacy Pass tokens are a possible future admission extension and are not part o
 
 Mobile clients backgrounded by the OS cannot maintain a persistent WebTransport or WebSocket connection. Agora supports an optional **Push Notification Proxy** that enables mobile wake-up notifications without exposing message content, channel identity, or sender identity to the notification infrastructure.
 
-Push is enabled by default on mobile clients, and the push proxy's observations are within the observation budget (ARCHITECTURE §5 item 6). Users MAY disable push; a client with push disabled makes no registration. A Relay MAY designate a push proxy in its manifest (§11.7.2), and a CO MAY designate its own push proxy for its members. Clients that maintain persistent connections (desktop clients, server-side bots) do not need one.
+Push is enabled by default on mobile clients, and the push proxy's observations are within the observation budget (ARCHITECTURE §5 item 7). Users MAY disable push; a client with push disabled makes no registration. A Relay MAY designate a push proxy in its manifest (§11.7.2), and a CO MAY designate its own push proxy for its members. Clients that maintain persistent connections (desktop clients, server-side bots) do not need one.
 
 ### 11.7.1 Privacy Model
 
 The fundamental constraint: APNs (Apple) and FCM (Google) are centralized services that require a server-side component that knows which device token to wake up. The goal is to limit what the proxy learns to the minimum necessary for its function.
 
-**What the push proxy learns** (ARCHITECTURE §5 item 6):
+**What the push proxy learns** (ARCHITECTURE §5 item 7):
 - Opaque device push handles: the client's `pushHandle` (a random token, not linked to any DID or channel), its APNs or FCM device token, and its platform (`apns` or `fcm`)
 - Wake-up timing: when a wake-up arrives for each `pushHandle`
-- The `relayDID` that signed each wake-up request (an IO-to-IO relationship, ARCHITECTURE §5 item 7)
+- The `relayDID` that signed each wake-up request (an IO-to-IO relationship, ARCHITECTURE §5 item 8)
 
 **What the push proxy does NOT learn:**
 - The client's DID
@@ -298,9 +298,8 @@ The Session object returned by `GET /.well-known/jmap`:
       "collationAlgorithms": ["i;unicode-casemap"]
     },
     "urn:agora:v1": {
-      "maxMessageBodyBytes": 65536,
-      "maxAttachmentBytes": 104857600,
-      "supportedBodyTypes": ["text/plain", "text/markdown;variant=commonmark"]
+      "maxEnvelopeBytes": 65536,
+      "maxAttachmentBytes": 104857600
     }
   },
   "accounts": {
@@ -323,15 +322,15 @@ The Session object returned by `GET /.well-known/jmap`:
 
 ### 11.8.4 Object Types
 
-#### Message
+#### Envelope
 
-A single MLS-encrypted message blob as stored by the Relay. **The `encryptedPayload` field is always MLS ciphertext; the Relay cannot read it.** Clients decrypt using their local MLS group state.
+A single MLS-encrypted envelope as stored by the Relay. The name `Envelope` avoids a collision with the `Message` type of the JMAP Chat specification (draft-atwood-jmap-chat-00). **The `encryptedPayload` field is always MLS ciphertext; the Relay cannot read it.** Clients decrypt using their local MLS group state.
 
 ```
 id              String     ULID (time-sortable, server-assigned)
 channelToken    String     Routing token under which the envelope was published
 encryptedPayload String    base64url: MLS ciphertext (ApplicationMessage or Proposal/Commit)
-mlsEpoch        UInt       MLS epoch in which the message was encrypted
+mlsEpoch        UInt       MLS epoch in which the envelope was encrypted
 seqNo           UInt       Sequence number within the epoch (for client-side ordering)
 receivedAt      UTCDate    Relay's clock; authoritative for stable sort order
 expiresAt       UTCDate|null  null = no configured expiry
@@ -343,10 +342,10 @@ All methods follow RFC 8620 conventions. `/get`, `/set`, `/changes`, and `/query
 
 | Method | Notes |
 |---|---|
-| `Message/get` | Fetch by ids. Returns encrypted blobs. |
-| `Message/changes` | State-token delta. Returns added/updated/destroyed ids since a given state. |
-| `Message/query` | Filter by `channelToken`; sort by `receivedAt` (default) or `seqNo`. |
-| `Message/queryChanges` | RFC 8620 extended query-delta. |
+| `Envelope/get` | Fetch by ids. Returns encrypted blobs. |
+| `Envelope/changes` | State-token delta. Returns added/updated/destroyed ids since a given state. |
+| `Envelope/query` | Filter by `channelToken`; sort by `receivedAt` (default) or `seqNo`. |
+| `Envelope/queryChanges` | RFC 8620 extended query-delta. |
 
 **Batching and ResultReferences.** Standard RFC 8620 §4 batching applies. Multiple method calls in a single request execute in order; `#`-prefixed argument keys reference results of prior calls via RFC 6901 JSON Pointers.
 
@@ -356,15 +355,15 @@ Example: query a channel token's envelopes then fetch them in one round-trip:
 {
   "using": ["urn:ietf:params:jmap:core", "urn:agora:v1"],
   "methodCalls": [
-    ["Message/query", {
+    ["Envelope/query", {
       "accountId": "a-relay",
       "filter": {"channelToken": "base64url..."}
     }, "0"],
-    ["Message/get", {
+    ["Envelope/get", {
       "accountId": "a-relay",
       "#ids": {
         "resultOf": "0",
-        "name": "Message/query",
+        "name": "Envelope/query",
         "path": "/ids"
       }
     }, "1"]
@@ -376,7 +375,7 @@ Example: query a channel token's envelopes then fetch them in one round-trip:
 
 The Relay's blindness properties (§10.4.1) are fully preserved under the JMAP API:
 
-- **Message content.** `Message/encryptedPayload` is always MLS ciphertext. The Relay stores and serves it without decrypting. A subpoena against the Relay yields only ciphertext.
+- **Envelope content.** `Envelope/encryptedPayload` is always MLS ciphertext. The Relay stores and serves it without decrypting. A subpoena against the Relay yields only ciphertext.
 - **Channel identity.** The Relay keys envelopes by `channelToken` only. It holds no `channelToken`→`channelCID` mapping; that mapping exists only in the management API (§11.8.9).
 - **Sender identity.** No sender identity appears in any JMAP object. `encryptedPayload` contains a sealed MLS ApplicationMessage; the sender is sealed inside the ciphertext.
 - **Community structure.** The Relay serves no Space, Channel, membership, role or invite objects and no member counts.
@@ -387,7 +386,7 @@ The Relay emits `StateChange` events on the EventSource stream when any tracked 
 
 ```
 event: state
-data: {"changed": {"a-relay": {"Message": "s-43"}}}
+data: {"changed": {"a-relay": {"Envelope": "s-43"}}}
 ```
 
 Only object types whose state has changed are included in a given event. The live stream (§11.1–§11.2) provides lower-latency delivery for new messages; EventSource is the appropriate trigger for history-sync clients and background processes that do not maintain a live stream connection.
@@ -409,7 +408,7 @@ Only object types whose state has changed are included in a given event. The liv
 
 *Binds: CO and clients.*
 
-The Space, channel, membership, role and invite management API is the JMAP Chat specification (draft) (`draft-atwood-jmap-chat-00`, capability `urn:ietf:params:jmap:chat`). This specification does not restate it.
+The Space, channel, membership, role and invite management API is the JMAP Chat specification family (draft-atwood-jmap-chat-00, capability `urn:ietf:params:jmap:chat`, and its companion drafts), as profiled and carried by Agora per §14. This specification does not restate it.
 
 The management API runs in the client (a local daemon serving the user's own devices) or on CO infrastructure. A Relay MUST NOT serve it. Its state is derived from CO-signed Space state (ARCHITECTURE S4) and decrypted MLS application messages, and it is the only place a `channelCID` is mapped to a `channelToken`. Clients use it to resolve a channel to its current `channelToken`, then use the Relay sync API (§11.8.1–§11.8.8) and the live stream to move ciphertext under that token.
 

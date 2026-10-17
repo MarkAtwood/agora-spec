@@ -1,0 +1,2 @@
+{"id":"01a1483c-36e6-71dc-b646-a55253814cb4","issue_id":"agora-pozi.28.9","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:01:08.19812247Z"}
+{"id":"01a1483d-6198-7434-b9f6-56c700a48606","issue_id":"agora-pozi.28.9","event_type":"closed","actor":"agent","old_value":"","new_value":"Mark 2026-10-16: treat urn:agora: as registered; keep urn:agora:type:* as written.","created_at":"2026-10-17T05:02:24.664275902Z"}

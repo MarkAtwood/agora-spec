@@ -1,0 +1,24 @@
+{
+  "id": "agora-pozi.28.1",
+  "title": "D1: typed-bytes payload envelope (decided)",
+  "description": "DECIDED (Mark 2026-10-16), option C: every payload = {type (URN or JSON-LD type), contentType (application/json, application/ld+json, CBOR...), body bytes}. Signatures over exact bytes, no canonicalization (replaces §13.1.1 URDNA2015 pipeline). Inside MLS, the MLS sender signature suffices; object-level signatures only for objects verified outside a group (Space state, compliance records), using a standard container (COSE_Sign1 or JWS, pick during spec writing). Signed objects are passed byte-for-byte, never re-serialized.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T04:44:15.876207027Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:04:08.949395638Z",
+  "closed_at": "2026-10-17T05:04:08.949395638Z",
+  "close_reason": "Decided by Mark 2026-10-16 and applied in spec (13, 05, 06, 11, 14, profiles of jmap family)",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.28.1",
+      "depends_on_id": "agora-pozi.28",
+      "type": "parent-child",
+      "created_at": "2026-10-17T04:44:15.883146604Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

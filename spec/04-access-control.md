@@ -71,7 +71,7 @@ A channel is private if its MLS group membership is a strict subset of the Space
 
 ## 4.5 Moderation Operations
 
-All moderation records are signed by a CO key (the Space owner or an admin) and distributed like Space state (§3.4): referenced from the Space state chain, served by the Space endpoint, and announced to members in-band. Clients validate each record against current Space state, checking that the signer holds the required role and scope, and MUST ignore records that fail validation. Relays do not enforce moderation records (ARCHITECTURE §6.2).
+All moderation records (`BanRecord`, `TimeoutRecord` and the moderation log) are verified outside any MLS group and are signed per §13.1.1 by a CO key (the Space owner or an admin) and distributed like Space state (§3.4): referenced from the Space state chain, served by the Space endpoint, and announced to members in-band. Clients validate each record against current Space state, checking that the signer holds the required role and scope, and MUST ignore records that fail validation. Relays do not enforce moderation records (ARCHITECTURE §6.2).
 
 **Kick:** removes a member from one or more channel MLS groups without a space-level ban. The Admin issues MLS Remove commits for the target DID across the relevant channel groups. The member retains space membership and may be re-added to channels by an Admin.
 
@@ -108,7 +108,7 @@ The ban takes effect through the MLS Removes: the banned member does not hold th
 }
 ```
 
-**Message Delete:** a signed `DeleteEvent` inner payload from a keyholder with Admin authority over the channel, or from the original author retracting their own message. Clients validate the signer against the referenced message's sender or against Admin authority under current Space state, and MUST ignore a `DeleteEvent` that fails validation. Relays cannot read `DeleteEvent` payloads, which travel inside ciphertext, and do not enforce them (ARCHITECTURE §7 item 2). The message CID remains in the IPLD history DAG as a tombstone entry.
+**Message Delete:** a JMAP Chat `Message` retraction (§5.2.3): an MLS application message whose body carries the target's `senderMsgId`, `deletedAt`, and `deletedForAll: true`. The original author may retract their own message. A keyholder with Admin authority over the channel (§4.1) may retract any member's message in that channel. The retraction carries no object signature; its MLS sender signature identifies the sender (§13.1.1). Clients MUST apply a retraction only if its MLS sender is the sender of the target Message or holds Admin authority over the channel under current Space state, and MUST ignore it otherwise. Relays cannot read retractions, which travel inside ciphertext, and do not enforce them (ARCHITECTURE §7 item 2). The message CID remains in the IPLD history DAG as a tombstone entry.
 
 **Moderation Log:** all moderation actions are appended to a signed IPLD linked list. The tail CID is referenced in the Space state document. The log names members, so it is served to space members only by the Space endpoint and MUST NOT be stored on IO infrastructure except as group-encrypted blobs (§3.4). This log is readable by space members and provides an auditable record of who moderated whom and when, with no ability to retroactively delete entries.
 
@@ -130,12 +130,11 @@ A **Direct Message (DM) channel** is an MLS group established between two or mor
     "did:key:z6MkAlice...",
     "did:key:z6MkBob..."
   ],
-  "complianceLoggers": [],
-  "sig": "base64url..."
+  "complianceLoggers": []
 }
 ```
 
-`members` is the initial member DID list. `complianceLoggers` is the list of `ComplianceLogger` DIDs that have been admitted to the group under §7.8. The `DMGroupDescriptor` is updated (new CID, new `sig`) on every membership or logger change. Because it lists member DIDs, it travels only inside the group: the committer of each change sends the updated descriptor to the group as an MLS application message in the new epoch, and members keep it locally. It MUST NOT be stored on IO infrastructure except as a group-encrypted blob (§3.4).
+`members` is the initial member DID list. `complianceLoggers` is the list of `ComplianceLogger` DIDs that have been admitted to the group under §7.8. The `DMGroupDescriptor` is updated (new CID) on every membership or logger change. Because it lists member DIDs, it travels only inside the group: the committer of each change sends the updated descriptor to the group as an MLS application message in the new epoch, and members keep it locally. As an inside-group object it carries no object signature; the committer's MLS sender signature authenticates it (§13.1.1). It MUST NOT be stored on IO infrastructure except as a group-encrypted blob (§3.4).
 
 **MLS group initialization:** The DM group creator generates a fresh MLS group, adds KeyPackages for each invited member, and delivers each Welcome by POST to the `KeyPackageEndpoint` in the invitee's DID document (§7.8.2), the endpoint the KeyPackage was fetched from, so delivery reveals nothing to that endpoint beyond what the KeyPackage fetch already did. A Welcome is not sent on any gossipsub topic. There is no Space admin in the invite path; any DM group member may add new members via standard MLS Add + Commit, subject to the consent mechanism in §4.6.1. A client MUST accept a DM Welcome only from an adder authenticated from the group's ratchet tree as a member of the group, MUST NOT accept an anonymous Welcome, and MUST reject a Welcome for a group ID for which it already holds group state.
 

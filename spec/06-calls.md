@@ -38,7 +38,7 @@ Call state is ephemeral, gossip-propagated, and not stored in IPLD history. It i
 }
 ```
 
-`status` values: `joined`, `left`. A client whose `ParticipantState` has not been refreshed within `ttl` seconds is considered to have left. Clients MUST re-publish their state at least every `ttl / 2` seconds while in a call.
+`status` values: `joined`, `left`, and `waiting` (lobby, §6.14.3). A client whose `ParticipantState` has not been refreshed within `ttl` seconds is considered to have left. Clients MUST re-publish their state at least every `ttl / 2` seconds while in a call.
 
 `audioMuted`, `videoEnabled`, `screenSharing`, and `handRaised` are advisory UI hints gossiped to other participants. They are not enforced at the media layer.
 
@@ -171,9 +171,9 @@ This mode requires browser/runtime support for Insertable Streams (available in 
 
 WebRTC media is encrypted with DTLS-SRTP. The DTLS handshake uses a self-signed certificate; the certificate fingerprint is included in the SDP offer and answer. In standard WebRTC, this fingerprint is unauthenticated.
 
-In Agora, the SDP carrying the fingerprint is delivered as a `VoiceSignal` inner payload, MLS-encrypted and signed by the sender's DID authentication key. Recipients verify the MLS signature before processing the SDP. This means:
+In Agora, the SDP carrying the fingerprint is delivered as a `VoiceSignal` inner payload, MLS-encrypted and signed with the sender's MLS leaf signature key, which the leaf's credential binds to the sender's DID (§5.2.1). Recipients verify the MLS sender signature before processing the SDP. This means:
 
-- The DTLS fingerprint is authenticated by the sender's DID.
+- The DTLS fingerprint is authenticated as coming from the sender's DID, through the credential binding of the leaf signature key.
 - A Relay or network attacker cannot substitute a different certificate without breaking the MLS signature.
 - The media stream is cryptographically bound to the sending DID.
 
@@ -256,8 +256,7 @@ A channel Admin or the Space Owner issues a `RecordingGrant` as an MLS applicati
   "retentionDays": 2555,
   "expiresAt": "2026-03-13T00:00:00Z",
   "participantDisclosure": "This call is being recorded for regulatory compliance by Acme Corp Compliance Archive.",
-  "ts": "2026-03-12T12:00:00Z",
-  "sig": "base64url..."
+  "ts": "2026-03-12T12:00:00Z"
 }
 ```
 
@@ -273,8 +272,7 @@ A `RecordingRevoke` terminates the grant early:
   "@type": "RecordingRevoke",
   "grantCID": "bafyrei...",
   "revokedBy": "did:key:z6MkAdmin...",
-  "ts": "2026-03-12T14:00:00Z",
-  "sig": "base64url..."
+  "ts": "2026-03-12T14:00:00Z"
 }
 ```
 
@@ -339,12 +337,11 @@ The recorder writes each recording to CO-controlled storage (ARCHITECTURE S8) an
   "mediaCID": "bafyrei...",
   "mediaFormat": "audio/ogg;codec=opus",
   "scope": "audio-video",
-  "recorderSig": "base64url...",
   "prevRecordCID": "bafyrei..."
 }
 ```
 
-`mediaCID` is the CID of the encrypted media object. `prevRecordCID` chains records into the same append-only IPLD structure used for text compliance (§7.4), making the recording archive tamper-evident. `recorderSig` is the recorder's Ed25519 signature over all other fields, signed per §13.1.1. Records and media objects are stored on CO infrastructure and retained for the grant's `retentionDays`.
+`mediaCID` is the CID of the encrypted media object. `prevRecordCID` chains records into the same append-only IPLD structure used for text compliance (§7.4), making the recording archive tamper-evident. The record is signed per §13.1.1 by the recorder's DID. Records and media objects are stored on CO infrastructure and retained for the grant's `retentionDays`.
 
 Media SHOULD be stored as Opus audio in an Ogg or WebM container (audio-only recordings) or VP8/VP9/AV1 video with Opus audio in a WebM container (audio-video recordings). The recorder decrypts SRTP and SFrame as a member (§6.12.2) and re-encodes to the archive format. Raw SRTP or SFrame packets MUST NOT be stored.
 
@@ -367,12 +364,11 @@ To enable automatic compliance recording for a space's voice channels, the space
   "retentionDays": 2555,
   "autoGrant": true,
   "enabledBy": "did:key:z6MkOwner...",
-  "enabledAt": "2026-03-12T00:00:00Z",
-  "sig": "base64url..."
+  "enabledAt": "2026-03-12T00:00:00Z"
 }
 ```
 
-`recorderDID` is the DID of the compliance recording principal, a CO component run under CO control (ARCHITECTURE S8). `autoGrant` when `true` causes conformant clients to automatically issue a `RecordingGrant` for `recorderDID` on every voice channel in the space when a call begins, without requiring per-call admin action.
+The block carries no signature of its own; it is covered by the CO's signature on the Space state document (§13.1.1). `recorderDID` is the DID of the compliance recording principal, a CO component run under CO control (ARCHITECTURE S8). `autoGrant` when `true` causes conformant clients to automatically issue a `RecordingGrant` for `recorderDID` on every voice channel in the space when a call begins, without requiring per-call admin action.
 
 When `autoGrant` is `true`, the `RecordingGrant` is issued by the first Admin or Owner client that observes the call starting. The grant `expiresAt` is set to the call end plus a configurable grace period (default 5 minutes) to capture any reconnecting participants.
 
@@ -394,12 +390,11 @@ The space's IPLD compliance audit chain receives a `VTCComplianceAuditEntry` for
   "epochsRecorded": [17, 18, 19],
   "epochsGapped": [],
   "participantCount": 4,
-  "vtcRecordCIDs": ["bafyrei...", "bafyrei..."],
-  "sig": "base64url..."
+  "vtcRecordCIDs": ["bafyrei...", "bafyrei..."]
 }
 ```
 
-`epochsGapped` is an array of epoch numbers of the call during which the recorder captured no media (§6.12.2), resulting in an unrecorded segment. An empty array means complete capture. Non-empty arrays are compliance gaps that must be reported to the compliance officer.
+The entry is signed per §13.1.1 by `recorderDID`. `epochsGapped` is an array of epoch numbers of the call during which the recorder captured no media (§6.12.2), resulting in an unrecorded segment. An empty array means complete capture. Non-empty arrays are compliance gaps that must be reported to the compliance officer.
 
 ### 6.12.7 VTC Compliance in DM Voice Groups
 
@@ -407,6 +402,143 @@ A DM group (§4.6) may include a voice channel component. The obligation from §
 
 Participant disclosure (§6.12.3) applies in DM voice groups identically to space voice channels. Non-regulated DM participants receive the disclosure notice and MAY leave before transmitting media.
 
+
+## 6.13 Data Channels
+
+Participants in a call MAY exchange application data over WebRTC data channels (RFC 8831) on the same path as media: directly between participants in mesh topology, and through the SFU above the mesh threshold (§6.5). Data channels carry fast, short-lived updates, such as poses of avatars or objects and user input, at roughly 10 to 60 messages per second. Updates at a few per second or less, and any state that must persist, MUST be sent as MLS application messages to the channel group (§5.2.3) and MUST NOT depend on a data channel.
+
+**Scene sessions.** A call MAY carry no audio or video. A participant joins such a call (a scene session) as in §6.3 and negotiates data channels only, with no media transceivers. §6.4 to §6.6, §6.10 and §6.11 apply unchanged.
+
+**Payloads.** Each data channel message carries exactly one typed envelope (§13.1) as its plaintext. The envelope has no `sig`. Compact content types such as `application/cbor` are RECOMMENDED for high-rate types. Receivers MUST ignore envelopes whose `type` they do not recognize.
+
+**Encryption.** Every data channel message MUST be encrypted end to end with SFrame (RFC 9605), in mesh and SFU topology alike. Keys are derived with the MLS-based key management of RFC 9605 Section 5.2, using the exporter label `"agora data channel"` in place of the label given there; because this label differs from the media label (§6.9), data keys and media keys are independent. The cipher suite is `AES_128_GCM_SHA256_128`. The SFrame ciphertext is the data channel message. Data keys rotate with MLS epochs as media keys do (§6.9) and MUST NOT be disclosed to an SFU, TURN server or any other IO component (ARCHITECTURE S3). Receivers MUST discard a message that fails SFrame decryption.
+
+Every member can derive every sender's data key, so a data message is authenticated as coming from a current member of the group, and not from a particular member. A payload whose receiver acts on the identity of its sender MUST be sent as an MLS application message instead.
+
+**SFU forwarding.** An SFU forwards data channel messages among the connections in a room (keyed by `channelToken`, §6.6) without decrypting them. It is not an MLS member and holds no data key. It can observe message sizes and timing, the connection each message arrives on, and the SFrame key identifier, which holds an MLS leaf index and low epoch bits and no DID. These fall within the IO observation budget (ARCHITECTURE §5, items 1–2), as for media (§6.6 SFU Media Opacity). Data channel labels and protocol strings are visible to the SFU and MUST NOT contain a DID, channel CID or other persistent identifier.
+
+**Channel options.** Pose and input streams SHOULD use unordered, unreliable channels (`ordered: false` and `maxRetransmits: 0` in `RTCDataChannelInit`), so that a lost update is superseded by the next one instead of delaying it. A participant MAY open further channels with other reliability settings. Data channels are negotiated in the SDP carried by `VoiceSignal` (§6.4) or exchanged with the SFU (§6.6 SFU Signaling Flow).
+
+## 6.14 Call Coordination
+
+This section defines ringing, scheduled calls, lobbies, call policy and breakout rooms. They coordinate use of a voice channel's always-open room (§6.1), or of the voice component of a DM group (§4.6); none of them creates a separate media room.
+
+The vocabulary (`callType`, `callResponse`, `endReason`, `lobbyState`, `scheduledStartAt` and the call policy fields) is borrowed from the JMAP VTC specification (draft-atwood-jmap-vtc-00). Its server-side objects and methods are not used. Each object below is an MLS application message to the channel's group, carried as a typed envelope (§13.1) whose `type` is `urn:agora:type:` followed by the object name, and its rules are enforced by members' clients. No relay, SFU or other server learns who is called, who answers, or who is in a call (ARCHITECTURE S1).
+
+**Call identifier.** `callID` is a random 128-bit value, base64url-encoded, chosen by the member who starts a ring, schedule or breakout. It links the messages that belong together within one channel.
+
+**Group message order.** Where this section says one message precedes another, messages are compared by MLS epoch, lower first, and then by routing envelope `id` (§5.2.2) in byte order. Every member computes the same order from the messages it holds. Sender timestamps are not used for ordering.
+
+**Moderators.** In a Space channel, the moderators of the channel's calls are the members holding the Admin or Owner role in current Space state (§4.2) and any DID listed in `moderators` of the current `CallPolicy` (§6.14.4). In a DM group every member is a moderator. A client MUST ignore a message that this section reserves to moderators, or to Admins and Owners, when its sender does not qualify.
+
+### 6.14.1 Ring
+
+A member rings others with a `CallRing`:
+
+```json
+{
+  "callID": "q3JxR0VhZ1lKb3dGbVhqcA",
+  "callType": "ring",
+  "targets": ["did:webvh:QmSCID...:example.com:bob"],
+  "subject": null,
+  "ringUntil": "2026-03-12T12:00:45Z"
+}
+```
+
+`targets` lists the DIDs being rung; an empty array rings every member of the group. The caller then joins the call (§6.3). Each device of a target is a separate MLS leaf (§2.2) and receives the `CallRing`; a device woken by push (§11.7) learns of the ring only after it fetches and decrypts the message. A device rings until `ringUntil`, until it receives a `CallResponse` for the `callID` from any device of the same DID, or until it receives a `CallEnd` for the `callID`. Clients MUST NOT ring for more than 120 seconds after receipt, whatever `ringUntil` says.
+
+A device answers or declines with a `CallResponse`, and on acceptance joins the call (§6.3):
+
+```json
+{
+  "callID": "q3JxR0VhZ1lKb3dGbVhqcA",
+  "callResponse": "accepted"
+}
+```
+
+`callResponse` is `"accepted"` or `"declined"`. The first answer wins: when several devices of the same DID send a `CallResponse` for the same `callID`, the one that precedes the others in group message order is that user's response. A device whose response is not the first stops ringing and, if it joined, leaves the call (§6.3). When there are several targets, each target's response is independent, and every target that accepts joins.
+
+Only the sender of a `CallRing` may end it, with a `CallEnd`:
+
+```json
+{
+  "callID": "q3JxR0VhZ1lKb3dGbVhqcA",
+  "endReason": "cancelled"
+}
+```
+
+`endReason` is `"cancelled"` (withdrawn before any acceptance), `"missed"` (`ringUntil` passed with no acceptance) or `"declined"` (every target declined). Ending a ring does not end the room: members already in the call stay until they leave.
+
+### 6.14.2 Scheduled Calls
+
+A member announces a call at a future time with a `CallSchedule`:
+
+```json
+{
+  "callID": "Zk81bXZ3T2JxS2pQcVlXdA",
+  "callType": "scheduled",
+  "scheduledStartAt": "2026-03-14T17:00:00Z",
+  "subject": "Quarterly review"
+}
+```
+
+Clients display the scheduled call and alert their user at `scheduledStartAt`; joining is an ordinary join (§6.3). The original sender or a moderator MAY replace a schedule with a later `CallSchedule` carrying the same `callID`, and MAY cancel it with a `CallEnd` whose `endReason` is `"cancelled"`. The latest such message in group message order is current. No server holds the schedule.
+
+### 6.14.3 Lobby
+
+When the current `CallPolicy` has `lobbyEnabled: true`, a member who is not a moderator joins by sending a `ParticipantState` with `status: "waiting"` (§6.2) in place of `"joined"`, and MUST NOT transmit media or open data channels until admitted. Admission is decided with a `LobbyDecision`:
+
+```json
+{
+  "subjectDID": "did:webvh:QmSCID...:example.com:carol",
+  "lobbyState": "admitted"
+}
+```
+
+`lobbyState` is `"admitted"` or `"rejected"`. When the current `CallPolicy` names a `lobbyAdmitter`, only decisions sent by that DID count, so there is a single decider; a CO that wants its own admission rules applied runs a bot under that DID as an ordinary member of the group. Otherwise any moderator may decide, and the first decision for a waiting member in group message order wins. An admitted member then sends `ParticipantState` with `status: "joined"`. An admission lasts until the member leaves the call. In mesh topology, participants MUST NOT complete WebRTC negotiation with a member who is waiting or was rejected.
+
+The lobby is enforced by clients. A waiting member already holds the group's keys and could subscribe through an SFU and decrypt media (§6.9). To keep a member out of a call cryptographically, hold the call in a channel whose group does not contain that member (§4.4).
+
+### 6.14.4 Call Policy
+
+A channel Admin or the Space Owner, or in a DM group any member, sets the policy for the channel's calls with a `CallPolicy`:
+
+```json
+{
+  "muteOnEntry": false,
+  "videoOffOnEntry": false,
+  "participantsCanUnmute": true,
+  "participantsCanShareScreen": false,
+  "participantsCanStartVideo": true,
+  "lobbyEnabled": true,
+  "lobbyAdmitter": "did:webvh:QmSCID...:acme.example:admit-bot",
+  "moderators": ["did:webvh:QmSCID...:example.com:dana"]
+}
+```
+
+The first five fields have the meanings and defaults of `VTCCallPolicy` in draft-atwood-jmap-vtc-00. `lobbyEnabled` defaults to `false`, `lobbyAdmitter` to absent and `moderators` to empty. The current policy is the latest `CallPolicy` from a qualifying sender in group message order, and it applies until replaced. DIDs in `moderators` gain moderator rights for lobby decisions, schedules and breakout rooms; they cannot send a `CallPolicy`.
+
+A participant's client MUST apply the policy to its own user unless that user is a moderator: it joins muted or with video off when `muteOnEntry` or `videoOffOnEntry` say so, and it does not transmit audio, video or a screen share (§6.8) that the policy forbids. Receiving clients SHOULD NOT render a track that the policy forbids its sender to transmit. No server applies the policy, and a modified client can ignore it.
+
+### 6.14.5 Breakout Rooms
+
+A breakout room is a call in a separate group, so its media and data keys are independent of the parent call's. A moderator opens breakout rooms with a `CallBreakout`:
+
+```json
+{
+  "callID": "QnE3dkNtWnJ0UkxhRWdMaQ",
+  "rooms": [
+    {
+      "channel": "agora://bafyrei.../voice/breakout-a",
+      "subject": "Team A",
+      "members": ["did:webvh:QmSCID...:example.com:alice", "did:webvh:QmSCID...:example.com:bob"]
+    }
+  ],
+  "endsAt": "2026-03-12T12:30:00Z"
+}
+```
+
+Each `channel` is a voice channel of the same Space, or a DM group (§4.6) when the parent call is held in a DM group. It MUST already exist with the listed members in its group; the moderator creates it or adds members by the ordinary procedures (§4.4, §4.6) before sending the `CallBreakout`. Clients of listed members prompt their user to leave the parent call and join the named channel's call (§6.3). At `endsAt`, or on a later `CallBreakout` from a moderator with the same `callID` and an empty `rooms` array, clients prompt those members to return to the parent call.
 
 ---
 

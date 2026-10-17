@@ -99,22 +99,21 @@ Every message received by the logger is written as a signed `ComplianceRecord` t
   "ts": "2026-03-12T12:00:00.000Z",
   "plaintextPayload": "base64url...",
   "outerEnvelopeCID": "bafyrei...",
-  "loggerSig": "base64url...",
   "prevRecordCID": "bafyrei..."
 }
 ```
 
-`plaintextPayload` is the decrypted inner payload (JSON-LD `ChatMessage` or other type), base64-encoded. `outerEnvelopeCID` links the compliance record to the tamper-evident message history. `loggerSig` is the logger's Ed25519 signature over the record, signed per §13.1.1. `prevRecordCID` chains records into a linked list, making the log append-only and tamper-evident: inserting or deleting a record breaks the chain.
+`plaintextPayload` is the decrypted inner payload envelope (§13.1), for example a JMAP Chat `Message` (§5.2.3), base64url-encoded from the exact bytes received. `outerEnvelopeCID` links the compliance record to the tamper-evident message history. A `ComplianceRecord` is verified outside the MLS group, so it is signed per §13.1.1 by the logger DID: the JWS is carried in the record's envelope `sig`, not in the body. `prevRecordCID` chains records into a linked list, making the log append-only and tamper-evident: inserting or deleting a record breaks the chain.
 
 The log is organized as a per-channel IPLD DAG, with a space-level index mapping channel CIDs to their respective log chain heads.
 
 ## 7.5 Ephemeral Message and Expiry Handling
 
-Ephemeral messages (`TypingEvent`, `PresenceEvent`) are never logged; they are excluded by type at the logger.
+Ephemeral messages (`ChatTypingEvent`, `ChatPresenceEvent`, `ParticipantState`; §5.2.3) are never logged; they are excluded by type at the logger.
 
-Messages with an `expiry` field present a deliberate tension: the sender expressed an intent for the message to be deleted, but the compliance obligation may override that intent. The resolution is explicit and must be disclosed:
+Messages with a `senderExpiresAt` field (§5.2.4) present a deliberate tension: the sender expressed an intent for the message to be deleted, but the compliance obligation may override that intent. The resolution is explicit and must be disclosed:
 
-- If `complianceLogging.enabled` is `true`, message expiry is honored for relay caches and client display, but the compliance logger retains the plaintext for `retentionDays` regardless of the sender's `expiry` value. This applies equally in DM groups where a compliance logger is present under §7.8: the DM group member's expiry preference is honored in relay caches and client display, but the compliance logger retains the plaintext for the regulated member's `retentionDays` regardless.
+- If `complianceLogging.enabled` is `true`, message expiry is honored for relay caches and client display, but the compliance logger retains the plaintext for `retentionDays` regardless of the sender's `senderExpiresAt` value. This applies equally in DM groups where a compliance logger is present under §7.8: the DM group member's expiry preference is honored in relay caches and client display, but the compliance logger retains the plaintext for the regulated member's `retentionDays` regardless.
 - The Space state document MUST include a human-readable `retentionNotice` field when compliance logging is enabled:
 
 ```json
@@ -219,12 +218,11 @@ Before any regulated member sends a message in a DM group with a compliance logg
   "retentionDays": 2555,
   "regulatoryFramework": ["FINRA 17a-4", "SEC 17a-4"],
   "issuedBy": "did:key:z6MkRegulatedMember...",
-  "ts": "2026-03-12T00:00:00Z",
-  "sig": "base64url..."
+  "ts": "2026-03-12T00:00:00Z"
 }
 ```
 
-The disclosure notice is an MLS application message of type `ComplianceDisclosureNotice` sent in the same epoch as the logger's admission commit, prior to any other application messages. Clients MUST render it as a visible system notification (not a suppressable status line) with wording equivalent to:
+The disclosure notice is an MLS application message of type `ComplianceDisclosureNotice` sent in the same epoch as the logger's admission commit, prior to any other application messages. It carries no object signature; the MLS sender signature of the regulated member authenticates it (§13.1.1). Clients MUST render it as a visible system notification (not a suppressable status line) with wording equivalent to:
 
 > **[Display name of regulated member]'s messages in this conversation are subject to regulatory retention by [loggerLabel] for [retentionDays] days.**
 
@@ -261,10 +259,11 @@ The regulated member's Space MUST record each DM group compliance logger admissi
   "loggerDID": "did:key:z6MkLogger...",
   "admittedBy": "did:key:z6MkRegulatedMember...",
   "admittedAt": "2026-03-12T00:00:00Z",
-  "removalAttempts": [],
-  "sig": "base64url..."
+  "removalAttempts": []
 }
 ```
+
+A `DMComplianceAuditEntry` is verified outside the MLS group and is signed per §13.1.1, with the JWS in its envelope `sig`.
 
 `removalAttempts` is an array of timestamps and initiator DIDs for any Remove commits targeting the logger that the regulated member's client detected and remedied per §7.8.3. This gives the Space admin and compliance officer a complete record of logger presence in DM groups, including any attempted circumvention.
 

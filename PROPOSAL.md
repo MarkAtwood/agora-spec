@@ -60,12 +60,13 @@ tampered client. Both are stated as accepted costs.
 | `spec/01`–`04` | Overview, identity (DIDs, recovery, employer provisioning), Spaces and state distribution, access control |
 | `spec/05`–`06` | MLS messaging, epoch access proof, encrypted broadcast, voice and video |
 | `spec/07`–`09` | Compliance logging, cross-Space channels, MIMI and gateways |
-| `spec/10`–`13` | Relays and federation, transport, security considerations, encoding |
+| `spec/10`–`13` | Relays and federation, transport, security considerations, encoding and signing |
+| `spec/14` | JMAP-family data on Agora: replicated stores, the blind sequencer, the Agora profile of each JMAP draft |
 | `profiles/` | Non-normative deployment designs: Entra, Google Workspace, generic IdP, Purview, Discord onboarding |
 | `guides/` | Relay operator, regulator and counsel guides (pending revision) |
 
 Built on MLS (RFC 9420), HPKE (RFC 9180), SFrame (RFC 9605), JMAP (RFC 8620),
-DIDs, and content addressing.
+JWS (RFC 7515, RFC 7797, RFC 8037), DIDs, and content addressing.
 
 ## Status
 

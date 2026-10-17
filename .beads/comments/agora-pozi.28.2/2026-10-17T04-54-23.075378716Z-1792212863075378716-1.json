@@ -1,0 +1,7 @@
+{
+  "id": "1792212863075378716-1",
+  "issue_id": "agora-pozi.28.2",
+  "author": "agent",
+  "text": "Mark 2026-10-16: must not foreclose better algorithms. Consistency model is a named, extensible identifier per data type (single-author, sequenced-v1, future e.g. crdt:tree-move-2021); Space state declares the model per type; switching = snapshot under old model then continue; clients lacking a model treat the type read-only.",
+  "created_at": "2026-10-17T04:54:23.075378716Z"
+}

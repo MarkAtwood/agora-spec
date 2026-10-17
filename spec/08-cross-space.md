@@ -100,7 +100,7 @@ The home channel's gossip topic (`v1/agora/channel/<channelToken>`) is where all
 
 Each CO engages Relays for the shared channel through its own `RelayServiceAgreement` (§10.5.1) by registering the shared group's access-key chain under it (S7). Neither agreement identifies the Space or the channel. Relays route by `channelToken` alone; they do not learn which Space a subscriber belongs to, that the channel is shared, or the contents of the `ChannelShareAgreement` (S1). Access is by MLS membership (ARCHITECTURE §6.2), so guest members need no Relay-side admission.
 
-No special Relay configuration is required if both spaces' Relays participate in the same gossipsub mesh; this is the common case for public or semi-public spaces. For private spaces whose Relays are isolated (e.g., on a private Tailscale overlay), the two COs arrange peering between their IOs through their respective `RelayServiceAgreement`s; peering itself is an IO-to-IO relationship (ARCHITECTURE §5 item 7). The `ChannelShareAgreement` MAY include a `relayHints` array suggesting peering endpoints, for the COs' use; Relays do not read it:
+No special Relay configuration is required if both spaces' Relays participate in the same gossipsub mesh; this is the common case for public or semi-public spaces. For private spaces whose Relays are isolated (e.g., on a private Tailscale overlay), the two COs arrange peering between their IOs through their respective `RelayServiceAgreement`s; peering itself is an IO-to-IO relationship (ARCHITECTURE §5 item 8). The `ChannelShareAgreement` MAY include a `relayHints` array suggesting peering endpoints, for the COs' use; Relays do not read it:
 
 ```json
 "relayHints": [

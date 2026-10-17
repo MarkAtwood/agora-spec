@@ -1,0 +1,24 @@
+{
+  "id": "agora-pozi.28.4",
+  "title": "D4: VTC source of truth (decided)",
+  "description": "DECIDED (Mark 2026-10-16), option A: Agora spec §6 remains source of truth for media, signaling, SFU, TURN, recording. Borrow jmap-vtc features (ring incl. multi-device, scheduled calls, lobby, call policy, breakout rooms) as MLS group messages, client-enforced or by a CO bot where one decider is needed (e.g. lobby admission). First-answer-wins by group message order. No call server that knows participants.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T04:48:35.454349541Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:04:08.982475084Z",
+  "closed_at": "2026-10-17T05:04:08.982475084Z",
+  "close_reason": "Decided by Mark 2026-10-16 and applied in spec (13, 05, 06, 11, 14, profiles of jmap family)",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.28.4",
+      "depends_on_id": "agora-pozi.28",
+      "type": "parent-child",
+      "created_at": "2026-10-17T04:48:35.463053094Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

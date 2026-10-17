@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.28.10",
+  "title": "Move embedded body signatures into envelope JWS",
+  "description": "§13.1.1 says sig is never embedded in a body, but ~20 objects still carry body signature fields: Space state (03), BroadcastKey (03), BanRecord/TimeoutRecord/DMGroupDescriptor? (04), ChannelShareAgreement homeAdminSig/guestAdminSig (08), RelayManifest, RelayAd, SpaceAd, directories, RelayServiceAgreement relaySig/billingSig, AccessChainRegistration billingSig (10), RecoveryAssertion recoverySig and device/admin sigs (02), ComplianceLoggingConfig (07), AgoraMIMICredential (09). Multi-signer objects need the JWS General JSON Serialization (multiple signatures) in the envelope sig; define that in §13.1.1. accessKeyAnnouncement accessSig/billingSig and the sealed envelope sig are separate constructions (see agora-pozi.8, .20.49).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T05:03:52.458348834Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:03:52.458348834Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.28.10",
+      "depends_on_id": "agora-pozi.28",
+      "type": "parent-child",
+      "created_at": "2026-10-17T05:03:52.467605922Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "agora-pozi.28.7",
+  "title": "D7: jmap-chat is Agora's chat format (decided)",
+  "description": "DECIDED (Mark 2026-10-16), option A: Agora retires its duplicate chat types (TextBody, reactions, pins, edits as Agora-defined objects); a chat message on Agora is a draft-atwood-jmap-chat-00 Message carried in the typed envelope. Agora keeps only protocol-plumbing types without jmap equivalents (SpaceStateHead, SpeakRequest, access-key announcements, compliance records, call signaling, etc.).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T04:51:58.875478909Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T05:04:09.005455385Z",
+  "closed_at": "2026-10-17T05:04:09.005455385Z",
+  "close_reason": "Decided by Mark 2026-10-16 and applied in spec (13, 05, 06, 11, 14, profiles of jmap family)",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.28.7",
+      "depends_on_id": "agora-pozi.28",
+      "type": "parent-child",
+      "created_at": "2026-10-17T04:51:58.883869328Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

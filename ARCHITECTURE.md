@@ -32,7 +32,8 @@ that is powerless but still watching. Agora requires both.
 
 Runs services that carry, store or forward data for communities without being
 part of them: relays (routing, fan-out, envelope cache, gossip, peering), blob
-and IPFS pinning, SFUs, TURN and push proxies.
+and IPFS pinning, SFUs, TURN, push proxies, and sequencers that stamp an order
+on encrypted operations.
 
 ### 2.2 Communications Operator (CO)
 
@@ -57,6 +58,7 @@ A component's role is determined by what it holds, not by who runs it:
 | Relay | IO | |
 | Blob / IPFS pinning | IO | |
 | TURN | IO | |
+| Sequencer | IO | Stamps order on encrypted operations; members' clients validate them (protocol spec §14.4) |
 | Push proxy | IO | Observation budget includes device push handles (§5); a CO MAY run its own |
 | SFU | IO | MUST NOT be an MLS member (§7, item 6) |
 | KeyPackage host | CO | Run by whoever runs the user's identity (§8, Q3) |
