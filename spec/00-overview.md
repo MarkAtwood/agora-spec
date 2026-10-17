@@ -1,6 +1,6 @@
 # Agora Protocol: Overview
 
-> Binds: both. Verbatim from `import/agora-protocol-spec-unified.md` lines 1–55 (header, Version Policy, §1). Section numbers are the source's and will be renumbered.
+> Binds: both. Source: import/agora-protocol-spec-unified.md lines 1–55 (header, Version Policy, §1).
 
 # Agora Protocol Specification v0.2 (Draft)
 
@@ -28,6 +28,8 @@ Version negotiation is defined per surface:
 
 ## 1. Overview
 
+*Binds: both.*
+
 Agora is a decentralized, end-to-end encrypted, real-time group chat protocol. It is designed to support a user experience comparable to Discord — servers with hierarchical channels, presence indicators, typing notifications, voice/video conferencing — without any central authority owning identity, routing, or message storage. No company holds your keys, your membership lists, or your message history.
 
 ### Core Protocol Dependencies
@@ -41,13 +43,16 @@ Agora is a decentralized, end-to-end encrypted, real-time group chat protocol. I
 | **IPLD** | Content-addressed data model (CIDv1 dag-cbor); relay-hosted CAS for blob storage |
 | **WebTransport (RFC 9000)** | Primary transport for browsers and native clients |
 | **WebSocket (RFC 6455)** | Fallback transport, and the only transport available over Tor |
-| Payment schemes (optional) | Relay economics and message micropayments; scheme-agnostic — see §12 |
 
 Agora does **not** define a central server. It defines a protocol that servers — called **Relays** — implement to form a federated, permissionless mesh. Users are not locked to any particular Relay. Relays gossip with each other. Clients may connect to multiple Relays simultaneously and reconcile state across them.
 
+Agora defines no payment layer in this release. Commercial terms between a community and the relays it engages are outside the protocol.
+
 ### Design Principles
 
-**Relay blindness.** A conformant Relay deliberately cannot read message content, identify senders, or map channel tokens to channel identities or member lists. This is not just policy — it is a structural property of the protocol. A Relay operator served a subpoena should be able to honestly say they hold no useful data.
+**Operator separation.** Operating the infrastructure is separate from operating the communications. Relays and other infrastructure services decide nothing about any community and MUST be replaceable without changing its identity, membership, history or policy; every authority over a community is held by the community's own operator and exercised with that operator's keys. This is Agora's first design principle, defined normatively in ARCHITECTURE.md, which governs wherever this specification conflicts with it.
+
+**Relay blindness.** A conformant Relay deliberately cannot read message content, identify senders, or map channel tokens to channel identities or member lists. This is not just policy — it is a structural property of the protocol. A Relay operator served a subpoena should be able to honestly say they hold no useful data. Blindness limits what a Relay can know; operator separation limits what it can decide.
 
 **Federated, not centralized.** Anyone can run a Relay. Any Relay that speaks the protocol can join the mesh. There is no registration, no whitelist, no governing authority over who participates.
 

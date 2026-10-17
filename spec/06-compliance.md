@@ -1,8 +1,10 @@
 # Agora Protocol: Compliance Logging
 
-> Binds: CO. Verbatim from `import/agora-protocol-spec-unified.md` lines 3621–3938 (§17). Section numbers are the source's and will be renumbered.
+> Binds: CO. Source: import/agora-protocol-spec-unified.md lines 3621–3938 (§17).
 
 ## 17. Compliance Logging
+
+*Binds: CO.*
 
 ### 17.1 Overview
 
@@ -43,6 +45,14 @@ The `scope` field governs which Space channels receive the logger. The value `"a
 
 `scope` does **not** govern DM groups. DM group compliance logging is governed entirely by §17.8, which imposes an obligation on the regulated member's user agent independent of Space channel scope configuration.
 
+`regulatedMembers` (optional) is an array of member DIDs that the space owner designates as regulated for the purposes of §17.8:
+
+```json
+"regulatedMembers": ["did:key:z6MkRegulatedMember..."]
+```
+
+The field is part of the signed `ComplianceLoggingConfig`. Only DIDs listed here are regulated members; membership of a Space with `complianceLogging.enabled: true` does not by itself make a member regulated.
+
 Once `complianceLogging.enabled` is set to `true` and gossiped to the space topic, conformant clients MUST add the `loggerDID` to the MLS group of every channel matching `scope` on the next available Commit. This addition IS recorded in the MLS group membership (verifiable by any MLS-aware client) but MUST NOT produce a UI-visible join notification.
 
 Disabling compliance logging requires a signed Space state mutation by the space owner. Clients remove the logger DID from channel MLS groups via Remove commits. The `complianceLogging` history in the IPLD space state chain retains a permanent record of when logging was enabled and disabled.
@@ -50,6 +60,8 @@ Disabling compliance logging requires a signed Space state mutation by the space
 ### 17.3 Logger Principal
 
 The `ComplianceLogger` is a DID-identified principal operated by the space's compliance infrastructure — typically an on-premise archival system or a regulated third-party compliance service (e.g., a FINRA-registered archiving vendor).
+
+The logger is a CO component (ARCHITECTURE §2.3, S8). It MUST run under CO control, with its own DID and keys, and is never a function or configuration option of a relay or other IO component. Where it is co-located on IO hardware, that is a contract under which the IO acts as the CO's processor; the logger remains a CO principal.
 
 The logger's DID document identifies it as a compliance logger:
 
@@ -70,7 +82,7 @@ The logger's DID document identifies it as a compliance logger:
 
 `regulatoryFramework` is an informational array of the regulatory requirements under which the logger operates. Clients MAY display this to members who inspect the space's compliance configuration.
 
-The logger operates as a passive member (§6.1.3). It holds leaf credentials, participates in epoch ratchets, and receives `Welcome` messages when added to new channel groups. It does not send messages, publish presence events, generate typing indicators, or issue Commits or Proposals.
+The logger operates as a passive member (§6.1.3). It holds leaf credentials, participates in epoch ratchets, and receives a `Welcome` from the committing member when added to a group. Its only part in its own admission is supplying a `KeyPackage` (§17.8.2). It does not send messages, publish presence events, generate typing indicators, or issue Commits or Proposals.
 
 ### 17.4 Log Record Format
 
@@ -93,7 +105,7 @@ Every message received by the logger is written as a signed `ComplianceRecord` t
 }
 ```
 
-`plaintextPayload` is the decrypted inner payload (JSON-LD `ChatMessage` or other type), base64-encoded. `outerEnvelopeCID` links the compliance record to the tamper-evident message history. `loggerSig` is the logger's Ed25519 signature over the canonical record. `prevRecordCID` chains records into a linked list, making the log append-only and tamper-evident — inserting or deleting a record breaks the chain.
+`plaintextPayload` is the decrypted inner payload (JSON-LD `ChatMessage` or other type), base64-encoded. `outerEnvelopeCID` links the compliance record to the tamper-evident message history. `loggerSig` is the logger's Ed25519 signature over the record, signed per §14.1. `prevRecordCID` chains records into a linked list, making the log append-only and tamper-evident — inserting or deleting a record breaks the chain.
 
 The log is organized as a per-channel IPLD DAG, with a space-level index mapping channel CIDs to their respective log chain heads.
 
@@ -137,13 +149,15 @@ Compliance logging is not hidden from members. It is disclosed in space metadata
 
 The logger's MLS group membership is visible to any client that inspects raw MLS group state. This is intentional — the logger is not cryptographically hidden, only UI-silent. A technically capable member can always verify that a compliance logger is present.
 
+Adding a compliance logger to a Space channel or a DM group is governed by the CO's compliance policy and by the disclosure requirements of this section and §17.8.4, not by member consent. No consent threshold (§9.6) applies to a logger addition. A member who does not accept the retention MAY leave the group.
+
 In DM groups where a compliance logger is present under §17.8, disclosure obligations are governed by §17.8.4 rather than this section. The Space information panel disclosure requirements in this section apply only to Space channels.
 
 ### 17.8 Compliance Logging for Direct Message Groups
 
 #### 17.8.1 Obligation
 
-A Space member subject to compliance logging (i.e., a member of a Space where `complianceLogging.enabled` is `true`) carries that compliance obligation into every DM group they participate in, regardless of whether the DM group has any Space affiliation.
+A regulated member is a Space member whose DID the space owner lists in `complianceLogging.regulatedMembers` (§17.2) while `complianceLogging.enabled` is `true`. Regulated status is an explicit CO designation per user; it MUST NOT be inferred from membership of a logging-enabled Space. A regulated member carries that compliance obligation into every DM group they participate in, regardless of whether the DM group has any Space affiliation.
 
 The compliance obligation follows the regulated user, not the channel. A regulated user who conducts business communication via DM is not exempt from their Space's retention requirements by virtue of using a DM group rather than a Space channel.
 
@@ -153,17 +167,17 @@ A conformant client for a regulated Space member MUST:
 2. Re-add the logger if it is removed by another member (see §17.8.3).
 3. Notify all other DM group members of the logger's presence before their first message is sent (see §17.8.4).
 
-The client MUST NOT permit the regulated member to send any application message in a DM group until the compliance logger has been admitted to the MLS group and the disclosure notice has been displayed to all members.
+The client MUST NOT permit the regulated member to send any application message in a DM group until the compliance logger has been admitted to the MLS group and the disclosure notice has been displayed to all members. This client is the enforcement point for DM capture (§17.8.9); on CO-managed devices the CO SHOULD configure it so the user cannot disable this check.
 
 #### 17.8.2 MLS Mechanics
 
 Logger addition in a DM group follows the standard MLS Add + Commit path:
 
-1. The regulated member's client fetches a fresh `KeyPackage` for the Space's `loggerDID` from the logger's relay inbox or a published KeyPackage store.
+1. The regulated member's client fetches a fresh `KeyPackage` for the Space's `loggerDID` from the logger's `KeyPackageEndpoint` (below).
 2. The client issues an MLS Add Proposal for the logger DID.
-3. The client immediately commits the proposal (no consent threshold applies to compliance logger additions — the regulated member's obligation is unilateral and does not require co-member approval).
-4. The client updates the `DMGroupDescriptor` to add the logger DID to the `complianceLoggers` array and publishes the updated descriptor CID.
-5. The logger's infrastructure issues a `Welcome` response, completing the logger's admission to the MLS group.
+3. The client immediately commits the proposal. No consent threshold applies (§17.7).
+4. The client, as committer, sends the MLS `Welcome` to the logger, completing the logger's admission to the MLS group. The logger does not issue a `Welcome`; it only supplies the `KeyPackage`.
+5. The client updates the `DMGroupDescriptor` to add the logger DID to the `complianceLoggers` array and publishes the updated descriptor CID.
 
 If the regulated member is joining an existing DM group (rather than creating one), steps 2–5 are performed at join time, before the member sends any application messages. Messages sent by other members before the regulated member joined are not retroactively accessible to the logger — the logger's archive begins at the MLS epoch of its admission.
 
@@ -190,7 +204,7 @@ A conformant client for a regulated Space member MUST:
 
 This prohibition is enforced by the regulated member's client. It cannot be enforced protocol-wide — a non-regulated member's client can issue a Remove. The regulated member's client is responsible for detecting and remedying the gap.
 
-DS-level enforcement (§17.8.9) strengthens this guarantee at group creation but does not prevent subsequent logger removal by other group members. The gap between removal and re-add represents a period of non-capture; its duration depends on how quickly the regulated member's client detects the removal event.
+The gap between removal and re-add represents a period of non-capture; its duration depends on how quickly the regulated member's client detects the removal event. The logger records the gap (§17.8.9).
 
 #### 17.8.4 Disclosure to DM Group Members
 
@@ -255,48 +269,15 @@ The regulated member's Space MUST record each DM group compliance logger admissi
 
 `removalAttempts` is an array of timestamps and initiator DIDs for any Remove commits targeting the logger that the regulated member's client detected and remedied per §17.8.3. This gives the Space admin and compliance officer a complete record of logger presence in DM groups, including any attempted circumvention.
 
-#### 17.8.9 DS-Level Enforcement (Recommended)
+#### 17.8.9 Enforcement Points and Capture Gaps
 
-Client-side enforcement (§17.8.1–§17.8.2) depends on the regulated member's client being conformant. Two DS-level mechanisms provide enforcement independent of client behavior. **Mechanism B (External Commit) is preferred.**
+DM compliance capture is enforced only at CO enforcement points (ARCHITECTURE §6.3): the regulated member's client, the compliance logger, and the CO's archive and audit pipeline. Relays and other IO components do not know DM group participants or which users are regulated (S1), and MUST NOT inspect Welcomes, hold messages, or otherwise enforce logger presence (S2).
 
-**Note on relay metadata.** The relay already routes `Welcome` messages to recipient inboxes and therefore already knows which user DIDs are participating in any new group — this is an inherent property of operating as both KDS and DS. DS enforcement does not expose new metadata to the relay; it acts on metadata the relay already holds as part of normal routing.
+- The regulated member's client MUST NOT send any application message into a DM group whose current MLS membership lacks the Space's `loggerDID` (§17.8.1). Regulated members SHOULD communicate from CO-managed devices, where the CO controls the client and its configuration.
+- The compliance logger MUST record every capture gap it can detect in the Space's IPLD compliance audit chain, including its own removal from a group (the epoch of the Remove commit) and its re-admission (the epoch of the re-add), so the missing epochs are identified.
+- The CO's audit pipeline SHOULD reconcile `DMComplianceAuditEntry` records (§17.8.8) against the groups the logger actually holds and alert the compliance officer to discrepancies.
 
-##### Mechanism A: Welcome Inspection at Group Creation
-
-When the relay receives the initial `Welcome` bundle for a new DM group:
-
-1. The relay maps each `KeyPackageRef` in the `Welcome` envelope to a DID using its KDS index (the relay holds this mapping because it serves as the Key Distribution Service and issued or cached the `KeyPackage` when it was published).
-2. If any recipient DID is a regulated member of a compliance-logging Space, the relay verifies the Space's `loggerDID` is also present in the `KeyPackageRef` list.
-3. If the `loggerDID` is absent, the relay rejects the group creation with error `COMPLIANCE_LOGGER_REQUIRED` and does not route the `Welcome` to any recipient.
-
-The client must still fetch the logger's `KeyPackage` and include it (steps 1–4 of §17.8.2). What Mechanism A adds is that the relay catches a client that failed to do so — the group simply cannot be created without the logger.
-
-**Coverage: group creation only.** When a regulated member *joins* an existing DM group rather than creating one, there is no new group creation event for the relay to intercept. Client-side enforcement (§17.8.2) applies to the join case under Mechanism A.
-
-**Coupling requirement.** This mechanism requires the relay to operate as both KDS and DS with shared KPRef→DID state. In deployments where KDS and DS are separate infrastructure components, an authenticated query path from DS to KDS is required.
-
-##### Mechanism B: Compliance Logger External Commit (Preferred)
-
-RFC 9420 §11.2.1 defines External Commits: a mechanism by which a new member joins an existing group using the group's `GroupInfo`, without being added by any current member. Because the relay already holds `GroupInfo` for every active group (required for standard group joins), the compliance logger infrastructure can self-join any DM group involving a regulated user with no client involvement.
-
-**Procedure:**
-
-1. The relay creates the new DM group normally, accepting the `Welcome` and routing it to invited members.
-2. Before delivering any application messages for the group, the relay checks whether any member DID is a regulated member of a compliance-logging Space.
-3. If yes, the relay enters **compliance hold**: application messages for this group are accepted and stored but not delivered until the logger has joined.
-4. The relay notifies the compliance logger infrastructure via an authenticated internal event, providing the group's `GroupInfo`.
-5. The logger performs an External Commit, joining the group as a passive member (§6.1.3).
-6. The relay releases held messages; normal delivery resumes.
-
-The client does not fetch the logger's `KeyPackage`, does not issue the Add commit, and cannot prevent logger admission. This mechanism is independent of client software version and configuration.
-
-**Coverage: creation and join.** The relay applies the same compliance hold procedure when it detects a regulated member joining an existing group (by inspecting the Commit that adds them), not only at group creation.
-
-**Hold timeout.** The relay MUST apply a compliance hold timeout (recommended: 5 seconds; configurable per Space). If the logger does not complete its External Commit within the timeout, the relay MUST NOT release held messages. It MUST surface an alert to the Space admin and compliance officer. The DM group remains in compliance hold until the logger joins or the Space admin takes remedial action. Silent timeout-and-release is a conformance violation.
-
-**Availability: last-resort KeyPackages.** A compliance logger MUST pre-publish a set of last-resort `KeyPackage`s with the relay (per §6.1.3 passive member guidance) so that External Commits can be completed promptly without a live round-trip to the logger's `KeyPackageEndpoint`. The relay SHOULD alert the compliance operator when the last-resort set falls below a configurable threshold. If no `KeyPackage`s are available when a compliance hold fires and the timeout expires, this is a compliance outage that MUST be reported — not a silent capture gap.
-
-**Removal gap.** Neither Mechanism A nor Mechanism B prevents a non-regulated group member from issuing an MLS `Remove` for the logger after admission. The regulated member's client remains responsible for detecting and remedying that removal (§17.8.3). The gap between removal and re-add is an inherent limitation of the current MLS group management model; future DS extension mechanisms may address per-commit enforcement.
+**Accepted cost.** A modified or non-conformant client can create or join a DM group without the logger, and no infrastructure component will stop it; such groups are invisible to the logger. The mitigation is the managed endpoint, the same trust boundary regulated firms already rely on for every other channel (ARCHITECTURE §9).
 
 #### §17.8 Conformance Summary
 
@@ -313,8 +294,9 @@ The following table summarizes the conformance requirements for DM group complia
 | Publish `DMComplianceAuditEntry` to Space IPLD chain | Regulated member's client | MUST |
 | Publish `KeyPackageEndpoint` in logger DID document | Compliance logger operator | MUST |
 | Provide fresh (non-reused) KeyPackage per request | Compliance logger operator | MUST |
-| Enforce logger inclusion via Welcome inspection at group creation (Mechanism A) | Relay operator (regulated deployment) | SHOULD |
-| Enforce logger inclusion via External Commit with compliance hold (Mechanism B, preferred) | Relay operator (regulated deployment) | SHOULD |
+| Refuse to send in a DM group lacking the logger | Regulated member's client | MUST |
+| Send `Welcome` to the logger when committing its Add | Committing client | MUST |
+| Record detectable capture gaps in the compliance audit chain | Compliance logger | MUST |
 | Use DM group for persistent named multi-party private conversation | Any user | SHOULD use private channel instead |
 
 

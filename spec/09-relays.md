@@ -1,8 +1,10 @@
 # Agora Protocol: Relays, Federation and Discovery
 
-> Binds: IO. Verbatim from `import/agora-protocol-spec-unified.md` lines 584–1065, 2920–2994, 3054–3133, 3188–3207 (§3.4–3.5, §4, §11, §12 intro, §12.2, §12.4). Section numbers are the source's and will be renumbered.
+> Binds: both. Source: import/agora-protocol-spec-unified.md lines 584–1065, 2920–2994, 3054–3133, 3188–3207 (§3.4–3.5, §4, §11, §12 intro, §12.2, §12.4).
 
 ### 3.4 Deployment Topologies
+
+*Binds: IO.*
 
 Agora is transport-agnostic at the application layer. The following deployment topologies are explicitly supported:
 
@@ -14,7 +16,7 @@ Agora is transport-agnostic at the application layer. The following deployment t
 
 **Dual-stack (clearnet + overlay)** — A Relay MAY publish both clearnet and overlay endpoints. Clients on the overlay prefer the overlay path; external clients use the clearnet path. Both sets of clients share the same space state and message history.
 
-**Managed / SaaS** — A relay operator (the "managed provider") provisions and operates a dedicated Agora relay fleet on behalf of a customer. Each customer receives their own isolated deployment — separate relay processes, separate database, separate blob store — not a shared multi-tenant instance. The customer controls, or delegates control of, the DNS name that roots their deployment; the managed provider's infrastructure hosts it (typically via CNAME or DNS delegation). The managed provider's identity appears as `operatorDID` in each relay manifest (§3.5.1), but `relayDID` is anchored to the customer's DNS domain, not the provider's. This preserves namespace ownership: if the customer migrates to self-hosted, their DNS name and all derived identities (`did:web:<customer-domain>:users:...`) are portable without re-enrollment.
+**Managed / SaaS** — A relay operator (the "managed provider") provisions and operates a dedicated Agora relay fleet on behalf of a customer. Each customer receives their own isolated deployment — separate relay processes, separate database, separate blob store — not a shared multi-tenant instance. The customer controls, or delegates control of, the DNS name that roots their deployment; the managed provider's infrastructure hosts it (typically via CNAME or DNS delegation). The managed provider's identity appears as `operatorDID` in each relay manifest (§3.5.1), but `relayDID` is anchored to the customer's DNS domain, not the provider's. This preserves namespace ownership: if the customer migrates to self-hosted, their DNS name and all derived identities (`did:web:<customer-domain>:users:...`) are portable without re-enrollment. `operatorDID` and `relayDID` are IO keys and are distinct principals from every CO key, even where one entity holds both roles (ARCHITECTURE §2.4).
 
 **IPv6** — All Relay endpoints SHOULD support IPv6. Relay URIs MUST use bracket notation for IPv6 address literals (`wss://[2001:db8::1]/v1/agora/ws`). ICE gathers both IPv4 and IPv6 host candidates; dual-stack clients race both address families.
 
@@ -29,6 +31,8 @@ A deployment's ability to participate in the public Agora mesh depends on whethe
 No registry, whitelist, or certificate authority governs which DNS names may root an Agora deployment. DNS ownership is the sole claim to a namespace.
 
 ### 3.5 Relay-to-Relay Peering and Authentication
+
+*Binds: IO.*
 
 Relays form a gossipsub mesh with each other for fanout. This section specifies how Relays discover each other, authenticate, establish trust levels, and maintain the mesh. The model follows a well-known manifest endpoint, RFC 9421 HTTP Message Signatures for relay-to-relay authentication, graduated trust levels, and zero-configuration bootstrap from any single known peer.
 
@@ -62,8 +66,8 @@ The manifest is a signed JSON-LD document that serves as the Relay's authoritati
     "onion":           "ws://examplerelay3xyzabc.onion/v1/agora/ws",
     "keyPackageStore": "https://relay.example.com/v1/agora/kp",
     "peerAPI":         "https://relay.example.com/v1/agora/peer",
-    "gossipQuic":      "/ip4/203.0.113.42/udp/9001/quic-v1",
-    "jmap":            "https://relay.example.com/jmap"
+    "jmapSync":        "https://relay.example.com/v1/agora/jmap",
+    "gossipQuic":      "/ip4/203.0.113.42/udp/9001/quic-v1"
   },
   "keys": [
     {
@@ -80,9 +84,13 @@ The manifest is a signed JSON-LD document that serves as the Relay's authoritati
     "keypackage-store-v1",
     "keypackage-forwarding-v1",
     "tor-hidden-service-v1",
-    "peer-api-v1"
+    "peer-api-v1",
+    "jmap-sync-v1"
   ],
-  "acceptedSchemes": ["cashu", "pow"],
+  "observationBudget": {
+    "connectionLogRetentionDays": 7,
+    "extensions": []
+  },
   "knownPeers": [
     {
       "relayDID": "did:key:z6MkPeer...",
@@ -95,7 +103,9 @@ The manifest is a signed JSON-LD document that serves as the Relay's authoritati
 }
 ```
 
-`sig` is the Relay operator's Ed25519 signature over the canonical CBOR serialization of the manifest, excluding the `sig` field. Peer Relays MUST verify this signature before accepting the manifest.
+`sig` is the Relay operator's Ed25519 signature over the manifest, excluding the `sig` field, signed per §14.1. Peer Relays MUST verify this signature before accepting the manifest.
+
+`observationBudget` declares what the Relay retains beyond transient routing. `connectionLogRetentionDays` is the retention of network-layer connection metadata (ARCHITECTURE §5 item 1), as set by the Relay's `RelayServiceAgreement`s (§12.2). `extensions` lists every opt-in extension to the ARCHITECTURE §5 observation budget the Relay has enabled; it MUST be empty unless a CO has opted in (ARCHITECTURE S6). A Relay MUST NOT observe, log or retain anything not covered by ARCHITECTURE §5 or a declared extension.
 
 `knownPeers` is the Relay's current peer list. This serves as a mesh map: a new Relay fetching any existing Relay's manifest obtains a list of further Relays to contact, enabling rapid mesh joining without a central directory server.
 
@@ -123,10 +133,9 @@ For relays operating exclusively on a private overlay, Tor hidden service, or ai
 | `keypackage-ipfs-supply-v1` | Can replenish the KeyPackage store from a DID's IPFS supply CID (§6.1.1) |
 | `tor-hidden-service-v1` | Reachable via a `.onion` endpoint |
 | `sfu-v1` | Hosts an SFU for voice channel routing |
-| `compliance-logging-v1` | Supports compliance logger DID admission (§17) |
 | `peer-api-v1` | Implements the Peer API v1 (§3.5.2) |
+| `jmap-sync-v1` | Exposes the token-keyed JMAP sync API (§8.8.1–§8.8.8) |
 | `push-proxy-v1` | Operates a push notification proxy (§8.7) |
-| `jmap-v1` | Exposes the JMAP Management and Sync API (§8.8) |
 
 #### 3.5.2 Peer API
 
@@ -217,7 +226,7 @@ A Relay is considered mesh-joined when it has Level 1 or higher trust with at le
 
 #### 3.5.6 Mesh Maintenance
 
-**Heartbeat.** Relays MUST poll `GET /peer/v1/health` from each peer every 60 seconds. A peer that returns `unhealthy` or fails to respond for 3 consecutive checks (180 seconds total) is marked unreachable. Its gossipsub connection is dropped; it remains in `knownPeers` for 7 days before removal, in case it recovers.
+**Heartbeat.** Relays MUST poll `GET /v1/agora/peer/health` from each peer every 60 seconds. A peer that returns `unhealthy` or fails to respond for 3 consecutive checks (180 seconds total) is marked unreachable. Its gossipsub connection is dropped; it remains in `knownPeers` for 7 days before removal, in case it recovers.
 
 **Manifest refresh.** Relays re-fetch peer manifests every hour to detect key rotation and endpoint changes. A manifest whose `sig` no longer verifies is treated as a trust failure and the peer is downgraded to Level 0 pending re-verification.
 
@@ -241,6 +250,8 @@ Receiving Relays verify the signature, independently fetch the new Relay's manif
 ---
 
 ## 4. Discovery
+
+*Binds: both.*
 
 ### 4.1 Gossip Protocol
 
@@ -271,11 +282,11 @@ A **SpaceAd** or **UserAd** message is gossiped periodically (default TTL: 60 se
   "@context": "https://agora.protocol/ns/v1",
   "@type": "SpaceAd",
   "spaceCID": "bafyrei...",
-  "name": "wolfSSL Dev",
-  "description": "wolfSSL development coordination",
+  "name": "Example Corp Dev",
+  "description": "Example Corp development coordination",
   "memberCount": 12,
   "relayHints": [
-    "wss://relay.wolfssl.com",
+    "wss://relay.example.com",
     "wss://relay.example.net"
   ],
   "isPublic": true,
@@ -287,14 +298,18 @@ A **SpaceAd** or **UserAd** message is gossiped periodically (default TTL: 60 se
 
 `relayHints` are connection hints only — clients are not required to use them and SHOULD attempt direct peer connections first. `relayHints` MAY include `.onion` addresses, clearnet HTTPS/WSS URIs, overlay-internal hostnames, and IPv6 address literals.
 
+A SpaceAd is a voluntary CO publication; Relays forward it on `v1/agora/discovery` like any other gossip message.
+
+> **Open (agora-pozi.12):** Whether any discovery path (SpaceAd or directory entry) requires an IO to publish CO information on the CO's behalf.
+
 ### 4.3 Relay Discovery Bootstrap
 
 To bootstrap into the gossip network, a client needs at least one known peer. Agora supports the following bootstrap mechanisms, attempted in order:
 
 1. **Directory sources** — user-configured URLs serving `RelayDirectory` or `SpaceDirectory` documents (§4.4); the primary bootstrap mechanism in practice.
 2. **Previously cached relay list** — Relays successfully contacted in a prior session, stored locally with a staleness TTL of 7 days.
-3. **Mainline DHT** — Relays announce themselves on the BitTorrent Mainline DHT (BEP-5) under a well-known infohash derived from `SHA1("agora-relay-v1")`; clients perform a `get_peers` lookup to find announcing relays (§4.4.6).
-4. **DNS-SD** — `_agora._tcp` mDNS for LAN or overlay discovery.
+3. **Mainline DHT** — Relays announce themselves on the BitTorrent Mainline DHT (BEP-5) under a well-known infohash (§4.4.6); clients perform a `get_peers` lookup to find announcing relays (§4.4.6).
+4. **DNS-SD** — `_agora-relay._udp` and `_agora-relay._tcp` mDNS for LAN or overlay discovery (§3.5.5).
 
 ### 4.4 Directory Documents
 
@@ -331,10 +346,9 @@ A `RelayDirectory` lists Relays available for client connection:
       "regions": ["us-west", "eu-central"],
       "operator": "Example Relay Operator",
       "operatorDID": "did:key:z6MkOperator...",
-      "acceptedSchemes": ["cashu", "pow"],
       "tiers": [
-        { "label": "free",     "maxBandwidthMbps": 1,  "price": { "scheme": "pow", "amount": "0" }    },
-        { "label": "standard", "maxBandwidthMbps": 10, "price": { "scheme": "cashu", "amount": "500", "denomination": "sat" } }
+        { "label": "free",     "maxBandwidthMbps": 1  },
+        { "label": "standard", "maxBandwidthMbps": 10 }
       ],
       "note": "Community relay, no logging"
     }
@@ -345,7 +359,7 @@ A `RelayDirectory` lists Relays available for client connection:
 }
 ```
 
-`ttl` is the number of seconds before the client should re-fetch the document. `includes` is a list of other directory document URLs whose contents are merged into this one; clients MUST limit include recursion depth to 3 to prevent cycles. `sig` is the maintainer's Ed25519 signature over the canonical CBOR serialization of the document (excluding the `sig` field). Clients SHOULD verify the signature against the `maintainer` DID but MAY accept unsigned directories with a user-visible warning.
+`ttl` is the number of seconds before the client should re-fetch the document. `includes` is a list of other directory document URLs whose contents are merged into this one; clients MUST limit include recursion depth to 3 to prevent cycles. `sig` is the maintainer's Ed25519 signature over the document (excluding the `sig` field), signed per §14.1. Clients SHOULD verify the signature against the `maintainer` DID but MAY accept unsigned directories with a user-visible warning.
 
 #### 4.4.2 Space Directory
 
@@ -366,14 +380,14 @@ A `SpaceDirectory` lists Spaces available for browsing or joining:
     {
       "@type": "SpaceDirectoryEntry",
       "spaceCID": "bafyrei...",
-      "name": "wolfSSL Community",
-      "description": "wolfSSL open source cryptography project",
+      "name": "Example Corp Community",
+      "description": "Example Corp open source project",
       "iconCID": "bafyrei...",
       "memberCount": 340,
       "isPublic": true,
-      "inviteURL": "https://invite.wolfssl.com/community",
+      "inviteURL": "https://invite.example.com/community",
       "relayHints": [
-        "wss://relay.wolfssl.com"
+        "wss://relay.example.com"
       ],
       "tags": ["cryptography", "embedded", "fips", "open-source"],
       "language": "en",
@@ -405,7 +419,7 @@ A single document MAY contain both `relays` and `spaces` arrays, typed as `Agora
 
 #### 4.4.4 Client Behavior
 
-On startup, the client fetches all configured directory sources in parallel. Results are merged: Relay lists are deduplicated by `did`; Space lists are deduplicated by `spaceCID`. The client attempts connection to the highest-priority available Relay (ordered by user preference, then by `tiers[0].price.amount` ascending as a proxy for accessibility). Previously cached Relays from prior sessions are used immediately while directory fetches are in flight.
+On startup, the client fetches all configured directory sources in parallel. Results are merged: Relay lists are deduplicated by `did`; Space lists are deduplicated by `spaceCID`. The client attempts connection to the highest-priority available Relay (ordered by user preference). Previously cached Relays from prior sessions are used immediately while directory fetches are in flight.
 
 Failed fetches are retried with exponential backoff (base 30 seconds, maximum 1 hour). A source that consistently fails for 7 days is flagged in the UI as unreachable; it is NOT silently removed from the configured source list. The user decides whether to remove it.
 
@@ -430,8 +444,10 @@ Agora uses the BitTorrent Mainline DHT (BEP-5, BEP-44) for two complementary pur
 Relay operators announce their relay on Mainline by performing a BEP-5 `announce_peer` for the well-known infohash:
 
 ```
-infohash = SHA1("agora-relay-v1")  // hex: to be assigned at spec finalisation
+infohash = SHA1("agora-relay-v1")
 ```
+
+> **Open (agora-pozi.20.16):** The infohash value and its derivation are not yet fixed.
 
 The announced port is the relay's WebSocket port. Clients discovering a relay via this mechanism MUST still verify the relay's DID and TLS certificate before use (§4.4.7); a Mainline announcement is a hint, not an authorization.
 
@@ -486,15 +502,22 @@ Directory maintainers are identified by their `maintainer` DID and signature. Th
 
 ## 11. Relay Behavior
 
+*Binds: IO.*
+
 ### 11.1 Relay Knowledge Constraints
 
 A conformant Relay is explicitly designed to know as little as possible about the traffic it routes. The following is both a design target and a compliance requirement: a Relay operator responding to a legal demand or subpoena MUST be able to honestly testify to all of the following:
 
 - I do not know who my users are (no identity registration, no account system, no persistent user records).
+
+> **Open (agora-pozi.9):** The client-relay handshake (§8.6) authenticates member DIDs, which contradicts this statement; admission without identity is unresolved (ARCHITECTURE §7 item 9, §8 Q2).
+
 - I do not know who is in any group (channel membership is not visible at the relay layer; `channelToken` is epoch-rotating and non-reversible without the epoch secret).
 - I do not know who sent any message (sealed sender design; sender DID is inside the MLS ciphertext).
-- I store nothing after delivery beyond the configured retention window, and nothing with a message expiry past that expiry — except CIDs explicitly pinned by channel members, which are retained until unpinned by a valid signed `UnpinEvent`.
+- I store nothing after delivery beyond the configured retention window, and nothing with a message expiry past that expiry — except CIDs pinned under an instruction authorized by the epoch access proof (ARCHITECTURE §6.2), which are retained until unpinned the same way.
 - The encrypted blobs I forward and cache are opaque to me.
+
+These statements are the IO side of ARCHITECTURE §4: what a legal demand on a Relay operator yields is bounded by the observation budget in ARCHITECTURE §5.
 
 Any protocol extension or Relay implementation that makes any of these statements false introduces a legal liability surface for operators and a surveillance surface for adversaries. Such extensions MUST be explicitly opt-in and clearly documented as degrading the Relay's metadata-blindness guarantees.
 
@@ -502,7 +525,7 @@ Any protocol extension or Relay implementation that makes any of these statement
 
 Relays route messages by `channelToken`, not by channel CID or member identity. The routing table maps `channelToken` → set of subscriber connections. Relays MUST NOT:
 
-- Maintain a mapping from `channelToken` to channel CID.
+- Maintain a mapping from `channelToken` to channel CID or Space CID.
 - Maintain a mapping from `channelToken` to member DIDs.
 - Log sender/recipient pairs for any message.
 - Retain message envelopes beyond the configured retention window or message expiry, whichever is sooner.
@@ -517,21 +540,23 @@ A conformant Relay MUST:
 - Implement the client-relay authentication handshake (§8.6).
 - Implement the KeyPackage Store API (§6.1.1).
 - Implement the Peer API and relay-to-relay authentication (§3.5).
-- Enforce ban records received via space gossip (§9.5).
-- Enforce timeout records for their specified duration (§9.5).
+- Verify the epoch access proof on every envelope before caching or forwarding it, and drop envelopes that fail verification (ARCHITECTURE §6.2).
 - Respect `expiryHint` on cached message envelopes (§6.4).
 - Apply per-`channelToken` rate limits (§13.5).
-- Publish a Relay Manifest at `/.well-known/agora-relay` (§3.5.1).
+- Publish a Relay Manifest at `/.well-known/agora-relay` (§3.5.1), declaring its connection-log retention and any observation-budget extensions.
 - Maintain heartbeat polling of peer relays (§3.5.6).
 - Route messages by `channelToken` only; never attempt to resolve tokens to identities.
 - Cache message envelopes up to the lesser of: configured retention window (default 30 days) or the envelope's `expiryHint`.
-- Delete cached envelopes on receipt of a valid signed `DeleteEvent` for their CID.
-- Pin IPFS content for channels it serves within the retention window.
-- Retain all CIDs listed in a channel's `pins` array indefinitely, regardless of retention window or `expiryHint`, until explicitly removed by a valid `UnpinEvent` (§6.6).
-- Reject `PinEvent` messages that would cause the channel's pin count to exceed `pinLimit` (§6.6).
+- Pin IPFS content stored under a `RelayServiceAgreement` within the agreement's retention window.
+- Honor pin and unpin instructions authorized by the epoch access proof, retaining pinned CIDs regardless of retention window or `expiryHint` until unpinned (ARCHITECTURE §6.2).
+- Enforce the storage and bandwidth quotas set by each `RelayServiceAgreement` (§12.2), keyed to the agreement and never to member identity.
 - Validate outer envelope structure and `channelToken` format before forwarding; drop malformed envelopes silently.
 - Support IPv6 on all endpoints; use bracket notation for IPv6 literals in advertised URIs.
 - Enforce per-`channelToken` rate limits as the primary spam control mechanism; per-IP limits MUST NOT be the sole mechanism.
+
+> **Open (agora-pozi.8):** The epoch access proof mechanism is a candidate pending review against MLS security properties (ARCHITECTURE §8 Q1).
+
+> **Open (agora-pozi.10):** Whether a Relay hosts a KeyPackage store at all, or KeyPackages are located through the user's DID document (ARCHITECTURE §8 Q3).
 
 A conformant Relay MUST NOT:
 
@@ -540,6 +565,9 @@ A conformant Relay MUST NOT:
 - Use per-IP rate limiting as the sole spam control mechanism.
 - Reuse a consumed KeyPackage.
 - Modify gossipsub messages in transit.
+- Make or enforce decisions about membership, roles, moderation or content, including bans, timeouts, deletes and pin limits; these are enforced by MLS removal and member clients (ARCHITECTURE S2, §6.2).
+- Sign Space state, channel state, role assignments, moderation records or retention policy (ARCHITECTURE S4).
+- Observe, log or retain anything outside the ARCHITECTURE §5 observation budget, except extensions a CO has opted into and the Relay declares in its manifest (ARCHITECTURE S6).
 
 A conformant Relay SHOULD:
 
@@ -553,15 +581,17 @@ Relay federation is permissionless. Any Relay that speaks the protocol may join 
 
 ---
 
-## 12. Relay Economics
+## 12. Relay Service Agreements and Abuse Control
 
-Agora Relays incur real costs: bandwidth, compute, storage, legal exposure, and abuse handling. Without a sustainable incentive model, the public Relay ecosystem collapses to hobbyists and ideologically motivated operators — adequate for a niche deployment, inadequate at internet scale. Agora specifies two complementary funding mechanisms: service agreements for organized communities, and micropayments for public or anonymous traffic. A third option — proof-of-work — provides spam deterrence without any payment infrastructure.
+*Binds: both.*
 
-All three mechanisms are **optional extensions** to the core protocol. A Relay that serves only private, trusted traffic requires no payment infrastructure whatsoever.
+Agora Relays incur real costs: bandwidth, compute, storage, legal exposure, and abuse handling. This section specifies the `RelayServiceAgreement`, the only binding between a CO and an IO (ARCHITECTURE S7), and proof-of-work as non-monetary abuse control. Commercial terms between CO and IO are agreed out of band and are outside the protocol.
+
+Both mechanisms are **optional extensions** to the core protocol. A Relay that serves only private, trusted traffic requires neither.
 
 ### 12.2 Relay Service Agreements
 
-A `RelayServiceAgreement` is a bilaterally signed document between a Space owner DID and a Relay DID specifying channels served, SLA terms, price, and fee-share obligation. It is the primary funding mechanism for organized communities.
+A `RelayServiceAgreement` is a bilaterally signed document between a CO billing DID and a Relay DID specifying retention, quotas, SLA terms, and the Relay's observation-budget declaration. It names no Space and no channel (ARCHITECTURE §6.1). Both signatures are made per §14.1.
 
 ```json
 {
@@ -569,21 +599,13 @@ A `RelayServiceAgreement` is a bilaterally signed document between a Space owner
   "@type": "RelayServiceAgreement",
   "id": "urn:agora:rsa:bafyrei...",
   "relay": "did:key:z6MkRelay...",
-  "space": "agora://bafyrei...",
-  "channels": ["*"],
+  "billing": "did:key:z6MkBilling...",
   "retentionDays": 90,
   "bandwidthTierGbPerMonth": 100,
-  "price": {
-    "@type": "PaymentPointer",
-    "scheme": "cashu",
-    "address": "https://mint.example.com"
-  },
-  "billingCycleDays": 30,
-  "feeShareBps": 1000,
-  "spaceTreasuryPointer": {
-    "@type": "PaymentPointer",
-    "scheme": "bolt12",
-    "address": "lno1pg..."
+  "storageQuotaGb": 50,
+  "observationBudget": {
+    "connectionLogRetentionDays": 7,
+    "extensions": []
   },
   "validFrom": "2026-03-12T00:00:00Z",
   "validUntil": "2027-03-12T00:00:00Z",
@@ -595,43 +617,57 @@ A `RelayServiceAgreement` is a bilaterally signed document between a Space owner
     "replenishFromIPFS": true
   },
   "relaySig": "base64url...",
-  "spaceOwnerSig": "base64url..."
+  "billingSig": "base64url..."
 }
 ```
 
-`channels` is a list of channel path globs. `"*"` means all current and future channels in the space. The agreement is gossiped on `v1/agora/space/<spaceCID>` and stored in the space's IPLD state. Multiple concurrent agreements (multiple Relays serving the same space) are valid and encouraged for redundancy.
+`billing` is a DID the CO dedicates to agreements. It MUST NOT appear in Space state, SpaceAds, directory documents, or any other record that identifies a Space. A CO MAY use one billing DID for all of its Spaces; doing so is what gives each Space its anonymity set at the Relay (ARCHITECTURE §5 item 6).
+
+The agreement is private between the CO and the Relay. It MUST NOT be gossiped, stored in Space state, or published. Multiple concurrent agreements (multiple Relays serving the same CO) are valid and encouraged for redundancy.
+
+Coverage is registered per MLS group. The CO's registration service submits an `AccessChainRegistration` to the Relay carrying the group's first-epoch access public key (§6.2); from then on the Relay follows the chain through `accessKeyAnnouncement`s. Members who create a group request registration from the CO's service; they never hold the billing key.
+
+```json
+{
+  "@type": "AccessChainRegistration",
+  "agreement": "urn:agora:rsa:bafyrei...",
+  "epoch": 0,
+  "channelToken": "base64url...",
+  "accessPublicKey": "z6Mk...",
+  "billingSig": "base64url..."
+}
+```
+
+A registration carries nothing that identifies a Space or channel. The CO's registration service SHOULD batch registrations and add random delay, so that registration timing does not reveal when a particular Space or channel was created.
+
+`storageQuotaGb` and `bandwidthTierGbPerMonth` are the quotas the Relay enforces for this agreement (§11.3).
+
+`observationBudget` records the connection-log retention (ARCHITECTURE §5 item 1) and any opt-in observation-budget extensions (ARCHITECTURE S6) the CO has agreed to. The Relay MUST declare the same values in its manifest (§3.5.1) and MUST NOT exceed them.
 
 `keyPackageSLA` is an optional clause that elevates the relay's KeyPackage Store behavior from best-effort to a contractual obligation (§6.1.1). When present, all fields are required and the relay's conformance to them is a term of the agreement.
 
-Relays publish their service tiers and accepted payment rails in their `RelayAd`. Each tier carries a `price` object with a `scheme`, `amount`, and optional `denomination`; the relay MAY publish multiple tier variants for different accepted rails:
+Relays publish their service tiers in their `RelayAd`:
 
 ```json
 {
   "@type": "RelayAd",
   "did": "did:key:z6MkRelay...",
   "endpoint": "https://relay.example.com",
-  "acceptedSchemes": ["cashu", "bolt12", "pow"],
   "serviceTiers": [
     {
       "id": "hobbyist",
       "retentionDays": 7,
-      "bandwidthTierGbPerMonth": 10,
-      "price": { "scheme": "pow", "amount": "0" },
-      "feeShareBpsMax": 0
+      "bandwidthTierGbPerMonth": 10
     },
     {
       "id": "standard",
       "retentionDays": 30,
-      "bandwidthTierGbPerMonth": 100,
-      "price": { "scheme": "cashu", "amount": "1000", "denomination": "sat" },
-      "feeShareBpsMax": 2000
+      "bandwidthTierGbPerMonth": 100
     },
     {
       "id": "enterprise",
       "retentionDays": 365,
-      "bandwidthTierGbPerMonth": 1000,
-      "price": { "scheme": "bolt12", "amount": "10000", "denomination": "sat" },
-      "feeShareBpsMax": 5000
+      "bandwidthTierGbPerMonth": 1000
     }
   ],
   "sig": "base64url...",
@@ -641,7 +677,7 @@ Relays publish their service tiers and accepted payment rails in their `RelayAd`
 
 ### 12.4 Proof-of-Work Spam Deterrence
 
-Channels that want spam deterrence without any payment infrastructure MAY use proof-of-work instead of or alongside monetary fees:
+Channels that want spam deterrence MAY require proof-of-work:
 
 ```json
 { "@type": "MessageFeePolicy", "scheme": "pow", "difficulty": 18 }
@@ -657,5 +693,5 @@ Channels that want spam deterrence without any payment infrastructure MAY use pr
 }
 ```
 
-The Relay verifies the PoW before forwarding. Difficulty 18 requires ~262,000 SHA-256 hash operations — roughly 10–50ms on a modern CPU, imperceptible to a human sender, but economically prohibitive for bulk message flooding.
+The Relay verifies the PoW before forwarding against its own minimum difficulty. The Relay cannot map a `channelToken` to a channel's `MessageFeePolicy` (§11.2), so member clients enforce the channel's difficulty and drop envelopes that do not meet it. Difficulty 18 requires ~262,000 SHA-256 hash operations — roughly 10–50ms on a modern CPU, imperceptible to a human sender, but economically prohibitive for bulk message flooding.
 

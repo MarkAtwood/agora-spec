@@ -1,10 +1,14 @@
 # Agora Protocol: Spaces and Space State
 
-> Binds: CO. Verbatim from `import/agora-protocol-spec-unified.md` lines 485–583 (§3.1–3.3). Section numbers are the source's and will be renumbered.
+> Binds: both. Source: import/agora-protocol-spec-unified.md lines 485–583 (§3.1–3.3).
 
 ## 3. Topology
 
+*Binds: both.*
+
 ### 3.1 Participants
+
+Agora separates the Infrastructure Operator (IO), which runs Relays and other infrastructure, from the Communications Operator (CO), which runs a community; for a Space the CO is the Space owner and its delegated admins (ARCHITECTURE §2). A Relay is an IO component.
 
 - **Client** — a user agent (web browser, desktop application, mobile app). Connects to one or more Relays. Has access to the user's cryptographic keys and MLS state, either directly (software keystore) or via a co-located secure boundary (OS Secure Enclave, hardware security key, HSM). Responsible for all encryption and decryption operations; those operations SHOULD be performed inside the secure boundary wherever the platform supports it.
 - **Relay** — an always-on server that participates in gossipsub, caches recent messages within a configured retention window, serves WebTransport and WebSocket endpoints for clients, and optionally pins IPFS content. Anyone may operate a Relay; no permission is required.
@@ -51,7 +55,7 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
   "@type": "SpaceState",
   "schemaVersion": "1",
   "id": "agora://bafyrei...",
-  "name": "wolfSSL Dev",
+  "name": "Example Dev",
   "iconCID": "bafyrei...",
   "owner": "did:key:z6Mk...",
   "channels": [
@@ -99,5 +103,5 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
 }
 ```
 
-`sig` is an Ed25519 signature over the canonical CBOR serialization of the document (per §14.1), signed by the Space owner's authentication key or a delegated admin's key.
+`sig` is an Ed25519 signature over the document, signed per §14.1 by the Space owner's authentication key or a delegated admin's key. Space state and channel state are signed only by these CO keys (ARCHITECTURE S4). A Relay or other IO key MUST NOT sign Space or channel state, and clients MUST reject Space or channel state that is not signed by the owner or by an admin authorized under the prior state.
 

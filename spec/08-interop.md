@@ -1,8 +1,12 @@
 # Agora Protocol: Interoperability
 
-> Binds: CO. Verbatim from `import/agora-protocol-spec-unified.md` lines 3427–3620 (§16). Section numbers are the source's and will be renumbered.
+> Binds: CO. Source: import/agora-protocol-spec-unified.md lines 3427–3620 (§16).
 
 ## 16. Interoperability
+
+*Binds: CO.*
+
+Every interop component in this section — MIMI provider endpoints, gateways and bridges — is a CO component (ARCHITECTURE.md §2.3, S8). None of them runs in, or as part of, a relay or any other IO component. Relays carry interop traffic only as ordinary ciphertext envelopes keyed by `channelToken`.
 
 ### 16.1 MIMI Native Interop
 
@@ -33,7 +37,7 @@ Each leaf node's credential in a MIMI-interop MLS group therefore carries both:
 }
 ```
 
-The credential is signed by the Agora authentication key. Agora clients verify the DID and signature. MIMI clients verify the MIMI URI portion and MUST treat the `did` field as an unknown extension — the `draft-ietf-mimi-content` spec does not explicitly specify that unknown credential fields are to be ignored rather than rejected, which is a known interoperability risk. Agora implementations SHOULD monitor MIMI client behavior for strict credential validation that rejects unknown fields; if this occurs in practice, the fallback is to strip the `did` field from credentials presented to MIMI clients and maintain a side-channel mapping from MIMI URI to Agora DID in the relay's session state.
+The credential is signed by the Agora authentication key. Agora clients verify the DID and signature. MIMI clients verify the MIMI URI portion and MUST treat the `did` field as an unknown extension — the `draft-ietf-mimi-content` spec does not explicitly specify that unknown credential fields are to be ignored rather than rejected, which is a known interoperability risk. Agora implementations SHOULD monitor MIMI client behavior for strict credential validation that rejects unknown fields; if this occurs in practice, the fallback is to strip the `did` field from credentials presented to MIMI clients and maintain a side-channel mapping from MIMI URI to Agora DID in the CO's MIMI provider endpoint (see Delivery Service Bridging). This mapping MUST NOT be held by a relay.
 
 For display purposes, neither side needs to parse the other's identifier format — MIMI URIs are rendered as opaque display strings in Agora clients, and Agora DIDs are rendered as opaque display strings in MIMI clients.
 
@@ -60,9 +64,9 @@ The content format in use is declared in the channel state document:
 
 #### Delivery Service Bridging
 
-MIMI defines a delivery service protocol (`draft-ietf-mimi-protocol-05`) for cross-provider message routing. In MIMI interop mode, Agora Relays act as MIMI delivery service endpoints for their served channels. MLS Commits and Welcome messages are exchanged between Agora Relays and MIMI provider infrastructure via the MIMI delivery protocol. Gossipsub fanout handles Agora-side delivery; the MIMI protocol handles the cross-provider leg.
+MIMI defines a delivery service protocol (`draft-ietf-mimi-protocol-05`) for cross-provider message routing. The MIMI delivery service tracks room participants by MIMI URI, so the Agora-side MIMI endpoint necessarily knows group membership. It is therefore a CO component: the CO operating the channel runs a MIMI provider endpoint, and a relay MUST NOT act as a MIMI delivery service endpoint (ARCHITECTURE.md S1). MLS Commits and Welcome messages are exchanged between the CO's MIMI provider endpoint and the peer MIMI provider via the MIMI delivery protocol. Gossipsub fanout through relays handles Agora-side delivery as token-keyed ciphertext; the MIMI protocol handles the cross-provider leg.
 
-The Agora Relay serving a MIMI-interop channel registers itself as the MIMI delivery service endpoint for that channel's MLS group with the MIMI provider. MLS handshake messages (Proposals, Commits, KeyPackages) flow bidirectionally between the two delivery services.
+The CO's MIMI provider endpoint registers as the MIMI delivery service endpoint for the channel's MLS group with the peer MIMI provider. MLS handshake messages (Proposals, Commits, KeyPackages) flow bidirectionally between the two delivery services. The endpoint holds no MLS group secrets and sees no plaintext; it relays handshake messages between the MIMI provider and the channel's relays as ciphertext. Members SHOULD be told that the peer MIMI provider also learns the room's participant list.
 
 #### Limitations
 
@@ -74,7 +78,7 @@ MIMI interop does not currently specify voice/video interop. VTC channels cannot
 
 ### 16.2 Matrix Gateway
 
-Matrix interop is a **gateway**, not native interop. A Matrix gateway holds an Agora DID, is admitted to the relevant channel MLS groups as a member, decrypts Agora messages, re-encrypts them using Matrix's Megolm E2EE for delivery to Matrix users, and performs the reverse for Matrix→Agora direction. **E2EE is broken at the gateway — the gateway holds plaintext.** This MUST be made visible to all participants (§16.3).
+Matrix interop is a **gateway**, not native interop. A Matrix gateway is a CO component (ARCHITECTURE.md §2.3, S8): it MUST run under the control of the CO operating the channel and MUST NOT run in or as part of a relay. Co-location on IO hardware is permitted only as S8 allows, with the gateway remaining a CO principal with its own DID and keys. A Matrix gateway holds an Agora DID, is admitted to the relevant channel MLS groups as a member, decrypts Agora messages, re-encrypts them using Matrix's Megolm E2EE for delivery to Matrix users, and performs the reverse for Matrix→Agora direction. **E2EE is broken at the gateway — the gateway holds plaintext.** This MUST be made visible to all participants (§16.3).
 
 #### Gateway Identity and Admission
 
@@ -171,7 +175,7 @@ The recommended implementation uses the **Matrix Application Service API** rathe
 
 ### 16.3 Gateway Transparency
 
-Any gateway admitted to an Agora channel — Matrix, or any future gateway type — MUST be disclosed to all channel members. This is enforced at the protocol level, not by policy.
+Any gateway admitted to an Agora channel — Matrix, or any future gateway type — is a CO component subject to the same placement rule as §16.2 and MUST be disclosed to all channel members. This is enforced at the protocol level, not by policy.
 
 **Channel state disclosure.** The `gateways` array in the channel state document (§16.2) is visible to all MLS group members. Clients MUST display a visible indicator when a channel has active gateways. The indicator MUST identify the gateway protocol and target system. A channel with an active gateway is not E2EE-private for bridged traffic; members must be able to determine this without reading protocol documentation.
 

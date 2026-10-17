@@ -1,8 +1,10 @@
 # Agora Protocol: Voice and Video
 
-> Binds: both. Verbatim from `import/agora-protocol-spec-unified.md` lines 2510–2919 (§10). Section numbers are the source's and will be renumbered.
+> Binds: both. Source: import/agora-protocol-spec-unified.md lines 2510–2919 (§10).
 
 ## 10. Voice and Video (VTC)
+
+*Binds: both.*
 
 Agora supports real-time group voice and video conferencing as a first-class channel type. The design uses WebRTC for media transport, MLS-encrypted signaling for all control messages, and an optional SFU (Selective Forwarding Unit) for scalable multi-party sessions. Media never transits Relays.
 
@@ -41,7 +43,7 @@ Call state is ephemeral, gossip-propagated, and not stored in IPLD history. It i
 
 `audioMuted`, `videoEnabled`, `screenSharing`, and `handRaised` are advisory UI hints gossiped to other participants. They are not enforced at the media layer.
 
-Call state events are delivered as MLS `PublicMessage` application data — authenticated by the sender's MLS credentials but not encrypted, since call state is visible to all channel members.
+Call state events are delivered as MLS `PrivateMessage` application data, authenticated by the sender's MLS credentials and encrypted to the channel group. Relays and other IO components learn neither the sender nor who is in the call (ARCHITECTURE S1).
 
 ### 10.3 Join and Leave
 
@@ -67,7 +69,7 @@ All WebRTC signaling (SDP offer/answer, ICE candidates) is delivered as `VoiceSi
 }
 ```
 
-`signalType` values: `offer`, `answer`, `candidate`, `candidate-end`. `targetDID` is the intended recipient. All signals are broadcast to the channel MLS group; non-target recipients MUST ignore signals not addressed to them.
+`signalType` values: `offer`, `answer`, `candidate`, `candidate-end`. `targetDID` is the intended recipient. All signals are broadcast to the channel MLS group; non-target recipients MUST ignore signals not addressed to them. `VoiceSignal` is used between participants only; signaling with an SFU, which is not an MLS member, uses the SFU endpoint (§10.6).
 
 The consequences of MLS-encrypted signaling:
 - **E2EE signaling** — Relays cannot read SDP or ICE candidates.
@@ -86,11 +88,11 @@ The threshold of 4 is a recommendation. Clients MAY negotiate mesh topology for 
 
 #### SFU Identity and Trust
 
-An SFU has a DID, just like a user. Before an SFU can participate in a voice channel, its DID MUST be added to the channel's MLS group via a normal MLS Add commit, signed by a channel Admin. A participant's client MUST verify the SFU's DID against the channel's MLS group membership before connecting to it; an SFU not in the group MUST be rejected.
+An SFU is an IO component (ARCHITECTURE §2.3). It has a DID, but it MUST NOT be an MLS member of any channel group, and no client may add it to one. An SFU is admitted only by an `SFUDescriptor` entry in the CO-signed Space state document (ARCHITECTURE S4), which binds the SFU's DID to its endpoint. A participant's client MUST verify, before sending media, that the SFU it connects to is listed in current Space state and that the SFU's signaling messages are signed by the DID in that entry; any other SFU MUST be rejected. MLS secrets, exporter outputs and media E2EE keys (§10.9) MUST NOT be sent to an SFU.
 
 #### SFU Discovery
 
-Space operators publish their SFU's DID and WebRTC endpoint in the Space state document:
+The Space owner (CO) publishes each admitted SFU's DID and WebRTC endpoint in the Space state document:
 
 ```json
 "sfus": [
@@ -108,24 +110,29 @@ Space operators publish their SFU's DID and WebRTC endpoint in the Space state d
 
 #### SFU Signaling Flow
 
-1. Client sends `VoiceSignal { signalType: "offer", targetDID: <sfuDID> }` to the channel.
-2. SFU receives the offer (it is an MLS group member), responds with `VoiceSignal { signalType: "answer", targetDID: <clientDID> }`.
-3. ICE candidates are exchanged via `candidate` signals.
-4. DTLS handshake completes over the established ICE path — fingerprint from SDP is verified against the SFU's DID document.
-5. SRTP media flows.
+1. Client selects an `SFUDescriptor` from current Space state and opens a TLS WebSocket to its `endpoint`.
+2. Client presents the MLS-membership access proof for the voice channel's `channelToken` (ARCHITECTURE §6.2). The SFU uses the `channelToken` as its room key and never learns the channel CID, Space, or any participant's DID.
+3. Client sends its SDP offer; the SFU responds with an SDP answer signed by the SFU's DID key. The client verifies the signature against the DID in the `SFUDescriptor`.
+4. ICE candidates are exchanged over the same connection.
+5. DTLS handshake completes over the established ICE path; the fingerprint is the one carried in the signed SDP answer.
+6. SRTP media flows, with SFrame-encrypted payloads (§10.9).
+
+Participants map SFU-forwarded streams to DIDs using information exchanged among themselves in MLS-encrypted messages; the SFU sees only connection-scoped stream identifiers.
+
+> **Open (agora-pozi.8):** the SFU admission proof in step 2 reuses the ARCHITECTURE §6.2 epoch access key and follows its resolution (Q1).
 
 #### SFU Media Opacity
 
-The SFU forwards SRTP packets without decrypting them. It cannot read audio or video content. It CAN observe:
-- Which participants are sending media (RTP SSRC → participant mapping)
+The SFU terminates each client's DTLS-SRTP hop, so SRTP alone does not hide media from it. Media payloads sent through an SFU are therefore always SFrame-encrypted with keys the SFU does not hold (§10.9), and the SFU cannot read audio or video content. It CAN observe:
+- Which connections are sending media (RTP SSRC → connection mapping, not → DID)
 - Packet timing and sizes (traffic analysis)
 - Whether a stream is active or silent
 
-This is an accepted tradeoff. An SFU that forwards without decrypting is a routing device, not a surveillance device. The alternative — full E2EE media with per-participant keys — requires Insertable Streams (WebRTC IS) and is specified as an optional extension in §10.9.
+These fall within the IO observation budget (ARCHITECTURE §5, items 1–2).
 
 #### SFU Recording
 
-An SFU MAY be granted explicit decryption rights for recording. This is a deliberate, auditable, and reversible action requiring explicit admin authorization and participant disclosure. The full sub-protocol is specified in §10.12.
+An SFU MUST NOT be granted decryption rights for recording. Recording is performed by a CO-run recorder (§10.12), which may receive forwarded media from the SFU as an ordinary subscriber and decrypts it itself.
 
 ### 10.7 Simulcast and Bandwidth Adaptation
 
@@ -133,7 +140,7 @@ Clients SHOULD publish video in multiple simulcast layers (e.g., 1080p / 360p / 
 
 For Scalable Video Coding (SVC) codecs (VP9, AV1), temporal and spatial scalability layers are used instead of discrete simulcast tracks. SFU implementations SHOULD support both simulcast (VP8, H.264) and SVC (VP9, AV1).
 
-Audio is always single-layer. The SFU performs silence suppression detection via Voice Activity Detection on the RTP stream to forward only active speakers, with a configurable active-speaker window (default: 3 simultaneous speakers).
+Audio is always single-layer. The SFU selects active speakers from the RTP audio-level header extension (RFC 6464), since media payloads are encrypted (§10.9), to forward only active speakers, with a configurable active-speaker window (default: 3 simultaneous speakers).
 
 ### 10.8 Screen Sharing
 
@@ -147,9 +154,9 @@ Clients receiving a screen share track SHOULD display it distinctly from camera 
 
 Screen share tracks use a separate simulcast configuration from camera video: typically high resolution (up to 1080p or 1440p), low frame rate (5–15 fps).
 
-### 10.9 End-to-End Encrypted Media (Optional Extension)
+### 10.9 End-to-End Encrypted Media
 
-The default SFU topology trusts the SFU not to analyze RTP packet content. For higher-threat deployments, **WebRTC Insertable Streams** (W3C) enable per-hop media encryption with participant-held keys, such that the SFU forwards ciphertext it cannot decrypt even at the packet level.
+Because an SFU terminates DTLS-SRTP, it would see plaintext media without a second encryption layer, which would make it a CO component (ARCHITECTURE §2.3). E2EE media is therefore REQUIRED whenever media transits an SFU: clients MUST encrypt media payloads with SFrame (RFC 9605) via **WebRTC Insertable Streams** (W3C Encoded Transform) using participant-held keys, and MUST NOT send media to an SFU without it. In mesh topology, DTLS-SRTP is already end-to-end between participants and E2EE media is OPTIONAL.
 
 In this mode:
 - Each participant derives a media encryption key via the MLS exporter interface: `MLS-Exporter("agora-media-key", participantDID, 32)` (RFC 9420 §8.5).
@@ -157,9 +164,9 @@ In this mode:
 - The SFU forwards encrypted RTP packets opaquely.
 - Each receiving participant's Insertable Streams transform decrypts using the sender's exported media key.
 
-Media keys rotate with MLS epochs. A participant whose MLS leaf is removed loses their media key derivation capability for subsequent epochs.
+Media keys rotate with MLS epochs. A participant whose MLS leaf is removed loses their media key derivation capability for subsequent epochs. Media keys MUST NOT be disclosed to an SFU, TURN server, or any other IO component (ARCHITECTURE S3).
 
-This extension requires browser/runtime support for Insertable Streams (available in Chromium-based browsers; partial in Firefox). It is declared in the channel state as `"e2eeMedia": true`. Clients that do not support Insertable Streams MUST NOT join a channel with `e2eeMedia: true`.
+This mode requires browser/runtime support for Insertable Streams (available in Chromium-based browsers; partial in Firefox). It is declared in the channel state as `"e2eeMedia": true`, which MUST be set on any channel that uses an SFU. Clients that do not support Insertable Streams MUST NOT join a channel with `e2eeMedia: true` and MAY participate only in mesh calls.
 
 ### 10.10 DTLS-SRTP Identity Binding
 
@@ -172,6 +179,8 @@ In Agora, the SDP carrying the fingerprint is delivered as a `VoiceSignal` inner
 - The media stream is cryptographically bound to the sending DID.
 
 This closes the identity binding loop without requiring any PKI or certificate authority. The MLS group membership proof IS the identity assertion for media.
+
+Through an SFU, the DTLS hop ends at the SFU, whose fingerprint is authenticated by its signed SDP answer and its `SFUDescriptor` (§10.6). Participant-to-participant binding is then provided by the SFrame keys (§10.9), which only current MLS members can derive.
 
 ### 10.11 TURN Server Integration
 
@@ -189,25 +198,25 @@ TURN servers in Agora have DIDs, published in the Space state document:
     "uri": "turns:turn.example.com:5349",
     "transport": "tcp",
     "regions": ["us-west", "eu-central"],
-    "credentialScheme": "agora-hmac-did"
+    "credentialScheme": "co-issued"
   }
 ]
 ```
 
-`uri` follows the standard TURN URI format (RFC 7065). `turns:` (TLS) is required; `turn:` (plaintext) MUST NOT be used.
+`uri` follows the standard TURN URI format (RFC 7065). `turns:` (TLS) is required; `turn:` (plaintext) MUST NOT be used. A `TURNDescriptor` MUST NOT carry any shared secret or key from which TURN credentials can be computed.
 
 **Reference implementations:** [`coturn`](https://github.com/coturn/coturn) is the standard open-source TURN/STUN server.
 
 #### TURN Credentials
 
-Standard TURN uses username/password credentials. Agora replaces this with **DID-based HMAC credentials** (`credentialScheme: "agora-hmac-did"`) to avoid any credential that could identify a user to the TURN operator:
+TURN credentials (`credentialScheme: "co-issued"`) are short-lived RFC 8489 long-term credentials issued to members by a CO-run credential service, using the TURN REST pattern:
 
-1. The TURN server publishes a time-scoped HMAC key in its `TURNDescriptor`, rotated every 24 hours: `hmacKey = HKDF(turnMasterSecret, "turn-key" || floor(unixtime / 86400))`
-2. A client computes: `username = floor(unixtime / 86400) || ":" || randomNonce` and `credential = HMAC-SHA256(hmacKey, username)`
-3. The client presents these credentials in the ICE `candidate` for the TURN allocation.
-4. The TURN server verifies the HMAC without learning the client's DID or any persistent identity.
+1. The TURN operator and the CO credential service share a secret. It is held only by those two parties and is never published.
+2. A member requests credentials from the CO credential service, which issues them only to current members of the Space.
+3. The service returns `username = expiryUnixTime || ":" || randomNonce` and `password = HMAC(secret, username)`. The username MUST NOT contain a DID or any other persistent identifier.
+4. The TURN server verifies the HMAC and the expiry without learning the client's DID or any persistent identity.
 
-The TURN operator sees: a valid HMAC credential, a source IP, and opaque SRTP packets. It cannot link the session to a DID, channel, or space.
+The TURN operator sees: a valid credential, a source IP, and opaque SRTP packets. It cannot link the session to a DID, channel, or space.
 
 #### ICE Candidate Priority
 
@@ -222,9 +231,9 @@ TURN candidates are only used if all higher-priority paths fail. Clients SHOULD 
 
 #### TURN Credential Distribution
 
-TURN credentials are short-lived and not sensitive. They MAY be distributed as plaintext in the outer `RoutingEnvelope` as a `TURNCredentialHint` alongside the `VoiceSignal`, or fetched directly from the TURN server's HTTP endpoint using the DID-HMAC scheme before signaling begins.
+TURN credentials are bearer tokens. Members MAY share them with other participants inside MLS-encrypted messages, and MUST NOT place them in the outer `RoutingEnvelope` or anywhere else an IO can read them.
 
-For `e2eeMedia: true` channels, TURN credential computation uses the MLS epoch secret as an additional HMAC input: `credential = HMAC-SHA256(hmacKey, username || epochSecret[:16])`. This binds TURN access to current MLS group membership.
+TURN credentials MUST NOT be derived from MLS epoch secrets or exporter outputs: the TURN server would need the same value to verify them (ARCHITECTURE S3). Binding TURN access to membership is the job of the CO credential service, which issues only to current members.
 
 ### 10.12 Recording Grant Sub-Protocol
 
@@ -250,7 +259,7 @@ A channel Admin issues a `RecordingGrant` as an MLS application message to the v
 }
 ```
 
-`grantedTo` is the DID of the recording principal. `scope` is `"audio-only"`, `"video-only"`, or `"audio-video"`. `purpose` is `"operational"` (ad-hoc recording by an admin) or `"compliance"` (regulatory retention obligation). `participantDisclosure` MUST be displayed to all channel participants before recording begins.
+`grantedTo` is the DID of the recording principal. The recorder holds media keys and produces plaintext, so it is a CO component (ARCHITECTURE §2.3, S8). Clients MUST NOT issue a `RecordingGrant` to, or deliver recording keys to, a DID that appears in Space state as an SFU, TURN server or relay, or any other IO key. `scope` is `"audio-only"`, `"video-only"`, or `"audio-video"`. `purpose` is `"operational"` (ad-hoc recording by an admin) or `"compliance"` (regulatory retention obligation). `participantDisclosure` MUST be displayed to all channel participants before recording begins.
 
 A `RecordingRevoke` terminates the grant early:
 
@@ -348,7 +357,7 @@ The recorder writes received media to IPFS and records metadata as a `VTCComplia
 }
 ```
 
-`mediaCID` is the IPFS CID of the recorded media file. `prevRecordCID` chains records into the same append-only IPLD structure used for text compliance (§17.4), making the recording archive tamper-evident. `recorderSig` is the recorder's Ed25519 signature over the canonical CBOR serialization of all other fields.
+`mediaCID` is the IPFS CID of the recorded media file. `prevRecordCID` chains records into the same append-only IPLD structure used for text compliance (§17.4), making the recording archive tamper-evident. `recorderSig` is the recorder's Ed25519 signature over all other fields, signed per §14.1.
 
 Media SHOULD be stored as Opus audio in an Ogg or WebM container (audio-only recordings) or VP8/VP9/AV1 video with Opus audio in a WebM container (audio-video recordings). The recorder MUST decode the SRTP streams using the delivered recording keys and re-encode to the archive format before writing to IPFS. The raw SRTP packets MUST NOT be stored.
 
@@ -374,7 +383,7 @@ To enable automatic compliance recording for a space's voice channels, the space
 }
 ```
 
-`recorderDID` is the DID of the compliance recording principal. `autoGrant` when `true` causes conformant clients to automatically issue a `RecordingGrant` for `recorderDID` on every voice channel in the space when a call begins, without requiring per-call admin action.
+`recorderDID` is the DID of the compliance recording principal, a CO component run under CO control (ARCHITECTURE S8). `autoGrant` when `true` causes conformant clients to automatically issue a `RecordingGrant` for `recorderDID` on every voice channel in the space when a call begins, without requiring per-call admin action.
 
 When `autoGrant` is `true`, the `RecordingGrant` is issued by the first Admin or Owner client that observes the call starting. The grant `expiresAt` is set to the call end plus a configurable grace period (default 5 minutes) to capture any reconnecting participants.
 

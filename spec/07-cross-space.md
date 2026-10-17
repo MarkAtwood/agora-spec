@@ -1,8 +1,10 @@
 # Agora Protocol: Cross-Space Channel Sharing
 
-> Binds: CO. Verbatim from `import/agora-protocol-spec-unified.md` lines 3939–4083 (§18). Section numbers are the source's and will be renumbered.
+> Binds: CO. Source: import/agora-protocol-spec-unified.md lines 3939–4083 (§18).
 
 ## 18. Cross-Space Channel Sharing
+
+*Binds: both (CO throughout; §18.6 peering also binds IO).*
 
 ### 18.1 Overview
 
@@ -35,7 +37,7 @@ Sharing a channel requires bilateral authorization: the home space admin and the
   "homeSpace": "agora://bafyrei.../",
   "homeChannel": "agora://bafyrei.../engineering/backend",
   "guestSpace": "agora://bafyxyz.../",
-  "guestAlias": "shared/wolfssl-backend",
+  "guestAlias": "shared/example-backend",
   "guestRoles": ["member", "engineer"],
   "guestPermissions": {
     "canSend": true,
@@ -58,12 +60,16 @@ Sharing a channel requires bilateral authorization: the home space admin and the
 
 The agreement is stored as an IPLD node, CID-referenced from both space state documents, and gossiped on both `v1/agora/space/<homeSpaceCID>` and `v1/agora/space/<guestSpaceCID>`.
 
+The agreement is a CO-to-CO document: both signatures are CO keys of the respective Spaces (S4). Relays carry and store it as opaque data like any other envelope; they MUST NOT interpret it or act on it, and it confers no authority on any IO.
+
 ### 18.4 Member Admission
 
 When a `ChannelShareAgreement` is established and gossiped, conformant clients from the guest space whose roles match `guestRoles` are eligible to join the shared channel's MLS group. Admission follows the standard MLS Add flow, initiated either by:
 
 - A home space admin issuing a Welcome to the guest member directly, or
 - A guest space admin issuing a bulk Welcome on behalf of all eligible members (this requires that the guest admin is themselves already an MLS group member, admitted by the home space admin as part of agreement setup).
+
+Clients accept such a Welcome only from a committer authorized to add members under the home space state and the agreement (ARCHITECTURE §6.3).
 
 The recommended flow is: home space admin admits the guest space admin first; guest space admin then admits their eligible members. This distributes the Commit workload and avoids requiring the home admin to manage foreign space membership individually.
 
@@ -79,7 +85,7 @@ The guest space's state document records the alias mapping:
 "sharedChannels": [
   {
     "@type": "SharedChannelAlias",
-    "aliasPath": "shared/wolfssl-backend",
+    "aliasPath": "shared/example-backend",
     "homeChannelCID": "bafyrei...",
     "agreementCID": "bafyrei...",
     "homeSpaceCID": "bafyrei..."
@@ -93,7 +99,9 @@ Clients resolve `guestAlias` → `homeChannelCID` before any protocol operation.
 
 The home channel's gossip topic (`v1/agora/channel/<channelToken>`) is where all messages flow. Guest space members subscribe to this topic via their own Relays. For this to work, the guest space's Relays must be peered with (or able to reach) the home channel's Relays.
 
-No special Relay configuration is required if both spaces' Relays participate in the same gossipsub mesh — this is the common case for public or semi-public spaces. For private spaces whose Relays are isolated (e.g., on a private Tailscale overlay), explicit Relay peering must be established between the home and guest space operators. The `ChannelShareAgreement` MAY include a `relayHints` array suggesting peering endpoints:
+Each CO engages Relays for the shared channel through its own `RelayServiceAgreement` (§12.2) by registering the shared group's access-key chain under it (S7). Neither agreement identifies the Space or the channel. Relays route by `channelToken` alone; they do not learn which Space a subscriber belongs to, that the channel is shared, or the contents of the `ChannelShareAgreement` (S1). Access is by MLS membership (ARCHITECTURE §6.2), so guest members need no Relay-side admission.
+
+No special Relay configuration is required if both spaces' Relays participate in the same gossipsub mesh — this is the common case for public or semi-public spaces. For private spaces whose Relays are isolated (e.g., on a private Tailscale overlay), the two COs arrange peering between their IOs through their respective `RelayServiceAgreement`s; peering itself is an IO-to-IO relationship (ARCHITECTURE §5 item 7). The `ChannelShareAgreement` MAY include a `relayHints` array suggesting peering endpoints, for the COs' use; Relays do not read it:
 
 ```json
 "relayHints": [
@@ -137,7 +145,7 @@ Guest space members MUST be notified of this at channel join time. The client di
 
 > "This channel is hosted by [Home Space Name] and is subject to their message retention policy: [retentionNotice text]"
 
-If the guest space also has compliance logging enabled, its logger MAY also be added to the shared channel's MLS group, subject to home space admin approval (an additional MLS Add commit is required). Both loggers may simultaneously hold membership. The home space admin MAY reject a guest space's compliance logger by declining to issue a Welcome; in that case the guest space admin is responsible for any resulting regulatory non-compliance on their side.
+If the guest space also has compliance logging enabled, its logger MAY also be added to the shared channel's MLS group, subject to home space admin approval (an additional MLS Add commit is required). Both loggers may simultaneously hold membership. The home space admin MAY reject a guest space's compliance logger by declining to commit its Add (and so never sending it a Welcome); in that case the guest space admin is responsible for any resulting regulatory non-compliance on their side.
 
 ### 18.9 Voice Channel Sharing
 

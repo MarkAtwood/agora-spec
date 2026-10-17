@@ -47,9 +47,11 @@ issues.
 
 A component's role is determined by what it holds, not by who runs it:
 
-- A component that holds MLS group secrets, user signing keys, or plaintext is
-  a **CO component**, regardless of operator or hosting location.
-- A component that holds none of these is an **IO component**.
+- A component that holds MLS group secrets, user signing keys, or plaintext,
+  or that must know group membership or sender identity to do its job, is a
+  **CO component**, regardless of operator or hosting location.
+- A component that holds none of these and needs no such knowledge is an
+  **IO component**.
 
 | Component | Role | Notes |
 |---|---|---|
@@ -63,6 +65,7 @@ A component's role is determined by what it holds, not by who runs it:
 | Archive / Purview bridge | CO | Holds plaintext |
 | IdP / DID sidecar, enrollment service | CO | Holds or controls identity keys |
 | Gateways (Matrix, Slack, Teams) | CO | Break E2EE by design |
+| MIMI provider endpoint | CO | Knows room membership |
 | Community-mode SpeakerBot | CO | MLS member |
 | Managed endpoint devices | CO | Enforcement point for org policy (§6.3) |
 
@@ -150,8 +153,12 @@ An IO MAY observe the following and nothing else:
 5. Quota state under a `RelayServiceAgreement`, keyed to the agreement and
    never to member identity. Commercial terms between CO and IO are outside the
    protocol.
-6. For push proxies only: opaque device push handles and wake-up timing.
-7. Its own peering relationships with other IOs.
+6. The billing DID of each CO it holds an agreement with, and which access-key
+   chains (§6.2) are registered under each agreement. An IO MUST NOT be able to
+   map a chain to a Space or channel: the set of Spaces it cannot tell apart is
+   every Space that CO serves through it.
+7. For push proxies only: opaque device push handles and wake-up timing.
+8. Its own peering relationships with other IOs.
 
 Agora does not claim network-layer anonymity against an IO. Members who need it
 use an overlay transport (protocol spec §3.4, §8). This matches the privacy
@@ -162,9 +169,21 @@ whitepaper: "Agora is not anonymous."
 ### 6.1 Space state and the RelayServiceAgreement
 
 The CO publishes signed Space state (S4). It engages IOs by
-`RelayServiceAgreement`, which fixes the channels served, retention, quotas,
-price and observation-budget declarations. Enforcement is by selection: a CO
-that is unhappy with an IO replaces it (S5).
+`RelayServiceAgreement`, which fixes retention, quotas and observation-budget
+declarations. Commercial terms are out of band. Enforcement is by selection: a
+CO that is unhappy with an IO replaces it (S5).
+
+An agreement identifies the CO only by a **billing DID**: a key dedicated to
+agreements that MUST NOT appear in Space state or any other Space-identifying
+record. An agreement names no Space and no channel. Coverage is expressed by
+registering access-key chains (§6.2) under the agreement, through a CO-run
+registration service, so that members can create groups without holding the
+billing key. Agreements are private between the two parties and are not
+gossiped or published.
+
+The effect is that an IO learns which CO a chain belongs to, never which of
+that CO's Spaces. A CO that operates many Spaces through the same IO gives each
+of them a correspondingly large anonymity set.
 
 ### 6.2 Access control by MLS membership
 
@@ -265,6 +284,10 @@ restructured specification resolves each as stated.
   publications. Confirm that no discovery mechanism requires an IO to publish CO
   information on the CO's behalf.
 
+- **Q6. Which Spaces an IO serves.** Resolved 2026-10-16: an IO knows the CO's
+  billing DID and the chains registered under each agreement, never the Space
+  (§5 item 6, §6.1).
+
 ## 9. Accepted costs
 
 - **A malicious member client can evade CO policy that the infrastructure used
@@ -276,6 +299,13 @@ restructured specification resolves each as stated.
   still send ciphertext until removed. Members' clients drop it.
 - **Some infrastructure-level abuse controls get coarser.** Without identity, an
   IO rate-limits by routing token, agreement and network address.
+- **Space anonymity at the IO is only as large as the CO.** A CO with one Space
+  gets none. An IO can also correlate registration timing with a newly
+  advertised public Space, and can cluster chains that the same network
+  address subscribes to. It cannot name such a cluster without outside
+  information. A Space that publishes its relay list has disclosed that it uses
+  those relays, by choice. Under legal demand an IO can produce which network
+  addresses used a given CO's service, not which Space, channel or sender.
 
 ## 10. Review test
 

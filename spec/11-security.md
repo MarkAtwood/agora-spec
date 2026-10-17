@@ -1,8 +1,10 @@
 # Agora Protocol: Security Considerations
 
-> Binds: both. Verbatim from `import/agora-protocol-spec-unified.md` lines 3223–3352 (§13). Section numbers are the source's and will be renumbered.
+> Binds: both. Source: import/agora-protocol-spec-unified.md lines 3223–3352 (§13).
 
 ## 13. Security Considerations
+
+*Binds: both.*
 
 ### 13.1 Forward Secrecy
 
@@ -14,25 +16,23 @@ MLS `Update` proposals (triggered by devices or by time-based policy) ratchet th
 
 ### 13.3 Relay Trust and Legal Exposure
 
-Relays are untrusted for message content and deliberately blind to metadata. The threat model addressed here is: a Relay operator receives a subpoena or legal demand. What can they produce?
+Relays are untrusted for message content and blind to membership and sender identity. The threat model addressed here is: a Relay operator receives a subpoena or legal demand. What can they produce?
 
-**What a Relay can observe:**
-- That a connection was made from an IP address at a given time.
-- That messages matching a `channelToken` were forwarded (opaque encrypted blob, no content, no identity).
-- Cached message envelopes within the retention window (opaque, MLS-encrypted, sender DID sealed inside).
-- The existence and approximate size of a gossipsub topic mesh.
+What each operator can be compelled to produce is defined in ARCHITECTURE.md §4: an IO yields only what is inside its observation budget (ARCHITECTURE.md §5), and a CO yields what its own retention policy keeps. The authoritative record for a regulated community is the CO's archive (§17), never a Relay.
+
+**What a Relay can observe:** exactly the ARCHITECTURE.md §5 observation budget — network-layer connection metadata within the retention declared in its manifest, ciphertext envelopes with their size, timing, `channelToken` and expiry hint, verification material and proofs that do not identify the member, CIDs it stores, agreement-keyed quota state, and its own peering relationships.
 
 **What a Relay cannot observe:**
 - Message content (MLS E2EE; the Relay never holds decryption keys).
 - Sender identity for any message (sealed sender; sender DID is inside the MLS ciphertext).
-- Channel identity from `channelToken` (epoch-rotating HKDF derivation, non-reversible without the epoch secret).
+- Channel identity from `channelToken` (epoch-rotating derivation from the MLS exporter, non-reversible without group secrets).
 - Group membership (no membership list at the Relay layer).
 - Message graphs or conversation structure.
 
 **What a Relay cannot do:**
 - Forge messages (sender DID and signature are inside the sealed envelope, verified by recipients).
 - Silently modify history (IPLD content addressing detects tampering).
-- Map routing tables across epochs without epoch secrets.
+- Map routing tables across epochs without MLS group secrets.
 
 Clients SHOULD connect to multiple Relays simultaneously. A single Relay going dark (legal seizure, operator shutdown) does not partition a user from their channels as long as at least one other Relay serving that `channelToken` is reachable.
 
@@ -44,15 +44,19 @@ The sealed sender design eliminates sender identity from the Relay layer. Residu
 
 **Timing correlation** — a global passive adversary watching both sender and Relay can correlate message timing. This is a known limitation of all low-latency messaging protocols. Mixing/batching (as in Katzenpost) defeats timing analysis but is incompatible with Discord-like UX latency targets. This is an accepted tradeoff.
 
-**Gossipsub topic subscription** — Relays and mesh peers observe which `channelTokens` a peer subscribes to. Since tokens rotate per epoch, long-term correlation requires capturing multiple epochs' tokens. Clients MAY subscribe to decoy `channelTokens` (derived from non-existent channels using valid HKDF derivation) to obscure their actual channel membership count and pattern. Clients requiring strong subscription privacy SHOULD maintain a fixed subscription count (padding with decoys to a constant) and rotate decoy selections each epoch.
+**Gossipsub topic subscription** — Relays and mesh peers observe which `channelTokens` a peer subscribes to. Since tokens rotate per epoch, long-term correlation requires capturing multiple epochs' tokens. Clients MAY subscribe to decoy `channelTokens` (random values indistinguishable from real tokens) to obscure their actual channel membership count and pattern. Clients requiring strong subscription privacy SHOULD maintain a fixed subscription count (padding with decoys to a constant) and rotate decoy selections each epoch.
+
+**Presence, typing and DM membership** — presence and typing indicators are MLS application messages, and a DM is an ordinary MLS group addressed by `channelToken`. A Relay sees them only as ciphertext envelopes within the ARCHITECTURE.md §5 budget; it cannot distinguish them from other traffic by type, and it does not learn who is in a DM.
 
 **Tor gossipsub fingerprinting** — as noted in §8.3, gossipsub peer scoring observes message timing and subscription behavior independently of IP. A client connecting via Tor is not fully anonymous at the gossipsub layer. Clients requiring strong anonymity against a Relay-level adversary should treat this as a known residual risk.
 
-**Channel token to channel CID correlation** — the `channelToken` derivation uses `HKDF(epochSecret, "channel-token" || channelCID)`. An adversary who obtains the epoch secret (e.g., via member compromise) can compute the token for any channel they know the CID of. This is acceptable: epoch secret compromise already implies full message compromise for that epoch; the token mapping adds no new capability beyond what the compromised epoch secret already provides.
+**Channel token to channel CID correlation** — the `channelToken` is derived from the MLS exporter with a dedicated label and the `channelCID` as context (§6.2). An adversary who obtains a member's group state for an epoch (e.g., via member compromise) can compute the token for any channel they know the CID of. This is acceptable: that compromise already implies full message compromise for that epoch; the token mapping adds no new capability beyond what the compromised group state already provides.
 
 ### 13.5 Denial of Service
 
-Gossipsub v1.1 includes peer scoring and flood control built-in. Relays MUST enforce per-`channelToken` rate limits on message publication. Spam control is local policy — there is no global reputation system (by design; global reputation systems become censorship infrastructure).
+Gossipsub v1.1 includes peer scoring and flood control built-in. Relays MUST enforce per-`channelToken` rate limits on message publication. A Relay rate-limits and meters by routing token, `RelayServiceAgreement` and network address, never by member identity (ARCHITECTURE.md S1, §9); envelopes that fail the membership proof (ARCHITECTURE.md §6.2) are rejected. Spam control is local policy — there is no global reputation system (by design; global reputation systems become censorship infrastructure).
+
+> **Open (agora-pozi.9):** How a Relay meters abuse and quota before a client has proven membership in any channel, without authenticating its DID (candidates: agreement-scoped bearer tokens, proof-of-work, Privacy Pass).
 
 ### 13.6 Key Storage: HSM and Secure Enclave Guidance
 
@@ -116,7 +120,11 @@ The organization retains one path to producing a message attributable to Alice's
 2. **Is recorded in the provisioning audit log** (§2.5.5).
 3. **Is detectable** by any party that compares the signing key fingerprint in a message against the DID document entry that was active at the time of message creation.
 
-This is materially stronger than conventional systems. Silent impersonation — producing a message indistinguishable from one Alice sent herself — is not possible. Detectable impersonation — registering a new device key under Alice's DID — requires a logged admin action and produces a cryptographic artifact that auditors and Alice herself can inspect.
+This is materially stronger than conventional systems, with one caveat. An organization that controls the web server hosting a `did:web` user document can technically insert a key into that document directly, outside the enrollment path, and `did:web` keeps no verifiable history of document changes. Cryptography alone therefore does not prevent the organization from adding a key; non-impersonation is enforced by anchoring device keys and auditing the document's key set over time, so that an inserted key is detectable by Alice, her contacts and auditors. Subject to that, silent impersonation — producing a message indistinguishable from one Alice sent herself — is not possible.
+
+> **Open (agora-pozi.6):** Which DID method and anchoring or audit mechanism makes insertion of a key into a user's DID document detectable without trusting the controlling organization.
+
+Detectable impersonation through the enrollment path — registering a new device key under Alice's DID — requires a logged admin action and produces a cryptographic artifact that auditors and Alice herself can inspect.
 
 Implementations SHOULD surface device registration events to the DID subject (Alice) via out-of-band notification (email, push) at the time of admin-initiated registration. This converts a detectable-in-principle property into a detectable-in-practice one.
 

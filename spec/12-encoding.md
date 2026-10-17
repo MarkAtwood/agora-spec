@@ -1,8 +1,10 @@
 # Agora Protocol: Encoding and Extensions
 
-> Binds: both. Verbatim from `import/agora-protocol-spec-unified.md` lines 3353–3426 (§14–15). Section numbers are the source's and will be renumbered.
+> Binds: both. Source: import/agora-protocol-spec-unified.md lines 3353–3426 (§14–15).
 
 ## 14. JSON-LD Context and Canonicalization
+
+*Binds: both.*
 
 The canonical Agora JSON-LD context is published at:
 
@@ -18,7 +20,9 @@ The context URL is versioned: `/ns/v1` is the v1 schema. A breaking change to th
 
 ### 14.1 Canonicalization and Signing Pipeline
 
-All signatures over JSON-LD documents in this specification use the following normative pipeline:
+This is the single normative signing pipeline for JSON-LD documents. It applies to every signed JSON-LD document in this specification; wherever another section says a JSON-LD document is "signed", "signed per §14.1", or signed over its "canonical" form, this pipeline is meant. No JSON-LD document is signed over a CBOR or other serialization. CBOR wire frames (§8.4) are not JSON-LD documents and are outside this pipeline.
+
+The pipeline is:
 
 1. **Expand** the document using the Agora JSON-LD context, resolving all terms to absolute IRIs. Use a strict JSON-LD 1.1 processor. Unknown terms MUST be dropped during expansion, not passed through.
 2. **Serialize** the expanded document to RDF N-Quads (one quad per line, no trailing blank line).
@@ -35,13 +39,17 @@ This pipeline is identical to **W3C Data Integrity Proofs** with the `eddsa-rdna
 - Go: [`go-jsonld-signatures`](https://github.com/go-jsonld-signatures) or FFI binding to the above for correctness during initial development
 - Rust: [`json-ld` crate](https://crates.io/crates/json-ld) + [`rdf-types`](https://crates.io/crates/rdf-types) + [`ssi` crate (Spruce Systems)](https://github.com/spruceid/ssi)
 
-**Test vectors:** The Agora repository MUST include a `test-vectors/canonicalization/` directory containing at minimum: (a) five representative Agora document types in their pre-signing JSON-LD form, (b) the expected N-Quads output after expansion and URDNA2015 normalization, and (c) the expected SHA-256 digest. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
+**Test vectors:** A canonicalization test-vector set MUST be published containing at minimum: (a) five representative Agora document types in their pre-signing JSON-LD form, (b) the expected N-Quads output after expansion and URDNA2015 normalization, and (c) the expected SHA-256 digest. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
+
+> **Open (agora-pozi.20.16):** The test-vector set does not exist yet; no `test-vectors/` directory is present in the repository.
 
 ### 14.2 Context Document Caching
 
 Because URDNA2015 requires a JSON-LD expansion step, implementations need access to the context document at `https://agora.protocol/ns/v1`. Fetching this document over the network at signing or verification time is unacceptable for latency and offline operation.
 
-Implementations MUST cache the context document locally. The canonical context document for each published version is pinned by its SHA-256 hash, which is included in this specification and in the Agora repository. Implementations MUST verify the cached document against the pinned hash before use.
+Implementations MUST cache the context document locally. The canonical context document for each published version is pinned by its SHA-256 hash. Implementations MUST verify the cached document against the pinned hash before use.
+
+> **Open (agora-pozi.20.16):** The v1 context document has not been published and its pinned SHA-256 hash is not yet specified.
 
 Implementations MUST NOT fetch the context document from the network during signature verification of an untrusted message — this is a denial-of-service vector (an adversary could stall verification by making the context URL slow or unreachable). The context document MUST be loaded from the local cache only.
 
@@ -49,12 +57,17 @@ Implementations MUST NOT fetch the context document from the network during sign
 
 ## 15. Extension Points
 
+*Binds: both.*
+
 The protocol is designed to be extended without breaking existing clients:
 
 - Unknown `@type` values in inner payloads MUST be ignored by clients that do not understand them (forward compatibility).
 - Space state documents MAY include extension fields prefixed with a registered namespace.
+
 - New channel types MAY be introduced by extending the channel `type` enum in the JSON-LD context.
 - Transport encodings beyond CBOR/JSON MAY be negotiated via WebTransport stream headers.
+
+> **Open (agora-pozi.20.16):** No extension namespace registry exists yet; its location and registration procedure are unspecified.
 
 **Version surface registry.** The following table lists every versioned protocol surface, its current version, and the mechanism by which it is negotiated or detected:
 

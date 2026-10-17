@@ -1,8 +1,10 @@
 # Agora Protocol: Messaging
 
-> Binds: both. Verbatim from `import/agora-protocol-spec-unified.md` lines 1066–1831 (§5–7). Section numbers are the source's and will be renumbered.
+> Binds: both. Source: import/agora-protocol-spec-unified.md lines 1066–1831 (§5–7).
 
 ## 5. Message Ordering
+
+*Binds: both.*
 
 ### 5.1 Ordering Model
 
@@ -18,12 +20,14 @@ Clients SHOULD buffer messages for up to 500ms waiting for a gap to close before
 
 **MLS Commit ordering.** MLS Commits (which advance the group epoch) require stricter ordering than application messages. Clients MUST buffer application messages from a new epoch until the Commit that opened that epoch has been received and processed. Relays MAY provide **sequence attestations** — signed sequence numbers over a channel's message stream — as an optional ordering anchor for clients that require it.
 
-**Space state ordering.** Space state mutations are ordered by a `seq` field on the `SpaceState` document and a Lamport timestamp. Concurrent non-conflicting mutations (e.g., two admins each independently adding a different channel) are merged by taking the union. Conflicting mutations (e.g., two admins simultaneously changing the same user's role) are resolved last-writer-wins using the `seq` value. In a true simultaneous tie, the mutation signed by the higher-authority key wins (owner beats admin).
+**Space state ordering.** Space state mutations are ordered by a `seq` field on the `SpaceState` document. Concurrent non-conflicting mutations (e.g., two admins each independently adding a different channel) are merged by taking the union. Conflicting mutations (e.g., two admins simultaneously changing the same user's role) are resolved last-writer-wins using the `seq` value. In a true simultaneous tie, the mutation signed by the higher-authority key wins (owner beats admin).
 
 
 ---
 
 ## 6. Messaging
+
+*Binds: both.*
 
 ### 6.1 MLS Group Structure
 
@@ -37,9 +41,11 @@ This section covers `interactive` and `community` channels. `broadcast` channels
 
 Each channel manages its own MLS epoch independently. This enables per-channel access control (e.g., private channels within a public space) without any additional mechanism; it is a direct consequence of the MLS design.
 
+**Ciphersuite.** All MLS groups in Agora MUST use `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` (0x0001), matching Ed25519 DID identity keys. A group's declared ciphersuite is this value unless a future revision of this specification defines another.
+
 MLS operations follow RFC 9420 exactly:
 
-- **`KeyPackage`** — uploaded to the Relay KeyPackage Store (§6.1.1); rotated on each new device session and after each use.
+- **`KeyPackage`** — uploaded to the Relay KeyPackage Store (§6.1.1); single-use, and rotated on each new device session and after each use.
 - **`Welcome`** — sent to new members via `v1/agora/mls/<groupID>` or direct encrypted delivery.
 - **`Commit`** — a state-advancing operation (Add, Remove, Update); gossiped to all current group members.
 - **`Proposal`** — a pre-commit operation that may be included in a subsequent Commit by any authorized member.
@@ -54,11 +60,17 @@ The **Delivery Service** role (as defined in RFC 9420 §4) is performed by the g
 
 IPFS alone is insufficient for KeyPackage distribution. IPFS provides no delivery guarantees, no availability SLA, and — critically — no mechanism for a sender to atomically fetch-and-consume a KeyPackage to prevent reuse. Two concurrent senders fetching the same KeyPackage from IPFS would both construct valid-looking Welcomes, but the second would fail MLS validation at the recipient because the leaf credential is bound to a single use. Relays MUST therefore implement a **KeyPackage Store** — an authenticated key-value endpoint that makes consumption atomic and provides the availability properties IPFS cannot.
 
+> **Open (agora-pozi.10):** a DID-keyed store learns who fetches whose KeyPackages, which reveals the social graph at group creation; store placement (CO-hosted via the DID document versus IO-hosted as a declared budget extension) is unresolved.
+
+**Why single-use.** KeyPackages are consumed exactly once. RFC 9420 assumes each KeyPackage's init key is used for one Welcome; reuse lets two groups share HPKE init secrets and lets a replayed Welcome be accepted. A known failure mode is a store that hands out KeyPackages without consuming them, keeps them only while the owning device is connected (so they vanish on disconnect), and keys them to an unstable per-session device identifier, so that adding a user's other devices silently fails. Agora's store avoids this: consumption is atomic and permanent, supply persists independent of connection state, and supply is keyed to the owning DID.
+
 The KeyPackage availability problem has three layers that must be addressed together: the relay's baseline behavior (what it does by default), the operator's contractual commitment (what it promises in a service agreement), and the client's self-healing supply chain (what happens when the user is offline). This section specifies all three.
 
 #### Relay KeyPackage API
 
-All endpoints are authenticated using the client-relay session established in §8.6.
+`PUT` and `DELETE` MUST be authorized by the owning DID: the store verifies that each uploaded KeyPackage's leaf credential and signature belong to `{did}`, and a `DELETE` carries the owner's signature over the `keyPackageRef`. `GET` and `GET /count` do not require the caller to authenticate a DID.
+
+> **Open (agora-pozi.9):** how the store rate-limits anonymous `GET` callers to prevent KeyPackage exhaustion without authenticating them.
 
 ```
 PUT  /v1/agora/kp/{did}
@@ -194,11 +206,11 @@ The relay MUST verify the imported KeyPackages before adding them to the store. 
 
 The IPFS batch is a **reserve tank** — the relay draws from it when the fast-path store runs low, without requiring the client to be online.
 
-**Important:** a relay fetching from the IPFS supply CID and consuming packages from it into its local store is the only authorized consumption path for IPFS packages. Senders MUST NOT fetch directly from the IPFS supply CID and attempt to construct Welcomes from it — the atomic consumption guarantee applies only to the relay's `GET /v1/agora/kp/{did}` endpoint. Any Welcome constructed using a KeyPackage sourced directly from IPFS (bypassing the relay store) MUST be rejected by recipients as potentially reused.
+**Important:** a relay fetching from the IPFS supply CID and consuming packages from it into its local store is the intended consumption path for IPFS packages. Committers SHOULD NOT fetch directly from the IPFS supply CID and construct Welcomes from it: the atomic consumption guarantee applies only to the relay's `GET /v1/agora/kp/{did}` endpoint, so a KeyPackage taken directly from IPFS may also be consumed by another committer, and one of the two Welcomes will fail. Recipients cannot tell where a committer obtained a KeyPackage, so this rule is not checked by recipients.
 
 #### KeyPackage Replication Across Relays
 
-A client connected to multiple Relays SHOULD upload its KeyPackages to all of them. When a sender needs to fetch a KeyPackage to issue a Welcome, it contacts the target user's preferred Relay (declared in their DID document's `service` endpoints). If that Relay has no KeyPackages for the target, it SHOULD attempt to fetch one from other known Relays serving the same space before returning 404.
+A client connected to multiple Relays SHOULD upload its KeyPackages to all of them. When a sender needs to fetch a KeyPackage to issue a Welcome, it contacts the target user's preferred Relay (declared in their DID document's `service` endpoints). If that Relay has no KeyPackages for the target, it SHOULD attempt to fetch one from its peer Relays before returning 404.
 
 Inter-relay KeyPackage forwarding uses a simple pull model:
 
@@ -233,12 +245,12 @@ If all KeyPackages for a target DID have been consumed and no fresh ones are ava
 
 Recipients of a Welcome MUST validate the KeyPackage used to construct it:
 
-- The signature verifies against the sender's DID authentication key.
-- `KeyPackage.leaf_node.credential` contains a valid DID matching the sender.
+- The signature verifies against the KeyPackage owner's DID authentication key.
+- `KeyPackage.leaf_node.credential` contains a valid DID matching the KeyPackage owner (the recipient's own DID).
 - The KeyPackage has not expired (`leaf_node.lifetime.not_after`).
 - The ciphersuite matches the group's declared ciphersuite.
 
-A Welcome constructed with an invalid or expired KeyPackage MUST be rejected. A Welcome constructed using a KeyPackage sourced directly from an IPFS supply CID (rather than consumed via the relay store API) MUST also be rejected.
+A Welcome constructed with an invalid or expired KeyPackage MUST be rejected.
 
 ### 6.1.2 Community Channel Mode
 
@@ -253,14 +265,14 @@ A `community` channel has a bounded MLS group called the **speaker group**. Only
 ```json
 {
   "@type": "SpeakRequest",
-  "channelCid": "bafyrei...",
-  "requesterDid": "did:key:z6Mk...",
+  "channelCID": "bafyrei...",
+  "requesterDID": "did:key:z6Mk...",
   "ts": "2026-04-22T09:00:00Z",
   "sig": "base64url..."
 }
 ```
 
-`sig` is the requester's Ed25519 signature over the canonical CBOR of the message body (excluding `sig`). The SpeakerBot or a channel admin responds by issuing a standard MLS Add commit using a KeyPackage from the requester's store. If the speaker group is at capacity, the SpeakerBot SHOULD first evict the longest-idle current speaker before adding the requester.
+`sig` is the requester's Ed25519 signature, signed per §14.1. The SpeakerBot or a channel admin responds by issuing a standard MLS Add commit using a KeyPackage from the requester's store. If the speaker group is at capacity, the SpeakerBot SHOULD first evict the longest-idle current speaker before adding the requester.
 
 **Admission latency.** Admission requires one round of MLS Add + Welcome delivery. Clients in `community` channels SHOULD display a "waiting to join" indicator if the user tries to post before their Welcome has been processed.
 
@@ -291,19 +303,19 @@ A `broadcast` channel carries no MLS group. Messages are **signed but not encryp
 ```json
 {
   "@type": "BroadcastMessage",
-  "channelCid": "bafyrei...",
+  "channelCID": "bafyrei...",
   "body": {
     "@type": "TextBody",
     "content": "v2.1.0 released — see release notes for details.",
     "mimeType": "text/markdown;variant=commonmark"
   },
-  "senderDid": "did:key:z6Mk...",
+  "senderDID": "did:key:z6Mk...",
   "ts": "2026-04-22T09:00:00Z",
   "sig": "base64url..."
 }
 ```
 
-`sig` is the sender's Ed25519 signature over the canonical CBOR of the message body (excluding `sig`). Recipients MUST verify `sig` against the sender's DID document before displaying the message. Recipients MUST also verify that `senderDid` holds a space role listed in `broadcasterRoles`.
+`sig` is the sender's Ed25519 signature, signed per §14.1. Recipients MUST verify `sig` against the sender's DID document before displaying the message. Recipients MUST also verify that `senderDID` holds a space role listed in `broadcasterRoles`.
 
 **Relay handling.** The Relay stores broadcast messages as signed blobs, identical to any other channel message. Because broadcast messages are not encrypted, the Relay CAN read their content — this is an intentional and declared property of broadcast channels. Clients MUST display a visible indicator (e.g., a megaphone icon) on broadcast channels to make clear to users that messages in this channel are not confidential.
 
@@ -329,17 +341,32 @@ The outer envelope contains only what Relays strictly need for delivery routing.
   "seq": 1042,
   "ts": "2026-03-12T12:00:00.000Z",
   "expiryHint": "2026-03-19T12:00:00.000Z",
-  "sealedEnvelope": "base64url..."
+  "sealedEnvelope": "base64url...",
+  "accessSig": "base64url..."
 }
 ```
 
-`channelToken` is a one-way derivation from the channel CID and the current MLS epoch secret: `HKDF(epochSecret, "channel-token" || channelCID)`. It rotates with every epoch. Relays use it for topic routing without learning the actual channel identifier or any member identity.
+`channelToken` is derived from the MLS exporter of the channel's group: `MLS-Exporter("agora channel token", channelCID, 32)`. It rotates with every epoch. Relays use it for topic routing without learning the actual channel identifier or any member identity.
 
-`id` is the CID of the canonical outer envelope, used for deduplication and history indexing. `ts` is present for gossipsub ordering and relay-side TTL enforcement only — it is not authenticated at the outer layer and MUST NOT be trusted for application-level ordering (use the inner `seq` for that). `expiryHint` is set by the sender to match the inner payload `expiry` value; Relays use it as a cache TTL hint (§6.4).
+`id` is the CID of the canonical outer envelope, used for deduplication and history indexing. `ts` is present for gossipsub ordering and relay-side TTL enforcement only — it is not authenticated at the outer layer and MUST NOT be trusted for application-level ordering (use the inner `seq` for that). `expiryHint` is set by the sender to match the inner payload `expiry` value; Relays use it as a cache TTL hint (§6.4). `accessSig` is the epoch access proof defined below.
+
+#### Epoch Access Proof
+
+Relays admit an envelope only if it comes from a current member of the channel's MLS group, without learning which member (ARCHITECTURE §6.2).
+
+- **Epoch access key.** Each epoch, every member derives `accessSeed = MLS-Exporter("agora access", channelCID, 32)` and uses it as an Ed25519 private key (RFC 8032 seed). All members of the epoch hold the same access key pair.
+- **Announcement.** The committer, after creating a Commit, derives the new epoch's access public key and `channelToken`, and attaches to the routing envelope carrying the Commit an `accessKeyAnnouncement` containing the new `epoch`, the new `channelToken`, and the new access public key, signed with the previous epoch's access private key. The relay thereby follows the chain from token to token without learning the channel. The access public key of the group's first epoch is registered with the relay by the CO's registration service in an `AccessChainRegistration` under the CO's `RelayServiceAgreement` (§12.2); the registration identifies neither the Space nor the channel.
+- **Envelope signature.** `accessSig` is an Ed25519 signature under the current epoch's access private key over the routing envelope with `accessSig` omitted. Relays MUST verify `accessSig` against the access public key for the envelope's `channelToken` and `epoch` and MUST reject envelopes that fail verification.
+
+A removed member does not hold the next epoch's access key, so bans and removals take effect at the relay through the MLS Remove alone. Because the key is shared, a valid signature does not identify the signer.
+
+> **Open (agora-pozi.8):** validate against MLS security properties before relying on it.
 
 #### Sealed Envelope (Sender-Sealed, Relay-Opaque)
 
 `sealedEnvelope` bundles the sender's DID, a per-message ephemeral key, and the MLS ciphertext, all encrypted together to the channel's current MLS group key. No Relay or non-member can open it.
+
+The sealing key is `MLS-Exporter("agora sealed envelope", channelCID, Nk)`, used with the AEAD of the group's ciphersuite. The AEAD associated data MUST bind the recipient context: `"agora/sealed/v1" || channelToken || epoch` (epoch as a big-endian uint64). Implementations MUST NOT seal with empty associated data. A recipient MUST reject a sealed envelope whose associated data does not match the `channelToken` and `epoch` of the routing envelope it arrived in, which prevents re-targeting a sealed envelope to another channel or epoch.
 
 Plaintext of `sealedEnvelope` before encryption:
 
@@ -356,7 +383,7 @@ Plaintext of `sealedEnvelope` before encryption:
 
 `sig` covers `sender + senderEphemeralKey + mlsCiphertext`, signed by the sender's authentication key. Recipients verify the signature after decrypting the sealed envelope. `senderEphemeralKey` is a fresh X25519 key generated per-message; it binds the sealed envelope to this specific send without exposing long-term key material to the outer layer.
 
-This design is derived from Signal's Sealed Sender construction. A Relay processing this message learns: a `channelToken` (epoch-rotating, non-reversible without the epoch secret), a sequence number, a timestamp, and an opaque encrypted blob. It learns nothing about who sent the message.
+This design is derived from Signal's Sealed Sender construction. A Relay processing this message learns: a `channelToken` (epoch-rotating, non-reversible without the group's exporter secret), an epoch access signature that does not identify the signer, a sequence number, a timestamp, and an opaque encrypted blob. It learns nothing about who sent the message.
 
 #### Inner Payload (After MLS Decryption)
 
@@ -399,7 +426,7 @@ All inner payload types are defined in the Agora JSON-LD context namespace (`htt
 | `TypingEvent` | Ephemeral typing indicator; not stored |
 | `PresenceEvent` | Ephemeral online/idle/dnd status; not stored |
 
-Ephemeral events (`TypingEvent`, `PresenceEvent`, `ParticipantState`) use the MLS `PublicMessage` application data subtype and are excluded from history storage.
+Ephemeral events (`TypingEvent`, `PresenceEvent`, `ParticipantState`) are MLS application messages sent as `PrivateMessage`, never as `PublicMessage` application data, and are excluded from history storage.
 
 ### 6.4 Message Expiry
 
@@ -409,7 +436,7 @@ Expiry semantics:
 
 - `expiry` is an ISO 8601 timestamp in the inner payload. Absence means no expiry (persistent by default).
 - On receipt, the client schedules local deletion of the decrypted message at the expiry time.
-- On expiry, clients SHOULD also submit a signed `DeleteEvent` to the channel, so that the IPLD history DAG records a tombstone and Relays drop the cached envelope.
+- On expiry, clients SHOULD also submit a signed `DeleteEvent` to the channel, so that the IPLD history DAG records a tombstone. Relays cannot read a `DeleteEvent` and do not act on it; they drop the cached envelope by `expiryHint`.
 - Relays that cache message envelopes MUST respect the `expiryHint` field in the outer `RoutingEnvelope` as a cache TTL. This field is unauthenticated at the outer layer — Relays use it as a hint only, not as authoritative content.
 - The authoritative expiry is always the inner payload value, verified by recipients after MLS decryption.
 
@@ -417,7 +444,7 @@ Expiry semantics:
 
 Message history is stored as an IPLD linked list. Each message envelope CID is appended to the channel's history DAG, and the channel state document tracks the latest history CID.
 
-Clients fetch history by walking the IPLD DAG backwards from the latest CID. Relays SHOULD pin recent history within their configured retention window (default 30 days). Long-term archival beyond the retention window is the responsibility of space operators or interested members.
+Clients fetch history by walking the IPLD DAG backwards from the latest CID. Relays SHOULD pin recent history within the retention window set by the `RelayServiceAgreement` (§12.2). Long-term archival beyond the retention window is the responsibility of space operators or interested members.
 
 IPFS provides content-addressed deduplication automatically — the same message (same CID) stored at multiple Relays is inherently deduplicated.
 
@@ -428,7 +455,7 @@ IPFS provides content-addressed deduplication automatically — the same message
 
 ### 6.6 Pinned Content
 
-Channels support a **pin list** — a set of CID references in the channel's IPLD state that mark specific content as persistent and surfaced. Pinning is a preservation signal: pinned CIDs are exempt from relay retention expiry and are surfaced by clients as a dedicated "pinned messages" view.
+Channels support a **pin list** — a set of CID references in the channel's IPLD state that mark specific content as persistent and surfaced. Pinning is a preservation signal: pinned CIDs are exempt from relay retention expiry (see Retention Exemption) and are surfaced by clients as a dedicated "pinned messages" view. Pin semantics (who may pin, limits, validity) are validated by clients against signed Space and channel state; relays never read pin records.
 
 #### What Can Be Pinned
 
@@ -470,15 +497,15 @@ The channel's IPLD state document includes a `pins` array. Each entry is a signe
 }
 ```
 
-`sig` is the pinner's Ed25519 signature over the canonical CBOR serialization of the pin entry fields (excluding `sig` itself). Pins are attributable and tamper-evident — adding or removing a pin without a valid signature MUST be rejected.
+`sig` is the pinner's Ed25519 signature over the pin entry, signed per §14.1. Pins are attributable and tamper-evident — adding or removing a pin without a valid signature MUST be rejected.
 
-`pinLimit` is the maximum number of simultaneous pins for the channel. Default is 50. Space Admins may set a different limit via a signed `ChannelStateMutation`. Relays MUST reject `PinEvent` messages that would cause the pin count to exceed `pinLimit`.
+`pinLimit` is the maximum number of simultaneous pins for the channel. Default is 50. Space Admins may set a different limit in the CO-signed channel state. Clients MUST ignore `PinEvent` messages that would cause the pin count to exceed `pinLimit`. Relays do not enforce `pinLimit`.
 
 #### Authorization
 
 - **Any current MLS group member** MAY add a pin (`PinEvent`).
 - **Space/Channel Admins and the original pinner** MAY remove a pin (`UnpinEvent`). Other members MAY NOT remove pins they did not add.
-- Pin operations on channels where the pinner is not a current MLS group member MUST be rejected by relays.
+- Clients validate these rules against current signed Space and channel state and MUST ignore pin operations that fail them. Only current MLS group members can produce pin operations at all; relays admit them only with a valid epoch access proof (§6.2).
 
 #### PinEvent and UnpinEvent
 
@@ -511,19 +538,19 @@ Both are stored in the channel's IPLD history DAG — the audit trail records wh
 
 #### Retention Exemption
 
-Pinned CIDs are **permanently exempt from relay retention expiry**. A relay serving a channel MUST NOT evict any CID that appears in the channel's current `pins` array, regardless of:
+Pinned CIDs are **exempt from relay retention expiry**. A relay cannot read the channel's `pins` array. Instead, a client that has validated a `PinEvent` sends the relay a pin instruction for the CID, carried with an epoch access proof (§6.2); an `UnpinEvent` is mirrored by an unpin instruction the same way. Within the storage quota of its `RelayServiceAgreement` (§12.2), a relay MUST NOT evict a CID for which it holds a valid pin instruction, regardless of:
 
 - The configured retention window
 - The `expiryHint` on the original envelope
 - Storage pressure
 
-The relay MUST continue to serve pinned CIDs via IPFS until they are explicitly unpinned via a valid `UnpinEvent`. If a relay is running low on storage, it MUST evict unpinned content before considering eviction of pinned content, and MUST alert the space operator before evicting anything from the pin list.
+The relay MUST continue to serve pinned CIDs via IPFS until it receives a valid unpin instruction. If a relay is running low on storage, it MUST evict unpinned content before considering eviction of pinned content, and MUST alert the CO party to the `RelayServiceAgreement` before evicting any pinned CID.
 
-The retention exemption applies only to the pinned CID itself — not to the full IPLD history DAG. Relays are required to retain the pinned CID and its directly referenced content (e.g., a media attachment CID referenced by a pinned message envelope).
+The retention exemption applies only to the pinned CID itself — not to the full IPLD history DAG. Because a relay cannot see what a pinned envelope references, the pinning client sends pin instructions for the pinned CID and for its directly referenced content (e.g., a media attachment CID referenced by a pinned message envelope).
 
 #### Message Expiry Interaction
 
-A pinned message whose inner payload contains an `expiry` timestamp presents a conflict: the sender requested deletion, but a subsequent pinner requested retention. The resolution: **explicit unpinning is required before expiry takes effect on a pinned CID**. A relay MUST NOT evict a pinned CID on expiry. The channel admin responsible for the pin SHOULD unpin expired content; if they do not, the content persists until explicitly unpinned. Clients SHOULD warn admins when a pinned message's inner payload expiry has passed without an unpin action.
+A pinned message whose inner payload contains an `expiry` timestamp presents a conflict: the sender requested deletion, but a subsequent pinner requested retention. The resolution: **explicit unpinning is required before expiry takes effect on a pinned CID**. A relay MUST NOT evict a CID it holds a pin instruction for on expiry; it honors `expiryHint` for all other envelopes. The channel admin responsible for the pin SHOULD unpin expired content; if they do not, the content persists until explicitly unpinned. Clients SHOULD warn admins when a pinned message's inner payload expiry has passed without an unpin action.
 
 This is a deliberate policy choice: pinning is an admin override of sender expiry. Users who post content they intend to be ephemeral should be aware that an admin may pin it. Channels with strict expiry requirements SHOULD configure a `noPin` policy (a boolean flag in channel state, default false) that disables the pin feature entirely for that channel.
 
@@ -576,7 +603,7 @@ Compliance loggers (§17) store the raw `text` field as-is in `plaintextPayload`
 
 #### 6.7.4 Format Capability Advertisement
 
-A sender composing a message has no way to know whether a recipient can render a non-baseline `format` value unless capabilities are advertised. Agora provides two complementary advertisement mechanisms: a persistent declaration in the DID document and an ephemeral declaration in the client handshake.
+A sender composing a message has no way to know whether a recipient can render a non-baseline `format` value unless capabilities are advertised. Agora provides two complementary advertisement mechanisms: a persistent declaration in the DID document and an ephemeral declaration inside the MLS group.
 
 **DID document declaration (persistent)**
 
@@ -595,40 +622,28 @@ A client MAY publish its supported text formats as a service entry in its DID do
 }
 ```
 
-**ClientHello declaration (ephemeral)**
+**In-group declaration (ephemeral)**
 
-The `supportedTextFormats` field in `ClientHello` (§8.6) declares the current connected device's rendering capabilities for the duration of the session. On receiving a `ClientHello` with `supportedTextFormats`, the Relay SHOULD cache this information keyed by DID + deviceKey for the session duration and make it available to other authenticated clients via the capability query endpoint:
-
-```
-GET /v1/agora/caps/{did}
-```
-
-Response:
+A device MAY announce its current rendering capabilities to a group in an ephemeral MLS application message (sent as `PrivateMessage`, not stored in history):
 
 ```json
 {
   "@type": "ClientCapabilities",
-  "did": "did:key:z6Mk...",
-  "online": true,
   "supportedTextFormats": [
     "text/markdown;variant=commonmark",
     "text/markdown;variant=gfm",
     "text/plain"
-  ],
-  "source": "session",
-  "cachedAt": "2026-03-12T12:00:00Z"
+  ]
 }
 ```
 
-`source` is `"session"` if the data comes from a live `ClientHello`, or `"did-document"` if the Relay fell back to the DID document service entry because no live session is present. If neither source is available, the Relay returns a 404 and the sender SHOULD assume baseline CommonMark only.
-
-Relays MUST NOT cache `ClientHello` capability data beyond the session. On disconnect, the cached entry is discarded.
+Relays do not cache or serve client capabilities; doing so would require the relay to know member DIDs and their online state. If neither source is available, the sender SHOULD assume baseline CommonMark only.
 
 **Sender behavior**
 
 When composing a message with a non-baseline `format`, a conformant client SHOULD:
 
-1. Query `/v1/agora/caps/{did}` for each recipient (in DM groups) or check the DID document (in space channels, where per-member querying at compose time is impractical).
+1. Use the most recent in-group `ClientCapabilities` from each recipient (in DM groups) or check the DID document (in space channels, where per-member checking at compose time is impractical).
 2. If all reachable recipients declare support for the chosen format, send with that format.
 3. If any recipient's capabilities are unknown or do not include the chosen format, either fall back to `text/markdown;variant=commonmark` or send with the preferred format and accept that some recipients will display raw markup.
 
@@ -636,7 +651,7 @@ In space channels with many members, per-member capability queries at compose ti
 
 **Multi-device considerations**
 
-A user's devices may have different rendering capabilities. The DID document entry SHOULD reflect the union of all active devices' capabilities — declaring a format only if all devices the user actively uses can render it. The `ClientHello` entry reflects the specific device currently connected and MAY differ from the DID document entry.
+A user's devices may have different rendering capabilities. The DID document entry SHOULD reflect the union of all active devices' capabilities — declaring a format only if all devices the user actively uses can render it. An in-group `ClientCapabilities` message reflects the specific device that sent it and MAY differ from the DID document entry.
 
 ### 6.8 Emoji and Reactions
 
@@ -644,7 +659,7 @@ A user's devices may have different rendering capabilities. The DID document ent
 
 Unicode emoji are valid UTF-8 content in any `TextBody` `text` field. No special handling is required.
 
-**Shortcodes** (`:thumbsup:`, `:wolfssl_logo:`) are a client-side rendering convenience, not a wire format. Shortcodes MUST NOT appear on the wire in `TextBody.text` unless the sender intentionally wants the literal text to appear. Clients that support shortcode input MUST expand shortcodes to their Unicode codepoint(s) (for standard emoji) or to a custom emoji reference (for space emoji, see §6.8.4) before constructing the `TextBody`.
+**Shortcodes** (`:thumbsup:`, `:example_logo:`) are a client-side rendering convenience, not a wire format. Shortcodes MUST NOT appear on the wire in `TextBody.text` unless the sender intentionally wants the literal text to appear. Clients that support shortcode input MUST expand shortcodes to their Unicode codepoint(s) (for standard emoji) or to a custom emoji reference (for space emoji, see §6.8.4) before constructing the `TextBody`.
 
 **ZWJ sequences and skin tone modifiers** are treated as atomic units. A `ReactionEvent` targeting a message with `"emoji": "👍🏽"` (thumbs up + medium skin tone) is a distinct reaction from `"emoji": "👍"` (thumbs up, no modifier). Clients SHOULD display them as separate reaction types.
 
@@ -665,7 +680,7 @@ A reaction is an MLS application message of type `ReactionEvent`:
 }
 ```
 
-`targetCID` is the `envelopeID` CID of the message being reacted to. `emoji` is either a Unicode emoji string (one or more codepoints forming a single grapheme cluster, including ZWJ sequences and modifier sequences) or a custom emoji reference string of the form `:space:<shortcode>:` (see §6.8.4). `action` is `"add"` or `"remove"`. `sig` is the sender's Ed25519 signature over the canonical CBOR serialization of the other fields.
+`targetCID` is the `envelopeID` CID of the message being reacted to. `emoji` is either a Unicode emoji string (one or more codepoints forming a single grapheme cluster, including ZWJ sequences and modifier sequences) or a custom emoji reference string of the form `:space:<shortcode>:` (see §6.8.4). `action` is `"add"` or `"remove"`. `sig` is the sender's Ed25519 signature, signed per §14.1.
 
 `targetCID` MUST refer to a message in the same MLS group. Reactions targeting messages in other groups or channels are invalid and MUST be rejected by clients.
 
@@ -694,7 +709,7 @@ Spaces MAY define custom emoji — space-specific images referenced by shortcode
 ```json
 "customEmoji": [
   {
-    "shortcode": "wolfssl_logo",
+    "shortcode": "example_logo",
     "imageCID": "bafyrei...",
     "mimeType": "image/png",
     "width": 64,
@@ -712,10 +727,10 @@ Spaces MAY define custom emoji — space-specific images referenced by shortcode
 When a custom emoji is used in a `ReactionEvent`, the `emoji` field uses the reference string:
 
 ```json
-"emoji": ":space:wolfssl_logo:"
+"emoji": ":space:example_logo:"
 ```
 
-Clients resolve `:space:<shortcode>:` by looking up `shortcode` in the current space's `customEmoji` array, fetching the image from IPFS at `imageCID`, and rendering it inline. Clients that cannot resolve the shortcode MUST display the literal reference string `:space:wolfssl_logo:` as a fallback.
+Clients resolve `:space:<shortcode>:` by looking up `shortcode` in the current space's `customEmoji` array, fetching the image from IPFS at `imageCID`, and rendering it inline. Clients that cannot resolve the shortcode MUST display the literal reference string `:space:example_logo:` as a fallback.
 
 **Custom emoji in message text:**
 
@@ -731,9 +746,11 @@ Spaces SHOULD pin custom emoji image CIDs to prevent relay eviction.
 
 ## 7. Presence and Ephemeral State
 
+*Binds: CO.*
+
 ### 7.1 Presence
 
-Presence is gossiped on `v1/agora/channel/<channelToken>` as a `PresenceEvent`:
+Presence is sent as a `PresenceEvent` MLS application message (`PrivateMessage`, §6.3) inside an ordinary routing envelope on `v1/agora/channel/<channelToken>`. Nothing about presence is visible to relays beyond an ordinary envelope. Inner payload:
 
 ```json
 {
@@ -751,7 +768,7 @@ Presence is gossiped on `v1/agora/channel/<channelToken>` as a `PresenceEvent`:
 
 ### 7.2 Typing Indicators
 
-`TypingEvent` is gossiped to the channel topic and is never written to persistent storage:
+`TypingEvent` is sent as an MLS application message (`PrivateMessage`, §6.3) inside an ordinary routing envelope on the channel topic, so relays see only an ordinary envelope, and it is never written to persistent storage. Inner payload:
 
 ```json
 {
