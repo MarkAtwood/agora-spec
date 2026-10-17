@@ -507,9 +507,9 @@ A `did:key` user has no DID document, so it publishes its Pkarr pointer record h
 **Record format.** The BEP-44 value is a compact DNS packet (Pkarr format) containing TXT resource records:
 
 ```
-_agora.             TXT  "v=1"
-_profile._agora.    TXT  "cid=bafkrei..."
-_kp._agora.         TXT  "url=https://kp.example.net/v1/agora/kp/z6Mk..."
+_agora              TXT  "v=1"
+_profile._agora     TXT  "cid=bafkrei..."
+_kp._agora          TXT  "url=https://kp.example.net/v1/agora/kp/z6Mk..."
 ```
 
 `v` and `_kp` are required; `_profile` and the service records below are optional.

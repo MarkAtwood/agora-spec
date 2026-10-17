@@ -163,9 +163,9 @@ Binary values in Space state (`channelID`, `mlsGroupID`, `assetKey`) are unpadde
 
 `id` is absent from the genesis state document, whose CID it would otherwise have to contain. In every later state document, `id` is `agora://<genesis CID>`, with no trailing slash (§3.2).
 
-`guardian` is optional and RECOMMENDED. It is set in the genesis state and names the DIDs (`dids`), the number of them whose signatures are required (`threshold`), and the objection period in seconds (`delaySeconds`, default 259200, that is 72 hours) for a guardian ownership transfer (§4.1). Only the owner may change it after genesis. Clients MUST reject a state document that changes `guardian` and is not signed by the owner.
+`guardian` is optional and RECOMMENDED. It is set in the genesis state and names the DIDs (`dids`), the number of them whose signatures are required (`threshold`), and the objection period in seconds (`delaySeconds`, default 259200, that is 72 hours) for a guardian ownership transfer (§4.1). Only the owner may change it after genesis. Clients MUST reject a state document that changes `guardian` and is signed neither by the owner under the prior state nor, in a guardian transfer completion, by `pendingTransfer.newOwner` (§4.1).
 
-`admins` lists the delegated admins (§4.1). Each entry's `scope` is a list of channel path patterns, matched as `channelAccess` is (§4.2). `["*"]` covers the whole Space, including Space-level mutations other than those reserved to the owner (§4.1). Only the owner may change `admins`. Clients MUST reject a state document that changes `admins` and is not signed by the owner.
+`admins` lists the delegated admins (§4.1). Each entry's `scope` is a list of channel path patterns, matched as `channelAccess` is (§4.2). `["*"]` covers the whole Space, including Space-level mutations other than those reserved to the owner (§4.1). Only the owner may change `admins`. Clients MUST reject a state document that changes `admins` and is signed neither by the owner under the prior state nor, in a guardian transfer completion, by `pendingTransfer.newOwner` (§4.1).
 
 `members` assigns roles (§4.2) to member DIDs. A DID not listed is not a member. The access-controlled view served to non-members (§4.4) omits `members`.
 

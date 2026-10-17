@@ -65,7 +65,7 @@ Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `
 
 **Devices are not members.** Strand devices are constrained and speak CoAP with DTLS and OSCORE over Thread, Wi-Fi, or Ethernet. Each holds an OSCORE context with its own controller (strand-arch §4.3, §4.6). They run no MLS. Device trust ends at the realm's controller. Federation is controller-to-controller, never device-to-device (strand-arch §5; SPEC-Substrate §19.1).
 
-**Group size.** Interactive MLS groups cap at 200 members (spec §5.2.1, `interactive` mode). A building can have thousands of devices. Groups therefore contain gateways, Arbiter front ends, logic engines, and people, never devices.
+**Group size.** Interactive MLS groups are intended for up to about 200 members (spec §5.2.1, `interactive` mode). A building can have thousands of devices. Groups therefore contain gateways, Arbiter front ends, logic engines, and people, never devices.
 
 **The site gateway bridges.** The Substrate federation gateway (SPEC-Substrate §19.3) subscribes to site MQTT topics and is admitted to Agora channels as a gateway (spec §9.1):
 
