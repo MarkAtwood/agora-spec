@@ -33,12 +33,11 @@ Compliance logging is enabled in the Space state document by the space owner:
   "retentionDays": 2555,
   "scope": "all-channels",
   "enabledBy": "did:key:z6MkOwner...",
-  "enabledAt": "2026-03-12T00:00:00Z",
-  "sig": "base64url..."
+  "enabledAt": "2026-03-12T00:00:00Z"
 }
 ```
 
-`loggerDID` is the DID of the compliance logging principal. `logStore` is the IPFS CID root of the compliance log: a content-addressed, append-only IPLD structure. The compliance log and the compliance audit chain (§7.8.8) hold plaintext and member DIDs and are CO data (ARCHITECTURE S8); any copy stored on IO infrastructure MUST be encrypted under a key the CO holds and the IO does not. `retentionDays` is the minimum retention period the logger is obligated to maintain. `scope` is `all-channels` or a list of channel path globs.
+The block carries no signature of its own; it is covered by the space owner's signature on the Space state document (§13.1.1). `loggerDID` is the DID of the compliance logging principal. `logStore` is the IPFS CID root of the compliance log: a content-addressed, append-only IPLD structure. The compliance log and the compliance audit chain (§7.8.8) hold plaintext and member DIDs and are CO data (ARCHITECTURE S8); any copy stored on IO infrastructure MUST be encrypted under a key the CO holds and the IO does not. `retentionDays` is the minimum retention period the logger is obligated to maintain. `scope` is `all-channels` or a list of channel path globs.
 
 The `scope` field governs which Space channels receive the logger. The value `"all-channels"` causes the logger to be added to every channel in the Space, including channels created after compliance logging is enabled. A glob list (e.g., `["engineering/*", "legal/*"]`) limits logging to matching channel paths.
 
@@ -50,7 +49,7 @@ The `scope` field governs which Space channels receive the logger. The value `"a
 "regulatedMembers": ["did:key:z6MkRegulatedMember..."]
 ```
 
-The field is part of the signed `ComplianceLoggingConfig`. Only DIDs listed here are regulated members; membership of a Space with `complianceLogging.enabled: true` does not by itself make a member regulated.
+The field is part of the `ComplianceLoggingConfig` and is covered by the Space state signature. Only DIDs listed here are regulated members; membership of a Space with `complianceLogging.enabled: true` does not by itself make a member regulated.
 
 Once `complianceLogging.enabled` is set to `true` and published as Space state (§3.4), conformant clients MUST add the `loggerDID` to the MLS group of every channel matching `scope` on the next available Commit. This addition IS recorded in the MLS group membership (verifiable by any MLS-aware client) but MUST NOT produce a UI-visible join notification.
 

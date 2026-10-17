@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.56",
   "title": "Per-sender seq in outer envelope may link senders",
   "description": "spec/05 §5.1.1 places a per-sender sequence number in the outer routing envelope; relays could link one sender's messages across envelopes (S1). Move inside ciphertext or derive per-epoch. Found in JMAP batch review 2026-10-16.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:01:08.100378698Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:01:08.100378698Z",
+  "updated_at": "2026-10-17T05:09:25.200670713Z",
+  "closed_at": "2026-10-17T05:09:25.200670713Z",
+  "close_reason": "Decided: move seq inside ciphertext (see sibling task)",
   "dependencies": [
     {
       "issue_id": "agora-pozi.20.56",

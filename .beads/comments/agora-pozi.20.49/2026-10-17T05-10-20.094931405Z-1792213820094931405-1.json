@@ -1,0 +1,7 @@
+{
+  "id": "1792213820094931405-1",
+  "issue_id": "agora-pozi.20.49",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: keep one exporter-keyed AEAD wrapper over the whole MLSMessage (hides MLS group_id, which is constant per group and would let relays link epochs, and content_type), with AAD binding channelToken+epoch. Remove inner sender DID, the extra signature, and senderEphemeralKey (MLS PrivateMessage already encrypts sender identity and signs).",
+  "created_at": "2026-10-17T05:10:20.094931405Z"
+}

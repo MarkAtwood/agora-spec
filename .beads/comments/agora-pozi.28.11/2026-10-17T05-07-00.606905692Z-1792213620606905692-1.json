@@ -1,0 +1,7 @@
+{
+  "id": "1792213620606905692-1",
+  "issue_id": "agora-pozi.28.11",
+  "author": "agent",
+  "text": "Decision 2 (Mark 2026-10-16): radio payload types use each project's own namespace, urn:ironweed:... and urn:lichen:..., treated as registered (like urn:agora:).",
+  "created_at": "2026-10-17T05:07:00.606905692Z"
+}

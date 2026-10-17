@@ -23,13 +23,13 @@ What each operator can be compelled to produce is defined in ARCHITECTURE.md §4
 
 **What a Relay cannot observe:**
 - Message content (MLS E2EE; the Relay never holds decryption keys).
-- Sender identity for any message (sealed sender; sender DID is inside the MLS ciphertext).
+- Sender identity for any message (MLS encrypts the sender data, and the sealed envelope hides the MLS framing, §5.2.2).
 - Channel identity from `channelToken` (epoch-rotating derivation from the MLS exporter, non-reversible without group secrets).
 - Group membership (no membership list at the Relay layer).
 - Message graphs or conversation structure.
 
 **What a Relay cannot do:**
-- Forge messages (sender DID and signature are inside the sealed envelope, verified by recipients).
+- Forge messages (each message carries the sender's MLS signature inside the sealed envelope, verified by recipients).
 - Silently modify history (IPLD content addressing detects tampering).
 - Map routing tables across epochs without MLS group secrets.
 
@@ -37,7 +37,7 @@ Clients SHOULD connect to multiple Relays simultaneously. A single Relay going d
 
 ## 12.4 Metadata Leakage
 
-The sealed sender design eliminates sender identity from the Relay layer. Residual metadata leakage points:
+MLS sender-data encryption and the sealed envelope keep sender identity, the MLS group ID and the message kind away from the Relay layer. Residual metadata leakage points:
 
 **IP address**: a Relay sees the connecting IP. Clients requiring IP-level anonymity SHOULD connect via Tor (preferring the Relay's `.onion` endpoint where available, to avoid exit node exposure) or a trusted front-end proxy.
 

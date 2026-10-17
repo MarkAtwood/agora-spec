@@ -48,8 +48,6 @@ Sharing a channel requires bilateral authorization: the home space admin and the
   },
   "validFrom": "2026-03-12T00:00:00Z",
   "validUntil": "2027-03-12T00:00:00Z",
-  "homeAdminSig": "base64url...",
-  "guestAdminSig": "base64url...",
   "homeAdminDID": "did:key:z6MkHomeAdmin...",
   "guestAdminDID": "did:key:z6MkGuestAdmin..."
 }
@@ -59,7 +57,7 @@ Sharing a channel requires bilateral authorization: the home space admin and the
 
 The agreement is stored as an IPLD node, CID-referenced from both space state documents, and served by both Spaces' endpoints and announced to each Space's members in-band, like any Space state change (§3.4).
 
-The agreement is a CO-to-CO document: both signatures are CO keys of the respective Spaces (S4). It links two Spaces, so it is never sent on a gossipsub topic and is not stored on IO infrastructure in the clear; it confers no authority on any IO.
+The agreement is a CO-to-CO document, signed per §13.1.1 by both `homeAdminDID` and `guestAdminDID`: the envelope `sig` carries one entry for each, and both are CO keys of the respective Spaces (S4). It links two Spaces, so it is never sent on a gossipsub topic and is not stored on IO infrastructure in the clear; it confers no authority on any IO.
 
 ## 8.4 Member Admission
 
@@ -111,7 +109,7 @@ No special Relay configuration is required if both spaces' Relays participate in
 
 ## 8.7 Revocation
 
-Either party MAY revoke the `ChannelShareAgreement` by publishing a signed `ChannelShareRevocation`:
+Either party MAY revoke the `ChannelShareAgreement` by publishing a `ChannelShareRevocation`, signed per §13.1.1 by `revokedBy`:
 
 ```json
 {
@@ -121,8 +119,7 @@ Either party MAY revoke the `ChannelShareAgreement` by publishing a signed `Chan
   "revokedBy": "did:key:z6MkRevoker...",
   "revokedBySpace": "agora://bafyrei.../",
   "reason": "partnership-ended",
-  "ts": "2026-03-12T00:00:00Z",
-  "sig": "base64url..."
+  "ts": "2026-03-12T00:00:00Z"
 }
 ```
 

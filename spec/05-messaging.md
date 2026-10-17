@@ -10,7 +10,7 @@
 
 Agora uses **best-effort causal ordering**. Gossipsub does not guarantee total message order and does not need to. The requirement is that messages arrive in approximately the right order on average, with clients able to reconstruct causal order locally.
 
-Each message envelope carries a `seq` (monotonically increasing integer per sender per channel). A JMAP Chat `Message` (§5.2.3) refers to earlier Messages by `senderMsgId` in `replyTo` and `threadRootId`, and edits, deletions and reactions name their target Message the same way (§5.2.2). This gives clients enough information to:
+Each inner payload carries a `seq` (monotonically increasing integer per sender per channel), inside the ciphertext (§5.2.2). A JMAP Chat `Message` (§5.2.3) refers to earlier Messages by `senderMsgId` in `replyTo` and `threadRootId`, and edits, deletions and reactions name their target Message the same way (§5.2.2). This gives clients enough information to:
 
 - Detect gaps (missing `seq` values from a given sender)
 - Buffer out-of-order arrivals and flush the buffer when gaps close
@@ -91,7 +91,7 @@ A `community` channel has a bounded MLS group called the **speaker group**. Only
 
 **Idle eviction.** A speaker who has not sent any `ApplicationMessage` in the channel within `idleEvictDays` days (default 7) is eligible for eviction. The channel's designated **SpeakerBot** (a DID listed in the channel state as `speakerBot`) issues periodic Remove commits for idle speakers. If no `speakerBot` is configured, channel admins perform evictions manually. Eviction is not punitive: evicted members are eligible for immediate re-admission when they next request to speak.
 
-**SpeakRequest.** A space member who is not currently in the speaker group and wants to post sends a `SpeakRequest` as an MLS application message in a DM group (§4.6) with the channel's `speakerBot`, or with a channel admin if no `speakerBot` is configured. The requester holds no key for the speaker group, so the request cannot travel in the channel's own envelopes; it MUST NOT be sent in the clear on any topic. The requester's identity is carried and authenticated by the sealed envelope (§5.2.2), so the inner payload, an envelope of type `urn:agora:type:SpeakRequest` (§5.2.3), carries only the channel:
+**SpeakRequest.** A space member who is not currently in the speaker group and wants to post sends a `SpeakRequest` as an MLS application message in a DM group (§4.6) with the channel's `speakerBot`, or with a channel admin if no `speakerBot` is configured. The requester holds no key for the speaker group, so the request cannot travel in the channel's own envelopes; it MUST NOT be sent in the clear on any topic. The requester's identity is the MLS sender of the DM group message, authenticated by the MLS signature (§5.2.2), so the inner payload, an envelope of type `urn:agora:type:SpeakRequest` (§5.2.3), carries only the channel:
 
 ```json
 {
@@ -148,6 +148,7 @@ The AEAD is that of the default ciphersuite (§5.2.1), AES-128-GCM. `nonce` is 1
   "channelCID": "bafyrei...",
   "keyEpoch": 7,
   "senderDID": "did:key:z6Mk...",
+  "seq": 311,
   "message": {
     "senderMsgId": "01J3XM2C4V0Q6R9T8Y7W5E3B1A",
     "body": "v2.1.0 released; see release notes for details.",
@@ -157,9 +158,9 @@ The AEAD is that of the default ciphersuite (§5.2.1), AES-128-GCM. `nonce` is 1
 }
 ```
 
-`message` carries the fields of a new Message as defined in §5.2.2. Subscribers are not members of the publisher group, so no MLS sender signature covers the payload; `sig` is the poster's JWS, signed per §13.1.1. Recipients MUST verify `sig` per §13.1.1 with the DID of its `kid` equal to `senderDID` before displaying the message, MUST verify that `channelCID` and `keyEpoch` match the key used to decrypt, and MUST verify that `senderDID` holds a space role listed in `broadcasterRoles`.
+`seq` is the poster's per-channel sequence number (§5.1.1). `message` carries the fields of a new Message as defined in §5.2.2. Subscribers are not members of the publisher group, so no MLS sender signature covers the payload; `sig` is the poster's JWS, signed per §13.1.1. Recipients MUST verify `sig` per §13.1.1 with the DID of its `kid` equal to `senderDID` before displaying the message, MUST verify that `channelCID` and `keyEpoch` match the key used to decrypt, and MUST verify that `senderDID` holds a space role listed in `broadcasterRoles`.
 
-**Relay handling.** The Relay stores broadcast messages as ciphertext blobs, identical to any other channel message. It learns a `channelToken`, the publisher group's epoch access signature, a sequence number, a timestamp and an opaque blob, and nothing about who posted. Clients MUST display a visible indicator (e.g., a megaphone icon) on broadcast channels to make clear to users that the channel has the weaker properties stated below.
+**Relay handling.** The Relay stores broadcast messages as ciphertext blobs, identical to any other channel message. It learns a `channelToken`, the publisher group's epoch access signature, a timestamp and an opaque blob, and nothing about who posted. Clients MUST display a visible indicator (e.g., a megaphone icon) on broadcast channels to make clear to users that the channel has the weaker properties stated below.
 
 **Rotation and removal.** To remove a subscriber, the CO publishes a new `BroadcastKey` with `keyEpoch` incremented and stops serving keys to the removed subscriber (§3.4). The CO SHOULD also rotate the key at least every 30 days, and MUST rotate it before 2^32 messages have been encrypted under one key (the AES-GCM limit for random nonces).
 
@@ -171,7 +172,7 @@ The AEAD is that of the default ciphersuite (§5.2.1), AES-128-GCM. `nonce` is 1
 
 ### 5.2.2 Message Format
 
-All messages use a two-layer structure: an outer **routing envelope** visible to Relays, and an inner **sealed envelope** whose sender identity is hidden from Relays. The inner payload is MLS-encrypted, except in `broadcast` channels, whose payload is encrypted under the channel content key instead (§5.2.1.4).
+All messages use a two-layer structure: an outer **routing envelope** visible to Relays, and an inner **sealed envelope** that hides the MLS framing from Relays. The inner payload is MLS-encrypted, except in `broadcast` channels, whose payload is encrypted under the channel content key instead (§5.2.1.4).
 
 #### Outer Routing Envelope
 
@@ -184,7 +185,6 @@ The outer envelope contains only what Relays strictly need for delivery routing.
   "id": "urn:agora:msg:bafyrei...",
   "channelToken": "base64url...",
   "epoch": 17,
-  "seq": 1042,
   "ts": "2026-03-12T12:00:00.000Z",
   "expiryHint": "2026-03-19T12:00:00.000Z",
   "sealedEnvelope": "base64url...",
@@ -194,7 +194,7 @@ The outer envelope contains only what Relays strictly need for delivery routing.
 
 `channelToken` is derived from the MLS exporter of the channel's group: `MLS-Exporter("agora channel token", channelCID, 32)`. It rotates with every epoch. Relays use it for topic routing without learning the channel identifier or any member identity.
 
-`id` is the CID of the canonical outer envelope, used for deduplication and history indexing. `ts` is present for gossipsub ordering and relay-side TTL enforcement only; it is not authenticated at the outer layer and MUST NOT be trusted for application-level ordering (use the inner `seq` for that). `expiryHint` is set by the sender to match the inner payload `expiry` value; Relays use it as a cache TTL hint (§5.2.4). `accessSig` is the epoch access proof defined below.
+`id` is the CID of the canonical outer envelope, used for deduplication and history indexing. `ts` is present for gossipsub ordering and relay-side TTL enforcement only; it is not authenticated at the outer layer and MUST NOT be trusted for application-level ordering (use the inner `seq` for that, §5.1.1). `expiryHint` is set by the sender to match the inner payload `expiry` value; Relays use it as a cache TTL hint (§5.2.4). `accessSig` is the epoch access proof defined below.
 
 #### Epoch Access Proof
 
@@ -212,32 +212,21 @@ A removed member does not hold the next epoch's access key, so bans and removals
 
 #### Sealed Envelope (Sender-Sealed, Relay-Opaque)
 
-`sealedEnvelope` bundles the sender's DID, a per-message ephemeral key, and the MLS ciphertext, all encrypted together to the channel's current MLS group key. No Relay or non-member can open it.
+`sealedEnvelope` is one AEAD ciphertext over the complete serialized `MLSMessage` (a `PrivateMessage`, or a handshake message such as a Commit or Proposal), keyed from the channel's current MLS epoch. No Relay or non-member can open it.
+
+The wrapper exists because MLS framing is visible in the clear: `group_id`, `epoch` and `content_type` precede the encrypted content. `group_id` is constant for the life of the group, so a Relay that saw it could link every epoch of a channel despite the rotating `channelToken`; `epoch` and `content_type` would reveal epoch boundaries and which messages are Commits. The wrapper hides all three.
 
 The sealing key is `MLS-Exporter("agora sealed envelope", channelCID, Nk)`, used with the AEAD of the group's ciphersuite. The AEAD associated data MUST bind the recipient context: `"agora/sealed/v1" || channelToken || epoch` (epoch as a big-endian uint64). Implementations MUST NOT seal with empty associated data. A recipient MUST reject a sealed envelope whose associated data does not match the `channelToken` and `epoch` of the routing envelope it arrived in, which prevents re-targeting a sealed envelope to another channel or epoch.
 
-Plaintext of `sealedEnvelope` before encryption:
+The plaintext is the serialized `MLSMessage` with no further structure. The wrapper carries no sender DID, ephemeral key or signature of its own: the sender is identified by the MLS sender data, which MLS encrypts, and authenticated by the MLS signature (§13.1.1).
 
-```json
-{
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "SealedEnvelope",
-  "sender": "did:key:z6Mk...",
-  "senderEphemeralKey": "base64url...",
-  "mlsCiphertext": "base64url...",
-  "sig": "base64url..."
-}
-```
-
-`sig` covers `sender + senderEphemeralKey + mlsCiphertext`, signed by the sender's authentication key. Recipients verify the signature after decrypting the sealed envelope. `senderEphemeralKey` is a fresh X25519 key generated per-message; it binds the sealed envelope to this specific send without exposing long-term key material to the outer layer.
-
-This design is derived from Signal's Sealed Sender construction. A Relay processing this message learns: a `channelToken` (epoch-rotating, non-reversible without the group's exporter secret), an epoch access signature that does not identify the signer, a sequence number, a timestamp, and an opaque encrypted blob. It learns nothing about who sent the message.
+The idea of hiding the sender from the delivery service comes from Signal's Sealed Sender; the construction is different, since sender authentication here is entirely MLS's. A Relay processing this message learns: a `channelToken` (epoch-rotating, non-reversible without the group's exporter secret), an epoch access signature that does not identify the signer, a timestamp, an expiry hint, and an opaque encrypted blob. It learns nothing about who sent the message.
 
 #### Inner Payload (After MLS Decryption)
 
-The `application_data` of every MLS application message is exactly one typed payload envelope (§13.1). The envelope's `type` names the object (§5.2.3) and its `body` holds the object's exact bytes.
+The `application_data` of every MLS application message is exactly one typed payload envelope (§13.1). The envelope's `type` names the object (§5.2.3) and its `body` holds the object's exact bytes. Inside MLS the envelope carries one further member, `seq`, the sender's per-channel sequence number used for gap detection (§5.1.1). It is covered by the MLS signature and invisible to Relays.
 
-Objects carried inside MLS have no object-level signature and no sender field. The MLS sender signature authenticates the sender (§13.1.1), and the sender is the DID in the sending leaf's credential (§5.2.1). Recipients MUST reject a sealed envelope whose `sender` differs from that DID. An object that is also verified outside the group carries `sig` per §13.1.1 so that it can be forwarded or archived byte-for-byte.
+Objects carried inside MLS have no object-level signature and no sender field. The MLS sender signature authenticates the sender (§13.1.1), and the sender is the DID in the sending leaf's credential (§5.2.1). An object that is also verified outside the group carries `sig` per §13.1.1 so that it can be forwarded or archived byte-for-byte.
 
 A chat message is a `Message` of the JMAP Chat specification (draft-atwood-jmap-chat-00), shown here with `body` decoded:
 
@@ -245,6 +234,7 @@ A chat message is a `Message` of the JMAP Chat specification (draft-atwood-jmap-
 {
   "type": "urn:ietf:params:jmap:chat#Message",
   "contentType": "application/json",
+  "seq": 1042,
   "body":                         / the exact JSON bytes of: /
     {
       "senderMsgId": "01J3XM2C4V0Q6R9T8Y7W5E3B1A",

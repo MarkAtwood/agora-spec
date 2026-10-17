@@ -152,12 +152,11 @@ The recovery key is **never used for normal protocol operations**. Its only func
   "did": "did:webvh:QmSCID...:example.com:alice",
   "newDeviceKey": "base64url(new Ed25519 pubkey)",
   "revokeAll": true,
-  "ts": "2026-03-12T12:00:00.000Z",
-  "recoverySig": "base64url..."
+  "ts": "2026-03-12T12:00:00.000Z"
 }
 ```
 
-`recoverySig` is an Ed25519 signature, signed per §13.1.1, by a key listed in the DID document's `recoverableIdentity` relationship: either the recovery key or the social recovery key (§2.4.2). Verifiers MUST reject a `RecoveryAssertion` whose signature does not verify under a `recoverableIdentity` key of the DID document in effect before the assertion. `revokeAll: true` instructs peers to treat all previously registered device keys as revoked once the assertion takes effect (§2.4.4). The `RecoveryAssertion` is published to `v1/agora/discovery` and appended to the user's profile IPLD chain. Relays take no action on a `RecoveryAssertion`: they hold no per-DID sessions, and a revoked device loses channel access when its leaves are Removed (§2.2).
+The assertion is signed per §13.1.1 by a key listed in the DID document's `recoverableIdentity` relationship: either the recovery key or the social recovery key (§2.4.2). Verifiers MUST reject a `RecoveryAssertion` whose signature does not verify under a `recoverableIdentity` key of the DID document in effect before the assertion. `revokeAll: true` instructs peers to treat all previously registered device keys as revoked once the assertion takes effect (§2.4.4). The `RecoveryAssertion` is published to `v1/agora/discovery` and appended to the user's profile IPLD chain. Relays take no action on a `RecoveryAssertion`: they hold no per-DID sessions, and a revoked device loses channel access when its leaves are Removed (§2.2).
 
 **The recovery key is the root of trust for identity recovery.** Its private key MUST NOT leave a secure offline boundary (paper backup, air-gapped device, or hardware security key). It MUST NOT be imported into any networked device or software keystore under any circumstances during normal operation.
 
@@ -187,12 +186,11 @@ seed = HKDF-SHA256(IKM = S, salt = "" (zero-length), info = "agora/v1/social-rec
     }
   ],
   "recoveryKeyID": "did:webvh:QmSCID...:example.com:alice#social-recovery-1",
-  "ts": "2026-03-12T12:00:00.000Z",
-  "sig": "base64url..."
+  "ts": "2026-03-12T12:00:00.000Z"
 }
 ```
 
-The `SocialRecoveryConfig` is stored in the user's profile IPLD chain; it carries only the encrypted shares and a `recoveryKeyID` pointer. The recovery commitment itself (the social recovery public key) is held only in the DID document, and verifiers MUST take it from there, not from the `SocialRecoveryConfig`.
+The `SocialRecoveryConfig` is signed per §13.1.1 by `did` and is stored in the user's profile IPLD chain; it carries only the encrypted shares and a `recoveryKeyID` pointer. The recovery commitment itself (the social recovery public key) is held only in the DID document, and verifiers MUST take it from there, not from the `SocialRecoveryConfig`.
 
 **Recovery:** The user contacts `threshold` guardians out-of-band and requests their shares. Each guardian decrypts their encrypted share using their X25519 key and transmits it to the recovering user. The user reconstructs `S` from the shares, re-derives the social recovery key as above, and checks that its public key matches the `#social-recovery-1` key in the DID document; a mismatch means a share is wrong. The user then publishes a `RecoveryAssertion` (§2.4.1) naming a freshly generated device key in `newDeviceKey` and signed with the social recovery key. Because `S` is now known to the recovering device, the client SHOULD then re-run setup with a new `S` and replace the `#social-recovery-1` key.
 
@@ -239,7 +237,7 @@ The `ts` field of a `RecoveryAssertion` is self-asserted by its signer and MUST 
 
 - **`did:webvh` identities.** The DID log is the ordering source: the assertion that takes effect is the one written into the log (§2.4). If a resolver sees two different log entries with the same version number for one DID, it MUST treat the DID as in conflict, MUST NOT apply either automatically, and SHOULD surface the conflict to the user.
 - **`did:plc` identities.** The PLC directory orders operations, subject to the did:plc recovery window.
-- **CO-provisioned identities (§2.5).** In addition, the assertion that takes effect is the one reflected in the DID document update made by the provisioning service (`provisionerSig`, §2.5.7); the order in which that service applies updates is the ordering source. The provisioning service MUST apply recovery assertions for a DID one at a time, and MUST NOT apply a second `RecoveryAssertion` for the same DID within 24 hours of applying one without administrator review; it MUST record the conflict in its audit log. Clients act on the signed DID document, not on the assertion alone.
+- **CO-provisioned identities (§2.5).** In addition, the assertion that takes effect is the one reflected in the DID document update made by the provisioning service and signed by it (§2.5.7); the order in which that service applies updates is the ordering source. The provisioning service MUST apply recovery assertions for a DID one at a time, and MUST NOT apply a second `RecoveryAssertion` for the same DID within 24 hours of applying one without administrator review; it MUST record the conflict in its audit log. Clients act on the signed DID document, not on the assertion alone.
 - **`did:key` identities.** `RecoveryAssertion` does not apply (§2.4).
 
 ## 2.5 Enterprise Identity Provisioning (SAML / OIDC)
@@ -329,12 +327,11 @@ Neither private key leaves the secure enclave. The client holds only the public 
   "platform": "macOS",
   "secureEnclaveAttested": true,
   "ts": "2026-03-12T12:00:00.000Z",
-  "idpToken": "base64url(SAML assertion or OIDC id_token)",
-  "existingDeviceSig": "base64url(...) | absent for first device"
+  "idpToken": "base64url(SAML assertion or OIDC id_token)"
 }
 ```
 
-`existingDeviceSig` is a signature by an existing registered device key, signed per §13.1.1. For first-device enrollment it is absent. For subsequent devices it MUST be present: the IdP token alone authorizes adding a device only on first enrollment; subsequent enrollment requires proof of an existing authorized device.
+The request is signed per §13.1.1 by an existing registered device key. For first-device enrollment the envelope `sig` is absent. For subsequent devices it MUST be present: the IdP token alone authorizes adding a device only on first enrollment; subsequent enrollment requires proof of an existing authorized device.
 
 `secureEnclaveAttested` is `true` if the platform supports hardware attestation of key generation. When `true`, the provisioning service SHOULD verify the attestation before accepting the key.
 
@@ -342,7 +339,7 @@ Neither private key leaves the secure enclave. The client holds only the public 
 1. Verifies the IdP token signature against the IdP's public key
 2. Verifies the token is issued for the user matching the `did` in the request
 3. Verifies the token is not expired and was issued for the Agora provisioning service audience
-4. For non-first-device enrollment: verifies `existingDeviceSig` against a currently registered device key in the DID document
+4. For non-first-device enrollment: verifies the request's signature (§13.1.1) against a currently registered device key in the DID document
 5. Checks that the user account is active (not suspended or offboarded)
 6. Checks that the number of registered devices does not exceed the org's configured limit (default: 10)
 
@@ -394,10 +391,11 @@ Device revocation can be initiated by the user (lost or retired device) or by th
   "did": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m",
   "revokeDeviceKeyID": "did:webvh:QmSCID...:acme.com:users:k7f3qd2m#device-{fingerprint}",
   "reason": "device-lost | device-retired | security-incident",
-  "ts": "2026-03-12T12:00:00.000Z",
-  "requestingSig": "base64url(signature by a surviving device key)"
+  "ts": "2026-03-12T12:00:00.000Z"
 }
 ```
+
+The request is signed per §13.1.1 by a surviving device key of `did`.
 
 **Organization-initiated revocation.** An IT administrator authenticates to the provisioning service admin interface and submits a revocation for any device key or for the entire DID (full account suspension):
 
@@ -410,18 +408,17 @@ Device revocation can be initiated by the user (lost or retired device) or by th
   "revokeAll": false,
   "reason": "employee-offboarding | security-incident | policy-violation",
   "adminDID": "did:webvh:QmSCID...:acme.com:users:it-admin",
-  "adminSig": "base64url(...)",
   "ts": "2026-03-12T12:00:00.000Z"
 }
 ```
 
-`revokeAll: true` removes all device keys from the DID document, effectively suspending the account. The DID document remains resolvable but has no `authentication` keys.
+The request is signed per §13.1.1 by `adminDID`. `revokeAll: true` removes all device keys from the DID document, effectively suspending the account. The DID document remains resolvable but has no `authentication` keys.
 
 **Revocation mechanics.** On receipt of a valid revocation request, the provisioning service:
 
 1. Removes the specified `verificationMethod` entry and its references from `authentication` and `keyAgreement`, by a DID log entry signed with its update key
 2. Records the revocation in the audit log with timestamp, reason, and initiator
-3. Gossips a `DeviceRevocation` control message on `v1/agora/discovery` carrying the revoked key ID and a signature by the provisioning service's own signing key
+3. Gossips a `DeviceRevocation` control message on `v1/agora/discovery` carrying the revoked key ID, signed per §13.1.1 by the provisioning service's own signing key
 4. Notifies the user's remaining enrolled devices via their push handles (if push proxy is configured)
 
 Relays take no action on a `DeviceRevocation`: they never authenticate client identity (§12.5), and the revoked device loses channel access when its MLS leaves are Removed (below).
@@ -457,7 +454,7 @@ The provisioning service itself is a DID-bearing principal:
 }
 ```
 
-Every DID document update the provisioning service publishes MUST include a `provisionerSig` field: an Ed25519 signature over the updated DID document by the provisioning service's key, signed per §13.1.1. Clients MUST verify this signature when processing DID document updates received via gossip.
+Every DID document update the provisioning service publishes MUST be signed per §13.1.1 by the provisioning service's key, with the JWS in the update's envelope `sig`. Clients MUST verify this signature when processing DID document updates received via gossip.
 
 This creates a two-party integrity guarantee: the user's device key proves the user authorized the key, and the provisioner's signature proves the organization accepted and recorded the registration. The provisioner cannot forge an existing device's signature. It can add a new key, but only by a DID log entry signed with its update key, which every resolver sees (§2.5.1).
 
@@ -467,11 +464,11 @@ For enterprise `did:webvh` identities, the recovery mechanisms of §2.4 interact
 
 - **Recovery key (§2.4.1):** Valid, but the recovery key can only rotate device keys; it cannot override an organization-initiated `revokeAll`. Recovery keys are appropriate for individual-initiated recovery (lost device, not offboarding).
 
-- **Social recovery (§2.4.2):** Valid for user-initiated recovery. The provisioning service accepts a `RecoveryAssertion` as equivalent to an IdP token for first-device enrollment, provided `recoverySig` verifies under the social recovery key (`#social-recovery-1`, a `recoverableIdentity` key) in the user's DID document.
+- **Social recovery (§2.4.2):** Valid for user-initiated recovery. The provisioning service accepts a `RecoveryAssertion` as equivalent to an IdP token for first-device enrollment, provided its signature verifies under the social recovery key (`#social-recovery-1`, a `recoverableIdentity` key) in the user's DID document.
 
 - **Encrypted backup (§2.4.3):** Valid. The backup restores MLS state and device keys. The restored device still needs to be enrolled via §2.5.4 to update the DID document with the restored public key.
 
-- **Org-initiated recovery (helpdesk):** When a user loses all devices and has no recovery key or guardians, the organization can initiate recovery on their behalf: an admin issues a provisioning request (with `existingDeviceSig` absent, substituted by admin authorization) to add a new device key to the user's DID document. This path MUST be logged in the audit trail; it is a privileged operation, and the added key appears in the DID log as an entry signed with the provisioning service's update key.
+- **Org-initiated recovery (helpdesk):** When a user loses all devices and has no recovery key or guardians, the organization can initiate recovery on their behalf: an admin issues a provisioning request (with no existing-device signature, substituted by admin authorization) to add a new device key to the user's DID document. This path MUST be logged in the audit trail; it is a privileged operation, and the added key appears in the DID log as an entry signed with the provisioning service's update key.
 
 
 ---

@@ -15,9 +15,10 @@ Every Agora payload is carried in a **typed payload envelope**. The envelope nam
 | `type` | text | yes | Absolute URI naming the object type (see "Type URIs" below). |
 | `contentType` | text | yes | Media type of `body` (RFC 6838), with parameters if any, e.g. `application/json`, `application/ld+json`, `application/cbor`. |
 | `body` | bytes | yes | The exact bytes of the object, encoded as `contentType` says. |
-| `sig` | text | no | JWS over `body` (§13.1.1). REQUIRED where §13.1.1 or the section defining the object requires an object-level signature; otherwise absent. |
+| `sig` | text | no | JWS General JSON Serialization over `body`, one entry per required signer (§13.1.1). REQUIRED where §13.1.1 or the section defining the object requires an object-level signature; otherwise absent. |
+| `seq` | unsigned integer | MLS only | The sender's per-channel sequence number (§5.1.1). Present only when the envelope is the `application_data` of an MLS application message; covered by the MLS signature. |
 
-**Encoding.** An envelope is encoded as a CBOR map (RFC 8949) with the text-string keys `type`, `contentType`, `body` and `sig`. `type`, `contentType` and `sig` are CBOR text strings; `body` is a CBOR byte string holding the object bytes verbatim, never a nested CBOR or JSON value. Receivers MUST ignore map keys they do not recognize. The map itself is not signed, so its key order and integer widths carry no meaning.
+**Encoding.** An envelope is encoded as a CBOR map (RFC 8949) with the text-string keys `type`, `contentType`, `body`, `sig` and, inside MLS only, `seq`. `type`, `contentType` and `sig` are CBOR text strings; `body` is a CBOR byte string holding the object bytes verbatim, never a nested CBOR or JSON value. Receivers MUST ignore map keys they do not recognize. The map itself is not signed, so its key order and integer widths carry no meaning.
 
 **Inside an MLS application message.** The `application_data` of every MLS application message (§5.2.3) is exactly one encoded envelope. The MLS sender signature authenticates the sender and the envelope, so `sig` is absent unless the object is one that is also verified outside the group (below), in which case it is carried with its `sig` so that it can be forwarded or archived byte-for-byte.
 
@@ -47,9 +48,11 @@ Every Agora payload is carried in a **typed payload envelope**. The envelope nam
 
 This is the single normative object-signing procedure of this specification. Wherever another section says an object is "signed", "signed per §13.1.1", or signed over its "canonical" form, this procedure is meant. It applies to every content type: signatures cover the exact `body` bytes, and no canonical CBOR, JCS (RFC 8785) or RDF form is computed. Objects exchanged only inside an MLS group need no object-level signature; the MLS sender signature suffices.
 
-**Format.** An object-level signature is a JWS (RFC 7515) in compact serialization with a detached payload, using the unencoded payload option (RFC 7797) and the EdDSA algorithm with Ed25519 (RFC 8037). It is placed in the envelope's `sig` field and is never embedded in the `body` it signs.
+**Format.** An object-level signature is a JWS (RFC 7515) in the General JSON Serialization (RFC 7515 §7.2.1) with a detached payload, using the unencoded payload option (RFC 7797) and the EdDSA algorithm with Ed25519 (RFC 8037). The envelope's `sig` field holds the UTF-8 JSON text of a JSON object with exactly one member, `signatures`: an array with one entry per signer, each entry a JSON object with exactly the members `protected` and `signature`. The `payload` member is omitted (detached), and the unprotected `header` member MUST NOT be used. Every entry signs the same exact `body` bytes. A signature is never embedded in the `body` it signs.
 
-**Protected header.** The JWS Protected Header MUST be a JSON object containing exactly these members:
+**Required signers.** The section defining each object states its required signer or signers. An object with one required signer has one entry; a multi-signer object (for example `RelayServiceAgreement` or `ChannelShareAgreement`) has one entry per required signer. Signing order is irrelevant: each signer computes its entry independently over the same `body`, and entries MAY appear in any order.
+
+**Protected header.** Each entry's JWS Protected Header MUST be a JSON object containing exactly these members:
 
 | Member | Value |
 |---|---|
@@ -62,21 +65,23 @@ This is the single normative object-signing procedure of this specification. Whe
 
 `cty` and `agoraType` bind the signature to the declared encoding and type, so a signed body cannot be presented as another type.
 
-**Signing.** The signer computes the JWS Signing Input as `ASCII(BASE64URL(UTF8(protected header))) || "." || body`, where `body` is the exact byte string placed in the envelope, signs it with the Ed25519 private key of the verification method named by `kid` (RFC 8032), and sets `sig` to `BASE64URL(UTF8(protected header)) || ".." || BASE64URL(signature)`.
+**Signing.** The signer computes the JWS Signing Input as `ASCII(BASE64URL(UTF8(protected header))) || "." || body`, where `body` is the exact byte string placed in the envelope, signs it with the Ed25519 private key of the verification method named by `kid` (RFC 8032), and adds the entry `{"protected": BASE64URL(UTF8(protected header)), "signature": BASE64URL(signature)}` to the `signatures` array.
 
 **Byte-for-byte rule.** A signed `body` MUST be stored, forwarded, archived and re-published as the exact bytes that were signed. Parties MUST NOT substitute a parsed and re-serialized body for the original bytes, including to change whitespace, key order, number formatting or character escaping. An implementation that needs a modified object creates a new object and, if required, a new signature.
 
-**Verification.** A verifier MUST reject the object unless all of the following hold:
+**Verification.** A verifier MUST reject the object unless `sig` parses as the JSON object described under Format, it contains an entry for every required signer that the section defining the object names, and every such entry satisfies all of the following:
 
-1. `sig` consists of three base64url segments separated by `.`, with an empty middle segment.
+1. The entry has exactly the members `protected` and `signature`, each a base64url string.
 2. The protected header decodes to a JSON object with exactly the members above; `alg` is `"EdDSA"`, `b64` is `false`, `crit` is `["b64"]`, `cty` equals the envelope's `contentType` and `agoraType` equals the envelope's `type`.
 3. `kid` is a DID URL whose DID resolves (§2.1) to a DID document containing a verification method whose `id` equals `kid`, holding an Ed25519 public key, and referenced from the document's `authentication` relationship unless the section defining the object names another relationship.
 4. The DID in `kid` is the signer that the section defining the object requires (for example the Space's CO DID, or the message's `senderDID`).
-5. The Ed25519 signature verifies over the JWS Signing Input built from the received protected header segment and the `body` bytes exactly as received.
+5. The Ed25519 signature verifies over the JWS Signing Input built from the entry's received `protected` value and the `body` bytes exactly as received.
+
+A verifier MUST reject the object if any entry fails these checks, including an entry from a signer that is not required.
 
 Verification MUST NOT fetch any resource named inside `body`.
 
-**Test vectors.** A JWS signing test-vector set MUST be published containing at minimum: (a) at least five representative signed object types, each with its envelope fields, `body` bytes in hex, the Ed25519 test private key, and the expected `sig`; and (b) negative cases that a verifier MUST reject, including `b64` set to `true` or absent, an `alg` other than `EdDSA`, `cty` or `agoraType` not matching the envelope, and a body that was re-serialized after signing. Because Ed25519 signatures are deterministic, expected `sig` values are byte-exact. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
+**Test vectors.** A JWS signing test-vector set MUST be published containing at minimum: (a) at least five representative signed object types, including at least one multi-signer object, each with its envelope fields, `body` bytes in hex, the Ed25519 test private key, and the expected `sig`; and (b) negative cases that a verifier MUST reject, including `b64` set to `true` or absent, an `alg` other than `EdDSA`, `cty` or `agoraType` not matching the envelope, a body that was re-serialized after signing, and a multi-signer object missing one required signer's entry. Because Ed25519 signatures are deterministic, expected `sig` values are byte-exact. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
 
 > **Open (agora-pozi.20.16):** The JWS test-vector set does not exist yet; no `test-vectors/` directory is present in the repository.
 

@@ -95,12 +95,11 @@ The manifest is a signed JSON-LD document that serves as the Relay's authoritati
       "addedAt": "2026-03-12T00:00:00Z"
     }
   ],
-  "publishedAt": "2026-03-12T00:00:00Z",
-  "sig": "base64url..."
+  "publishedAt": "2026-03-12T00:00:00Z"
 }
 ```
 
-`sig` is the Relay operator's Ed25519 signature over the manifest, excluding the `sig` field, signed per §13.1.1. Peer Relays MUST verify this signature before accepting the manifest.
+The manifest is signed per §13.1.1 by the Relay operator's key. Peer Relays MUST verify this signature before accepting the manifest.
 
 `observationBudget` declares what the Relay retains beyond transient routing. `connectionLogRetentionDays` is the retention of network-layer connection metadata (ARCHITECTURE §5 item 1), as set by the Relay's `RelayServiceAgreement`s (§10.5.1). `extensions` lists every opt-in extension to the ARCHITECTURE §5 observation budget the Relay has enabled; it MUST be empty unless a CO has opted in (ARCHITECTURE S6). A Relay MUST NOT observe, log or retain anything not covered by ARCHITECTURE §5 or a declared extension.
 
@@ -234,12 +233,11 @@ A Relay is considered mesh-joined when it has Level 1 or higher trust with at le
   "relayDID": "did:key:z6MkNewRelay...",
   "manifestURL": "https://newrelay.example.com/.well-known/agora-relay",
   "announcedBy": "did:key:z6MkExistingRelay...",
-  "ts": "2026-03-12T00:00:00Z",
-  "sig": "base64url..."
+  "ts": "2026-03-12T00:00:00Z"
 }
 ```
 
-Receiving Relays verify the signature, independently fetch the new Relay's manifest, and decide whether to initiate peering. The announcement is a hint, not an authorization.
+The announcement is signed per §13.1.1 by `announcedBy`. Receiving Relays verify the signature, independently fetch the new Relay's manifest, and decide whether to initiate peering. The announcement is a hint, not an authorization.
 
 ---
 
@@ -287,14 +285,13 @@ A **SpaceAd** or **UserAd** message is gossiped periodically (default TTL: 60 se
   "inviteURL": "https://invite.example.com/dev",
   "spaceEndpoint": ["https://spaces.example.com/v1/agora/space/1f3a..."],
   "advertisedBy": "did:webvh:QmSCID...:example.com:co",
-  "sig": "base64url...",
   "ts": "2026-03-12T00:00:00Z"
 }
 ```
 
 `spaceEndpoint` lists the CO's Space endpoint URLs (§3.4). `relayHints` are connection hints only; clients are not required to use them and SHOULD attempt direct peer connections first. `relayHints` MAY include `.onion` addresses, clearnet HTTPS/WSS URIs, overlay-internal hostnames, and IPv6 address literals.
 
-**Signing rule.** Every discovery record is signed by the party it describes: the CO for Space records, the user for user records, and the Relay for relay records. `advertisedBy` is the CO DID that signs the Space's state (ARCHITECTURE S4), and `sig` is its signature over the SpaceAd excluding `sig`, signed per §13.1.1. A UserAd is signed the same way by the user's DID. Clients MUST discard a SpaceAd or UserAd whose signature does not verify against the described party.
+**Signing rule.** Every discovery record is signed by the party it describes: the CO for Space records, the user for user records, and the Relay for relay records. `advertisedBy` is the CO DID that signs the Space's state (ARCHITECTURE S4), and the SpaceAd is signed per §13.1.1 by `advertisedBy`. A UserAd is signed the same way by the user's DID. Clients MUST discard a SpaceAd or UserAd whose signature does not verify against the described party.
 
 Only public Spaces advertise. A CO MUST NOT publish a SpaceAd or directory entry for a private Space; private Spaces are reached only by invitation (§4.3).
 
@@ -329,7 +326,6 @@ A `RelayDirectory` lists Relays available for client connection:
   "maintainer": "did:key:z6MkMaintainer...",
   "published": "2026-03-12T00:00:00Z",
   "ttl": 3600,
-  "sig": "base64url...",
   "relays": [
     {
       "@type": "RelayEntry",
@@ -357,7 +353,7 @@ A `RelayDirectory` lists Relays available for client connection:
 }
 ```
 
-`ttl` is the number of seconds before the client should re-fetch the document. `includes` is a list of other directory document URLs whose contents are merged into this one; clients MUST limit include recursion depth to 3 to prevent cycles. `sig` is the maintainer's Ed25519 signature over the document (excluding the `sig` field), signed per §13.1.1. Clients SHOULD verify the signature against the `maintainer` DID but MAY accept unsigned directories with a user-visible warning. A `RelayEntry` is a connection hint; the relay record that counts is the Relay-signed manifest (§10.2.1), which clients MUST verify before use (§10.3.4.7).
+`ttl` is the number of seconds before the client should re-fetch the document. `includes` is a list of other directory document URLs whose contents are merged into this one; clients MUST limit include recursion depth to 3 to prevent cycles. The document is signed per §13.1.1 by the `maintainer` DID. Clients SHOULD verify the signature against the `maintainer` DID but MAY accept unsigned directories with a user-visible warning. A `RelayEntry` is a connection hint; the relay record that counts is the Relay-signed manifest (§10.2.1), which clients MUST verify before use (§10.3.4.7).
 
 #### 10.3.4.2 Space Directory
 
@@ -373,12 +369,11 @@ A `SpaceDirectory` lists Spaces available for browsing or joining:
   "maintainer": "did:key:z6MkMaintainer...",
   "published": "2026-03-12T00:00:00Z",
   "ttl": 3600,
-  "sig": "base64url...",
   "spaces": [
     {
       "@type": "SpaceDirectoryEntry",
       "spaceCID": "bafyrei...",
-      "spaceAd": { "@type": "SpaceAd", "spaceCID": "bafyrei...", "...": "...", "sig": "base64url..." },
+      "spaceAd": "base64url...",
       "tags": ["cryptography", "embedded", "fips", "open-source"],
       "language": "en",
       "addedBy": "did:key:z6MkMaintainer...",
@@ -391,7 +386,7 @@ A `SpaceDirectory` lists Spaces available for browsing or joining:
 }
 ```
 
-A directory is an independent publisher and lists only CO-signed Space records. `spaceAd` is the CO-signed SpaceAd (§10.3.2) for the Space, copied unmodified; clients MUST verify its signature and MUST discard an entry whose `spaceAd` is missing, fails verification, or names a different `spaceCID`. Name, description, icon, member count, invite link and relay hints come only from `spaceAd`; `tags`, `language`, `addedBy` and `addedAt` are the directory's own annotations, covered by the directory `sig`.
+A directory is an independent publisher and lists only CO-signed Space records. `spaceAd` is the CO-signed SpaceAd (§10.3.2) for the Space: its encoded envelope (§13.1) with `sig`, base64url-encoded from the exact bytes and copied unmodified; clients MUST verify its signature and MUST discard an entry whose `spaceAd` is missing, fails verification, or names a different `spaceCID`. Name, description, icon, member count, invite link and relay hints come only from `spaceAd`; `tags`, `language`, `addedBy` and `addedAt` are the directory's own annotations, covered by the directory's signature.
 
 The SpaceAd's `inviteURL` is a human-readable join link; the join flow itself is handled by the Space's invite mechanism (§4.3). `spaceCID` is the authoritative space identity; clients verify this against the space's genesis state document when connecting.
 
@@ -500,7 +495,7 @@ A conformant Relay is designed to know as little as possible about the traffic i
 - I do not know who my users are (no identity registration, no account system, no persistent user records).
 
 - I do not know who is in any group (channel membership is not visible at the relay layer; `channelToken` is epoch-rotating and non-reversible without the epoch secret).
-- I do not know who sent any message (sealed sender design; sender DID is inside the MLS ciphertext).
+- I do not know who sent any message (MLS encrypts the sender data, and the sealed envelope hides the MLS framing, §5.2.2).
 - I store nothing after delivery beyond the configured retention window, and nothing with a message expiry past that expiry, except CIDs pinned under an instruction authorized by the epoch access proof (ARCHITECTURE §6.2), which are retained until unpinned the same way.
 - The encrypted blobs I forward and cache are opaque to me.
 
@@ -546,7 +541,7 @@ A conformant Relay MUST:
 A conformant Relay MUST NOT:
 
 - Attempt to decrypt MLS ciphertext.
-- Log or retain sender DIDs (sealed sender design means the Relay never has them).
+- Log or retain sender DIDs (the Relay never has them, §5.2.2).
 - Use per-IP rate limiting as the sole spam control mechanism.
 - Store or serve MLS KeyPackages; KeyPackages are held at the user's `KeyPackageEndpoint` (§2.1).
 - Author or modify Space or user discovery records, or publish lists of the Spaces it serves (§10.3.2).
@@ -577,7 +572,7 @@ Both mechanisms are **optional extensions** to the core protocol. A Relay that s
 
 ### 10.5.1 Relay Service Agreements
 
-A `RelayServiceAgreement` is a bilaterally signed document between a CO billing DID and a Relay DID specifying retention, quotas, SLA terms, and the Relay's observation-budget declaration. It names no Space and no channel (ARCHITECTURE §6.1). Both signatures are made per §13.1.1.
+A `RelayServiceAgreement` is a bilaterally signed document between a CO billing DID and a Relay DID specifying retention, quotas, SLA terms, and the Relay's observation-budget declaration. It names no Space and no channel (ARCHITECTURE §6.1). It is signed per §13.1.1 by both the `relay` DID and the `billing` DID: the envelope `sig` carries one entry for each.
 
 ```json
 {
@@ -594,9 +589,7 @@ A `RelayServiceAgreement` is a bilaterally signed document between a CO billing 
     "extensions": []
   },
   "validFrom": "2026-03-12T00:00:00Z",
-  "validUntil": "2027-03-12T00:00:00Z",
-  "relaySig": "base64url...",
-  "billingSig": "base64url..."
+  "validUntil": "2027-03-12T00:00:00Z"
 }
 ```
 
@@ -612,12 +605,11 @@ Coverage is registered per MLS group. The CO's registration service submits an `
   "agreement": "urn:agora:rsa:bafyrei...",
   "epoch": 0,
   "channelToken": "base64url...",
-  "accessPublicKey": "z6Mk...",
-  "billingSig": "base64url..."
+  "accessPublicKey": "z6Mk..."
 }
 ```
 
-A registration carries nothing that identifies a Space or channel. The CO's registration service SHOULD batch registrations and add random delay, so that registration timing does not reveal when a particular Space or channel was created.
+A registration is signed per §13.1.1 by the agreement's `billing` DID. It carries nothing that identifies a Space or channel. The CO's registration service SHOULD batch registrations and add random delay, so that registration timing does not reveal when a particular Space or channel was created.
 
 `storageQuotaGb` and `bandwidthTierGbPerMonth` are the quotas the Relay enforces for this agreement (§10.4.3).
 
@@ -647,10 +639,11 @@ Relays publish their service tiers in their `RelayAd`:
       "bandwidthTierGbPerMonth": 1000
     }
   ],
-  "sig": "base64url...",
   "ts": "2026-03-12T00:00:00Z"
 }
 ```
+
+A `RelayAd` is signed per §13.1.1 by the Relay (`did`).
 
 ### 10.5.2 Proof-of-Work Spam Deterrence
 
