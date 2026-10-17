@@ -1,0 +1,30 @@
+{
+ "construction": "SFU join admission signature",
+ "spec": "\u00a76.6 Admission; \u00a713.3 label 'agora sfu admission'",
+ "notes": [
+  "Fixed inputs named by a label are SHA-256(UTF-8(\"agora-test-vectors/\" || label)), truncated to the stated length.",
+  "CBOR maps are encoded with RFC 8949 section 4.2.1 core deterministic key order and preferred integer widths. The spec does not require this order; it is one valid encoding, and receivers use the bytes as received.",
+  "signed = CBOR sfu-admission {ctx, sfu, nonce, channelToken}; admissionSig = Ed25519(admission seed, signed). The admission key and channelToken are the keyEpoch 0 values of channel-token.json. The challenge nonce is fixed here; the SFU sends a fresh random one."
+ ],
+ "vectors": [
+  {
+   "inputs": {
+    "admissionKey": {
+     "seedLabel": "admission-key",
+     "seedHex": "d80799371e1a331ba551eb02e98f56cc9f9d21a69bb8a96cc45902897921a25a",
+     "publicKeyHex": "a7cee674787c5a215c953ea421a34251e08d3965728f7f92fcb415e8d123cf9d"
+    },
+    "channelTokenHex": "1f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca",
+    "sfu": "did:web:sfu.example.com",
+    "nonceLabel": "sfu-challenge-nonce",
+    "nonceHex": "067b525eed8405fa92293d062c7e43cb8f72ec9462b43a16220f09cbc2be62dc"
+   },
+   "intermediates": {
+    "signedHex": "a4636374787361676f7261207366752061646d697373696f6e63736675776469643a7765623a7366752e6578616d706c652e636f6d656e6f6e63655820067b525eed8405fa92293d062c7e43cb8f72ec9462b43a16220f09cbc2be62dc6c6368616e6e656c546f6b656e58201f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca"
+   },
+   "outputs": {
+    "admissionSigHex": "e7ea66d9cefba08b2c95f8f147bd660fb4af628ece84fefdec633939a239148a370439f428e4e562192fdbfb46d3730f7740740576dd5b1b2a513c73df913605"
+   }
+  }
+ ]
+}

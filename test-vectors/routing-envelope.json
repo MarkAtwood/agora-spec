@@ -3,9 +3,9 @@
  "spec": "\u00a75.2.2 Outer Routing Envelope; \u00a713.1.1 Admission signatures; \u00a713.1 Content identifiers",
  "notes": [
   "Fixed inputs named by a label are SHA-256(UTF-8(\"agora-test-vectors/\" || label)), truncated to the stated length.",
+  "CBOR maps are encoded with RFC 8949 section 4.2.1 core deterministic key order and preferred integer widths. The spec does not require this order; it is one valid encoding, and receivers use the bytes as received.",
   "The admission key is the keyEpoch 0 key of channel-token.json; channelToken is its epoch 0 token.",
   "sealedEnvelope is sealedEnvelopeHex from sealed-envelope.json.",
-  "SignedFields and the outer map are encoded with RFC 8949 section 4.2.1 core deterministic key order and preferred integer widths. The spec does not require this order; it is one valid encoding, and verifiers MUST use the signed bytes as received.",
   "admissionSig = Ed25519(admission seed, signed bytes). id = CIDv1(raw 0x55, sha2-256) of the signed bytes only (\u00a75.2.2)."
  ],
  "vectors": [

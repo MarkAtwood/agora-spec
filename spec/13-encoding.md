@@ -95,7 +95,7 @@ Verification MUST NOT fetch any resource named inside `body`.
 
 Test vectors are in the repository's `test-vectors/` directory, computed with two independent implementations that agree byte for byte.
 
-> **Open (agora-pozi.31.69):** Still missing: the chunked-file root block, JWS negative vectors for `b64`, `alg`, `cty`/`agoraType` mismatch and re-serialized bodies, further signed object types, the broadcast payload AEAD, and the remaining §13.3 derivations.
+> **Open (agora-pozi.31.69):** Still missing: vectors that need an MLS implementation (MLS exporter outputs, SFrame per-KID keys, `ComplianceRecord`) and HPKE vectors, which need a second independent HPKE implementation.
 
 ### 13.1.2 Context Document Caching
 

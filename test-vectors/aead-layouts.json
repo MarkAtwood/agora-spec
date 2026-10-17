@@ -1,0 +1,61 @@
+{
+ "construction": "AEAD layouts: group-encrypted blob, asset blob, history archive blob",
+ "spec": "\u00a73.4 (group-encrypted blob, 'agora/blob/v1'; assets, 'agora/asset/v1'); \u00a72.6 (history, 'agora/history/v1'); \u00a713.3",
+ "notes": [
+  "Fixed inputs named by a label are SHA-256(UTF-8(\"agora-test-vectors/\" || label)), truncated to the stated length.",
+  "All nonces and keys are FIXED for the vectors; the spec requires fresh random nonces and, for the history blob, a fresh random key.",
+  "Group-encrypted blob: key is the given MLS-Exporter(\"agora blob\", group_id, 16) output; blob = uint64be(epoch) || nonce || AES-128-GCM(key, nonce, record, \"agora/blob/v1\" || uint64be(epoch)).",
+  "Asset blob = nonce || AES-128-GCM(assetKey, nonce, image, \"agora/asset/v1\").",
+  "History blob = nonce || AES-128-GCM(key, nonce, archive, \"agora/history/v1\").",
+  "Plaintexts are opaque stand-in bytes. cidText is the raw CID of the whole blob."
+ ],
+ "groupEncryptedBlob": {
+  "inputs": {
+   "exporterOutputLabel": "group-blob-exporter-output",
+   "keyHex": "b814fd0a67460a7308f3f9dac9d2e87d",
+   "epoch": 17,
+   "nonceLabel": "group-blob-nonce",
+   "nonceHex": "01413238275736e09f0cdef5",
+   "plaintextHex": "61676f7261207465737420766563746f723a207374616e642d696e20627974657320666f72206120434f207265636f7264"
+  },
+  "intermediates": {
+   "aadHex": "61676f72612f626c6f622f76310000000000000011"
+  },
+  "outputs": {
+   "blobHex": "000000000000001101413238275736e09f0cdef5a381e70a5a3b22cd95cb0a5a66881a98003f0dc2187f1025978220748d6028335ed0619d682b48f375e4891a1db28213c1435c2725d2705f79decce91ac86b0929",
+   "cidText": "bafkreift4jwnd64bwoe25d6eetawmhwtltgfy6wnowf4qw2ushycqpvjia"
+  }
+ },
+ "assetBlob": {
+  "inputs": {
+   "keyLabel": "asset-key",
+   "keyHex": "58d9ddd6310b4da5176a07af1bfc6008",
+   "nonceLabel": "asset-nonce",
+   "nonceHex": "f473cdb75b188463be667c14",
+   "plaintextHex": "61676f7261207465737420766563746f723a207374616e642d696e20627974657320666f7220616e2069636f6e20696d616765"
+  },
+  "intermediates": {
+   "aadHex": "61676f72612f61737365742f7631"
+  },
+  "outputs": {
+   "blobHex": "f473cdb75b188463be667c14457bbed0dec1a1a8d9c3cc90ed6090be3145ab549a42561e3533f5c118a55543fd7cca7d25ede1080d2b8ded0a309a7e36e47493f3dc753d53c8440d97b6b4a70efb9f",
+   "cidText": "bafkreiewlbz3a6pv77kycejaie2uysj3d6xex4amzkkh5lifrgs5idduzq"
+  }
+ },
+ "historyBlob": {
+  "inputs": {
+   "keyLabel": "history-key",
+   "keyHex": "50c8df3cce931407bf6a92e8ba7c00ac",
+   "nonceLabel": "history-nonce",
+   "nonceHex": "1593c27c5d8efc02363f5fbe",
+   "plaintextHex": "61676f7261207465737420766563746f723a207374616e642d696e20627974657320666f7220612043424f5220486973746f727941726368697665"
+  },
+  "intermediates": {
+   "aadHex": "61676f72612f686973746f72792f7631"
+  },
+  "outputs": {
+   "blobHex": "1593c27c5d8efc02363f5fbe0866d23053ff46a992b3359070735399b73498867925759e3f254ec53c7bb508ba259723fe70fdd1ece6a5044adddc0af7dcb9bafb23ab844ca1cf8913585fc88534ea61857bde3f514723",
+   "cidText": "bafkreifyjrt624nuhampv2bbfgvf3g7vqzkzavqiaildatsoi52cyd2rne"
+  }
+ }
+}

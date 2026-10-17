@@ -1,0 +1,58 @@
+{
+ "construction": "Hash and KDF derivations of the \u00a713.3 label registry",
+ "spec": "\u00a72.4.2 (social recovery key), \u00a712.6 (WebAuthn PRF), \u00a75.1.1 / \u00a714.4.2 (commit stream), \u00a710.3.4.6 (Mainline DHT infohash), \u00a713.3",
+ "notes": [
+  "Fixed inputs named by a label are SHA-256(UTF-8(\"agora-test-vectors/\" || label)), truncated to the stated length.",
+  "socialRecoveryKey: seed = HKDF-SHA256(IKM = S, salt = zero-length, info = \"agora/v1/social-recovery-key\", L = 32), used as an Ed25519 seed. S is fixed here.",
+  "webauthnPrf: PRF input first = SHA-256(UTF-8 \"agora/v1/webauthn-prf\").",
+  "webauthnPrfWrap: wrapping key = HKDF-SHA256(IKM = PRF output, salt = zero-length, info = \"agora/v1/webauthn-prf-wrap\", L = 32). The PRF output is fixed here.",
+  "commitStream: SHA-256(\"agora/commits/v1\" || channelToken), channelToken = keyEpoch 0 token of channel-token.json.",
+  "relayInfohash: SHA-1 of the 14 ASCII bytes \"agora-relay-v1\"."
+ ],
+ "socialRecoveryKey": {
+  "inputs": {
+   "secretLabel": "social-recovery-secret",
+   "secretHex": "cf7e2ce94271f612e2598cc50e8e331e3c30155da8e634121760a903bbd42e5a"
+  },
+  "intermediates": {
+   "infoHex": "61676f72612f76312f736f6369616c2d7265636f766572792d6b6579"
+  },
+  "outputs": {
+   "seedHex": "3aaac0373ec334242acc6bf80b984d67553249fc166421519158bd24e70164ab",
+   "publicKeyHex": "571ab4f779e588588c782d2a8035c338443a58cb7aea1cedd92338cb66e834eb"
+  }
+ },
+ "webauthnPrf": {
+  "outputs": {
+   "prfFirstHex": "2538d148a48c52ac087a002ed5105ae8a7ac11be948761e47d1a101157ad3fd9"
+  }
+ },
+ "webauthnPrfWrap": {
+  "inputs": {
+   "prfOutputLabel": "webauthn-prf-output",
+   "prfOutputHex": "f6afb03ef4c36c812600e4693a852820fcc00feb65899d4a97da5305b6db57e1"
+  },
+  "intermediates": {
+   "infoHex": "61676f72612f76312f776562617574686e2d7072662d77726170"
+  },
+  "outputs": {
+   "wrapKeyHex": "d51db6a98a3ca645e1791bb2648b15ded54c29fe26d1f26e213167486120dc3b"
+  }
+ },
+ "commitStream": {
+  "inputs": {
+   "channelTokenHex": "1f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca"
+  },
+  "intermediates": {
+   "inputHex": "61676f72612f636f6d6d6974732f76311f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca"
+  },
+  "outputs": {
+   "streamNameHex": "3d32b01f24a0872221e04e24dbec2b2c410ce75b399dd0ec73db1abc2dff5556"
+  }
+ },
+ "relayInfohash": {
+  "outputs": {
+   "infohashHex": "6719c18ec0dbed66b410d27155a981e7d4f17f8e"
+  }
+ }
+}
