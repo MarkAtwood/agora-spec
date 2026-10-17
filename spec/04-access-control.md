@@ -194,9 +194,11 @@ The initiator's client MUST put that URL in the DM group's GroupContext as the `
 
 1. **Creation.** The first list the host accepts for an `mlsGroupID`, signed by a DID the host serves: the initiator when it creates the group, or the member taking the group over (§4.6.4).
 2. **Addition.** A list that keeps every DID and every `complianceLoggers` entry of the current list and adds one or more DIDs, signed by a DID on the current list. The committer of every Commit that adds a DID not already on the list, including a compliance logger or recorder, MUST send this addition and receive a `204` before it delivers the Welcome. The consent rules of §4.6.1 and §7.8.2 govern the Add in the group; the host does not see them.
-3. **Self-removal.** A list that differs from the current list only by the removal of the signer's own DID, signed by that DID. The host rotates the key when it accepts one.
+3. **Removal.** A list that differs from the current list only by the removal of one or more DIDs, none of them listed in `complianceLoggers`, signed by a DID on the current list. The signer may remove itself, another member, or both. The committer of every Commit that removes the last leaf of a DID MUST send this removal; a leaver sends it for itself (§4.8). The host rotates the key when it accepts one.
 
-The host refuses every other change. In particular it never accepts the removal of a DID by another DID, and never accepts the removal of a DID listed in `complianceLoggers`, by itself or by anyone: a compliance logger or recorder stays on the list for the life of the group (§7.8.3).
+The host refuses every other change. In particular it never accepts the removal of a DID listed in `complianceLoggers`, by itself or by anyone: a compliance logger or recorder stays on the list for the life of the group (§7.8.3).
+
+**Removing a member.** Any member MAY remove any other member of a DM group, other than a compliance logger or recorder (§7.8.3), by committing MLS Removes for every leaf of that member's DID. No consent, approval or authority is needed, and members MUST NOT treat such a Commit as a policy violation (§4.5). The committer sends the removal `DMMembers` above and the updated `DMGroupDescriptor`. DM membership is deliberately uncontrolled: a conversation that needs controlled membership belongs in a private Space channel (§4.6.2).
 
 **DMGroupDescriptor schema:**
 
@@ -239,7 +241,7 @@ Compliance logger additions are not subject to this consent threshold. They foll
 A DM group and a private Space channel (§4.4) are structurally similar: both are MLS groups with a restricted membership set. The distinction is:
 
 - A private channel is owned by a Space, appears in that Space's state document (for authorized members), and is subject to the Space's compliance logging configuration.
-- A DM group is owned by its members collectively, has no Space parent, and is subject to compliance logging only through the per-member obligation in §7.8.
+- A DM group is owned by its members collectively, has no Space parent, and is subject to compliance logging only through the per-member obligation in §7.8. Any member can add (subject to §4.6.1) or remove (§4.6) any other member; no member has authority over the rest.
 
 Users who need a persistent, named, multi-party private conversation with Space-level administration (roles, moderation, compliance) SHOULD use a private Space channel rather than a DM group.
 
@@ -261,12 +263,12 @@ A `KeyPackageEndpoint` host MAY refuse KeyPackage fetches and Welcome POSTs from
 
 The **host's user** is the DID whose identity host is named in `agora_admission_host`: the `createdBy` of the `DMGroupDescriptor`, or after a handover its `admissionHostDID`. `admissionHostDID` is an optional descriptor field; absent, it means `createdBy`.
 
-When the host's user is no longer a member of the DM group, because it left (§4.8) or was offboarded (§2.5.6), the group moves to another member's identity host. The client of the remaining member with the lowest leaf index, other than a compliance logger or recorder, does this automatically; if no handover Commit has arrived 24 hours after the host's user ceased to be a member, any remaining member's client does it. The client:
+When the host's user is no longer a member of the DM group, because it left (§4.8), was removed (§4.6) or was offboarded (§2.5.6), the group moves to another member's identity host. The client of the remaining member with the lowest leaf index, other than a compliance logger or recorder, does this automatically; if no handover Commit has arrived 24 hours after the host's user ceased to be a member, any remaining member's client does it. The client:
 
 1. sends the current member list to its own identity host as a creation `DMMembers` (§4.6), whose `seq` and `ts` are greater than those of the list at the old host. That host generates a new admission key, registers it (§10.5.3) and serves it at the paths of §4.6;
 2. commits a GroupContextExtensions proposal (RFC 9420 §12.1.7) that sets `agora_admission_host` to its identity host's base URL, and sends the updated `DMGroupDescriptor`, with `admissionHostDID` set to its own DID, in the new epoch.
 
-Members that process the Commit fetch the admission key from the new host and use the relays it lists. Members MUST treat a Commit that changes `agora_admission_host` while the host's user is still a member as a policy violation (§4.5). Competing handover Commits are resolved by the canonical-Commit rule (§5.1.1); a member whose handover Commit lost sends a self-removal `DMMembers` to its own host.
+Members that process the Commit fetch the admission key from the new host and use the relays it lists. Members MUST treat a Commit that changes `agora_admission_host` while the host's user is still a member as a policy violation (§4.5). Competing handover Commits are resolved by the canonical-Commit rule (§5.1.1); a member whose handover Commit lost sends its own host a removal `DMMembers` (§4.6) that removes its own DID.
 
 An identity host MAY stop serving a DM group's admission key, and deregister it, 30 days after no DID it serves remains on the group's member list, or after every such DID has been offboarded (§2.5.6). Remaining members complete the handover within that period.
 
@@ -310,7 +312,7 @@ Each item gives the CID of the routing envelope (§5.2.2), the DID of its MLS se
 
 A member other than a passive member (§5.2.1.3) that receives a self-Remove proposal MUST commit it before sending any further application message in that group, so that nothing it sends is readable by the leaver. Committing a self-Remove needs no Space admin authority (§4.1) and no consent (§4.6.1), and a `commitPolicy` does not restrict it (§4.1). Competing Commits are resolved by the canonical-Commit rule (§5.1.1). A self-Remove never removes a compliance logger, and §7.8.3 still applies to loggers.
 
-**Leaving a DM group.** A member leaves a DM group by the self-Remove procedure. The committer sends the updated `DMGroupDescriptor`. After it processes the Commit that removes its last leaf, and before it deletes its group state, the leaver's client sends a self-removal `DMMembers` to the admission host, which rotates the admission key (§4.6). If the leaver was the host's user, the remaining members move the group to another host (§4.6.4). When no member remains other than one DID and compliance loggers, the group has ended: that member's client SHOULD tell the user and MAY delete its group state.
+**Leaving a DM group.** A member leaves a DM group by the self-Remove procedure. The committer sends the updated `DMGroupDescriptor`. After it processes the Commit that removes its last leaf, and before it deletes its group state, the leaver's client sends the admission host a removal `DMMembers` that removes its own DID, which rotates the admission key (§4.6). If the leaver was the host's user, the remaining members move the group to another host (§4.6.4). When no member remains other than one DID and compliance loggers, the group has ended: that member's client SHOULD tell the user and MAY delete its group state.
 
 **Leaving a channel.** A member leaves a Space channel by the self-Remove procedure in that channel's group. Space state does not change: the member's roles still permit it to read the channel (§4.2), and an admin MAY add it again at its request.
 
