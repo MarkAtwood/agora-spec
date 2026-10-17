@@ -91,8 +91,7 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Canonical-Commit window without a sequencer | 5 s | MUST | §5.1.1 |
 | Delay before republishing a winning Commit taken from the sequencer's log | random 10 to 60 s; not published if a copy arrives first | See section | §5.1.1 |
 | Retention of the previous epoch's sealing key | 60 s | Descriptive | §5.2.2 |
-| Retention of the sealing keys of applied epochs, in a group with no sequencer, for the stale-envelope test only | 24 h | See section | §5.2.2, §5.1.1 |
-| Buffering of an envelope that opens under no sealing key, in a group with no sequencer | until the recipient processes its next Commit, at most 24 h; then tried again and dropped if it still does not open | See section | §5.2.2, §5.1.1 |
+| Buffering of an envelope that opens under no sealing key, in a group with no sequencer | until the recipient processes its next Commit, at most 24 h; then tried again and dropped if it still does not open; the member then flags itself out of sync and keeps its group state | See section | §5.2.2, §5.1.1 |
 | Admission key fetch while connected | at least once an hour | MUST | §5.2.2 |
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
 | `agora_credentials` entries per leaf; extension data size | 8; 8192 bytes | Over the limit, the extension is ignored | §5.2.1.5 |
