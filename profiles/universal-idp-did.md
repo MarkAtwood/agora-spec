@@ -19,15 +19,15 @@ This profile extends the DID sidecar's `IdentityProvider` interface to cover fou
 | **Cat 3**: SAML-only / legacy IdPs | AD FS, Shibboleth, legacy Ping Federate | HR system, AD-LDAP, or manual IT |
 | **Cat 4**: On-premises Active Directory | Any Windows AD forest without Entra sync | LDAP DirSync control or USNChanged polling |
 
-All four categories produce the same output: a `did:webvh` identity `did:webvh:{SCID}:did.example.com:users:{localIdentifier}` whose DID log is served at `https://did.example.com/users/{localIdentifier}/did.jsonl` (spec §2.1, §2.5.2). The same sidecar event handler, introduced in the Google Workspace spec, drives it in every category. The categories differ only in which `IdentityProvider` implementation feeds that handler and which joiner, mover and leaver (JML) source drives user lifecycle events.
+All four categories produce the same output: a `did:webvh` identity `did:webvh:{SCID}:did.example.com:users:{localIdentifier}` whose DID log is served at `https://did.example.com/users/{localIdentifier}/did.jsonl` (spec §2.1, §2.5.2). The same sidecar event handler, introduced in the Google Workspace spec, drives it in every category. The categories differ only in which `IdentityProvider` implementation feeds that handler and which joiner, mover, and leaver (JML) source drives user lifecycle events.
 
 **The sidecar is the organization's DID provisioning service** (spec §2.5.2), a Communications Operator (CO) component. It holds an update key for every DID log it creates. Each organizational change to a document (stub creation, device key addition or removal, suspension, deactivation) is a log entry signed with that update key, and every resolver sees it in the DID history (spec §2.5.1).
 
-The sidecar also hosts each user's KeyPackages. At stub creation it adds two service entries: a `KeyPackageEndpoint` service entry of type `AgoraKeyPackageEndpoint` that points at the sidecar, and an `AgoraProvisioning` service entry that names its provisioning endpoint `{prov}` (spec §2.5.3). It stores the KeyPackages the user's devices upload (spec §2.5.4 Step 6, §5.2.1.1) and accepts Welcomes by POST at the same endpoint (spec §4.6, §5.2.1.1). As the users' identity host, it also serves admission keys for their direct message (DM) groups and self-groups, exactly as O365 spec §6.7 describes; this profile defers to that section. Relays play no part in provisioning: they never see IdP tokens, DID logs or KeyPackages.
+The sidecar also hosts each user's KeyPackages. At stub creation it adds two service entries: a `KeyPackageEndpoint` service entry of type `AgoraKeyPackageEndpoint` that points at the sidecar, and an `AgoraProvisioning` service entry that names its provisioning endpoint `{prov}` (spec §2.5.3). It stores the KeyPackages the user's devices upload (spec §2.5.4 Step 6, §5.2.1.1) and accepts Welcomes by POST at the same endpoint (spec §4.6, §5.2.1.1). As the users' identity host, it also serves admission keys for their direct message (DM) groups and self-groups, exactly as O365 spec §6.7 describes; this profile defers to that section. Relays play no part in provisioning: they never see IdP tokens, DID logs, or KeyPackages.
 
 **Witnesses.** These are CO-provisioned `did:webvh` identities, so spec §2.1 requires `did:webvh` witnesses. Each DID's `witness` parameter lists at least one witness DID that the organization does not control, with a threshold that makes every accepted log entry carry a proof from at least one such witness. The sidecar therefore publishes a log entry only once it holds the required witness proofs, and clients reject an entry that lacks them (spec §2.1, §2.5.2). The witnesses stop the sidecar, which holds every update key, from serving different logs to different resolvers or rolling a log back. The organization chooses its witnesses; this profile names none.
 
-**DID path rule (all categories).** The `localIdentifier` follows spec §2.5.2 and O365 spec §2: stable, never reassigned, and never derived from a name, email, UPN or `userName`. The recommended default is a random lowercase base32 value that the sidecar mints at provisioning (for example `k7f3qd2m`). The source's immutable user ID (Okta `id`, SCIM `externalId` or `id`, AD `objectGUID`, HR employee ID) is an allowed alternative. A sidecar-minted value is preferred because it survives a change of IdP or JML source. Either way, the sidecar keys its private user record on that source ID (`stableID`) and maps it to the `localIdentifier`; the mapping is never published. Renames and email or UPN changes update only the private record and credential claims, never the DID. A move of the DID host keeps the SCID: the sidecar creates DIDs with `did:webvh` portability enabled, so the log continues at the new domain and records the previous DID in `alsoKnownAs` (spec §2.5.2).
+**DID path rule (all categories).** The `localIdentifier` follows spec §2.5.2 and O365 spec §2: stable, never reassigned, and never derived from a name, email, UPN, or `userName`. The recommended default is a random lowercase base32 value that the sidecar mints at provisioning (for example `k7f3qd2m`). The source's immutable user ID (Okta `id`, SCIM `externalId` or `id`, AD `objectGUID`, HR employee ID) is an allowed alternative. A sidecar-minted value is preferred because it survives a change of IdP or JML source. Either way, the sidecar keys its private user record on that source ID (`stableID`) and maps it to the `localIdentifier`; the mapping is never published. Renames and email or UPN changes update only the private record and credential claims, never the DID. A move of the DID host keeps the SCID: the sidecar creates DIDs with `did:webvh` portability enabled, so the log continues at the new domain and records the previous DID in `alsoKnownAs` (spec §2.5.2).
 
 The verifiable credential (VC) issuance model is the same as in the Google Workspace spec: the org root key signs a self-issued `EmployeeCredential`, and revocation status is served through StatusList2021. No category requires an external VC platform.
 
@@ -41,7 +41,7 @@ Every source's events reduce to five normalized actions. Each source section bel
 
 | Normalized action | DID log entry (signed with the sidecar's update key) | `EmployeeCredential` | Resulting state |
 |---|---|---|---|
-| `PROVISION` | Create the stub log: no keys, a `KeyPackageEndpoint` service entry and an `AgoraProvisioning` service entry (spec §2.5.3). No-op if the user already exists. | None until first device enrollment | `STUB` |
+| `PROVISION` | Create the stub log: no keys, a `KeyPackageEndpoint` service entry, and an `AgoraProvisioning` service entry (spec §2.5.3). No-op if the user already exists. | None until first device enrollment | `STUB` |
 | `UPDATE` | None. Claims live in the credential, not the DID document. | Re-issue with new claims | Unchanged |
 | `SUSPEND` | Remove all device keys (spec §2.5.5 `revokeAll`). The sidecar keeps the removed public keys in its private store. | Revoke | `SUSPENDED` |
 | `REACTIVATE` | Restore the device keys removed at suspension. | Re-issue | `ACTIVE` (or `STUB` if no keys were held) |
@@ -240,7 +240,7 @@ SCIM 2.0 (RFC 7644) is a request/response provisioning protocol with no push not
 
 ### 4.2 SCIM Server Mode
 
-The sidecar exposes a SCIM 2.0-compliant Service Provider endpoint. The upstream IdP or provisioner (Okta, Microsoft Entra ID, Workday and similar) is configured to provision users to this endpoint.
+The sidecar exposes a SCIM 2.0-compliant Service Provider endpoint. The upstream IdP or provisioner (Okta, Microsoft Entra ID, Workday, and similar) is configured to provision users to this endpoint.
 
 **Endpoints.**
 
@@ -611,7 +611,7 @@ If a Global Catalog is available and the operator prefers a single connection po
 
 When `jml_source.type` is not `none`, the sidecar runs both the identity provider and the JML source concurrently, deduplicating events by the user's `stableID` and timestamp. This covers Cat 3 (SAML authentication with a separate JML source). It also applies to Cat 4 (LDAP for fast change detection, HR system as the authoritative source for hire and terminate decisions).
 
-**Normalized lifecycle mapping.** Every source maps to the actions of §2 as follows. Termination is `TERMINATE` and nothing else: only a hard delete or an HR termination produces it. Disable, deactivate and leave signals produce `SUSPEND`, which is reversible.
+**Normalized lifecycle mapping.** Every source maps to the actions of §2 as follows. Termination is `TERMINATE` and nothing else: only a hard delete or an HR termination produces it. Disable, deactivate, and leave signals produce `SUSPEND`, which is reversible.
 
 | Source | `PROVISION` | `UPDATE` | `SUSPEND` | `REACTIVATE` | `TERMINATE` |
 |---|---|---|---|---|---|
@@ -643,7 +643,7 @@ A Workday `TERMINATE` event always overrides a concurrent LDAP `REACTIVATE`, whi
 
 Device key registration follows spec §2.5.4: the Agora client authenticates the user against the organization's IdP by OIDC or SAML 2.0 and sends the resulting token as `idpToken` in a `DeviceKeyRegistrationRequest` to `POST {prov}/devices`. This profile sets `{prov}`, the `AgoraProvisioning` service endpoint (spec §2.5.3), to `https://did.example.com/v1`, so the path is `POST /v1/devices`. The new device key signs the request. For every device after the first, a currently registered device key also signs it (spec §2.5.4 Step 3). Once the key is in the log, the new device publishes KeyPackages to the sidecar and the user's existing devices add it to the user's self-group and to each of the user's groups (spec §2.5.4 Steps 6 and 7, §2.6). No separate enrollment tool is involved. (The enrollment tool in `profiles/discord-onboarding.md` serves individuals migrating from Discord and is not used in employer deployments.)
 
-The sign-in protocol and the JML source are independent configurations. An org MAY use SAML for sign-in while LDAP drives JML. The sidecar links the sign-in token to the user record by the IdP's immutable user ID, never by email, UPN or `userName`, which can change (spec §2.5.2):
+The sign-in protocol and the JML source are independent configurations. An org MAY use SAML for sign-in while LDAP drives JML. The sidecar links the sign-in token to the user record by the IdP's immutable user ID, never by email, UPN, or `userName`, which can change (spec §2.5.2):
 
 | Sign-in | Token claim used | Must equal the user record's `stableID` source |
 |---|---|---|
@@ -658,7 +658,7 @@ The operator MUST configure the IdP to emit a claim that matches the `stableID` 
 
 ## 9. Signing Key Options
 
-The self-issued `EmployeeCredential` requires the org to hold an Ed25519 signing key, and the sidecar signs DID log entries with its update key (§1). The sidecar holds three distinct Ed25519 keys: the VC issuer key (`signing_key_*`), the `did:webvh` update key (`update_key_*`) and the provisioning signing key (`provisioning_signing_key_*`), as in Google Workspace spec §7. The issuer key is separate from the update key, so it confers no authority over any employee's DID log. Each key is configured independently and can use any of the following backends:
+The self-issued `EmployeeCredential` requires the org to hold an Ed25519 signing key, and the sidecar signs DID log entries with its update key (§1). The sidecar holds three distinct Ed25519 keys: the VC issuer key (`signing_key_*`), the `did:webvh` update key (`update_key_*`), and the provisioning signing key (`provisioning_signing_key_*`), as in Google Workspace spec §7. The issuer key is separate from the update key, so it confers no authority over any employee's DID log. Each key is configured independently and can use any of the following backends:
 
 | Backend | `*_key_type` value | Notes |
 |---|---|---|

@@ -143,7 +143,7 @@ The operator MUST register the loopback URI in Discord's developer portal. RFC 8
 
 ### 5.1 Device Key and Passkey
 
-The browser generates the device key with WebCrypto Ed25519 and signs only through a non-extractable `CryptoKey` (spec §2.2, §12.6). The key signs the `did:webvh` genesis log entry or `did:plc` genesis operation, the KeyPackages and the registration proof (§8) without user interaction. The browser app MUST be served from the origin of the Agora web client that will use the key, or be part of that client, because the key never leaves the origin's storage.
+The browser generates the device key with WebCrypto Ed25519 and signs only through a non-extractable `CryptoKey` (spec §2.2, §12.6). The key signs the `did:webvh` genesis log entry or `did:plc` genesis operation, the KeyPackages, and the registration proof (§8) without user interaction. The browser app MUST be served from the origin of the Agora web client that will use the key, or be part of that client, because the key never leaves the origin's storage.
 
 The app first creates a passkey for its origin and requests the WebAuthn PRF extension, because whether the device key may be extractable depends on PRF support (spec §12.6):
 
@@ -181,7 +181,7 @@ const rawPublicKey = await crypto.subtle.exportKey("raw", deviceKey.publicKey);
 const publicKeyMultibase = multibaseEncode('ed25519-pub', new Uint8Array(rawPublicKey));
 ```
 
-On the PRF path the app wraps the device key exactly as spec §12.6 step 1 specifies (HKDF-SHA256 wrapping key, AES-GCM `wrapKey` with a fresh 12-byte `iv`), stores only the wrapped key, `iv` and the credential ID, and drops the original `CryptoKey` (spec §12.6). In later sessions the Agora web client unwraps the key once per session as non-extractable. On the no-PRF path the app stores the non-extractable `CryptoKey` itself, as spec §12.6 allows, and warns that the stored key is not protected by the passkey. The genesis log entry or genesis operation, the KeyPackages and the registration proof are signed after this step, with the key in its final form.
+On the PRF path the app wraps the device key exactly as spec §12.6 step 1 specifies (HKDF-SHA256 wrapping key, AES-GCM `wrapKey` with a fresh 12-byte `iv`), stores only the wrapped key, `iv`, and the credential ID, and drops the original `CryptoKey` (spec §12.6). In later sessions the Agora web client unwraps the key once per session as non-extractable. On the no-PRF path the app stores the non-extractable `CryptoKey` itself, as spec §12.6 allows, and warns that the stored key is not protected by the passkey. The genesis log entry or genesis operation, the KeyPackages, and the registration proof are signed after this step, with the key in its final form.
 
 The passkey is not a device key and does not appear in the DID document (spec §2.2). Its assertions never leave the browser; the Enrollment Service does not parse WebAuthn. The DID itself is not derived from the device key: a `did:webvh` DID embeds the SCID of its genesis log entry, and a `did:plc` DID comes from its genesis operation (§3.1). The browser path does not offer `did:key` (§3.1).
 
@@ -197,7 +197,7 @@ A `did:webvh` or `did:plc` user MAY skip this step. The DID document then omits 
 
 ### 5.3 DID Document Assembly
 
-For `did:webvh`, the DID document in the genesis log entry combines the WebCrypto device key (§5.1), the user-supplied recovery public key and the `KeyPackageEndpoint` at the chosen host:
+For `did:webvh`, the DID document in the genesis log entry combines the WebCrypto device key (§5.1), the user-supplied recovery public key, and the `KeyPackageEndpoint` at the chosen host:
 
 ```json
 {

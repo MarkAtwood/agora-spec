@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-Spec §9 defines what every gateway is and must do. A gateway is a Communications Operator (CO) component with its own DID. It is admitted to the channel MLS group as a member, listed in a `GatewayDescriptor` and announced by a `gateway-added` `SystemEvent` before any message flows through it. On a broadcast channel it is instead a broadcaster, disclosed by its descriptor and the `broadcasters` list (spec §9.3). This profile describes how a gateway to a particular network does its job inside those rules. It adds no protocol.
+Spec §9 defines what every gateway is and must do. A gateway is a Communications Operator (CO) component with its own DID. It is admitted to the channel MLS group as a member, listed in a `GatewayDescriptor`, and announced by a `gateway-added` `SystemEvent` before any message flows through it. On a broadcast channel it is instead a broadcaster, disclosed by its descriptor and the `broadcasters` list (spec §9.3). This profile describes how a gateway to a particular network does its job inside those rules. It adds no protocol.
 
 Every gateway described here breaks end-to-end encryption (E2EE) at the gateway, because it holds plaintext. Native MIMI interop would not; section 4 records what it would take.
 
@@ -41,7 +41,7 @@ Its `GatewayDescriptor` (spec §9.2) has `protocol` `"matrix"` and `target` set 
 2. It decrypts the message with its MLS leaf key, as a full group member.
 3. It translates the Agora inner payload to a Matrix event:
    - A new `urn:ietf:params:jmap:chat#Message` becomes `m.room.message` with `msgtype: m.text`.
-   - A new `Message` with `attachments` becomes `m.room.message` with `msgtype: m.image`, `m.file` or similar. The gateway fetches the media from the channel's relays (spec §10.4.4), decrypts it with the attachment's `contentKey`, checks it against its `sha256` (spec §14.3.4) and re-uploads it to the Matrix media server.
+   - A new `Message` with `attachments` becomes `m.room.message` with `msgtype: m.image`, `m.file`, or similar. The gateway fetches the media from the channel's relays (spec §10.4.4), decrypts it with the attachment's `contentKey`, checks it against its `sha256` (spec §14.3.4), and re-uploads it to the Matrix media server.
    - A `Message` edit (body contains `editedAt`, spec §5.2.3) becomes `m.room.message` with an `m.new_content` relation.
    - A `Message` deletion (body contains `deletedAt` and `deletedForAll: true`, spec §5.2.3) becomes `m.room.redaction`.
    - A `urn:ietf:params:jmap:chat#Reaction` becomes `m.reaction`.
@@ -54,7 +54,7 @@ Its `GatewayDescriptor` (spec §9.2) has `protocol` `"matrix"` and `target` set 
 2. It translates the event to an Agora inner payload.
 3. It encrypts the payload as a member of the channel MLS group.
 4. It publishes the outer `RoutingEnvelope`, signed with the channel admission key (spec §5.2.2), to the channel's relays.
-5. Agora clients see the message as sent by the gateway DID. The body's `bridgedFrom` member (spec §9.1) carries `protocol` `"matrix"`, the Matrix sender's MXID as `senderID` and the Matrix event ID as `eventID`.
+5. Agora clients see the message as sent by the gateway DID. The body's `bridgedFrom` member (spec §9.1) carries `protocol` `"matrix"`, the Matrix sender's MXID as `senderID`, and the Matrix event ID as `eventID`.
 
 ### 2.4 Identity and Namespace Mapping
 
@@ -84,7 +84,7 @@ Use the **Matrix Application Service API** rather than the Client-Server API. Ap
 
 ## 3. Slack and Teams Bridges
 
-Placeholder. Slack and Microsoft Teams bridges follow the same model as section 2: a CO component with its own DID, admitted as a channel member, with a `GatewayDescriptor` whose `protocol` is `"slack"` or `"teams"` and whose `target` is the workspace channel or Teams channel ID. Neither network offers end-to-end encryption to a bridge, so `unencryptedRemote` is `true`. Message mapping, attachment handling and identity mapping are not yet written.
+Placeholder. Slack and Microsoft Teams bridges follow the same model as section 2: a CO component with its own DID, admitted as a channel member, with a `GatewayDescriptor` whose `protocol` is `"slack"` or `"teams"` and whose `target` is the workspace channel or Teams channel ID. Neither network offers end-to-end encryption to a bridge, so `unencryptedRemote` is `true`. Message mapping, attachment handling, and identity mapping are not yet written.
 
 ## 4. Path to Native MIMI
 
@@ -94,7 +94,7 @@ MIMI (More Instant Messaging Interoperability) is the IETF working group produci
 
 ### 4.2 Status (as of 2026-10-17)
 
-- The drafts are active: `draft-ietf-mimi-arch-03`, `draft-ietf-mimi-protocol-06`, `draft-ietf-mimi-content-09`, `draft-ietf-mimi-room-policy-04`. Identity, identifiers, message status, attachments and message-ID AAD are individual drafts.
+- The drafts are active: `draft-ietf-mimi-arch-03`, `draft-ietf-mimi-protocol-06`, `draft-ietf-mimi-content-09`, `draft-ietf-mimi-room-policy-04`. Identity, identifiers, message status, attachments, and message-ID AAD are individual drafts.
 - No major provider ships MIMI. Meta's interoperability offer under the EU Digital Markets Act is based on the Signal protocol, not MIMI.
 - MIMI defines no voice or video interop.
 
@@ -102,19 +102,19 @@ Agora therefore specifies no native MIMI interop now, and decides the ordering q
 
 ### 4.3 What It Would Take
 
-**Placement.** MIMI's hub and follower are provider roles that see the participant list, room policy and metadata. On the Agora side they are CO components, consistent with spec §9 and ARCHITECTURE S1 and S8. Relays never take part: a relay is never a hub or follower and carries only token-keyed ciphertext. Exporter outputs that the CO-side endpoint holds never pass to an Infrastructure Operator (ARCHITECTURE S3).
+**Placement.** MIMI's hub and follower are provider roles that see the participant list, room policy, and metadata. On the Agora side they are CO components, consistent with spec §9 and ARCHITECTURE S1 and S8. Relays never take part: a relay is never a hub or follower and carries only token-keyed ciphertext. Exporter outputs that the CO-side endpoint holds never pass to an Infrastructure Operator (ARCHITECTURE S3).
 
 **Ordering.** One orderer per MIMI-interop channel:
 - When an Agora CO hosts the room, it is the MIMI hub, and the hub orders the interop channel's Commits in place of an Agora sequencer. Hosting also needs MIMI room state in the MLS GroupContext (participant list and room policy components) and a mapping from Agora Space roles and bans to MIMI room-policy roles, with Space state as the source of truth.
 - When a peer provider hosts the room, the Agora CO endpoint is a follower. The foreign hub's order is authoritative, the channel runs with no Agora sequencer, and Agora cannot enforce Space policy on MIMI members.
 
-**Content.** In a shared group, `application/mimi-content` (framed per the MLS content advertisement extension) is the only canonical content. Agora clients build their local JMAP `Message` view from it. They derive `senderMsgId` deterministically from the MIMI `MessageId` (for example, ULID time from the hub timestamp and ULID randomness from `MessageId` octets 1 to 10), so `replyTo`, `threadRootId` and reaction references resolve the same way on every device. A CO-side translator between mimi-content and JMAP Chat would hold plaintext and be the MLS sender, so it would be a gateway under spec §9, not native interop. The mapping is lossy in both directions; `notes/mimi-vs-jmap-chat.md` has the feature table.
+**Content.** In a shared group, `application/mimi-content` (framed per the MLS content advertisement extension) is the only canonical content. Agora clients build their local JMAP `Message` view from it. They derive `senderMsgId` deterministically from the MIMI `MessageId` (for example, ULID time from the hub timestamp and ULID randomness from `MessageId` octets 1 to 10), so `replyTo`, `threadRootId`, and reaction references resolve the same way on every device. A CO-side translator between mimi-content and JMAP Chat would hold plaintext and be the MLS sender, so it would be a gateway under spec §9, not native interop. The mapping is lossy in both directions; `notes/mimi-vs-jmap-chat.md` has the feature table.
 
 **Identity.** MIMI addresses users by `mimi://provider/u/user-id` URIs and has no DID support. An Agora leaf in a shared group would carry both the DID and the MIMI URI, in a new MLS credential type. The intended codepoint is 0xF0A2 from the RFC 9420 private-use range; it is not allocated in spec Appendix D. Interoperating with providers outside Agora needs an IANA "MLS Credential Types" codepoint (RFC 9420 §17.5) or a credential type MIMI defines, and MIMI clients would have to support it. The fallback is a `basic` credential holding the MIMI URI, with the CO-side endpoint holding the URI-to-DID mapping; that mapping never goes to a relay.
 
 **Disclosure.** The peer provider learns the room's participant list, so members should be told.
 
-**Not mapped.** Franking-based abuse reports, relative expiry and multipart alternatives have no Agora counterpart; Agora typing, presence, broadcast mentions and pins have no MIMI counterpart.
+**Not mapped.** Franking-based abuse reports, relative expiry, and multipart alternatives have no Agora counterpart; Agora typing, presence, broadcast mentions, and pins have no MIMI counterpart.
 
 ### 4.4 Pointers
 

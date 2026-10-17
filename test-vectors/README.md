@@ -7,7 +7,7 @@ Test vectors for the Agora specification. Two independent toolchains compute eve
 | Python, pyca/cryptography (OpenSSL backend) | cryptography 41.0.7 | Ed25519, AESGCM, HKDF, HMAC, SHA-256, SHA-1 |
 | Go standard library | go1.27.1 | `crypto/ed25519`, `crypto/aes` + `crypto/cipher` GCM, `crypto/hkdf`, `crypto/sha256`, `crypto/sha1` |
 
-Each toolchain has its own hand-written base58btc, multibase/CID, CBOR and protobuf (dag-pb/UnixFS) encoders; the two share no code. As a third check on CBOR, the Python side decodes every CBOR item with `cbor2` 5.9.0 (if installed) and re-encodes it canonically. `cbor2` is never a source of vector values. No dag-pb or UnixFS library was available offline, so the protobuf encoders are instead checked against the published UnixFS CIDs listed below.
+Each toolchain has its own hand-written base58btc, multibase/CID, CBOR, and protobuf (dag-pb/UnixFS) encoders; the two share no code. As a third check on CBOR, the Python side decodes every CBOR item with `cbor2` 5.9.0 (if installed) and re-encodes it canonically. `cbor2` is never a source of vector values. No dag-pb or UnixFS library was available offline, so the protobuf encoders are instead checked against the published UnixFS CIDs listed below.
 
 ## Primitive validation
 
@@ -32,7 +32,7 @@ Fixed inputs named by a label are `SHA-256(UTF-8("agora-test-vectors/" || label)
 | `sealed-envelope.json` | Sealed envelope AES-128-GCM (exporter output given) | §5.2.2 |
 | `routing-envelope.json` | `SignedFields`, `admissionSig`, envelope `id`, outer envelope. Chained from the two files above | §5.2.2, §13.1 |
 | `broadcast-payload.json` | `BroadcastMessage` signed by its poster, its typed payload envelope, the `agora/broadcast/v1` AEAD, and the routing envelope carrying `broadcastPayload` | §5.2.1.4, §3.4 |
-| `chunked-blob.json` | Chunked content-key blob: an empty file, a 14-byte file, and 2-chunk and 3-chunk files (pattern `j mod 251`). Gives each chunk's nonce, AAD, block and CID; for n > 1, the dag-pb root block, root CID and `blobId` | §14.3.4, §13.1 |
+| `chunked-blob.json` | Chunked content-key blob: an empty file, a 14-byte file, and 2-chunk and 3-chunk files (pattern `j mod 251`). Gives each chunk's nonce, AAD, block, and CID; for n > 1, the dag-pb root block, root CID, and `blobId` | §14.3.4, §13.1 |
 | `aead-layouts.json` | Group-encrypted blob (`agora/blob/v1`), asset blob (`agora/asset/v1`), history archive blob (`agora/history/v1`), each with the CID of the whole blob | §3.4, §2.6 |
 | `derivations.json` | Social recovery seed and public key; WebAuthn PRF input; PRF wrapping key; commit stream name; Mainline DHT infohash | §2.4.2, §12.6, §14.4.2, §10.3.4.6 |
 | `sfu-admission.json` | `sfu-admission` CBOR and its `admissionSig` | §6.6 |
@@ -41,7 +41,7 @@ Fixed inputs named by a label are `SHA-256(UTF-8("agora-test-vectors/" || label)
 
 The header negatives in `jws.json` each carry an Ed25519 signature that is valid over that entry's own signing input, so a verifier must reject them on the header checks.
 
-Blocks larger than 4 KiB in `chunked-blob.json` are stored as length, SHA-256 and first/last 64 bytes; both check scripts recompute each full block and compare its SHA-256.
+Blocks larger than 4 KiB in `chunked-blob.json` are stored as length, SHA-256, and first/last 64 bytes; both check scripts recompute each full block and compare its SHA-256.
 
 ## Regenerate and verify
 
@@ -53,14 +53,14 @@ python3 tools/agora_tv.py primitives   # published-vector checks only
 (cd tools/go && go run . primitives)
 ```
 
-The Go check compares in both directions: every value it computes must match the file, and every non-descriptive value in the file must be one it recomputed. It skips only the keys `construction`, `spec`, `notes`, `reason` and `pattern`. Go also reaches the `accept`/`reject` verdicts on its own, from the spec §13.1.1 header, signature and signer-set checks; Python's verdicts are written by hand.
+The Go check compares in both directions: every value it computes must match the file, and every non-descriptive value in the file must be one it recomputed. It skips only the keys `construction`, `spec`, `notes`, `reason`, and `pattern`. Go also reaches the `accept`/`reject` verdicts on its own, from the spec §13.1.1 header, signature, and signer-set checks; Python's verdicts are written by hand.
 
 ## Not covered
 
 - **MLS exporter labels** (`agora sealed envelope`, `agora blob`, `agora-media-key`, `agora data channel`) need an MLS implementation. The exporter output is taken as a given input. The SFrame per-KID derivation (RFC 9605 §4.4.2) and the KID vectors that spec §6.9 requires are not produced.
 - **Hybrid Public Key Encryption (HPKE) labels** (`agora/v1/recovery-share`, `agora-recording-archive-v1`) are not produced. pyca/cryptography 41.0.7 has no HPKE, so there is no second toolchain. The Shamir share encoding of spec §2.4.2 is not covered either.
 - **WebAuthn `wrapKey` output** (spec §12.6) is local storage only. These vectors cover the PRF input and the wrapping key, not the wrapped PKCS#8 bytes.
-- **`ComplianceRecord`** needs real MLS message, key and `GroupContext` bytes.
+- **`ComplianceRecord`** needs real MLS message, key, and `GroupContext` bytes.
 
 ## Spec ambiguities
 

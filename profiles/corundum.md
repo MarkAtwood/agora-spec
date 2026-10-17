@@ -10,7 +10,7 @@
 
 ## 1. Summary
 
-CORUNDUM is the public layer: posts, timelines, replies, follows and curation. Agora is the private layer: direct messages (DMs), private groups and calls. A person has one DID and uses it in both. This profile describes how the two share that identity and stay separate everywhere else. The labels C1–C8 name the decisions it records.
+CORUNDUM is the public layer: posts, timelines, replies, follows, and curation. Agora is the private layer: direct messages (DMs), private groups, and calls. A person has one DID and uses it in both. This profile describes how the two share that identity and stay separate everywhere else. The labels C1–C8 name the decisions it records.
 
 The two protocols cover different ground. CORUNDUM covers "the public conversation" only. It puts direct messages and private groups out of scope and lists end-to-end encryption as future work (Ch 40, "Direct messages and private groups", "End-to-end encryption", "Private groups"). Agora provides exactly those. Neither protocol carries the other's traffic, and their federation meshes stay separate (`notes/corundum-fit.md` §4 (b), (e)).
 
@@ -37,7 +37,7 @@ What follows in practice:
 - IO keys (`relayDID`, `operatorDID`) MUST differ from every CO key, including the operator's manifest key and any posting key it holds (ARCHITECTURE §2.4).
 - Relay service is bought under a `ServiceAgreement` like any other (spec §10.5.1). Sharing an operator gives no shortcut.
 - **Disclosed cost.** A party that runs both a social or identity service and relays can link its own users to the COs whose traffic passes through its relays. ARCHITECTURE §9 lists the combined-operator costs below as accepted.
-  - **Spaces.** The party cannot learn content, channel or Space.
+  - **Spaces.** The party cannot learn content, channel, or Space.
   - **DM groups.** The identity host is the DM admission host of a DM group its user started or moved to it. As admission host, it learns that its user asked for keys for that group ID, and it chooses the group's relay list (spec §4.6). If those are its own relays, it can tie that DM's traffic at them to its user. It does not learn the group's other members, except its own users whose clients also request keys for the group. It still cannot read content.
   - **Token registration.** As identity host acting as CO for its users' DM groups and self-groups, it registers their tokens under its own billing DID (spec §10.5.3). Their anonymity at a relay is only as large as its user base, and a single-user host gives none.
   - **Avoiding it.** Users and communities can avoid the relay linkage by choosing other relays. A DM admission host should list relays it does not operate.
@@ -59,8 +59,8 @@ What follows in practice:
 
 **Key custody (C4).** Users hold their own identity keys. The operator never receives them.
 
-- **The delegated posting key.** The operator gets a separate posting key, named in the CORUNDUM service entry of the user's DID document (section 9, question 1) and therefore visible in the `did:webvh` log. It signs only the user's public content index, the RootManifest. It cannot change the identity, add devices or act in Agora.
-- **Keeping it out of Agora and generic DID tooling.** The posting key appears only in that service entry, as a multibase Ed25519 key, and in no verification relationship (`verificationMethod`, `authentication`, `assertionMethod` or any other). An Agora verifier accepts only `authentication` keys unless a section names another relationship (spec §13.1.1, Verification step 3), so a posting key fails every Agora signature check without any new rule. Generic DID software does not treat service entries as keys, so it never takes the posting key as able to authenticate or assert claims for the user. CORUNDUM readers take the key from the service entry. For a `did:key` user the same key sits in the `_corundum._agora` Pkarr record (spec §10.3.4.6).
+- **The delegated posting key.** The operator gets a separate posting key, named in the CORUNDUM service entry of the user's DID document (section 9, question 1) and therefore visible in the `did:webvh` log. It signs only the user's public content index, the RootManifest. It cannot change the identity, add devices, or act in Agora.
+- **Keeping it out of Agora and generic DID tooling.** The posting key appears only in that service entry, as a multibase Ed25519 key, and in no verification relationship (`verificationMethod`, `authentication`, `assertionMethod`, or any other). An Agora verifier accepts only `authentication` keys unless a section names another relationship (spec §13.1.1, Verification step 3), so a posting key fails every Agora signature check without any new rule. Generic DID software does not treat service entries as keys, so it never takes the posting key as able to authenticate or assert claims for the user. CORUNDUM readers take the key from the service entry. For a `did:key` user the same key sits in the `_corundum._agora` Pkarr record (spec §10.3.4.6).
 - **Switching operators.** The user removes the old posting key and adds the new one, both as DID log entries signed by the user's update keys. This replaces CORUNDUM's cooperative and hostile migration flows (Ch 7) and Earl handing his IPNS private key to Birdsite (Ch 3). A hostile old operator cannot block the move, because it never held an update key.
 
 **One DID document, both protocols.** Each protocol finds its entries by `type`:
@@ -81,14 +81,14 @@ Both protocols sign the exact stored bytes with JWS (RFC 7515), using a detached
 
 - **A post's id is the CID of its stored bytes.** The CID uses the `raw` codec and sha2-256. The id no longer depends on a canonical form, so it stops depending on the id-less re-serialization in Ch 11 and Ch 12.
 - **This also fixes a CORUNDUM bug.** CORUNDUM labels the id CID `dag-json` while hashing canonical-JSON bytes (Ch 11, step 4), and those bytes need not be valid DAG-JSON.
-- **No canonical JSON and no NFKC.** CORUNDUM's Canonical JSON (Ch 33) goes beyond RFC 8785 with NFKC, timestamp rewriting and null omission. NFKC is lossy: it folds ligatures and full-width forms, so a verifier can end up checking bytes the author never wrote. The byte-for-byte rule of spec §13.1.1 replaces all of it. A stored object is never re-serialized.
+- **No canonical JSON and no NFKC.** CORUNDUM's Canonical JSON (Ch 33) goes beyond RFC 8785 with NFKC, timestamp rewriting, and null omission. NFKC is lossy: it folds ligatures and full-width forms, so a verifier can end up checking bytes the author never wrote. The byte-for-byte rule of spec §13.1.1 replaces all of it. A stored object is never re-serialized.
 - **The detached SigningRecord stays, as a JWS.** The detached design of Ch 12 maps cleanly to a JWS with a detached payload over the activity's stored bytes. Resignatures add JWS `signatures` entries. The activity and its CID do not change.
 - **Key binding by DID URL.** `kid` names the signing key as a DID URL. That key must be in the signer's verified DID document under the expected relationship, as in spec §13.1.1, Verification step 3. For the posting key, that place is the CORUNDUM service entry (section 3). Ch 34 avoided embedded key ids because an attacker could name a key it created. Resolving through the verified DID document answers that concern.
 
 ## 5. The border (C6)
 
-- **Agora to CORUNDUM: by reference only.** An Agora message may reference public CORUNDUM content by CID, for example an `ipfs://` link in a message body. Fetching it is an ordinary public IPFS fetch, which is allowed because CORUNDUM content is public. A client that fetches through a public gateway reveals its interest in that CID to the gateway, so clients should fetch through the user's own node or operator where they can. Agora's own blobs are different: a channel's private ciphertext is fetched only from its relays, its archive or the user's own devices, and never announced on or requested from the public IPFS network (spec §10.4.4).
-- **Nothing private crosses back.** No software writes Agora membership, Space names, channels or member lists into CORUNDUM public data. That covers RootManifests, profiles, posts and published follow lists. A person can still choose to post about an Agora Space. Software never does it for them.
+- **Agora to CORUNDUM: by reference only.** An Agora message may reference public CORUNDUM content by CID, for example an `ipfs://` link in a message body. Fetching it is an ordinary public IPFS fetch, which is allowed because CORUNDUM content is public. A client that fetches through a public gateway reveals its interest in that CID to the gateway, so clients should fetch through the user's own node or operator where they can. Agora's own blobs are different: a channel's private ciphertext is fetched only from its relays, its archive, or the user's own devices, and never announced on or requested from the public IPFS network (spec §10.4.4).
+- **Nothing private crosses back.** No software writes Agora membership, Space names, channels, or member lists into CORUNDUM public data. That covers RootManifests, profiles, posts, and published follow lists. A person can still choose to post about an Agora Space. Software never does it for them.
 - **Disclosure.** Clients tell the user that one identity is shared across both systems. A public DID document that lists an `AgoraKeyPackageEndpoint` next to a CORUNDUM identity service tells anyone who resolves it that the person uses Agora (`notes/corundum-fit.md` §4 (a)). A person who wants the two unlinked uses two DIDs. CORUNDUM's multiple personas under one DID (Ch 6) share a root of trust by design, so they do not give that separation.
 - **Private follow lists.** CORUNDUM follow lists become private by default:
   - **Today.** They are public by default and stored in the RootManifest on IPFS in the clear (Ch 25).
@@ -102,7 +102,7 @@ Agora has no CORUNDUM curator integration:
 
 - No curator feed is applied inside encrypted groups, whether to accounts or to content.
 - Agora communities moderate only with their own tools: CO-signed moderation records (spec §4.5) and member reports to the CO (spec §4.7).
-- Curators, `CurationEntry` judgments and operator policy tables (Ch 27–32) apply on the CORUNDUM public side only, where the operator enforces them.
+- Curators, `CurationEntry` judgments, and operator policy tables (Ch 27–32) apply on the CORUNDUM public side only, where the operator enforces them.
 
 This rules out the client-side matching of end-to-end encrypted (E2EE) content discussed as option (d) in `notes/corundum-fit.md` §4.
 
@@ -119,7 +119,7 @@ Agora's relay peering (spec §10.2) derives from CORUNDUM's operator federation 
 None of these changes have been made in CORUNDUM. Each is a proposal, mapped to the chapter it affects.
 
 **Signing (C1)**
-- [ ] Ch 33: drop Canonical JSON as the signing input, including NFKC, timestamp and null rules. Remove the Ch 45 test vectors, or replace them with JWS vectors.
+- [ ] Ch 33: drop Canonical JSON as the signing input, including NFKC, timestamp, and null rules. Remove the Ch 45 test vectors, or replace them with JWS vectors.
 - [ ] Ch 34: replace strip-canonicalize-sign with JWS over the stored bytes (RFC 7515, RFC 7797, RFC 8037), with CORUNDUM's own protected-header type member and JWS test vectors (section 4). Replace key lookup through the IPNS RootManifest with a `kid` DID URL.
 - [ ] Ch 11, Ch 12: activity id = CIDv1 with the `raw` codec and sha2-256 over the stored bytes. The SigningRecord becomes a detached JWS. This removes the `dag-json` label.
 - [ ] Ch 35, Ch 36: map algorithm agility onto the JWS `alg` and multiple `signatures` entries. Keep the sunset registry. Keep the downgrade rule (require every active algorithm family).
@@ -128,8 +128,8 @@ None of these changes have been made in CORUNDUM. Each is a proposal, mapped to 
 - [ ] Ch 5: two layers instead of three (DID and handles). The verification chain becomes Handle, DID, RootManifest, Handle.
 - [ ] Ch 6: the CORUNDUM identity service drops `ipnsName` and carries the operator's content endpoint and the posting key (section 3, section 9 question 1).
 - [ ] Ch 9: the RootManifest is reached from the DID document, not an IPNS name.
-- [ ] Ch 11, Ch 25, Ch 26: `attributedTo`, following lists and notifications name DIDs, not `ipns://` names.
-- [ ] Ch 15, Ch 41, Ch 43, Ch 46: remove IPNS keypair generation, Kubo IPNS publishing and the DID-to-IPNS cache. Kubo stays for pinning.
+- [ ] Ch 11, Ch 25, Ch 26: `attributedTo`, following lists, and notifications name DIDs, not `ipns://` names.
+- [ ] Ch 15, Ch 41, Ch 43, Ch 46: remove IPNS keypair generation, Kubo IPNS publishing, and the DID-to-IPNS cache. Kubo stays for pinning.
 - [x] Define the `did:key` pointer in the Pkarr record: `_corundum._agora` (spec §10.3.4.6).
 
 **Key custody and the delegated posting key (C4)**
@@ -151,10 +151,10 @@ None of these changes have been made in CORUNDUM. Each is a proposal, mapped to 
 
 ## 9. Open questions
 
-1. **Pointer update cadence.** Resolved (Mark, 2026-10-16, C2a): the DID document carries a stable service entry naming the operator's content endpoint and the posting key. The operator serves each new RootManifest signed by the posting key, with a sequence number and the CID of the previous manifest. Readers check the key against the DID document, the signature, the rising sequence and the chain, and remember the highest sequence seen. The DID log changes only when the operator or posting key changes.
+1. **Pointer update cadence.** Resolved (Mark, 2026-10-16, C2a): the DID document carries a stable service entry naming the operator's content endpoint and the posting key. The operator serves each new RootManifest signed by the posting key, with a sequence number and the CID of the previous manifest. Readers check the key against the DID document, the signature, the rising sequence, and the chain, and remember the highest sequence seen. The DID log changes only when the operator or posting key changes.
 2. **`did:key` users.** Resolved (Mark, 2026-10-16, C2b): the Pkarr record carries an optional `_corundum._agora` service record with the operator's content endpoint and the posting key (spec §10.3.4.6). The user's device updates it only when switching operators. The operator re-publishes the unchanged signed record to keep it alive.
 3. **The posting key relationship.** Resolved (Mark, 2026-10-17, C): the posting key is in no verification relationship. It appears only in the CORUNDUM service entry (question 1), or the `_corundum._agora` Pkarr record for `did:key` users (question 2), so generic DID tooling never treats it as able to authenticate or assert claims for the user.
-4. **JWS header members.** Resolved (Mark, 2026-10-17, C): the protocols do not share a header profile. CORUNDUM defines its own signing rules, protected-header type member and test vectors (section 4). Agora's vectors cover only Agora.
+4. **JWS header members.** Resolved (Mark, 2026-10-17, C): the protocols do not share a header profile. CORUNDUM defines its own signing rules, protected-header type member, and test vectors (section 4). Agora's vectors cover only Agora.
 5. **Follow list encryption.** Which construction (for example Hybrid Public Key Encryption (HPKE) to the user's `keyAgreement` key and an operator key), and how re-encryption works when the user switches operators.
 6. **Witnesses.** When a CORUNDUM operator hosts an individual's `did:webvh` log but holds no update key, is that DID individual (witnesses optional) or CO-provisioned (witnesses required, spec §2.1)?
 7. **Curated content inside Agora.** Is it enough that the fetch path applies whatever policy it has when a CORUNDUM post that curators later flag is referenced in an Agora message, or should clients warn?

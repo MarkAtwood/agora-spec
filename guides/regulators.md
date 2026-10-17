@@ -98,7 +98,7 @@ ComplianceRecord {
 sig                  // logger's JWS signature over the record bytes
 ```
 
-`senderMessage`, `messageKeys`, `groupContext` and `senderLeaf` are verification material. With them, a verifier who does not trust the logger can check that a device key of `senderDID` signed the archived message (spec §7.4; see Step 4 below). `messageKeys` open only the one message, whose plaintext the record already holds.
+`senderMessage`, `messageKeys`, `groupContext`, and `senderLeaf` are verification material. With them, a verifier who does not trust the logger can check that a device key of `senderDID` signed the archived message (spec §7.4; see Step 4 below). `messageKeys` open only the one message, whose plaintext the record already holds.
 
 The `prevRecordCID` field creates a hash-linked chain. Altering or deleting a record, or inserting one out of order, breaks the chain at that point. Chain verification requires only the chain head and the records themselves; no trusted third party is involved.
 
@@ -202,7 +202,7 @@ For any DM group involving a regulated employee, the archive contains:
 
 **Gap: tampered clients.** A modified client can join or create a DM group without the logger. Such a group is invisible to the logger. The firm's controls here are managed devices and reconciliation of audit records against the groups the logger actually holds (spec §7.8.9).
 
-**Not a gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request (spec §4.6.3). A regulated employee's client still processes the Welcome, admits the logger and captures while the request is pending (spec §4.6.3, §7.8.7); the request state suppresses only notifications, read receipts and typing indicators. Messages sent into the group while the employee has not yet accepted are therefore in the archive.
+**Not a gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request (spec §4.6.3). A regulated employee's client still processes the Welcome, admits the logger, and captures while the request is pending (spec §4.6.3, §7.8.7); the request state suppresses only notifications, read receipts, and typing indicators. Messages sent into the group while the employee has not yet accepted are therefore in the archive.
 
 ### What an Examiner Should Check
 

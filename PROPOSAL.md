@@ -9,10 +9,10 @@ compliance practitioners, and implementers for a reference relay and client.
 
 Every deployed group-messaging system gives the party that runs the servers
 authority over the communities on them. Centralized platforms hold keys,
-membership and policy. Federated platforms spread the servers around, but each
+membership, and policy. Federated platforms spread the servers around, but each
 server still sees and governs the communities it hosts. An organization that
 wants someone else to run its infrastructure must therefore also trust that
-party with its members, its metadata and, often, its plaintext. Regulated firms
+party with its members, its metadata, and, often, its plaintext. Regulated firms
 cannot accept that, and most others should not.
 
 ## The proposal
@@ -21,16 +21,16 @@ Agora defines two roles. Distinct principals with distinct keys hold them, even
 when one company plays both:
 
 - **Infrastructure Operators (IOs)** run relays, Selective Forwarding Units
-  (SFUs), TURN, sequencers and push proxies. They carry ciphertext, verify that
+  (SFUs), TURN, sequencers, and push proxies. They carry ciphertext, verify that
   traffic comes from some current member without learning which, enforce agreed
   quotas, and decide nothing else.
 - **Communications Operators (COs)** run communities: identity, membership,
-  roles, moderation, retention, compliance logging and archives, all exercised
+  roles, moderation, retention, compliance logging, and archives, all exercised
   with their own keys.
 
 The only binding between them is a `ServiceAgreement`. It names no community.
 The CO signs it with its billing DID, which appears in no community's state. A
-CO can replace any IO without changing a community's identity, membership or
+CO can replace any IO without changing a community's identity, membership, or
 history, and without re-enrolling anyone.
 
 The normative statement is `ARCHITECTURE.md`: nine rules (S1–S9), a closed list
@@ -48,7 +48,7 @@ specification must pass.
   signed by infrastructure keys.
 - Bans are MLS removals followed by rotation of the channel's admission key.
   The CO enforces policy that needs identity at its own endpoints: managed
-  devices, the compliance logger and the archive.
+  devices, the compliance logger, and the archive.
 - Relays store only ciphertext or records the CO chose to publish.
 
 What it does not guarantee: anonymity at the network layer, or capture from a
@@ -64,10 +64,10 @@ tampered client. Both are stated as accepted costs.
 | `spec/10`–`13` | Relays and federation, transport, security considerations, encoding and signing |
 | `spec/14` | JMAP-family data on Agora: replicated stores, the blind sequencer, the Agora profile of each JMAP draft |
 | `profiles/` | Non-normative deployment designs: Entra, Google Workspace, generic identity provider (IdP), Purview, Discord onboarding, compliance chain witnessing, CORUNDUM, Parlance, radio mesh gateway, gateways (Matrix, Slack, Teams; native More Instant Messaging Interoperability (MIMI) as a future option) |
-| `guides/` | Relay operator, regulator and counsel guides |
+| `guides/` | Relay operator, regulator, and counsel guides |
 
 Built on MLS (RFC 9420), HPKE (RFC 9180), SFrame (RFC 9605), JMAP (RFC 8620),
-JWS (RFC 7515, RFC 7797, RFC 8037), DIDs and content addressing.
+JWS (RFC 7515, RFC 7797, RFC 8037), DIDs, and content addressing.
 
 ## Status
 
@@ -108,9 +108,9 @@ Design decisions made in this revision:
    over the envelope, the canonical-Commit rule, and cost per envelope. The
    separation rests on this mechanism, and nothing should be implemented before
    it is reviewed.
-2. **Compliance review** of capture, retention and disclosure (`spec/07`,
+2. **Compliance review** of capture, retention, and disclosure (`spec/07`,
    `profiles/purview-bridge.md`) by counsel and an auditor familiar with SEC
-   17a-4, FINRA and MiFID II.
+   17a-4, FINRA, and MiFID II.
 3. **Implementers** for a reference relay and client, to find what the text
    gets wrong.
 4. **MIMI participants'** view on the path to native MIMI interop, a future

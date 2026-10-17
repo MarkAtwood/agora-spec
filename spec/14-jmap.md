@@ -8,11 +8,11 @@
 
 Agora carries objects of the JMAP specification family (the RFC 8620 data model and the drafts profiled in §14.6) as payloads of MLS application messages, each in a typed payload envelope (§13.1) whose `type` is the JMAP data type URI (for example `urn:ietf:params:jmap:chat#Message`) and whose `body` is the object's JSON bytes. A chat message on Agora is a `Message` of the JMAP Chat specification (draft-atwood-jmap-chat-00).
 
-No JMAP server runs on any Infrastructure Operator (IO). The JMAP drafts assume a server that holds plaintext, assigns identifiers, orders writes and enforces permissions. On Agora those functions are split among:
+No JMAP server runs on any Infrastructure Operator (IO). The JMAP drafts assume a server that holds plaintext, assigns identifiers, orders writes, and enforces permissions. On Agora those functions are split among:
 
 - **per-member stores** (§14.3): each member's client, or a personal daemon serving that member's own devices, is the JMAP server for its user agent
-- **CO-signed Space state** (§3.3), signed by the Communications Operator (CO), for community structure, roles and bindings (ARCHITECTURE S4)
-- **CO components** (ARCHITECTURE S8) where one plaintext decider is needed, such as a lobby bot, a calendar scheduling service or a scene referee
+- **CO-signed Space state** (§3.3), signed by the Communications Operator (CO), for community structure, roles, and bindings (ARCHITECTURE S4)
+- **CO components** (ARCHITECTURE S8) where one plaintext decider is needed, such as a lobby bot, a calendar scheduling service, or a scene referee
 - a **blind sequencer** (§14.4), which orders ciphertext and reads nothing, for data types that need a single order and for choosing among concurrent Commits (§5.1.1)
 
 The relay sync API (§11.8.1–§11.8.8) moves only ciphertext envelopes and blobs. It is not a JMAP-family server and serves none of the types in this section.
@@ -27,7 +27,7 @@ Every JMAP data type carried on Agora is written under exactly one **consistency
 
 A model identifier is one of:
 
-- A **bare name** (lowercase letters, digits and `-`, no `:`). Bare names are reserved for models defined by this specification or a revision of it. This revision defines `single-author` (§14.3) and `sequenced-v1` (§14.4). A future revision may define further bare names, for example a `crdt-tree-move-2021` model based on the replicated tree move operation of Kleppmann et al. (2021).
+- A **bare name** (lowercase letters, digits, and `-`, no `:`). Bare names are reserved for models defined by this specification or a revision of it. This revision defines `single-author` (§14.3) and `sequenced-v1` (§14.4). A future revision may define further bare names, for example a `crdt-tree-move-2021` model based on the replicated tree move operation of Kleppmann et al. (2021).
 - An **absolute URI** under the control of whoever defines the model, as for extension types (§13.2).
 
 Identifiers are compared as exact, case-sensitive strings. A model is never redefined under an existing identifier; an incompatible change defines a new identifier.
@@ -54,7 +54,7 @@ The table gives the default model of each type in the family. It also lists the 
 
 | Data type(s) | Default model | Author or source | Reason |
 |---|---|---|---|
-| chat `Message` (including `Attachment`, `Mention`, `MessageAction`, `MessageRevision`) | `single-author` | sender | Only the sender creates, edits or retracts a message. |
+| chat `Message` (including `Attachment`, `Mention`, `MessageAction`, `MessageRevision`) | `single-author` | sender | Only the sender creates, edits, or retracts a message. |
 | chat `Reaction` (entry of `Message.reactions`) | `single-author` | reacting member | Keyed by the reactor's `senderReactionId`; no two members write the same entry. |
 | chat `ReadPosition`, `ChatContact` | `single-author` | the user | Private to the user; synchronized only among the user's own devices, through the user's self-group (§2.6). |
 | chat `ChatPresenceEvent`, `ChatTypingEvent` | ephemeral (§5.3) | sender | Not stored; carried as ephemeral MLS application messages. |
@@ -81,7 +81,7 @@ A type defined later states its default model where it is profiled. A type with 
 
 Each member's client, or a personal daemon run by or for that member, holds a JMAP store and serves the JMAP Chat specification and its companions to that member's user agent, as the "mailbox" of draft-atwood-jmap-chat-00 with exactly one user. It serves only the member's own devices (localhost or an authenticated link the member controls, §11.8.9) and MUST NOT be exposed as a service to other users. The store's contents are what the member's devices have decrypted from MLS application messages plus derived Space state.
 
-Within the store, every RFC 8620 mechanism works locally: `state` strings, `/changes`, `/query`, `/queryChanges` and push to the user agent. State strings are local counters over the store's own change log and have no meaning in any other member's store; they MUST NOT be sent in Agora payloads.
+Within the store, every RFC 8620 mechanism works locally: `state` strings, `/changes`, `/query`, `/queryChanges`, and push to the user agent. State strings are local counters over the store's own change log and have no meaning in any other member's store; they MUST NOT be sent in Agora payloads.
 
 ### 14.3.2 Wire Forms
 
@@ -128,7 +128,7 @@ block[i]   = AES-128-GCM-Seal(contentKey, nonce[i], chunk[i], aad[i])
 ```
 
 - `contentKey` is 16 bytes from a cryptographically secure random number generator, generated by the uploader for this file only. A `contentKey` seals exactly one plaintext, so the nonce can be the chunk index. A client MUST NOT seal two different chunk plaintexts under the same `contentKey` and chunk index. Any change of content, including a new revision of the same `FileNode`, uses a fresh `contentKey`. A client that re-encrypts after an interruption uses a fresh key or encrypts from a snapshot it has checked to be unchanged. The object carries the key in its `contentKey` member, an Agora extension property whose value is the key as unpadded base64url (RFC 4648 §5). An `Attachment` that has a `thumbnailBlobId` carries the thumbnail's key, generated the same way, in the extension property `thumbnailContentKey`. The object travels only inside MLS ciphertext or a broadcast payload (§5.2.1.4), so no IO sees a key.
-- Chunks are 262,144 bytes (256 KiB), except the last, which holds the remaining 1–262,144 bytes. An empty file is one empty chunk. A file MUST NOT exceed 2^32 bytes, so `n` is at most 16,384 (Appendix C). The integers in `aad[i]` are big-endian; the final byte is 1 for the last chunk and 0 otherwise. Binding the index, the count and the final flag makes a reordered, dropped, duplicated or truncated chunk fail to open. AES-128-GCM is the AEAD of the default ciphersuite (§5.2.1); the 16-byte tag follows the ciphertext (RFC 5116).
+- Chunks are 262,144 bytes (256 KiB), except the last, which holds the remaining 1–262,144 bytes. An empty file is one empty chunk. A file MUST NOT exceed 2^32 bytes, so `n` is at most 16,384 (Appendix C). The integers in `aad[i]` are big-endian; the final byte is 1 for the last chunk and 0 otherwise. Binding the index, the count, and the final flag makes a reordered, dropped, duplicated, or truncated chunk fail to open. AES-128-GCM is the AEAD of the default ciphersuite (§5.2.1); the 16-byte tag follows the ciphertext (RFC 5116).
 - Each `block[i]` is a block with its own CID, a CIDv1 with codec `raw` and a SHA2-256 multihash (§13.1).
 - When `n` is 1, the blob identifier is the CID of `block[0]`. When `n` is greater than 1, the uploader also builds a **root block**: a `dag-pb` node (codec 0x70) whose `Links` name `block[0]` to `block[n-1]` in order, each with an empty `Name` and `Tsize` equal to the block's length, and whose `Data` is a UnixFS `File` node with `blocksizes` equal to the same lengths and `filesize` equal to their sum. The root block is encoded exactly as the IPLD dag-pb specification and the UnixFS v1 specification define: each `PBLink` carries `Hash` (the chunk CID in binary form), `Name` present with zero length, and `Tsize`; the `Links` are encoded before `Data`; `Data` is the protobuf UnixFS message with `Type` = `File` (2), `filesize`, and one non-packed `blocksizes` entry per chunk (UnixFS uses proto2 encoding), and no other fields. The root CID is a CIDv1 `dag-pb` `sha2-256` CID (§13.1). The blob identifier is the CID of the root block. The DAG is a valid UnixFS file whose content is the concatenated ciphertext, so standard IPFS tools and CAR files (CARv1) can store and move it without any key. The root block reveals only the chunk count and the ciphertext length, which an IO holding the blocks sees anyway.
 - The object names the blob identifier in `blobId` (and `thumbnailBlobId` for an `Attachment`'s thumbnail), and gives `n` in the extension property `chunkCount` (`thumbnailChunkCount` for the thumbnail). Where the object has `size` and `sha256` members, they are the octet length and SHA-256 of the whole plaintext file (§14.6.4).
@@ -143,7 +143,7 @@ A receiver fetches the root block and the chunk blocks by CID from any source (�
 
 ### 14.4.1 Role and Designation
 
-A sequencer assigns a single order to encrypted operations on `sequenced-v1` types, and to concurrent Commits in the channels of the Spaces that designate it (§5.1.1). It is an IO. It holds no MLS group secrets, no exporter outputs, no admission private keys and no plaintext (ARCHITECTURE S3), is not an MLS member, and reads no operation. Members trust it for availability only: it can delay or drop operations, and it cannot alter, forge or read them.
+A sequencer assigns a single order to encrypted operations on `sequenced-v1` types, and to concurrent Commits in the channels of the Spaces that designate it (§5.1.1). It is an IO. It holds no MLS group secrets, no exporter outputs, no admission private keys, and no plaintext (ARCHITECTURE S3), is not an MLS member, and reads no operation. Members trust it for availability only: it can delay or drop operations, and it cannot alter, forge, or read them.
 
 The CO engages a sequencer under a `ServiceAgreement` with `serviceType` `sequencer` (§10.5.1), and registers the admission key of every channel of the designating Spaces with it as with any relay (§10.5.3). A CO SHOULD designate as its sequencer a relay with which it already holds an agreement, and SHOULD use one sequencer for all its Spaces (§14.4.6).
 
@@ -210,7 +210,7 @@ seq-auth = {
 }
 ```
 
-   `admissionSig` is made with the channel's admission private key (§5.2.2). The `op` member value `"sequence"` keeps this signature distinct from routing envelope, `PinInstruction` and upload signatures made with the same key (§11.4).
+   `admissionSig` is made with the channel's admission private key (§5.2.2). The `op` member value `"sequence"` keeps this signature distinct from routing envelope, `PinInstruction`, and upload signatures made with the same key (§11.4).
 3. The sequencer admits the submission as a relay admits an envelope (§10.5.4): `channelToken` MUST match a key registered under its agreement and not deregistered, `admissionSig` MUST verify over the exact bytes of `signed`, `stream` MUST be the operation stream or the commit stream of that `channelToken`, a commit stream MUST NOT be closed (§14.4.2), `opHash` MUST equal SHA-256 of `op`, `expires` MUST NOT have passed or be more than 600 seconds ahead, and `nonce` MUST NOT repeat for that token. It then assigns the next position in the stream, signs the stamp, appends (stamp, operation) to the stream's log, and returns HTTP 200 with the encoded stamp envelope (`Content-Type: application/cbor`). If the stream already holds the same `opHash`, it returns the existing stamp and appends nothing. On failure it returns the status below with a JSON body `{ "error": "<code>" }`, using the codes of §11.4:
 
 | Status | `error` | Condition |
@@ -237,7 +237,7 @@ For each operation stream, a client processes stamps in position order and MUST,
 
 1. verify the stamp per §13.1.1 against the DID that signed position 0 of the stream, which MUST be the `sequencer` DID in the Space state the client holds or in an earlier Space state; stamps in the stream by any other DID are ignored;
 2. check that `n` is the next position, `prev` is the hash of the previous stamp, and `opHash` matches the operation bytes;
-3. skip the position if its `opHash` was already processed; otherwise unseal the operation for the stream's `channelToken` (§5.2.2) and decrypt the MLS message; if unsealing, decryption or MLS authentication fails, skip the position;
+3. skip the position if its `opHash` was already processed; otherwise unseal the operation for the stream's `channelToken` (§5.2.2) and decrypt the MLS message; if unsealing, decryption, or MLS authentication fails, skip the position;
 4. skip the position if the message's MLS epoch is lower than the epoch of an operation applied at an earlier position in the stream (§14.4.2);
 5. run the type's validation (for `FileNode`: the parent exists, the sibling name is unique, a move creates no cycle, and the sender holds the needed permission under Space state) against the state produced by all earlier positions, and apply the operation if it passes or reject it if it fails.
 
@@ -260,7 +260,7 @@ Every member holding the same stamps reaches the same result. Rejection is silen
 
 ### 14.4.6 What the Sequencer Learns
 
-The sequencer learns what a relay holding the same registrations learns (ARCHITECTURE §5 items 1 to 3 and 6): the stream names it orders, which are `channelToken`s and values derived from them, the CO's billing DID and which tokens are registered under it, which token each rotated key replaces (§10.5.3), operation sizes, timing, the rhythm of Commits in each channel, and submitters' network addresses. Admission signatures do not identify the submitter. It learns no member identity, membership or content, and it cannot map a token to a Space or channel.
+The sequencer learns what a relay holding the same registrations learns (ARCHITECTURE §5 items 1 to 3 and 6): the stream names it orders, which are `channelToken`s and values derived from them, the CO's billing DID and which tokens are registered under it, which token each rotated key replaces (§10.5.3), operation sizes, timing, the rhythm of Commits in each channel, and submitters' network addresses. Admission signatures do not identify the submitter. It learns no member identity, membership, or content, and it cannot map a token to a Space or channel.
 
 Space state names the sequencer, but a private Space's state is served only to members (§3.4), so the operator cannot read the designation. A public Space's designation is a CO publication, and so are its channels. If a CO uses one sequencer for all its Spaces, the set of Spaces the sequencer cannot tell apart is every Space the CO serves through it, as with relays (§10.4.2). Every relay carrying a sequenced channel also reads the sequencer DID in each `commitStamp` (§5.2.2). A CO that uses different sequencers for different Spaces therefore lets its relays group its tokens by sequencer and tie a group to any public Space that names its sequencer.
 
@@ -276,14 +276,14 @@ Updates at 10–60 Hz (avatar poses, controller and haptic input) travel on a We
 
 *Binds: both.*
 
-This section states, per draft, what Agora uses, what it overrides and what it forbids. Anything a draft assigns to a server is performed by the member's store (§14.3), by the sequencer (§14.4) or by a CO component, never by an IO (ARCHITECTURE S1, S2).
+This section states, per draft, what Agora uses, what it overrides, and what it forbids. Anything a draft assigns to a server is performed by the member's store (§14.3), by the sequencer (§14.4), or by a CO component, never by an IO (ARCHITECTURE S1, S2).
 
 ### 14.6.1 JMAP Chat (draft-atwood-jmap-chat-00)
 
 Used: all data types and methods, served by the member's store (§14.3.1, §11.8.9). Chat messages on Agora are its `Message` objects.
 
 Overridden:
-- Server-enforced checks become checks by every receiving store against CO-signed Space state: slow mode, the broadcast-mention gate, channel permissions, blocked contacts and bans. A ban takes effect as an MLS Remove (§4.5).
+- Server-enforced checks become checks by every receiving store against CO-signed Space state: slow mode, the broadcast-mention gate, channel permissions, blocked contacts, and bans. A ban takes effect as an MLS Remove (§4.5).
 - The store translates `Space/set` and the other Space-family `/set` calls into a signed Space state mutation (§3.3) by an owner or admin, or rejects them locally if the user holds no such authority.
 - A DM group (§4.6) is a `group` Chat. Its `members` are the DIDs with leaves in the group's current epoch (ARCHITECTURE S9), and every `ChatMember.role` is `member` (§4.6.2). `joinedAt` is the local receipt time of the Commit that added the DID's first current leaf, and `invitedBy` is that Commit's committer. The store translates `addMembers` and `removeMembers` into an MLS Add or Remove Commit (§4.6.1, §4.6), which any member may make, and rejects `updateMemberRoles` locally.
 - `SpaceInvite.maxUses` and `Space/join` need one decider: a CO invite service enforces them, since independent stores cannot enforce a count. The invite service authenticates members per §3.5.
@@ -311,7 +311,7 @@ Overridden: DID verification is mandatory, since every MLS credential is verifie
 
 Used: `sha256` of plaintext inside MLS-encrypted objects (`Attachment.sha256`, `FileNode.sha256`), for integrity after decryption.
 
-Overridden: anything an IO stores, serves or sees is addressed by a CID of ciphertext (§3.4, §14.3.4). A plaintext hash MUST NOT appear in any IO-visible field, upload request or blob identifier, since it permits confirmation-of-file attacks (ARCHITECTURE S6). A relay blob store does not advertise `urn:ietf:params:jmap:cid`.
+Overridden: anything an IO stores, serves, or sees is addressed by a CID of ciphertext (§3.4, §14.3.4). A plaintext hash MUST NOT appear in any IO-visible field, upload request, or blob identifier, since it permits confirmation-of-file attacks (ARCHITECTURE S6). A relay blob store does not advertise `urn:ietf:params:jmap:cid`.
 
 ### 14.6.5 JMAP Chat Federation (draft-atwood-jmap-chat-federation-00)
 
@@ -337,7 +337,7 @@ Forbidden: toward a relay. Relays use the transport of §11. Typing and presence
 
 Used: `CalendarEvent` and RSVP under `single-author` (§14.2.3); the `calendar-event` and `availability` message actions.
 
-Overridden: `Space.calendarId` is a Space state field. `.ics` parsing, iTIP sending (`sendSchedulingMessages`) and `Principal/getAvailability` need plaintext, so the client or a CO calendar component performs them. `jmap:` URIs naming accounts or objects appear only inside MLS ciphertext.
+Overridden: `Space.calendarId` is a Space state field. `.ics` parsing, iTIP sending (`sendSchedulingMessages`), and `Principal/getAvailability` need plaintext, so the client or a CO calendar component performs them. `jmap:` URIs naming accounts or objects appear only inside MLS ciphertext.
 
 ### 14.6.9 JMAP Chat Tasks (draft-atwood-jmap-chat-tasks-00)
 
@@ -355,11 +355,11 @@ Forbidden: content scanning and `Blob/convert` by an IO, which would require pla
 
 ### 14.6.11 JMAP for Scenes (draft-atwood-jmap-scene-00)
 
-Used: `SceneRegion`, `SceneObject`, `SceneAvatar` and `SceneAsset` under the models of §14.2.3; slow records as MLS application messages (§14.5); glTF assets as blobs (§14.3.4).
+Used: `SceneRegion`, `SceneObject`, `SceneAvatar`, and `SceneAsset` under the models of §14.2.3; slow records as MLS application messages (§14.5); glTF assets as blobs (§14.3.4).
 
 Overridden:
 - If a region has simulation authority (physics, interaction validation, game rules, `worldState`), it is a referee principal: a CO component that is an MLS member of the channel group and whose messages are authoritative for that region's simulated state. `simulationUri` and `inputUri` resolve to the call path of §14.5 or to such a component, never to an IO.
-- Clients or CO components perform visibility filtering, blocked-contact filtering and moderation.
+- Clients or CO components perform visibility filtering, blocked-contact filtering, and moderation.
 - `assetUri` MUST NOT point at an IO serving plaintext assets.
 
 ### 14.6.12 JMAP Scene over WebSocket (draft-atwood-jmap-scene-wss-00)
@@ -370,11 +370,11 @@ Overridden: the referee principal validates interactions if the region has one; 
 
 ### 14.6.13 JMAP for Video/Voice Teleconferencing (draft-atwood-jmap-vtc-00)
 
-§6 is the source of truth for calls, media, signaling, SFU, TURN and recording.
+§6 is the source of truth for calls, media, signaling, SFU, TURN, and recording.
 
-Used: the vocabulary of ring (including multi-device ring), scheduled calls, lobby, call policy and breakout rooms, carried as MLS group messages in the voice channel's group. These are enforced by clients, or by a CO bot member where one decider is needed (lobby admission). For a ring answered on several devices, the first answer in group message order wins.
+Used: the vocabulary of ring (including multi-device ring), scheduled calls, lobby, call policy, and breakout rooms, carried as MLS group messages in the voice channel's group. These are enforced by clients, or by a CO bot member where one decider is needed (lobby admission). For a ring answered on several devices, the first answer in group message order wins.
 
-Forbidden: `VTCCall`, `VTCParticipant`, `VTCRecording` and `VTCLivestream` as server-owned objects, and any call server that knows participants (ARCHITECTURE S1). Participation is `ParticipantState` (§6.2). Clients map active speakers; an SFU never maps streams to DIDs (§6.6). Recording is by a CO recorder member (§6.12), so it is compatible with E2EE media. `VTCCallPush` content follows §14.6.6: the wake-up is content-free.
+Forbidden: `VTCCall`, `VTCParticipant`, `VTCRecording`, and `VTCLivestream` as server-owned objects, and any call server that knows participants (ARCHITECTURE S1). Participation is `ParticipantState` (§6.2). Clients map active speakers; an SFU never maps streams to DIDs (§6.6). Recording is by a CO recorder member (§6.12), so it is compatible with E2EE media. `VTCCallPush` content follows §14.6.6: the wake-up is content-free.
 
 ### 14.6.14 JMAP VTC over WebSocket (draft-atwood-jmap-vtc-wss-00)
 
@@ -386,11 +386,11 @@ Forbidden: subscription to call events at any server. Every member of the voice 
 
 *Binds: both.*
 
-- **Identifiers in JMAP bodies.** JMAP objects carry `spaceId`, `chatId`, `accountId`, `jmap:` URIs and other identifiers that are S1-protected. They MUST appear only inside MLS ciphertext or group-encrypted blobs, never in a routing envelope, push payload, sequencer submission field other than `op`, or blob identifier.
-- **Server-trusted fields.** Fields the drafts mark server-set are recomputed by each store. A store that accepted a sender's `senderId`, `receivedAt` or `deliveryState` from a `body` would allow impersonation or misordering.
-- **Client-enforced policy.** Slow mode, permissions and broadcast-mention limits are enforced by honest clients only. A modified client can send operations that honest stores ignore but that it displays itself. This is the accepted cost of client enforcement (ARCHITECTURE §9).
+- **Identifiers in JMAP bodies.** JMAP objects carry `spaceId`, `chatId`, `accountId`, `jmap:` URIs, and other identifiers that are S1-protected. They MUST appear only inside MLS ciphertext or group-encrypted blobs, never in a routing envelope, push payload, sequencer submission field other than `op`, or blob identifier.
+- **Server-trusted fields.** Fields the drafts mark server-set are recomputed by each store. A store that accepted a sender's `senderId`, `receivedAt`, or `deliveryState` from a `body` would allow impersonation or misordering.
+- **Client-enforced policy.** Slow mode, permissions, and broadcast-mention limits are enforced by honest clients only. A modified client can send operations that honest stores ignore but that it displays itself. This is the accepted cost of client enforcement (ARCHITECTURE §9).
 - **Last-writer-wins clocks.** `at` is sender-chosen. An author can backdate or postdate only its own objects, since stores ignore patches from non-authors (§14.3.3).
-- **Sequencer.** A sequencer can deny service and choose order, and cannot read, alter or forge operations. Equivocation is detectable and provable (§14.4.5). It admits only submissions signed with a registered channel admission key (§14.4.3), so non-members cannot take stream positions; a removed member can submit until the CO rotates the key (§10.5.3), but it can encrypt only in epochs it belonged to, and the epoch rule of §14.4.4 rejects such operations once any later-epoch operation is stamped. Rate limits bound flooding by key holders.
+- **Sequencer.** A sequencer can deny service and choose order, and cannot read, alter, or forge operations. Equivocation is detectable and provable (§14.4.5). It admits only submissions signed with a registered channel admission key (§14.4.3), so non-members cannot take stream positions; a removed member can submit until the CO rotates the key (§10.5.3), but it can encrypt only in epochs it belonged to, and the epoch rule of §14.4.4 rejects such operations once any later-epoch operation is stamped. Rate limits bound flooding by key holders.
 - **Plaintext hashes.** A plaintext `sha256` leaking to an IO enables confirmation-of-file attacks (§14.6.4).
-- **Push.** Rich push payloads leak sender, chat and Space metadata to the push proxy and to the platform push service; they are confined to the device (§14.6.6).
-- **Referee and bots.** A referee principal, lobby bot or calendar component holds plaintext and is a CO component (ARCHITECTURE S8). Members see it as an MLS member of the group.
+- **Push.** Rich push payloads leak sender, chat, and Space metadata to the push proxy and to the platform push service; they are confined to the device (§14.6.6).
+- **Referee and bots.** A referee principal, lobby bot, or calendar component holds plaintext and is a CO component (ARCHITECTURE S8). Members see it as an MLS member of the group.

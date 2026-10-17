@@ -101,7 +101,7 @@ Push notification channels expire. Google sets the channel's expiration to the m
 
 The webhook endpoint MUST verify incoming requests by comparing the `X-Goog-Channel-Token` header against the registered `token` value. Requests with an invalid or missing token MUST be rejected with HTTP 403.
 
-Directory API push notifications are minimal. The `X-Goog-Resource-State` header is `sync` for the initial channel message, or the event name (`add`, `delete`, `makeAdmin`, `undelete` or `update`). The notification does not carry the full user object. On receipt, the sidecar MUST fetch the full user record via `GET /admin/directory/v1/users/{userId}` before acting.
+Directory API push notifications are minimal. The `X-Goog-Resource-State` header is `sync` for the initial channel message, or the event name (`add`, `delete`, `makeAdmin`, `undelete`, or `update`). The notification does not carry the full user object. On receipt, the sidecar MUST fetch the full user record via `GET /admin/directory/v1/users/{userId}` before acting.
 
 ### 2.3 Reconciliation Poller
 
@@ -125,11 +125,11 @@ The reconciliation poller is the reliability backstop, not the primary path. Wor
 
 ## 3. DID Document Structure
 
-The following are identical to O365 profile §3: the DID log and document structure, the absence of an org `controller`, the lifecycle states (`STUB`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`), the `KeyPackageEndpoint` and `AgoraProvisioning` service entries and the `witness` parameter in the genesis entry. The optional parallel `did:web` document is also as in O365 profile §2. The two differences follow.
+The following are identical to O365 profile §3: the DID log and document structure, the absence of an org `controller`, the lifecycle states (`STUB`, `ACTIVE`, `SUSPENDED`, `DEACTIVATED`), the `KeyPackageEndpoint` and `AgoraProvisioning` service entries, and the `witness` parameter in the genesis entry. The optional parallel `did:web` document is also as in O365 profile §2. The two differences follow.
 
 ### 3.1 DID Naming
 
-The naming rule is the same as O365 profile §2 and spec §2.5.2: the DID is `did:webvh:<SCID>:did.example.com:users:<localIdentifier>`, where the path segment is a stable `localIdentifier` that is never reassigned and MUST NOT be derived from the primary email, name or any other changeable attribute.
+The naming rule is the same as O365 profile §2 and spec §2.5.2: the DID is `did:webvh:<SCID>:did.example.com:users:<localIdentifier>`, where the path segment is a stable `localIdentifier` that is never reassigned and MUST NOT be derived from the primary email, name, or any other changeable attribute.
 
 ```
 did:webvh:QmSCIDa...:did.example.com:users:k7f3qd2m
@@ -243,7 +243,7 @@ This link expires in 7 days. If you need a new link, contact IT.
 
 ### 4.3 Mover
 
-Triggered by a push notification for an existing user with changed attributes (`orgUnitPath`, `primaryEmail`, custom schema attributes or group membership changes).
+Triggered by a push notification for an existing user with changed attributes (`orgUnitPath`, `primaryEmail`, custom schema attributes, or group membership changes).
 
 Group membership changes do not trigger a user-level push notification; the Directory API push fires only on user object changes. The sidecar MUST therefore poll `groups.list` on a configurable schedule (default: 1 hour) for users with active DID documents, comparing group membership against stored state. This is the primary limitation relative to the O365 Mover workflow, which triggers declaratively on group membership changes.
 
@@ -424,7 +424,7 @@ Step-up for device key registration in this profile has two parts, on every Work
 1. **Google-enforced 2-Step Verification (2SV) with security keys.** The organization SHOULD enforce 2SV with security keys only for the users who enroll Agora devices, so that the Google sign-in that yields the enrollment OAuth token requires a hardware key. Google enforces this at sign-in. The token does not say which second factor was used, so the sidecar cannot check it; the guarantee rests on the Workspace policy. Google issues only Google-defined OAuth scopes, so the profile does not rely on a custom scope gated by Context-Aware Access (CAA). Enterprise Plus deployments MAY add Context-Aware Access rules that apply to the enrollment OAuth client, if their edition supports this. Verify both controls against current Google documentation (written 2026-10, not re-verified).
 2. **Device-key signatures.** Every registration request is signed by the new device key as proof of possession, and every later device's request is also signed by a device key already in the verified log (spec §2.5.4 Step 3).
 
-The sidecar runs no WebAuthn or PKCS#11 challenge of its own. It has no enrolled credential to check one against, and a passkey is never a device key (spec §2.2). Business Starter, Standard and Plus have no Context-Aware Access, so for them the two parts above are the whole of step-up. An organization that does not enforce security-key 2SV gets, at first-device enrollment, only the strength of its ordinary Google sign-in policy; later devices still need a signature from an existing device.
+The sidecar runs no WebAuthn or PKCS#11 challenge of its own. It has no enrolled credential to check one against, and a passkey is never a device key (spec §2.2). Business Starter, Standard, and Plus have no Context-Aware Access, so for them the two parts above are the whole of step-up. An organization that does not enforce security-key 2SV gets, at first-device enrollment, only the strength of its ordinary Google sign-in policy; later devices still need a signature from an existing device.
 
 The remaining registration checks are those of O365 profile §5.6:
 
@@ -584,7 +584,7 @@ The organization's managed client configuration (mobile device management (MDM) 
 
 ## 11. Open Questions
 
-1. **Google Workspace Events API vs. Directory API push.** The newer Google Workspace Events API (`workspace.googleapis.com`) supports subscriptions to changes across Workspace applications and may eventually supersede the Directory API's per-resource push channels. It currently supports Chat, Meet and limited Workspace resources; Directory/user events may be added. The sidecar's `IdentityProvider` interface is designed so migration is a drop-in replacement rather than a rewrite.
+1. **Google Workspace Events API vs. Directory API push.** The newer Google Workspace Events API (`workspace.googleapis.com`) supports subscriptions to changes across Workspace applications and may eventually supersede the Directory API's per-resource push channels. It currently supports Chat, Meet, and limited Workspace resources; Directory/user events may be added. The sidecar's `IdentityProvider` interface is designed so migration is a drop-in replacement rather than a rewrite.
 
 2. **Primary email as DID path.** Resolved: the DID path is a stable `localIdentifier`, not the email (§3.1).
 

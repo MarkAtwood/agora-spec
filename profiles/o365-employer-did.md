@@ -18,7 +18,7 @@ Two components perform this work.
 
 **Entra Verified ID** issues a signed `EmployeeCredential` verifiable credential (VC) to each enrolled employee's wallet (Microsoft Authenticator). The VC is the organization's cryptographic attestation that the holder is a current employee with specific claims (department, role, clearance level). It is issued after the first device key is registered (§4.2), and Spaces MAY require it for admission (§4.3). VC revocation blocks future Space admissions (§4.3) without writing a DID log entry. It does not cut off access the employee already has: membership in the MLS group (RFC 9420) is the only access control, so access ends when the Enrollment Service issues the MLS Remove Commits (§5.4, Action C).
 
-Relays play no part in this profile. They never receive or verify Entra tokens; identity provider (IdP) authentication runs between the client, Entra and the sidecar (spec §2.5.2).
+Relays play no part in this profile. They never receive or verify Entra tokens; identity provider (IdP) authentication runs between the client, Entra, and the sidecar (spec §2.5.2).
 
 The two components are independent and address different concerns:
 
@@ -86,7 +86,7 @@ did:webvh:<SCID>:did.example.com:users:<localIdentifier>
 
 `<SCID>` is the self-certifying identifier derived from the genesis entry of the user's DID log. Each user has their own SCID.
 
-Per spec §2.5.2, `<localIdentifier>` MUST be stable for the life of the account, MUST NOT be reassigned, and MUST NOT be derived from the UPN, email address, display name or any other attribute that can change. A DID is not a display name; clients show the display profile (spec §2.3), never a parsed DID.
+Per spec §2.5.2, `<localIdentifier>` MUST be stable for the life of the account, MUST NOT be reassigned, and MUST NOT be derived from the UPN, email address, display name, or any other attribute that can change. A DID is not a display name; clients show the display profile (spec §2.3), never a parsed DID.
 
 **Recommended default.** The sidecar mints a random lowercase base32 value at Joiner time (the examples use 8 characters), checks it for uniqueness, and stores the mapping to the Entra `objectId` (`aadObjectId`, the token `oid` claim) in its private store (§6.3). The mapping is never published.
 
@@ -391,7 +391,7 @@ This check is optional because the Teams/Entra OIDC auth already establishes org
 
 The employee's client can also carry the `EmployeeCredential`, or a presentation of it, in the `agora_credentials` leaf extension (spec §5.2.1.5), with the media type of its encoding: `application/vc+jwt` for a VC secured per W3C VC-JOSE-COSE, or `application/jwt` for a VC Data Model 1.1 JWT such as the one above. Its subject (`credentialSubject.id`, or the JWT `sub`) is the employee's DID, so it satisfies the spec's subject check. Other members' clients can then verify it from the leaf: a colleague's client whose policy trusts `did:web:verifiedid.example.com` can treat the employee as an accepted DM sender (spec §4.6.3, §9.3 here), and a Space admin's client can assign roles from its claims (spec §4.2).
 
-By default the client leaves it out of published KeyPackages and adds it to each group by updating its own leaf after joining. Every member of the group, including members outside the organization, sees the claims it carries, so the organization should decide which claims, such as `employeeId`, `department` or `officeLocation`, employees carry into groups shared with outsiders.
+By default the client leaves it out of published KeyPackages and adds it to each group by updating its own leaf after joining. Every member of the group, including members outside the organization, sees the claims it carries, so the organization should decide which claims, such as `employeeId`, `department`, or `officeLocation`, employees carry into groups shared with outsiders.
 
 ---
 
@@ -652,7 +652,7 @@ The KeyPackage and Welcome endpoints are the only ones other users' Agora client
 
 ### 6.3 Storage
 
-The sidecar stores DID logs, KeyPackages and audit logs. Two deployment options are supported:
+The sidecar stores DID logs, KeyPackages, and audit logs. Two deployment options are supported:
 
 **Azure Blob Storage (preferred for Azure deployments).** One append-only blob per user at `did-documents/{localIdentifier}/did.jsonl`. Audit log at `did-documents/{localIdentifier}/audit.jsonl`. A private `principals.json` maps each `localIdentifier` to the Entra `objectId` and current UPN.
 
@@ -667,7 +667,7 @@ A UPN change does not change the DID (§2). The sidecar updates the UPN in its p
 The DID string changes only when the organization moves the DID host (for example, `did.example.com` to `did.example.net`). This is an org-side migration, not a recovery: the org MUST NOT sign a `RecoveryAssertion` for it (spec §2.4.1, §2.4.2). `did:webvh` portability (spec §2.1, §2.5.2) keeps the identity intact:
 
 1. **The sidecar moves its own identity first.** The sidecar's DID is itself a portable `did:webvh` (§6.5). It appends an entry to its own log that changes its DID to the new domain with the same SCID and lists the old DID in `alsoKnownAs`, signed with its current update key.
-2. **The sidecar moves each user's log.** For each user it appends an entry, signed with the user log's update key, that changes the DID to `did:webvh:<same SCID>:did.example.net:users:<same localIdentifier>` and adds the old DID to `alsoKnownAs`. Keys, service entries and history carry over; the `KeyPackageEndpoint` URL is updated to the new host in the same entry.
+2. **The sidecar moves each user's log.** For each user it appends an entry, signed with the user log's update key, that changes the DID to `did:webvh:<same SCID>:did.example.net:users:<same localIdentifier>` and adds the old DID to `alsoKnownAs`. Keys, service entries, and history carry over; the `KeyPackageEndpoint` URL is updated to the new host in the same entry.
 3. **The sidecar publishes.** The new host serves the continued log, with its witness proofs (§6.6), and the sidecar records the migration in the audit log. Nothing is gossiped: each employee's devices send an `IdentityChanged` notice (spec §2.7) when they see the migration entry, and other members pick up the move when they next resolve the DID.
 4. **The old host keeps answering.** The old URL keeps serving the log, or an HTTP redirect to the new location, for at least the regulatory retention period (spec §2.5.6), so archived references still resolve.
 
@@ -681,7 +681,7 @@ The sidecar is a DID-bearing principal (spec §2.5.7). This profile gives it a p
 
 Spec §2.1 requires every CO-provisioned `did:webvh` DID to use `did:webvh` witnesses. The sidecar therefore publishes witness-co-signed log updates: each user log, and the sidecar's own log, declares in its `witness` parameter at least one witness DID that the organization does not control, with a threshold such that every entry carries a proof from at least one such witness. The sidecar obtains the witness proofs for an entry before it serves that entry, and serves them beside `did.jsonl` as the `did:webvh` specification defines. Agora clients verify those proofs and reject an entry that lacks the proofs its parameters require (spec §2.1).
 
-The organization chooses its witnesses. What matters is that the organization does not control them: a witness run by the organization itself adds nothing, because the purpose is to stop the holder of the update key from showing different logs to different resolvers, or an old log to one of them, without a second party noticing (spec §2.1, §2.5.1). If the witnesses are unreachable, the sidecar cannot publish new entries; device registrations, revocations and deactivations wait until a proof is obtained, so the organization should name more than one witness and set the threshold below their number.
+The organization chooses its witnesses. What matters is that the organization does not control them: a witness run by the organization itself adds nothing, because the purpose is to stop the holder of the update key from showing different logs to different resolvers, or an old log to one of them, without a second party noticing (spec §2.1, §2.5.1). If the witnesses are unreachable, the sidecar cannot publish new entries; device registrations, revocations, and deactivations wait until a proof is obtained, so the organization should name more than one witness and set the threshold below their number.
 
 ### 6.7 Admission Keys for DM Groups and Self-Groups
 

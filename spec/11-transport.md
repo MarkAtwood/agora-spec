@@ -6,7 +6,7 @@ Agora uses two complementary transport surfaces that serve different access patt
 
 **Live stream** (§11.1–§11.7): WebTransport (QUIC) or WebSocket. The live stream is optimized for real-time delivery: new message events, MLS handshake messages (Commits and Proposals), presence and typing indicators. Welcomes do not travel on the live stream; they are delivered to the new member's `KeyPackageEndpoint` (§4.6, §5.2.1.1). Any client that needs low-latency delivery requires the live stream.
 
-**JMAP Sync API** (§11.8): Standard HTTPS request/response with EventSource push, served by relays. It is optimized for token-keyed envelope history retrieval and state sync. JMAP is used only for history and blobs; envelopes are written only on the live stream (§11.4). Clients that need only history (bots, compliance tools, search indexers) can use JMAP without opening a live stream connection. Relays do not serve the Space, membership, role and invite management API; it runs in the client or on Communications Operator (CO) infrastructure (§11.8.9).
+**JMAP Sync API** (§11.8): Standard HTTPS request/response with EventSource push, served by relays. It is optimized for token-keyed envelope history retrieval and state sync. JMAP is used only for history and blobs; envelopes are written only on the live stream (§11.4). Clients that need only history (bots, compliance tools, search indexers) can use JMAP without opening a live stream connection. Relays do not serve the Space, membership, role, and invite management API; it runs in the client or on Communications Operator (CO) infrastructure (§11.8.9).
 
 A full-featured client uses both. The live stream delivers new events; JMAP fills history on startup and provides a clean sync model for catching up after a disconnect.
 
@@ -171,7 +171,7 @@ PushRegister = {
 }
 ```
 
-**Hello and admission.** `ClientHello`, `RelayHello`, `AdmissionChallenge` and `AdmissionProof` are defined in §11.6. Every other message carries the negotiated version as `v`.
+**Hello and admission.** `ClientHello`, `RelayHello`, `AdmissionChallenge`, and `AdmissionProof` are defined in §11.6. Every other message carries the negotiated version as `v`.
 
 **Subscribe and Unsubscribe.** A relay MUST NOT require any proof to subscribe; subscriptions are rate-limited (§11.6). A relay delivers nothing for a token that has no registered admission key. It answers a `Subscribe` with one `Ack` for the request and subscribes the listed tokens that are registered. For each listed token that is not registered, it sends an `Error` without `id`, with code `unknown-token` (or `token-withdrawn`, as below) and `token` set to that token. A client fails over for those tokens as §10.3.5 describes.
 
@@ -183,20 +183,20 @@ After answering a `Subscribe` with `Ack`, the relay sends a `Deliver` for each e
 2. looks up the admission public key registered for the `channelToken` in `signed` (§10.5.3), and answers `unknown-token` if there is none;
 3. verifies `admissionSig` over the exact bytes of `signed` under that key, and answers `bad-admission-sig` if it fails;
 4. checks `powProof` against its `minPowDifficulty` (§10.5.2), and answers `insufficient-pow` if it falls short;
-5. applies the remaining acceptance checks of §10.5.4 and §10.4.3, answering `expired`, `rate-limited` or `quota-exceeded` as they apply. An envelope is `expired` if its `ts` is more than 300 seconds ahead of the relay's clock or older than the `retentionDays` of the agreement under which the key is registered, or if it carries an `expiryHint` that has already passed;
+5. applies the remaining acceptance checks of §10.5.4 and §10.4.3, answering `expired`, `rate-limited`, or `quota-exceeded` as they apply. An envelope is `expired` if its `ts` is more than 300 seconds ahead of the relay's clock or older than the `retentionDays` of the agreement under which the key is registered, or if it carries an `expiryHint` that has already passed;
 6. stores the envelope under its `channelToken` for the retention of the agreement under which the key is registered, answers `Ack` with `cid` set to the envelope `id` (§5.2.2), sends a `Deliver` with the same envelope bytes to every other connection subscribed to the token, and fans the envelope out as §10.4.2 describes.
 
 If the relay already holds an envelope with the same `id` under the token, it answers `Ack` with that `cid` and neither stores nor delivers the envelope again.
 
 **Deliver.** A client processes a delivered envelope as §5.2.2 describes.
 
-**Error.** An `Error` without `id` reports a problem with the connection as a whole; the relay MAY close the connection after sending it. The exceptions are `unknown-token`, `token-withdrawn` and `token-rotated` carrying `token`, which concern one token and leave the connection open.
+**Error.** An `Error` without `id` reports a problem with the connection as a whole; the relay MAY close the connection after sending it. The exceptions are `unknown-token`, `token-withdrawn`, and `token-rotated` carrying `token`, which concern one token and leave the connection open.
 
 **Stream closed.** `stream-closed` is not sent on the live protocol. It is the code a sequencer returns for a Commit submitted on the commit stream of a token whose key has been replaced (§10.5.3, §14.4.3).
 
 **Withdrawn tokens.** `unknown-token` means that no admission key is registered for the token. `token-withdrawn` means that the token's key was registered and is no longer admitted: the CO deregistered it (§10.5.3), the agreement under which it was registered has ended (§10.5.1, §10.5.3), or the relay suspended the token (§10.4.7).
 
-When a key stops being admitted, the relay sends each connection subscribed to its token an `Error` without `id`, with code `token-withdrawn` and `token` set to that token, and ends those subscriptions without closing the connection. It answers a later `Subscribe`, `Publish` or `PinInstruction` naming that token with `token-withdrawn` for as long as it still holds envelopes under the token, and with `unknown-token` after that.
+When a key stops being admitted, the relay sends each connection subscribed to its token an `Error` without `id`, with code `token-withdrawn` and `token` set to that token, and ends those subscriptions without closing the connection. It answers a later `Subscribe`, `Publish`, or `PinInstruction` naming that token with `token-withdrawn` for as long as it still holds envelopes under the token, and with `unknown-token` after that.
 
 On either code the client fetches the current `ChannelAdmissionKey` (§5.2.2). In a direct message (DM) group or a self-group, the client instead fetches that token's history (§11.8), processes the Commits in it, and uses the key in `agora_admission` (§4.6). If that key is the refused one at every listed relay, the client applies the recovery of §4.6 instead of retrying. If its token is the one refused, the client uses another relay in the key's relay list (§10.3.5).
 
@@ -204,7 +204,7 @@ On either code the client fetches the current `ChannelAdmissionKey` (§5.2.2). I
 
 **PinInstruction.** A pin instruction asks the relay to keep, or stop keeping, envelopes and blobs past retention (§5.2.6). The relay MUST reject, with code `bad-message`, an instruction whose `signed` value does not decode to a `pin-op`. A routing envelope's `signed` map (§5.2.2) has no `op` member, so a signature made for one is never accepted as the other. The relay then looks up the key registered for `channelToken` and verifies `admissionSig` over the exact bytes of `signed`, answering as for `Publish`. It answers `expired` if `expires` has passed or is more than 600 seconds ahead of its clock, and `replayed` if it has already accepted the same `nonce` for that token.
 
-Envelope CIDs in a `pin-op` are envelope `id`s, the CIDs of the envelopes' `signed` bytes (§5.2.2). For `pin`, it adds the pin's token as a holder of each listed CID that it holds (§10.4.4), exempts those CIDs from retention expiry and charges the storage to the agreement under which the key is registered, answering `quota-exceeded` if the agreement's quota would be exceeded and `unknown-cid` if it holds none of the CIDs after attempting to pull them (§10.4.4). For `unpin`, it removes the exemption. For `seed`, it fetches each listed CID it does not hold from other relays carrying the token, as for pull-through (§10.4.4), and keeps what it obtains for the ordinary retention window without a pin exemption; it answers `Ack` once it has accepted the instruction, before the fetches finish.
+Envelope CIDs in a `pin-op` are envelope `id`s, the CIDs of the envelopes' `signed` bytes (§5.2.2). For `pin`, it adds the pin's token as a holder of each listed CID that it holds (§10.4.4), exempts those CIDs from retention expiry, and charges the storage to the agreement under which the key is registered, answering `quota-exceeded` if the agreement's quota would be exceeded and `unknown-cid` if it holds none of the CIDs after attempting to pull them (§10.4.4). For `unpin`, it removes the exemption. For `seed`, it fetches each listed CID it does not hold from other relays carrying the token, as for pull-through (§10.4.4), and keeps what it obtains for the ordinary retention window without a pin exemption; it answers `Ack` once it has accepted the instruction, before the fetches finish.
 
 A CO sends `seed` to a relay newly added to a channel's relay list, signing with the channel's admission key, which its registration service holds. The role check that decides whether a member may pin is made by clients against Space state (ARCHITECTURE §6.2), never by the relay.
 
@@ -244,7 +244,7 @@ Text format capabilities (§5.2.7) are not declared to the relay. A relay that c
 
 ### Connection Admission
 
-A relay rate-limits connections, subscriptions, publications, history reads (live stream and JMAP, §11.8) and push registrations (§11.7.3) per network address and per `channelToken`. Limit values are local relay policy, with one floor: a relay MUST admit at least 20 envelopes per second and 256 KiB per second, sustained, on each `channelToken` before rate-limiting it, so that the presence, typing and Commit traffic a channel generates (§5.3) is never throttled. Per-address limits MUST NOT be the sole control, because many clients can share one address (Tor exits, carrier NAT).
+A relay rate-limits connections, subscriptions, publications, history reads (live stream and JMAP, §11.8), and push registrations (§11.7.3) per network address and per `channelToken`. Limit values are local relay policy, with one floor: a relay MUST admit at least 20 envelopes per second and 256 KiB per second, sustained, on each `channelToken` before rate-limiting it, so that the presence, typing, and Commit traffic a channel generates (§5.3) is never throttled. Per-address limits MUST NOT be the sole control, because many clients can share one address (Tor exits, carrier NAT).
 
 Under load, a relay MAY require a proof-of-work challenge before accepting a connection. It then answers the `ClientHello` with an `AdmissionChallenge` instead of a `RelayHello`:
 
@@ -268,7 +268,7 @@ Privacy Pass tokens are a possible future admission extension and are not part o
 
 ## 11.7 Push Notification Proxy (Optional)
 
-Mobile clients backgrounded by the OS cannot maintain a persistent WebTransport or WebSocket connection. Agora supports an optional **push notification proxy** that enables mobile wake-up notifications without exposing message content, channel identity or sender identity to the notification infrastructure. Clients that maintain persistent connections (desktop clients, server-side bots) do not need one.
+Mobile clients backgrounded by the OS cannot maintain a persistent WebTransport or WebSocket connection. Agora supports an optional **push notification proxy** that enables mobile wake-up notifications without exposing message content, channel identity, or sender identity to the notification infrastructure. Clients that maintain persistent connections (desktop clients, server-side bots) do not need one.
 
 Push is enabled by default on mobile clients. What the push proxy and the relay observe for push is within the observation budget (ARCHITECTURE §5 item 7). Users MAY disable push; a client with push disabled makes no registration with either.
 
@@ -284,7 +284,7 @@ APNs (Apple) and FCM (Google) are centralized services. They require a server-si
 - The `relayDID` that signed each wake-up request (an IO-to-IO relationship, ARCHITECTURE §5 item 8)
 
 **What the relay learns** (ARCHITECTURE §5 item 7):
-- Each registered `pushHandle`, its proxy endpoint and the set of `channelToken`s registered to it
+- Each registered `pushHandle`, its proxy endpoint, and the set of `channelToken`s registered to it
 
 The relay therefore learns which routing tokens wake the same device, across sessions and network addresses.
 
@@ -330,7 +330,7 @@ Response: 200 { "registered": true, "ttl": 2592000 }
 
 `pushHandle` is the 32-byte handle in base64url without padding (RFC 4648 §5). `deviceToken` is the device token as the platform's API supplies it: for APNs the token bytes in lower-case hexadecimal, for FCM the registration token string. `platform` is `"apns"` or `"fcm"`.
 
-4. Sends a `PushRegister` (§11.4) on its live stream connection to each relay it uses, with the `pushHandle`, the proxy's `endpoint` (§11.7.2, or §3.3 for a CO-designated proxy) and the `channelToken`s it wants wake-ups for. The registration carries no identity and is rate-limited per address and per `channelToken` (§11.6). The relay keys it by `pushHandle` only and answers with `Ack`:
+4. Sends a `PushRegister` (§11.4) on its live stream connection to each relay it uses, with the `pushHandle`, the proxy's `endpoint` (§11.7.2, or §3.3 for a CO-designated proxy), and the `channelToken`s it wants wake-ups for. The registration carries no identity and is rate-limited per address and per `channelToken` (§11.6). The relay keys it by `pushHandle` only and answers with `Ack`:
 
 ```
 {"v": 1, "t": "PushRegister", "id": 7,
@@ -383,15 +383,15 @@ A client MAY rotate its `pushHandle` at any time for privacy or after suspected 
 
 1. Generate a new `pushHandle`.
 2. Register `{ new pushHandle, deviceToken }` with the proxy.
-3. Send each relay a `PushRegister` with the new `pushHandle`, its `channelToken`s and `replaces` set to the old `pushHandle`. The relay atomically replaces the old registration with the new one.
+3. Send each relay a `PushRegister` with the new `pushHandle`, its `channelToken`s, and `replaces` set to the old `pushHandle`. The relay atomically replaces the old registration with the new one.
 4. Delete the old `pushHandle` from the proxy: `DELETE /v1/agora/push/register/{pushHandle}`.
 
 ## 11.8 JMAP Management and Sync API
 
 JMAP ([RFC 8620](https://jmap.io)) is used at two layers that run on different operators:
 
-- **Relay sync API (IO).** Agora relays expose a JMAP API limited to blind objects: ciphertext envelopes keyed by `channelToken`, and blobs (§11.8.1–§11.8.8). It provides history retrieval and state synchronization (state tokens, `/changes` deltas, batched method calls, ResultReferences and EventSource push) without requiring a persistent connection. A relay serves the recent envelopes it holds for each `channelToken`, for the retention set by the `ServiceAgreement` under which the token's admission key is registered (§10.5.1); older history comes from members' stores and the CO archive (§5.2.5). A relay holds no mapping from `channelToken` to `channelID` or MLS group ID, and serves no Space, channel, membership, role or invite objects (ARCHITECTURE S1, §7 item 4).
-- **Management API (client / CO).** The Space, channel, membership, role and invite API runs in the client (a local daemon) or on CO infrastructure, never on a relay (§11.8.9).
+- **Relay sync API (IO).** Agora relays expose a JMAP API limited to blind objects: ciphertext envelopes keyed by `channelToken`, and blobs (§11.8.1–§11.8.8). It provides history retrieval and state synchronization (state tokens, `/changes` deltas, batched method calls, ResultReferences, and EventSource push) without requiring a persistent connection. A relay serves the recent envelopes it holds for each `channelToken`, for the retention set by the `ServiceAgreement` under which the token's admission key is registered (§10.5.1); older history comes from members' stores and the CO archive (§5.2.5). A relay holds no mapping from `channelToken` to `channelID` or MLS group ID, and serves no Space, channel, membership, role, or invite objects (ARCHITECTURE S1, §7 item 4).
+- **Management API (client / CO).** The Space, channel, membership, role, and invite API runs in the client (a local daemon) or on CO infrastructure, never on a relay (§11.8.9).
 
 ### 11.8.1 Endpoints
 
@@ -479,7 +479,7 @@ expiresAt       UTCDate|null  Time the Relay will drop the envelope; null = no c
 
 ### 11.8.5 Methods
 
-All methods follow RFC 8620 conventions. `/get`, `/set`, `/changes` and `/query` have their standard semantics. Methods marked **read-only** have no `/set`.
+All methods follow RFC 8620 conventions. `/get`, `/set`, `/changes`, and `/query` have their standard semantics. Methods marked **read-only** have no `/set`.
 
 | Method | Notes |
 |---|---|
@@ -519,7 +519,7 @@ The relay's blindness properties (§10.4.1) are fully preserved under the JMAP A
 - **Envelope content.** The payload inside `Envelope/envelope` is always ciphertext. The relay stores and serves it without decrypting. A subpoena against the relay yields only ciphertext.
 - **Channel identity.** The relay keys envelopes by `channelToken` only. It holds no mapping from `channelToken` to `channelID` or MLS group ID; that mapping exists only in the management API (§11.8.9).
 - **Sender identity.** No sender identity appears in any JMAP object. The routing envelope carries no sender (§5.2.2); the sender is sealed inside the ciphertext.
-- **Community structure.** The relay serves no Space, channel, membership, role or invite objects and no member counts.
+- **Community structure.** The relay serves no Space, channel, membership, role, or invite objects and no member counts.
 
 ### 11.8.7 EventSource Push
 
@@ -551,7 +551,7 @@ Only object types whose state has changed are included in a given event. The liv
 
 *Binds: CO and clients.*
 
-The Space, channel, membership, role and invite management API is the JMAP Chat specification family (draft-atwood-jmap-chat-00, capability `urn:ietf:params:jmap:chat`, and its companion drafts), as profiled and carried by Agora per §14. This specification does not restate it.
+The Space, channel, membership, role, and invite management API is the JMAP Chat specification family (draft-atwood-jmap-chat-00, capability `urn:ietf:params:jmap:chat`, and its companion drafts), as profiled and carried by Agora per §14. This specification does not restate it.
 
 The management API runs in the client (a local daemon serving the user's own devices) or on CO infrastructure. A relay MUST NOT serve it. Its state is derived from CO-signed Space state (ARCHITECTURE S4) and decrypted MLS application messages, and it is the only place a `channelID` (or a DM's MLS group ID) is mapped to a `channelToken`. Clients use it to resolve a channel to its current `channelToken`, which they derive from the channel's current `ChannelAdmissionKey` (ARCHITECTURE §6.2). They then use the relay sync API (§11.8.1–§11.8.8) and the live stream to move ciphertext under that token.
 

@@ -50,8 +50,8 @@ Each gateway admitted to a channel is listed in the `gateways` array of the chan
 | Member | Type | Presence | Meaning |
 |---|---|---|---|
 | `did` | DID | required | The gateway's DID |
-| `protocol` | string | required | The other network, as a lowercase token such as `matrix`, `slack` or `teams` |
-| `target` | string | required | The room, channel or system on the other network, in that network's own syntax; clients treat it as an opaque display string |
+| `protocol` | string | required | The other network, as a lowercase token such as `matrix`, `slack`, or `teams` |
+| `target` | string | required | The room, channel, or system on the other network, in that network's own syntax; clients treat it as an opaque display string |
 | `unencryptedRemote` | boolean, default `false` | optional | `true` when traffic on the other network is not end-to-end encrypted |
 | `addedBy` | DID | required | The admin who added the gateway |
 | `addedAt` | RFC 3339 timestamp | required | When the gateway was added |

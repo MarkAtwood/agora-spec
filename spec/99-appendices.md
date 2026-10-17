@@ -84,7 +84,7 @@ This table collects the protocol's numeric limits in one place. If this table an
 | Relay envelope cache | lesser of `expiryHint` and the agreement's `retentionDays` | MUST | §10.4.3, §10.4.6 |
 | Publish `ts` ahead of the relay's clock before `expired` | 300 s | MUST | §11.4 |
 | Push registration TTL | default 30 days, maximum 30 days | Default; MUST NOT keep longer; renewal MUST | §11.7.3 |
-| `PinInstruction`, upload and sequencer submission `expires` | at most 600 s ahead of the relay's clock | MUST | §11.4, §11.8.2, §14.4.3 |
+| `PinInstruction`, upload, and sequencer submission `expires` | at most 600 s ahead of the relay's clock | MUST | §11.4, §11.8.2, §14.4.3 |
 | Admission key registration request | 1 to 1000 keys or tokens; `ts` within 300 s | MUST | §10.5.3 |
 | Full re-registration of current keys | at least every 24 h | MUST | §10.5.3 |
 | Grace before deregistering the previous admission key after rotation | 300 s, for application messages and operations only; no Commit is stamped on the previous key's commit stream once the new key is registered | RECOMMENDED; MUST for the sequencer rule | §10.5.3 |
@@ -130,9 +130,9 @@ A direct message (DM) group is bounded only by the 4096-leaf limit, and a messag
 
 This appendix lists the identifiers this specification allocates. "IANA" names the registry in which an entry is required for interoperability outside Agora; "Agora-internal" means this specification is the only allocation authority and no external registration is needed. The `urn:agora:` URN namespace is treated as registered. The prefix `urn:agora:practice:` is reserved for names used by the non-normative guides and profiles in this repository; those names carry no protocol meaning.
 
-**Derivation labels.** §13.3 lists every MLS exporter label, KDF `info` string and AEAD associated-data prefix. The entries of kind "MLS exporter" are MLS exporter labels and need entries in the IANA "MLS Exporter Labels" registry (RFC 9420 §17). The other entries are Agora-internal.
+**Derivation labels.** §13.3 lists every MLS exporter label, KDF `info` string, and AEAD associated-data prefix. The entries of kind "MLS exporter" are MLS exporter labels and need entries in the IANA "MLS Exporter Labels" registry (RFC 9420 §17). The other entries are Agora-internal.
 
-**MLS extension types.** `agora_admission` (0xF0A0, GroupContext of DM groups and self-groups, §4.6), `agora_device_binding` (0xF0A1, LeafNode, §5.2.1), `agora_space_membership` (0xF0A3, GroupContext of self-groups, §2.6), `agora_compliance` (0xF0A4, GroupContext of DM groups, §7.8.2) and `agora_credentials` (0xF0A5, LeafNode, optional, §5.2.1.5) use the RFC 9420 private-use range and need no IANA registration.
+**MLS extension types.** `agora_admission` (0xF0A0, GroupContext of DM groups and self-groups, §4.6), `agora_device_binding` (0xF0A1, LeafNode, §5.2.1), `agora_space_membership` (0xF0A3, GroupContext of self-groups, §2.6), `agora_compliance` (0xF0A4, GroupContext of DM groups, §7.8.2), and `agora_credentials` (0xF0A5, LeafNode, optional, §5.2.1.5) use the RFC 9420 private-use range and need no IANA registration.
 
 **URN namespaces.**
 
@@ -142,7 +142,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `urn:agora:v1` | JMAP capability | §11.8.3 | IANA "JMAP Capabilities" (RFC 8620 §9.4) |
 | `urn:ietf:params:jmap:*` | JMAP family types | External drafts, profiled in §14.6 | Defined by those drafts |
 
-**Types, members and codes.** Payload and record types are registered in the type tables of §5.2.3, which include `KickLift` (§4.5). The following record members, operation values and codes are Agora-internal.
+**Types, members, and codes.** Payload and record types are registered in the type tables of §5.2.3, which include `KickLift` (§4.5). The following record members, operation values, and codes are Agora-internal.
 
 | Identifier | Kind | Defined in |
 |---|---|---|
@@ -154,7 +154,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `broadcasters` | Non-member view member, array of `{channelID, keyEpoch, dids}` | §3.3, §3.4, §5.2.1.4 |
 | `chunkCount`, `thumbnailChunkCount`, `contentKey`, `thumbnailContentKey` | JMAP object extension properties | §14.3.4 |
 | `seed` | `pin-op` operation | §11.4, §10.4.4 |
-| Error codes of the live protocol, of admission key registration and of the DM admission-key endpoint | Error codes | §4.6, §11.4, §10.5.3, §14.4.3 |
+| Error codes of the live protocol, of admission key registration, and of the DM admission-key endpoint | Error codes | §4.6, §11.4, §10.5.3, §14.4.3 |
 | `token` | Query parameter of the blob fetch and Peer API blob paths | §10.4.4, §10.2.2 |
 
 **Capability and model strings.** These strings are Agora-internal.
@@ -200,7 +200,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 
 This appendix is non-normative.
 
-Agora's relay peering design (§10.2: signed relay manifest, key lifecycle, request signing and graduated trust levels) derives from the operator federation design of the CORUNDUM federated social protocol. Agora applies it one layer down, between relays that hold no identity or membership knowledge.
+Agora's relay peering design (§10.2: signed relay manifest, key lifecycle, request signing, and graduated trust levels) derives from the operator federation design of the CORUNDUM federated social protocol. Agora applies it one layer down, between relays that hold no identity or membership knowledge.
 
 ---
 

@@ -10,13 +10,13 @@ that examiners see the same evidence at every firm.
 ## 1. Why witness the chain
 
 Each `ComplianceRecord` (spec §7.4) carries the sender's MLS message as
-received, the keys that open only that message, the epoch's `GroupContext` and
+received, the keys that open only that message, the epoch's `GroupContext`, and
 the sender's leaf. A third party can therefore check that a device key of the
 sender signed the archived plaintext without trusting the logger (spec §7.4,
 "Third-party verification"). Those checks cover single records.
 
 Each record also names the previous record by `prevRecordCID`, so altering,
-inserting or deleting a record in the middle of a chain breaks every link after
+inserting, or deleting a record in the middle of a chain breaks every link after
 it. The chain proves internal consistency. It does not prove that today's chain
 is the chain that existed last month: whoever controls the archive could
 rewrite everything after some point, or cut off the end, and the result would
@@ -49,11 +49,11 @@ The logger DID signs it per spec §13.1.1.
 - `indexCID` is the CID of the Space-level index (spec §7.4), which names the
   head of every channel's chain. One CID commits to the whole archive.
 - `recordCount` is the total number of records under the index.
-- `reason` is one of `scheduled`, `prune`, `legal-hold` or `key-rotation`.
+- `reason` is one of `scheduled`, `prune`, `legal-hold`, or `key-rotation`.
 - `prevHeadCID` is the CID of the previous `ComplianceChainHead` envelope, so
   the heads form their own chain and a missing head is visible.
 
-The record carries no channel names, member identities or content. A witness
+The record carries no channel names, member identities, or content. A witness
 learns that a firm's archive had a given fingerprint at a given time, and
 nothing else.
 
@@ -80,7 +80,7 @@ the witness's receipt next to the record.
 
 | Witness | Receipt | Notes |
 |---|---|---|
-| RFC 3161 timestamping authority | `TimeStampToken` | Suggested baseline. Widely available, recognized by auditors and verifiable offline. Use a TSA operated outside the firm. |
+| RFC 3161 timestamping authority | `TimeStampToken` | Suggested baseline. Widely available, recognized by auditors, and verifiable offline. Use a TSA operated outside the firm. |
 | The firm's designated third party or WORM custodian under its record-keeping rules | Custodian acknowledgement | Fits firms that already retain a third party for SEC 17a-4 or similar. |
 | A public append-only transparency log | Inclusion proof | Lets anyone verify without contacting the firm. Only the hash is published. |
 
@@ -98,7 +98,7 @@ pruning distinguishable from tampering:
    `urn:agora:practice:CompliancePruneRecord` (spec §13.1). The logger DID
    signs it, and it links by `prevRecordCID` like any record. It names the
    pruned range (first and last record CID removed), the retention rule
-   applied and the `prune` head's CID. A prune record is not a
+   applied, and the `prune` head's CID. A prune record is not a
    `ComplianceRecord`. It has no sender, so the per-message checks of
    spec §7.4 do not apply: verifiers exempt it from the sender check and
    check the logger signature and the chain link instead.

@@ -4,9 +4,9 @@
 
 ## 8.1 Overview
 
-A channel MAY be shared across Space boundaries, giving members of multiple Spaces access to the same message stream, history and MLS group (RFC 9420). To any member in either Space, the shared channel appears as a normal channel in their sidebar. There is no visible workspace transition or foreign-context indicator.
+A channel MAY be shared across Space boundaries, giving members of multiple Spaces access to the same message stream, history, and MLS group (RFC 9420). To any member in either Space, the shared channel appears as a normal channel in their sidebar. There is no visible workspace transition or foreign-context indicator.
 
-Agora channel sharing is structurally simpler than analogous features in centralized systems (like Slack Connect) because a channel's identity does not depend on any server: it is a random `channelID` fixed at creation (§3.3). A channel shared between Space A and Space B is the same MLS group, with the same `channelID`, the same channel admission key and the same `channelToken` (§5.2.2). There is no synchronization problem because there is no duplication.
+Agora channel sharing is structurally simpler than analogous features in centralized systems (like Slack Connect) because a channel's identity does not depend on any server: it is a random `channelID` fixed at creation (§3.3). A channel shared between Space A and Space B is the same MLS group, with the same `channelID`, the same channel admission key, and the same `channelToken` (§5.2.2). There is no synchronization problem because there is no duplication.
 
 ## 8.2 Home Space and Guest Spaces
 

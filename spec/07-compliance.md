@@ -321,7 +321,7 @@ If a regulated member is offline when another member adds them to a DM group, th
 
 Clients MUST queue the logger addition and disclosure as the first operations to perform on a pending DM group join, ahead of any queued outbound messages. If the client has queued outbound messages (for example, drafted while offline), those messages MUST NOT be sent until the logger admission Commit has won (§5.1.1).
 
-**Message requests.** A DM group that a regulated member's client holds in the message request state (§4.6.3) is still subject to this section. When the client processes the Welcome, it MUST perform the logger admission of §7.8.2 and send the disclosure notice of §7.8.4 at once, without waiting for the user to accept the request. To do so it reads the admission key from the group's GroupContext (§4.6) and fetches the group's handshake messages. For a regulated member these steps are part of capture and are not deferred until acceptance. The request state suppresses only what §4.6.3 lists for the user's own presentation and signals: notifications beyond the request list, read receipts, typing indicators and the user's own application messages. The adder can therefore see that the regulated member's client has processed the Welcome. Declining or blocking the request does not remove the logger (§7.8.3).
+**Message requests.** A DM group that a regulated member's client holds in the message request state (§4.6.3) is still subject to this section. When the client processes the Welcome, it MUST perform the logger admission of §7.8.2 and send the disclosure notice of §7.8.4 at once, without waiting for the user to accept the request. To do so it reads the admission key from the group's GroupContext (§4.6) and fetches the group's handshake messages. For a regulated member these steps are part of capture and are not deferred until acceptance. The request state suppresses only what §4.6.3 lists for the user's own presentation and signals: notifications beyond the request list, read receipts, typing indicators, and the user's own application messages. The adder can therefore see that the regulated member's client has processed the Welcome. Declining or blocking the request does not remove the logger (§7.8.3).
 
 ### 7.8.8 Audit Trail
 
@@ -398,7 +398,7 @@ The following table summarizes the conformance requirements for DM group complia
 
 The compliance logger (§7.3) and the compliance recorder (§6.12) each hold three kinds of key:
 
-- **Signing key**: the Ed25519 `authentication` key of its DID, which signs compliance records, audit entries and gap entries (§13.1.1).
+- **Signing key**: the Ed25519 `authentication` key of its DID, which signs compliance records, audit entries, and gap entries (§13.1.1).
 - **Leaf keys**: the signature key and HPKE encryption key of its MLS leaf in each group. The leaf signature key is a device key of its DID (§2.2).
 - **Archive key**: the key under which its archive is encrypted at rest. For the recorder this is the X25519 `keyAgreement` key named by `sealedTo` (§6.12.4). For the logger it is the key under which copies of the compliance log stored on IO infrastructure are encrypted (§7.2).
 

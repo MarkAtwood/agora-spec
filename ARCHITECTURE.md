@@ -2,7 +2,7 @@
 
 Status: Draft, normative. 2026-10-16.
 
-The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted
 as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in
 all capitals.
 
@@ -12,7 +12,7 @@ all capitals.
 
 The party that runs relays and other infrastructure services decides nothing
 about any community, and it MUST be replaceable without changing that
-community's identity, membership, history or policy. Every authority over a
+community's identity, membership, history, or policy. Every authority over a
 community (who is in it, what it permits, what it retains, who may see it) is
 held by the community's own operator and exercised with that operator's keys.
 
@@ -30,7 +30,7 @@ that is powerless but still watching. Agora requires both.
 
 ### 2.1 Infrastructure Operator (IO)
 
-Runs services that carry, store or forward data for communities without being
+Runs services that carry, store, or forward data for communities without being
 part of them: relays (routing, fan-out, envelope cache, gossip, peering),
 Selective Forwarding Units (SFUs), TURN, sequencers that stamp an order on
 encrypted operations, push proxies, and blob and IPFS pinning.
@@ -47,7 +47,7 @@ issues.
 
 A component's role is determined by what it holds, not by who runs it:
 
-- A component that holds MLS group secrets, user signing keys or plaintext,
+- A component that holds MLS group secrets, user signing keys, or plaintext,
   or that must know group membership or sender identity to do its job, is a
   **CO component**, regardless of operator or hosting location.
 - A component that holds none of these and needs no such knowledge is an
@@ -89,31 +89,31 @@ function it is specified to perform without knowing group membership, sender
 identity, or the mapping from routing tokens to channel or Space identities.
 
 **S2. No community policy at the infrastructure.** An IO component MUST NOT
-make or enforce decisions about community membership, roles, moderation, content
+make or enforce decisions about community membership, roles, moderation, content,
 or retention beyond what a CO has expressed in a form the IO can verify without
 learning S1-protected information. The only such forms are those defined in
 §6.
 
 **S3. No community keys at the infrastructure.** An IO component MUST NOT hold
 MLS group secrets, epoch secrets, MLS exporter outputs, channel admission
-private keys, user signing keys or plaintext. The only key material an IO
+private keys, user signing keys, or plaintext. The only key material an IO
 holds for a community is the verification material of §6.2 (registered
 admission public keys and the routing tokens registered with them) and the
 TURN shared secret of §6.4, which authenticates the CO credential service and
 identifies no member.
 
 **S4. Community state is CO-signed.** Space state, channel state, role
-assignments, moderation records and retention policy MUST be signed by CO keys.
+assignments, moderation records, and retention policy MUST be signed by CO keys.
 An IO key MUST NOT sign community state, and clients MUST reject community
 state signed by an IO key.
 
-**S5. Replaceability.** A CO MUST be able to add, remove or replace any IO
+**S5. Replaceability.** A CO MUST be able to add, remove, or replace any IO
 without changing Space identity (genesis CID), member identities, MLS group
 state or history, and without re-enrolling any member. History survives an IO
 departure because members' stores and the CO archive hold it. Envelopes held by
 relays are a recent window kept under the agreement's retention.
 
-**S6. Bounded observation.** An IO component MUST NOT observe, log or retain
+**S6. Bounded observation.** An IO component MUST NOT observe, log, or retain
 anything outside the observation budget in §5. Any extension that enlarges the
 budget MUST be opt-in by the CO and MUST be declared in the relay manifest,
 where members can see it.
@@ -121,7 +121,7 @@ where members can see it.
 **S7. Contracts, not configuration.** The only binding between a CO and an IO is
 the `ServiceAgreement` (spec §10.5.1) and the verification material
 defined in §6, including the TURN shared secret of a `turn` agreement (§6.4).
-This holds for every IO service type: relay, SFU, TURN, sequencer and push
+This holds for every IO service type: relay, SFU, TURN, sequencer, and push
 proxy. An IO MUST NOT require CO data beyond these as a condition of service.
 
 **S8. Plaintext stays on CO infrastructure.** Any component that produces or
@@ -162,13 +162,13 @@ An IO MAY observe the following and nothing else:
    relay manifest.
 2. Routing envelopes: size, timing, the envelope `id`, and the routing fields in
    the envelope's `signed` part (routing token `channelToken`, timestamp,
-   expiry hint and, on a Commit in a channel with a sequencer, the sequencer's
+   expiry hint, and, on a Commit in a channel with a sequencer, the sequencer's
    `commitStamp`; spec §5.2.2), and the per-envelope `powProof` where
    one is required (spec §10.5.2). The payload they carry is
    ciphertext.
 3. Verification material and proofs defined in §6 (registered admission public
    keys and `admissionSig` values), connection-level proof of work (spec
-   §11.6) and proof of work on HTTP endpoints (spec §10.5.2).
+   §11.6), and proof of work on HTTP endpoints (spec §10.5.2).
    None of these reveals which member produced it.
 4. Content identifiers (CIDs) it stores or pins, and pin/unpin instructions
    authorized under §6. This includes CIDs it replicates to, or pulls from,
@@ -187,7 +187,7 @@ An IO MAY observe the following and nothing else:
    apart is every Space that CO serves through it.
 7. Push. A push proxy observes opaque device push handles, the platform device
    tokens they map to, and wake-up timing. A relay that serves push observes
-   each registered `pushHandle`, its proxy endpoint and the set of
+   each registered `pushHandle`, its proxy endpoint, and the set of
    `channelToken`s registered to it, and so learns which routing tokens wake
    the same device (spec §11.7). Wake-ups carry no content and no
    urgency. Users MAY disable push; a client with push disabled registers
@@ -195,7 +195,7 @@ An IO MAY observe the following and nothing else:
 8. Its own peering relationships with other IOs.
 9. SFrame key IDs. An SFU observes the KID of each media frame (spec
    §6.9). The KID carries the sender's MLS leaf index (stable across calls
-   in the group), the MLS epoch modulo 16 and a context ID the sender
+   in the group), the MLS epoch modulo 16, and a context ID the sender
    chooses per track (RFC 9605 §5.2). It carries no DID. The SFU can
    therefore tell the senders of one group apart under stable pseudonyms
    and see when the group's MLS epoch changes.
@@ -210,9 +210,9 @@ whitepaper: "Agora is not anonymous."
 
 The CO publishes signed Space state (S4). It engages every IO, whatever the
 service, by a `ServiceAgreement` (spec §10.5.1). The agreement's
-`serviceType` is one of `relay`, `sfu`, `turn`, `sequencer` or `push-proxy`.
+`serviceType` is one of `relay`, `sfu`, `turn`, `sequencer`, or `push-proxy`.
 The IO and the CO's billing DID sign it per spec §13.1.1. It fixes retention,
-quotas and observation-budget declarations in the same way for every service
+quotas, and observation-budget declarations in the same way for every service
 type. Commercial terms are out of band. Enforcement is by selection: a CO that
 is unhappy with an IO replaces it (S5).
 
@@ -222,7 +222,7 @@ record. An agreement names no Space and no channel. Coverage is expressed by
 registering channel admission keys (§6.2) under the agreement through a CO-run
 registration service, so members can create groups without holding the
 billing key. Registration gives every IO whose `serviceType` receives
-registrations (relay, SFU and sequencer; spec §10.5.1) a way to admit
+registrations (relay, SFU, and sequencer; spec §10.5.1) a way to admit
 members only, without learning their identity. Agreements and registrations are
 private between the two parties and are not gossiped or published.
 
@@ -335,7 +335,7 @@ regulated-user status) is enforced at CO enforcement points:
 
 The infrastructure is never an enforcement point for such policy.
 
-Clients validate membership changes, deletes and role actions against signed
+Clients validate membership changes, deletes, and role actions against signed
 Space state. A client MUST accept an MLS Welcome only from a sender authorized
 to add members under current Space state, and a Welcome MUST NOT replace an
 existing group.
@@ -346,7 +346,7 @@ A CO that uses a TURN server shares one secret with the TURN operator under
 their `turn` agreement (spec §6.11). The CO credential service uses it
 to issue short-lived credentials to members, and the TURN server uses it to
 check them. It authenticates the CO credential service, not a member, and it
-gives no access to MLS state, admission keys or content.
+gives no access to MLS state, admission keys, or content.
 
 ## 7. Disposition of conflicts in the imported specs
 
@@ -366,7 +366,7 @@ and line numbers in this list are those of the imported documents, not of
    (§6.3). Cost accepted in §9.
 4. **channelToken→channel mapping and relay-side JMAP** (§8.8, l.2325, vs
    §11.2). The relay never learns a `channelID` or MLS group ID. The JMAP Space,
-   membership, role and invite API runs in the client or on CO infrastructure,
+   membership, role, and invite API runs in the client or on CO infrastructure,
    not on the relay, as nie's daemon does (`notes/nie-backport-inventory.md`). The relay
    offers only token-keyed envelope sync.
 5. **Presence and typing events in the clear** (§7, l.1797–1824). Move inside
@@ -377,7 +377,7 @@ and line numbers in this list are those of the imported documents, not of
    and media end-to-end encryption (E2EE) keys never reach it.
 7. **Relay admin API exposing Space and channel structure** (ops spec
    l.1004–1050). The admin API reports per-token and per-agreement counters
-   only, never names, types or member counts.
+   only, never names, types, or member counts.
 8. **Relay-hosted compliance logger** (ops spec `operate_logger`, l.502–516). The
    logger is a CO component (S8). The ops spec option is removed. Co-location,
    where used, is a contractual arrangement outside the relay's configuration.
@@ -402,12 +402,12 @@ All resolved 2026-10-16 except the external review in Q1.
   the no-sequencer rule (§6.2; spec §5.1.1). Still open: external
   cryptographic review of the new design, covering the admission key's
   issuance and rotation, the `channelToken` derivation, `admissionSig` over
-  the `signed` bytes, the canonical-Commit rule (spec §5.1.1) and cost per
+  the `signed` bytes, the canonical-Commit rule (spec §5.1.1), and cost per
   envelope.
 - **Q2. Admission without identity.** An IO never authenticates client
   identity. Writes need an `admissionSig` (§6.2); registration needs the
   billing key; storage and bandwidth follow agreement quotas. Connections,
-  subscriptions and reads are rate-limited by network address and routing
+  subscriptions, and reads are rate-limited by network address and routing
   token, and an IO MAY require proof of work before accepting a connection
   under load.
 - **Q3. KeyPackage placement.** KeyPackages live with whoever runs the user's
@@ -453,7 +453,7 @@ All resolved 2026-10-16 except the external review in Q1.
   leave the group. An admin re-creates it and can then remove the sender, whom
   its MLS signature identifies (spec §4.5, §5.1.1).
 - **Some infrastructure-level abuse controls get coarser.** Without identity, an
-  IO rate-limits by routing token, agreement and network address.
+  IO rate-limits by routing token, agreement, and network address.
 - **Space anonymity at the IO is only as large as the CO.** A CO with one Space
   gets none. The same holds for an identity host acting as the CO for DM
   groups and self-groups (spec §10.5.3): their anonymity set at the IO is that
@@ -470,7 +470,7 @@ All resolved 2026-10-16 except the external review in Q1.
   traffic of channels it cannot read, though it still cannot read that
   traffic. A Space that publishes its relay list has disclosed that it uses
   those relays, by choice. Under legal demand an IO can produce which network
-  addresses used a given CO's service, not which Space, channel or sender.
+  addresses used a given CO's service, not which Space, channel, or sender.
 - **Public broadcast channels are mapped to their Space.** A `keyAccess:
   public` broadcast channel exists only in a public Space, and the CO
   publishes its token with that Space (spec §3.4). An IO can therefore map
@@ -493,7 +493,7 @@ All resolved 2026-10-16 except the external review in Q1.
   those tokens as one device across sessions and network addresses. It learns
   no DID and no channel identity. Users who do not accept this disable push.
   A user's self-group token is followed only by that user's devices, so a
-  relay that carries it can link those devices, their addresses and their
+  relay that carries it can link those devices, their addresses, and their
   push handles even across networks. A user who does not accept this can
   have the self-group served from a relay that carries none of their other
   channels.
@@ -503,7 +503,7 @@ All resolved 2026-10-16 except the external review in Q1.
   DID.
 - **A party that runs both a social or identity service and relays can link
   its own users to the COs whose traffic they use.** For Spaces it never
-  learns content, channel or Space. For a DM group whose admission host it
+  learns content, channel, or Space. For a DM group whose admission host it
   runs (spec §4.6), it knows its own user's DID and the group's ID. It does
   not know the other members, except those of its own users whose clients
   also request keys for the group. If the group's relays are its own, it also
@@ -516,10 +516,10 @@ All resolved 2026-10-16 except the external review in Q1.
 
 Every section of the specification MUST be able to answer:
 
-1. Which operator does this bind: IO, CO or both?
+1. Which operator does this bind: IO, CO, or both?
 2. Does any IO behavior here require S1-protected knowledge?
 3. Does any IO behavior here make a community decision (S2)?
 4. Could the CO replace every IO after this operation without loss (S5)?
 5. Does anything here enlarge the §5 observation budget? If so, is it opt-in,
-   declared and visible (S6)?
+   declared, and visible (S6)?
 6. Does anything here keep group membership or epoch order outside MLS (S9)?
