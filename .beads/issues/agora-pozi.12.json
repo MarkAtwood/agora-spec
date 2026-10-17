@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.12",
+  "title": "Q5: discovery publishes only CO-originated data",
+  "description": "Confirm no discovery path requires IO to publish CO info. (ARCHITECTURE.md §8)",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T02:48:15.522811582Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T02:48:15.522811582Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.12",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T02:48:15.527815563Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

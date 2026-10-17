@@ -1,0 +1,34 @@
+{
+  "id": "agora-pozi.2",
+  "title": "ARCHITECTURE.md: normative infra/comms separation",
+  "description": "Three-way model: infra operators (relay/SFU/TURN/KP store/push) policy-free; comms operators (Space owner/org) own identity, membership, policy, moderation, compliance, archive; RelayServiceAgreement is the only contract. Rule: a relay enforces nothing requiring knowledge of group membership. Relay-side bans -\u003e Space-issued capability tokens. Compliance-hold Mechanisms A/B move space-side or dropped.",
+  "status": "in_progress",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T02:41:24.695655965Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T02:46:29.073406597Z",
+  "started_at": "2026-10-17T02:46:29.073406597Z",
+  "lease_expires_at": "2026-10-17T02:51:29.073406597Z",
+  "heartbeat_at": "2026-10-17T02:46:29.073406597Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.2",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T02:41:24.699922003Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "agora-pozi.2",
+      "depends_on_id": "agora-pozi.1",
+      "type": "blocks",
+      "created_at": "2026-10-17T02:41:24.901652556Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

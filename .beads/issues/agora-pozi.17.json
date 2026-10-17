@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.17",
+  "title": "Backport: invite codes \u003e=128 random bits; author self-retract",
+  "description": "nie invite codes were timestamp-only until 4dabff6. Add author-can-retract-own-message alongside admin delete; client-validated. Source: notes/nie-backport-inventory.md",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T02:52:14.413947072Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T02:52:14.413947072Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.17",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T02:52:14.419488505Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

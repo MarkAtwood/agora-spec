@@ -1,0 +1,12 @@
+{
+  "id": "agora-pozi",
+  "title": "Revive Agora as standalone protocol spec + proposal",
+  "description": "Extract Agora specs from nie/docs into ~/PROJECT/agora. Make infra-operator vs comms-operator separation a normative principle. Markdown format. Economics as separate optional doc. nie/docs left intact.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T02:41:15.267420677Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T02:41:15.267420677Z"
+}

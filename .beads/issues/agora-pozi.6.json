@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.6",
+  "title": "Decide DID method (did:key cannot mutate)",
+  "description": "did:key docs are immutable; spec assumes device add, recoverableIdentity, rotation. Options: did:web only; mutable log-based method (did:plc/did:webvh style) with did:key as device keys. Also: employer-\u003epersonal portability; org-can-insert-key in did:web. Deferred by Mark 2026-10-16.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T02:41:24.867121403Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T02:41:24.867121403Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.6",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T02:41:24.871866292Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.7",
+  "title": "Inventory nie post-fork work for backport into Agora",
+  "description": "nie commits after fork point d0fe3b5 (2026-04-22) to HEAD 378f87d. Classify: (a) protocol/design -\u003e absorb into spec; (b) implementation hardening -\u003e relevant only to code (~/GIT/Agora); (c) nie-only (payments, anonymity) -\u003e leave. Output notes/nie-backport-inventory.md.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T02:46:28.993670955Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T02:52:14.541781299Z",
+  "started_at": "2026-10-17T02:46:29.033479438Z",
+  "closed_at": "2026-10-17T02:52:14.541781299Z",
+  "close_reason": "Inventory written to notes/nie-backport-inventory.md; spec items filed",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.7",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T02:46:29.000093803Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

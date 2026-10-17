@@ -1,0 +1,30 @@
+{
+  "id": "agora-pozi.4",
+  "title": "PROPOSAL.md + PRFAQ with honest status",
+  "description": "From PRFAQ + privacy whitepaper. Retire CIO assessment (overclaims bridges/Purview/MIMI as working). Lead with separation thesis.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T02:41:24.781812626Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T02:41:24.781812626Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.4",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T02:41:24.786496062Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "agora-pozi.4",
+      "depends_on_id": "agora-pozi.2",
+      "type": "blocks",
+      "created_at": "2026-10-17T02:41:24.965313126Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
