@@ -79,12 +79,12 @@ The protocol is designed to be extended without breaking existing clients:
 | WebTransport endpoint | v1 | URL path prefix `/v1/agora/wt` | HTTP 404 on unknown version |
 | WebSocket endpoint | v1 | URL path prefix `/v1/agora/ws` | HTTP 404 on unknown version |
 | Frame format | 0x01 | Frame `version` byte | Discard unknown; may close connection |
-| Gossip topics | v1 | Topic string prefix `v1/` | `negotiated.gossipVersion` in RelayChallenge |
+| Gossip topics | v1 | Topic string prefix `v1/` | `negotiated.gossipVersion` in RelayHello |
 | KeyPackage Store API | v1 | URL path prefix `/v1/agora/kp/` | HTTP 404 on unknown version |
 | Peer API | v1 | URL path prefix `/v1/agora/peer/` + `peer-api-v1` capability | HTTP 404; capability string |
 | Push Proxy API | v1 | URL path prefix `/v1/agora/push/` + `push-proxy-v1` capability | HTTP 404; capability string |
 | Relay Manifest schema | 1 | `version` field | Field value; reject unsupported |
-| Client-relay handshake | v1 | `supportedTransportVersions` in ClientHello | Negotiated in RelayChallenge |
+| Client-relay handshake | v1 | `supportedTransportVersions` in ClientHello | Negotiated in RelayHello |
 
 
 ---

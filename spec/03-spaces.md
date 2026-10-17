@@ -56,7 +56,8 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
   "id": "agora://bafyrei...",
   "name": "Example Dev",
   "iconCID": "bafyrei...",
-  "owner": "did:key:z6Mk...",
+  "owner": "did:webvh:QmSCID...:example.com:alice",
+  "acceptedDIDMethods": ["did:webvh", "did:plc"],
   "channels": [
     {
       "path": "general",
@@ -104,6 +105,8 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
 ```
 
 `sig` is an Ed25519 signature over the document, signed per §13.1.1 by the Space owner's authentication key or a delegated admin's key. Space state and channel state are signed only by these CO keys (ARCHITECTURE S4). A Relay or other IO key MUST NOT sign Space or channel state, and clients MUST reject Space or channel state that is not signed by the owner or by an admin authorized under the prior state.
+
+`acceptedDIDMethods` is an optional list of the user DID methods (§2.1) the CO accepts for members of the Space. When it is absent, all methods of §2.1 are accepted. Clients enforce it: a client MUST NOT issue a `SpaceInvite` (§4.3) to, or add to any of the Space's MLS groups, a DID whose method is not listed, and MUST NOT join a Space whose list excludes its own DID method. A client that sees a member with an unlisted method (for example, after the list is narrowed) SHOULD flag that member to admins, who MAY remove them. The list applies to user identities only, not to device keys or service identities.
 
 
 ## 3.4 Space State Distribution

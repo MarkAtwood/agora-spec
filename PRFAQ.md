@@ -58,6 +58,10 @@ Through a gateway your organization runs. E2EE does not survive the gateway, and
 
 WebRTC with MLS-encrypted signaling. Calls of up to four people are peer-to-peer. Larger calls use a forwarding server that carries end-to-end encrypted media it cannot decode, and that is never a member of the conversation.
 
+**Q: Can I use my own keys, or my Bluesky identity?**
+
+Yes. The default identity is a `did:webvh` address on a host you choose, which keeps a signed history so the host cannot quietly add keys, and which moves with you if you change hosts. People who already have a Bluesky identity can use it (`did:plc`). People who want no server at all can use a bare key (`did:key`); they hold their own backup, and losing it means starting over. An employer chooses the method for the identities it issues, and a community can limit which methods it accepts.
+
 **Q: Is Agora a replacement for Signal?**
 
 No. For a person protecting one-to-one conversations, Signal remains the better tool. Agora is for organizations that need persistent channels, history, moderation, voice and video, and compliance capture, run by them and not by their vendor.
@@ -88,7 +92,7 @@ Payments and cryptocurrency of any kind; commercial terms between customers and 
 
 **Q: What is still undecided?**
 
-The DID method for individuals not provisioned by an employer, since `did:key` documents cannot change. Where KeyPackage stores live, which is the last place user DIDs can reach infrastructure. How a relay meters abuse before a client proves membership, without learning who the client is. Whether the epoch access proof, which lets relays admit only current members without learning which member, holds up under expert review. Each is tracked as an open decision.
+One thing: whether the epoch access proof, which lets relays admit only current members without learning which member, holds up under external cryptographic review. The design already closes one flaw found in internal review (a member being removed could have hijacked the relay's key chain). The other open protocol questions were decided in October 2026.
 
 **Q: What are the top risks?**
 

@@ -53,9 +53,15 @@ The sealed sender design eliminates sender identity from the Relay layer. Residu
 
 ## 12.5 Denial of Service
 
-Gossipsub v1.1 includes peer scoring and flood control built-in. Relays MUST enforce per-`channelToken` rate limits on message publication. A Relay rate-limits and meters by routing token, `RelayServiceAgreement` and network address, never by member identity (ARCHITECTURE.md S1, §4); envelopes that fail the membership proof (ARCHITECTURE.md §6.2) are rejected. Spam control is local policy; there is no global reputation system (by design; global reputation systems become censorship infrastructure).
+Gossipsub v1.1 includes peer scoring and flood control built-in. Relays never authenticate client identity (ARCHITECTURE.md S1, §4); a connection opens with a minimal unauthenticated hello that only negotiates the protocol version (§11). Abuse control rests on what a Relay can check without knowing who the client is:
 
-> **Open (agora-pozi.9):** How a Relay meters abuse and quota before a client has proven membership in any channel, without authenticating its DID (candidates: agreement-scoped bearer tokens, proof-of-work, Privacy Pass).
+- **Writes** are accepted only with a valid epoch access proof (§5.2.2); envelopes that fail it are rejected.
+- **Group registration** requires the CO's billing key under a `RelayServiceAgreement` (§10.5.1).
+- **Storage and bandwidth** are bounded by the agreement's quotas (§10.5.1).
+- **Connections, subscriptions, history reads and push registrations** are rate-limited per network address and per `channelToken`. Relays MUST enforce per-`channelToken` rate limits on message publication.
+- **Under load**, a Relay MAY require a proof-of-work challenge before accepting a connection. This admits clients that share an address, such as Tor users behind one exit, without penalizing all of them for one abuser.
+
+Privacy Pass tokens are a possible future extension. Spam control is local policy; there is no global reputation system (by design; global reputation systems become censorship infrastructure).
 
 ## 12.6 Key Storage: HSM and Secure Enclave Guidance
 
@@ -73,7 +79,7 @@ All private key operations in Agora (signing, key agreement, MLS leaf operations
 
 **Conformance requirements by operation:**
 
-- **Authentication key signing** (Ed25519 / P-256): MUST use hardware-backed key where available. On platforms that do not support Ed25519 in the secure boundary (such as Secure Enclave, which supports P-256 only), P-256 (`ES256`) MAY be used as the authentication key algorithm for that device. The DID document MUST reflect the actual key type in use.
+- **Authentication key signing** (Ed25519 / P-256): MUST use hardware-backed key where available. On platforms that do not support Ed25519 in the secure boundary (such as Secure Enclave, which supports P-256 only), P-256 (`ES256`) MAY be used as the authentication key algorithm for that device. The DID document MUST reflect the actual key type in use. A `did:key` identity key used on several devices is exportable by design (§2.1) and so cannot be a non-extractable hardware key.
 
 - **MLS leaf operations** (KeyPackage generation, Commit signing, Update proposals): MUST use keys held in the secure boundary. `openmls` supports pluggable crypto backends; implementations SHOULD provide a backend that delegates to the platform keystore rather than holding raw key bytes.
 
@@ -105,7 +111,7 @@ In all of these systems, impersonation by the organization leaves no mandatory c
 
 Agora separates the identity namespace from the signing key material at a structural level:
 
-- **DID document (org-controlled):** The organization controls `did:web:{orgDomain}:users:{id}`; it can add, remove, and update key entries in the document (§2.5). This is the identity namespace.
+- **DID document (org-controlled, history public):** The organization hosts `did:webvh:{SCID}:{orgDomain}:users:{id}` and holds an update key; it can add, remove, and update key entries in the document (§2.5), but each change is a DID log entry signed with its update key and visible to every resolver (§2.1). This is the identity namespace.
 - **Private key material (device-controlled):** Ed25519 signing keys are generated inside the device's secure enclave and never leave it (§12.6). The DID document contains only the public key. The organization receives no copy of the private key at any point; there is no enrollment flow that transmits private key material to the provisioning service (§2.5.4).
 - **Per-message signing:** Every Agora message is signed by the sender's device key. The signing key fingerprint is embedded in the message's MLS authenticated data; it is bound to the ciphertext and cannot be altered without invalidating the message's authentication tag.
 
@@ -119,9 +125,7 @@ The organization retains one path to producing a message attributable to Alice's
 2. **Is recorded in the provisioning audit log** (§2.5.5).
 3. **Is detectable** by any party that compares the signing key fingerprint in a message against the DID document entry that was active at the time of message creation.
 
-This is materially stronger than conventional systems, with one caveat. An organization that controls the web server hosting a `did:web` user document can technically insert a key into that document directly, outside the enrollment path, and `did:web` keeps no verifiable history of document changes. Cryptography alone therefore does not prevent the organization from adding a key; non-impersonation is enforced by anchoring device keys and auditing the document's key set over time, so that an inserted key is detectable by Alice, her contacts and auditors. Subject to that, silent impersonation (producing a message indistinguishable from one Alice sent herself) is not possible.
-
-> **Open (agora-pozi.6):** Which DID method and anchoring or audit mechanism makes insertion of a key into a user's DID document detectable without trusting the controlling organization.
+Cryptography does not prevent an organization holding an update key from adding a key to Alice's `did:webvh` document, inside or outside the enrollment path. It does make every such addition auditable: the key can enter the document only through a DID log entry signed with the organization's update key, the log is hash-chained, and resolvers reject a log that does not verify (§2.1). The organization cannot rewrite or hide the entry without producing an invalid history, so Alice, her contacts and auditors can see when each key was added and by which update key, without trusting the organization. Silent impersonation (producing a message indistinguishable from one Alice sent herself) is therefore not possible.
 
 Detectable impersonation through the enrollment path (registering a new device key under Alice's DID) requires a logged admin action and produces a cryptographic artifact that auditors and Alice herself can inspect.
 
@@ -133,7 +137,7 @@ The combination of per-message device-key signatures and a tamper-evident IPLD c
 
 - **DKIM** authenticates the sending domain, not the individual sender. An admin with access to the DKIM private key can sign mail on behalf of any address at that domain.
 - **Enterprise S/MIME** with key escrow allows the key custodian (typically the organization) to produce valid signatures for any escrowed identity.
-- **Agora device-key signatures** can only be produced by the specific hardware device that holds the private key. The compliance archive records both the message content and the signing key fingerprint. A regulator or court can verify that a specific message was produced by a specific device key, and can cross-reference that key's registration in the DID document's audit history.
+- **Agora device-key signatures** can only be produced by the specific hardware device that holds the private key. The compliance archive records both the message content and the signing key fingerprint. A regulator or court can verify that a specific message was produced by a specific device key, and can cross-reference that key's registration in the DID log (§2.1).
 
 This property is relevant for FINRA Rule 17a-4, SEC Rule 17a-4, and MiFID II recordkeeping requirements, where the integrity and authenticity of retained communications are material.
 

@@ -1,0 +1,7 @@
+{
+  "id": "1792210839908601391-1",
+  "issue_id": "agora-pozi.10",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option B: KeyPackages live with whoever runs the user's identity: employer provisioning service for employees; chosen host or self for individuals (acting as own CO). Located via DID-doc KeyPackageEndpoint (Welcomes already go there). Relays hold no KeyPackages. Remove relay KP store API, KeyPackageLowAlert/SupplyImported gossip, cross-relay KP replication, RSA keyPackageSLA. Draining: host rate-limits; last-resort KeyPackage fallback.",
+  "created_at": "2026-10-17T04:20:39.908601391Z"
+}

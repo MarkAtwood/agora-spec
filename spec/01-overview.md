@@ -21,7 +21,7 @@ Version negotiation is defined per surface:
 - **Transport endpoints:** the URL path version is fixed at connection time; a client connects to `/v1/agora/wt` or `/v1/agora/ws` and the relay either accepts or returns HTTP 404/410.
 - **Gossip topics:** the version is encoded in the topic string; v1 and v2 topics can coexist on the mesh simultaneously; a relay that supports both subscribes to both topic families.
 - **JSON-LD documents:** the `schemaVersion` field carries the document schema version; processors that do not support the declared version MUST reject the document.
-- **Client-relay handshake:** version negotiation occurs as part of the `ClientHello`/`RelayChallenge` exchange (§11.6).
+- **Client-relay handshake:** version negotiation occurs as part of the `ClientHello`/`RelayHello` exchange (§11.6).
 - **Relay-to-relay Peer API:** the version is encoded in the URL path; a relay's manifest `capabilities` array declares which versions it supports.
 
 ---

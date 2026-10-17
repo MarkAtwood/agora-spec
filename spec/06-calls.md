@@ -118,7 +118,7 @@ The Space owner (CO) publishes each admitted SFU's DID and WebRTC endpoint in th
 
 Participants map SFU-forwarded streams to DIDs using information exchanged among themselves in MLS-encrypted messages; the SFU sees only connection-scoped stream identifiers.
 
-> **Open (agora-pozi.8):** the SFU admission proof in step 2 reuses the ARCHITECTURE §6.2 epoch access key and follows its resolution (Q1).
+> **Open (agora-pozi.8):** the SFU admission proof in step 2 uses the epoch access proof (§5.2.2), which awaits external cryptographic review.
 
 ### SFU Media Opacity
 

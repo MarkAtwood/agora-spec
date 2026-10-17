@@ -32,8 +32,7 @@ that is powerless but still watching. Agora requires both.
 
 Runs services that carry, store or forward data for communities without being
 part of them: relays (routing, fan-out, envelope cache, gossip, peering), blob
-and IPFS pinning, SFUs, TURN, push proxies, and any KeyPackage store that is not
-operated by the community itself.
+and IPFS pinning, SFUs, TURN and push proxies.
 
 ### 2.2 Communications Operator (CO)
 
@@ -58,9 +57,9 @@ A component's role is determined by what it holds, not by who runs it:
 | Relay | IO | |
 | Blob / IPFS pinning | IO | |
 | TURN | IO | |
-| Push proxy | IO | Observation budget includes device push handles (§5) |
+| Push proxy | IO | Observation budget includes device push handles (§5); a CO MAY run its own |
 | SFU | IO | MUST NOT be an MLS member (§7, item 6) |
-| KeyPackage store | IO or CO | See §8, Q3 |
+| KeyPackage host | CO | Run by whoever runs the user's identity (§8, Q3) |
 | Compliance logger | CO | MLS member; holds plaintext |
 | Archive / Purview bridge | CO | Holds plaintext |
 | IdP / DID sidecar, enrollment service | CO | Holds or controls identity keys |
@@ -190,12 +189,14 @@ of them a correspondingly large anonymity set.
 Membership in the MLS group is the only access control. An IO verifies that an
 envelope comes from a current member without learning which member.
 
-*Candidate mechanism, to be specified in the messaging part and reviewed:* each
+*Mechanism (protocol spec §5.2.2), pending external cryptographic review:* each
 epoch, members derive a shared signing key pair from the MLS exporter
 (label `"agora access"`). The committer publishes the epoch's public key with
-the commit, signed by the previous epoch's access key, so the IO can follow the
-chain. Envelopes carry a signature under the current epoch access key. The IO
-rejects envelopes that fail verification.
+the commit, signed by the previous epoch's access key and countersigned by the
+CO's registration service, so the IO can follow the chain. The countersignature
+is required because a member being removed also holds the previous epoch's key
+and could otherwise announce a key of its own. Envelopes carry a signature under
+the current epoch access key. The IO rejects envelopes that fail verification.
 
 Consequences:
 
@@ -265,26 +266,27 @@ and line numbers in this list are those of the imported documents, not of
     l.133). Retention is whatever the `RelayServiceAgreement` sets, declared in
     the manifest (§5 item 1). Both documents are rewritten to say so.
 
-## 8. Open questions
+## 8. Decisions and open questions
 
-- **Q1. Epoch access key.** Validate §6.2 against MLS security properties:
-  exporter use, front-running by a member being removed in the same epoch,
-  commit ordering across relays, and cost per envelope.
-- **Q2. Admission without identity.** How does an IO meter abuse and quota
-  before a client has proven membership in any channel, without authenticating
-  its DID? Candidates: agreement-scoped bearer tokens, PoW (protocol spec §10.5.2),
-  Privacy Pass.
-- **Q3. KeyPackage store placement.** A DID-keyed KeyPackage store learns who
-  fetches whose KeyPackages, which is the social graph at group creation. Option:
-  locate KeyPackages through the user's DID document `KeyPackageEndpoint`,
-  hosted by the CO or a provider the user chooses, and treat any IO-hosted store
-  as a declared budget extension (S6).
-- **Q4. Push proxy budget.** Whether wake-up timing per device handle is
-  acceptable by default or should be an opt-in extension.
-- **Q5. Discovery.** SpaceAds and directory entries are voluntary CO
-  publications. Confirm that no discovery mechanism requires an IO to publish CO
-  information on the CO's behalf.
+All resolved 2026-10-16 except the external review in Q1.
 
+- **Q1. Epoch access key.** Announcements are countersigned by the CO
+  registration service (§6.2). Still open: external cryptographic review of
+  exporter use, commit ordering across relays, and cost per envelope.
+- **Q2. Admission without identity.** An IO never authenticates client
+  identity. Writes need the §6.2 proof; registration needs the billing key;
+  storage and bandwidth follow agreement quotas. Connections, subscriptions and
+  reads are rate-limited by network address and routing token, and an IO MAY
+  require proof of work before accepting a connection under load.
+- **Q3. KeyPackage placement.** KeyPackages live with whoever runs the user's
+  identity, found through the DID document's `KeyPackageEndpoint` (or a Pkarr
+  record for `did:key`). IOs hold none.
+- **Q4. Push.** Push is in the §5 budget by default. Wake-ups carry no content;
+  IOs SHOULD add jitter and coalesce wake-ups; a CO MAY run its own push proxy;
+  users MAY disable push.
+- **Q5. Discovery.** Every discovery record is signed by the party it describes.
+  IOs forward and cache records but never author or modify a Space or user
+  record. Only public Spaces advertise.
 - **Q6. Which Spaces an IO serves.** Resolved 2026-10-16: an IO knows the CO's
   billing DID and the chains registered under each agreement, never the Space
   (§5 item 6, §6.1).

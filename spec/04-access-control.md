@@ -92,7 +92,7 @@ All moderation records are signed by a CO key (the Space owner or an admin) and 
 
 The ban takes effect through the MLS Removes: the banned member does not hold the access key of any later epoch, so Relays reject its envelopes without learning its DID (ARCHITECTURE §6.2). Relays do not keep DID ban lists. Clients MUST reject a Commit that adds a DID with a standing `BanRecord` to any of the Space's channel groups.
 
-> **Open (agora-pozi.8):** The epoch access proof that lets Relays reject a removed member's envelopes is not yet specified.
+> **Open (agora-pozi.8):** the epoch access proof (§5.2.2) awaits external cryptographic review.
 
 **Timeout:** a time-bounded moderation action with an `expiresAt` field. Timeouts are client-enforced: members' clients MUST discard application messages from the target DID in that space until expiry. Relays do not enforce timeouts (ARCHITECTURE §6.2). MLS group membership is not affected; the user remains a group member and can receive messages, and can still send ciphertext that other members' clients discard.
 
@@ -139,7 +139,7 @@ A **Direct Message (DM) channel** is an MLS group established between two or mor
 
 **MLS group initialization:** The DM group creator generates a fresh MLS group, adds KeyPackages for each invited member, and delivers each Welcome by POST to the `KeyPackageEndpoint` in the invitee's DID document (§7.8.2), the endpoint the KeyPackage was fetched from, so delivery reveals nothing to that endpoint beyond what the KeyPackage fetch already did. A Welcome is not sent on any gossipsub topic. There is no Space admin in the invite path; any DM group member may add new members via standard MLS Add + Commit, subject to the consent mechanism in §4.6.1. A client MUST accept a DM Welcome only from an adder authenticated from the group's ratchet tree as a member of the group, MUST NOT accept an anonymous Welcome, and MUST reject a Welcome for a group ID for which it already holds group state.
 
-> **Open (agora-pozi.10):** Who hosts a user's `KeyPackageEndpoint`, and so who observes KeyPackage fetches and Welcome deliveries (ARCHITECTURE §8 Q3).
+The `KeyPackageEndpoint` is hosted by whoever runs the recipient's identity (§5.2.1.1), so only that host observes Welcome deliveries.
 
 **Relay routing:** Because DM groups have no Space affiliation, Relays route DM traffic by `dmGroupToken` alone, identically to channel traffic. A Relay that does not know the `dmGroupToken` will not route DM traffic; the sending client SHOULD use the Relays known to be serving the recipient's DID (discoverable from the recipient's DID document relay hints).
 

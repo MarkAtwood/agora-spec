@@ -45,12 +45,12 @@ Each channel manages its own MLS epoch independently. This enables per-channel a
 
 MLS operations follow RFC 9420 exactly:
 
-- **`KeyPackage`:** uploaded to the Relay KeyPackage Store (§5.2.1.1); single-use, and rotated on each new device session and after each use.
+- **`KeyPackage`:** published to the user's `KeyPackageEndpoint` (§5.2.1.1); single-use, and rotated on each new device session and after each use.
 - **`Welcome`:** delivered by POST to the new member's `KeyPackageEndpoint` (§4.6); never on a gossip topic. A Welcome MUST include the `ratchet_tree` extension (RFC 9420 §12.4.3.3) carrying the full ratchet tree. A joiner MUST obtain the ratchet tree only from that extension and MUST NOT fetch it from a relay or any other IO; no IO stores or serves ratchet trees or other MLS group state. A joiner MUST reject a Welcome that lacks the `ratchet_tree` extension.
 - **`Commit`:** a state-advancing operation (Add, Remove, Update); gossiped to all current group members.
 - **`Proposal`:** a pre-commit operation that may be included in a subsequent Commit by any authorized member.
 
-The **Delivery Service** role (as defined in RFC 9420 §10.3) is performed by the gossipsub mesh in combination with the Relay KeyPackage Store. The **Authentication Service** role is performed by DID verification: MLS leaf node credentials are bound to DID verification keys, so verifying an MLS credential means verifying a DID.
+The **Delivery Service** role (as defined in RFC 9420 §10.3) is performed by the gossipsub mesh in combination with each user's `KeyPackageEndpoint` (§5.2.1.1). The **Authentication Service** role is performed by DID verification: MLS leaf node credentials are bound to DID verification keys, so verifying an MLS credential means verifying a DID.
 
 **Reference implementations for MLS (RFC 9420):**
 - Rust: [`openmls`](https://github.com/openmls/openmls) (the most complete open-source implementation)
@@ -58,175 +58,17 @@ The **Delivery Service** role (as defined in RFC 9420 §10.3) is performed by th
 
 #### 5.2.1.1 KeyPackage Store
 
-IPFS alone is insufficient for KeyPackage distribution. IPFS provides no delivery guarantees, no availability SLA, and no mechanism for a sender to atomically fetch-and-consume a KeyPackage to prevent reuse. Two concurrent senders fetching the same KeyPackage from IPFS would both construct valid-looking Welcomes, but the second would fail MLS validation at the recipient because the leaf credential is bound to a single use. Relays MUST therefore implement a **KeyPackage Store**: an authenticated key-value endpoint that makes consumption atomic and provides the availability properties IPFS cannot.
+A user's KeyPackages are held by whoever runs the user's identity: the employer's provisioning service (§2.5) for an employee, or a host the user chooses or runs for an individual. The client publishes KeyPackages to, and a committer fetches them from, the user's `KeyPackageEndpoint`. For `did:webvh` and `did:plc` the endpoint is a `KeyPackageEndpoint` service entry in the DID document; for `did:key` it is published in the user's Pkarr record (§2.1). Welcomes are delivered by POST to the same endpoint (§4.6). Relays and other IOs store and serve no KeyPackages.
 
-> **Open (agora-pozi.10):** a DID-keyed store learns who fetches whose KeyPackages, which reveals the social graph at group creation; store placement (CO-hosted via the DID document versus IO-hosted as a declared budget extension) is unresolved.
+The host MUST make a fetch atomically consume the returned KeyPackage, and MUST verify that each published KeyPackage's leaf credential and signature belong to the endpoint's DID. A committer MUST obtain a KeyPackage only by fetching it from the target's `KeyPackageEndpoint`. A client MUST NOT publish any message on a gossip topic that names the target DID or the requesting DID to solicit KeyPackages.
 
-**Why single-use.** KeyPackages are consumed exactly once. RFC 9420 assumes each KeyPackage's init key is used for one Welcome; reuse lets two groups share HPKE init secrets and lets a replayed Welcome be accepted. A known failure mode is a store that hands out KeyPackages without consuming them, keeps them only while the owning device is connected (so they vanish on disconnect), and keys them to an unstable per-session device identifier, so that adding a user's other devices silently fails. Agora's store avoids this: consumption is atomic and permanent, supply persists independent of connection state, and supply is keyed to the owning DID.
+**Why single-use.** KeyPackages are consumed exactly once. RFC 9420 assumes each KeyPackage's init key is used for one Welcome; reuse lets two groups share HPKE init secrets and lets a replayed Welcome be accepted. A known failure mode is a store that hands out KeyPackages without consuming them, keeps them only while the owning device is connected (so they vanish on disconnect), and keys them to an unstable per-session device identifier, so that adding a user's other devices silently fails. Agora's endpoint avoids this: consumption is atomic and permanent, supply persists independent of connection state, and supply is keyed to the owning DID.
 
-The KeyPackage availability problem has three layers that must be addressed together: the relay's baseline behavior (what it does by default), the operator's contractual commitment (what it promises in a service agreement), and the client's self-healing supply chain (what happens when the user is offline). This section specifies all three.
-
-##### Relay KeyPackage API
-
-`PUT` and `DELETE` MUST be authorized by the owning DID: the store verifies that each uploaded KeyPackage's leaf credential and signature belong to `{did}`, and a `DELETE` carries the owner's signature over the `keyPackageRef`. `GET` and `GET /count` do not require the caller to authenticate a DID.
-
-> **Open (agora-pozi.9):** how the store rate-limits anonymous `GET` callers to prevent KeyPackage exhaustion without authenticating them.
-
-```
-PUT  /v1/agora/kp/{did}
-     Upload one or more KeyPackages for the authenticated DID.
-     Body: CBOR array of RFC 9420 KeyPackage TLS-serialized objects.
-     Response: 200 { "stored": N }
-
-GET  /v1/agora/kp/{did}
-     Fetch and atomically consume one KeyPackage for the target DID.
-     The relay removes the returned KeyPackage from the store in the same operation.
-     Response: 200 { "keyPackage": "base64url...", "remaining": N }
-              404 if no KeyPackages are available for that DID
-
-GET  /v1/agora/kp/{did}/count
-     Return the number of available (unconsumed) KeyPackages without consuming any.
-     Response: 200 { "count": N }
-
-DELETE /v1/agora/kp/{did}/{keyPackageRef}
-     Revoke a specific KeyPackage by its ref (the SHA-256 hash of the TLS-serialized bytes).
-     Only the owning DID may revoke its own KeyPackages.
-```
-
-The `GET /count` endpoint allows a client to monitor its own KeyPackage supply and replenish proactively. Clients SHOULD maintain at least 20 pre-uploaded KeyPackages per device at all times. When `count` falls below 5, the client MUST upload a fresh batch immediately.
-
-##### Relay Default Behavior (Baseline, No SLA)
-
-In the absence of a `RelayServiceAgreement` with a `keyPackageSLA` clause (§10.5.1), a relay operates in **best-effort mode**: it stores and serves KeyPackages on a best-effort basis with no durability, availability, or minimum-count guarantees beyond the session in which they were uploaded.
-
-Best-effort mode is appropriate for:
-- Private organizational deployments where the relay is operator-controlled and users are online frequently.
-- Development and testing.
-- Small spaces where channel membership changes are infrequent.
-
-Best-effort mode is **not appropriate** for large public spaces or any deployment where a user may be offline for days or weeks and needs to be addable to new channels on their return.
-
-Even in best-effort mode, a relay MUST NOT:
-- Return a previously consumed KeyPackage on a subsequent `GET` (consumption is always atomic and permanent).
-- Silently drop stored KeyPackages before the session ends without notifying the owning DID.
-
-##### Relay Service Agreement SLA (Contractual Guarantee)
-
-A `RelayServiceAgreement` (§10.5.1) MAY include a `keyPackageSLA` clause that extends the relay's obligations beyond best-effort:
-
-```json
-"keyPackageSLA": {
-  "minimumCount": 20,
-  "alertThreshold": 5,
-  "alertMechanism": "push",
-  "guaranteedRetentionDays": 90,
-  "replenishFromIPFS": true
-}
-```
-
-**`minimumCount`:** the relay commits to maintaining at least this many live, unconsumed KeyPackages per DID it serves under this agreement. This is not a hard real-time guarantee but an obligation to alert the client promptly when supply drops and to attempt IPFS-based replenishment before returning 404.
-
-**`alertThreshold`:** when the stored count for a DID falls at or below this value, the relay MUST notify the owning DID. The notification mechanism is declared in `alertMechanism`:
-- `"push"`: the relay sends a push proxy wake-up (§11.7) with `urgency: "high"`.
-- `"gossip"`: the relay publishes a `KeyPackageLowAlert` message to `v1/agora/discovery`.
-- `"both"`: both mechanisms are attempted.
-
-```json
-{
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "KeyPackageLowAlert",
-  "targetDID": "did:key:z6Mk...",
-  "relayDID": "did:key:z6MkRelay...",
-  "currentCount": 3,
-  "alertThreshold": 5,
-  "ts": "2026-03-12T12:00:00Z",
-  "sig": "base64url..."
-}
-```
-
-`KeyPackageLowAlert` is gossiped only to `v1/agora/discovery`, not to any channel topic; it contains no channel or space information.
-
-> **Open (agora-pozi.10):** `KeyPackageLowAlert` and `KeyPackageSupplyImported` broadcast a user DID to the whole relay mesh; this is resolved with KeyPackage store placement.
-
-**`guaranteedRetentionDays`:** the relay will retain uploaded KeyPackages (without consuming them) for at least this many days from the upload timestamp. After this period, unexpired KeyPackages are still valid but the relay MAY evict them under storage pressure, and MUST alert the owning DID before doing so.
-
-**`replenishFromIPFS`:** if `true`, the relay will attempt to fetch fresh KeyPackages from the owning DID's declared IPFS supply endpoint before returning 404 on a fetch or before triggering an alert. This is the relay self-healing from IPFS without requiring the user to be online.
-
-Violation of a `keyPackageSLA` clause constitutes a breach of the service agreement. Enforcement is by relay selection: space owners and users choose relays that honor their declared terms.
-
-##### IPFS as Durable Supply (Client-Controlled)
-
-The relay store handles atomic consumption. IPFS handles durable supply. These roles are deliberately separate: IPFS is a write-many supply source, not a consumption endpoint. The same KeyPackage must never be consumed from two places.
-
-A client MAY publish a batch of pre-generated KeyPackages to IPFS and register the CID in their DID document's `service` endpoints:
-
-```json
-{
-  "service": [{
-    "id": "did:key:z6Mk...#keypackage-supply",
-    "type": "AgoraKeyPackageSupply",
-    "serviceEndpoint": "ipfs://bafyrei.../keypackages.cbor",
-    "uploadedAt": "2026-03-12T00:00:00Z",
-    "count": 50
-  }]
-}
-```
-
-`serviceEndpoint` is an IPFS CID URL pointing to a CBOR-encoded array of RFC 9420 KeyPackage TLS-serialized objects, the same wire format accepted by `PUT /v1/agora/kp/{did}`. The `count` field is informational; the actual count is authoritative at the CID.
-
-This CID is immutable: publishing new KeyPackages to IPFS produces a new CID. Clients rotate the `serviceEndpoint` in their DID document by publishing a new KeyPackage batch to IPFS and updating the service entry with the new CID and `uploadedAt`. The old CID remains valid and accessible but is superseded.
-
-**Relay self-replenishment flow.** When a relay with `replenishFromIPFS: true` in its service agreement is about to return 404 on `GET /kp/{did}` (or has dropped below `alertThreshold`), it:
-
-1. Resolves the target DID document and checks for an `AgoraKeyPackageSupply` service entry.
-2. If found, fetches the CBOR KeyPackage array from IPFS via its configured gateway.
-3. Imports the batch into the local relay store via the same path as a client `PUT`; each KeyPackage is stored individually, deduplication checked by ref hash.
-4. Returns to the original `GET /kp/{did}` request now that supply is replenished, consuming one atomically as normal.
-5. Publishes a `KeyPackageSupplyImported` gossip message to `v1/agora/discovery` so that other relays serving the same DID know the supply has been refreshed:
-
-```json
-{
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "KeyPackageSupplyImported",
-  "targetDID": "did:key:z6Mk...",
-  "relayDID": "did:key:z6MkRelay...",
-  "importedCount": 50,
-  "sourceCID": "bafyrei...",
-  "ts": "2026-03-12T12:00:00Z",
-  "sig": "base64url..."
-}
-```
-
-The relay MUST verify the imported KeyPackages before adding them to the store. Corrupted or expired packages from IPFS are silently dropped; only valid packages are stored.
-
-**Client workflow.** To take advantage of IPFS supply, the client:
-
-1. At account setup or after a key rotation event, generates a large batch of KeyPackages (50–200 is reasonable).
-2. Uploads the batch to IPFS and pins it (via their own IPFS node, a pinning service, or a relay with IPFS pinning enabled).
-3. Updates their DID document's `serviceEndpoint` for `AgoraKeyPackageSupply` to the new CID.
-4. Uploads a subset (20–50) to their connected relays' stores via `PUT /v1/agora/kp/{did}` for fast-path access.
-
-The IPFS batch is a **reserve tank**: the relay draws from it when the fast-path store runs low, without requiring the client to be online.
-
-A relay fetching from the IPFS supply CID and consuming packages from it into its local store is the intended consumption path for IPFS packages. Committers SHOULD NOT fetch directly from the IPFS supply CID and construct Welcomes from it: the atomic consumption guarantee applies only to the relay's `GET /v1/agora/kp/{did}` endpoint, so a KeyPackage taken directly from IPFS may also be consumed by another committer, and one of the two Welcomes will fail. Recipients cannot tell where a committer obtained a KeyPackage, so this rule is not checked by recipients.
-
-##### KeyPackage Replication Across Relays
-
-A client connected to multiple Relays SHOULD upload its KeyPackages to all of them. When a sender needs to fetch a KeyPackage to issue a Welcome, it contacts the target user's preferred Relay (declared in their DID document's `service` endpoints). If that Relay has no KeyPackages for the target, it SHOULD attempt to fetch one from its peer Relays before returning 404.
-
-Inter-relay KeyPackage forwarding uses a pull model:
-
-```
-GET /v1/agora/kp/{did}?forward=true
-```
-
-The `forward=true` parameter instructs the Relay to attempt peer-relay fetching before returning 404. If `replenishFromIPFS` is also enabled, the relay attempts IPFS replenishment after peer-relay fetching fails, before finally returning 404. Relays that support forwarding declare `"keypackage-forwarding-v1"` in their capabilities.
+**Last-resort KeyPackages.** A client SHOULD also publish one last-resort KeyPackage (`draft-ietf-mls-extensions-09`, §last-resort-keypackage) per device, which the host returns, without consuming it, only when no single-use KeyPackage remains.
 
 ##### KeyPackage Exhaustion
 
-If all KeyPackages for a target DID have been consumed and no fresh ones are available from peer relays or IPFS supply, the sender MUST NOT reuse a previously consumed KeyPackage. Instead, the sender queues the Add locally and retries the fetch from the target's store with backoff. The target replenishes its own supply when it next comes online, through the `GET /count` monitoring above.
-
-KeyPackages are obtained only by fetching them directly from the target's store. A client MUST NOT publish any message on a gossip topic that names the target DID or the requesting DID to solicit KeyPackages.
+The host rate-limits fetches to prevent a caller from draining a user's supply, and falls back to the last-resort KeyPackage when single-use supply runs out. If neither is available, the committer MUST NOT reuse a previously consumed KeyPackage; it queues the Add locally and retries the fetch with backoff. The client replenishes its supply at the host when it next comes online.
 
 ##### KeyPackage Validation
 
@@ -257,7 +99,7 @@ A `community` channel has a bounded MLS group called the **speaker group**. Only
 }
 ```
 
-The SpeakerBot or a channel admin responds by issuing a standard MLS Add commit using a KeyPackage from the requester's store. If the speaker group is at capacity, the SpeakerBot SHOULD first evict the longest-idle current speaker before adding the requester.
+The SpeakerBot or a channel admin responds by issuing a standard MLS Add commit using a KeyPackage fetched from the requester's `KeyPackageEndpoint` (§5.2.1.1). If the speaker group is at capacity, the SpeakerBot SHOULD first evict the longest-idle current speaker before adding the requester.
 
 **Admission latency.** Admission requires one round of MLS Add + Welcome delivery. Clients in `community` channels SHOULD display a "waiting to join" indicator if the user tries to post before their Welcome has been processed.
 
@@ -271,7 +113,7 @@ A **passive member** is an MLS group member that holds a leaf credential and par
 
 **Use cases in Agora.** Compliance loggers (§7) and VTC recorders (§6.12) are passive members. Both hold leaf credentials, receive all application messages in their admitted groups, and never modify group state.
 
-**KeyPackages.** Passive members require KeyPackages to receive Welcome messages. Because passive members never initiate group operations, they SHOULD publish last-resort KeyPackages (`draft-ietf-mls-extensions-09`, §last-resort-keypackage), KeyPackages marked for reuse when the single-use supply is exhausted, rather than maintaining a large single-use supply. Relays MUST serve a passive member's last-resort KeyPackage when no single-use packages remain.
+**KeyPackages.** Passive members require KeyPackages to receive Welcome messages. Because passive members never initiate group operations, they SHOULD publish last-resort KeyPackages (`draft-ietf-mls-extensions-09`, §last-resort-keypackage), KeyPackages marked for reuse when the single-use supply is exhausted, rather than maintaining a large single-use supply. The passive member's `KeyPackageEndpoint` host serves the last-resort KeyPackage when no single-use packages remain (§5.2.1.1).
 
 **Idle eviction.** Passive members MUST NOT be subject to idle eviction (§5.2.1.2). A passive member generates no traffic by design; evicting one on that basis would silently break the compliance capture chain.
 
@@ -289,8 +131,8 @@ A `broadcast` channel is a one-to-many CO publication. Posts are encrypted under
 
 **Broadcast channel token.** A broadcast channel's `channelToken` is derived from the content key, not from the MLS exporter: `channelToken = HKDF-SHA256(IKM = key, salt = "" (zero-length), info = "agora broadcast token" || keyEpoch, L = 32)`, with `keyEpoch` as a big-endian uint64. Subscribers compute it from the `BroadcastKey`. It rotates whenever the key rotates and does not change on publisher group Commits; tokens of different key epochs are unlinkable without the keys. The access key chain carries the token change:
 
-- On a publisher group Commit, the committer's `accessKeyAnnouncement` carries the new MLS `epoch`, the new access public key and the `channelToken` of the current content key.
-- On a key rotation without a Commit, the first poster to post under the new `keyEpoch` first sends, on the previous `channelToken`, an envelope carrying an `accessKeyAnnouncement` with the unchanged `epoch` and access public key and the new `channelToken`, signed with the current epoch's access private key. The relay follows the chain from token to token as for any channel.
+- On a publisher group Commit, the committer's `accessKeyAnnouncement` carries the new MLS `epoch`, the new access public key and the `channelToken` of the current content key, and is countersigned with `billingSig` (§5.2.2).
+- On a key rotation without a Commit, the first poster to post under the new `keyEpoch` first sends, on the previous `channelToken`, an envelope carrying an `accessKeyAnnouncement` with the unchanged `epoch` and access public key and the new `channelToken`, signed with the current epoch's access private key and countersigned with `billingSig` (§5.2.2). The relay follows the chain from token to token as for any channel.
 
 **Message structure.** Broadcast messages use the standard outer routing envelope (§5.2.2), whose `epoch` and `accessSig` are those of the publisher group. In place of `sealedEnvelope`, the envelope carries a `broadcastPayload` field:
 
@@ -361,11 +203,13 @@ Relays admit an envelope only if it comes from a current member of the channel's
 
 - **Epoch access key.** Each epoch, every member derives `accessSeed = MLS-Exporter("agora access", channelCID, 32)` and uses it as an Ed25519 private key (RFC 8032 seed). All members of the epoch hold the same access key pair.
 - **Announcement.** The committer, after creating a Commit, derives the new epoch's access public key and `channelToken`, and attaches to the routing envelope carrying the Commit an `accessKeyAnnouncement` containing the new `epoch`, the new `channelToken`, and the new access public key, signed with the previous epoch's access private key. The relay thereby follows the chain from token to token without learning the channel. The access public key of the group's first epoch is registered with the relay by the CO's registration service in an `AccessChainRegistration` under the CO's `RelayServiceAgreement` (§10.5.1); the registration identifies neither the Space nor the channel.
+- **Countersignature.** Every `accessKeyAnnouncement` MUST also carry `billingSig`, a signature by the CO's registration service with the billing key of the agreement under which the chain is registered, signed per §13.1.1 over the announcement with `billingSig` omitted. The committer obtains it from the service before publishing the Commit. The service countersigns only an announcement requested by a DID it authenticates as a current member of the channel under Space state, and at most one announcement per chain and `epoch`. Relays MUST reject an announcement without a valid `billingSig` from that agreement's billing DID. The countersignature exists because the previous epoch's access private key is also held by a member being removed, who could otherwise announce a key only they know, keep relay access, and lock out the remaining members.
+- **Outage.** If the registration service is unreachable, relays keep accepting envelopes signed with the last countersigned access key, and members MUST retain that key and sign with the latest access key the relay accepts until a countersigned announcement for a later epoch is accepted. A member removed after the last countersigned epoch can write until then.
 - **Envelope signature.** `accessSig` is an Ed25519 signature under the current epoch's access private key over the routing envelope with `accessSig` omitted. Relays MUST verify `accessSig` against the access public key for the envelope's `channelToken` and `epoch` and MUST reject envelopes that fail verification.
 
 A removed member does not hold the next epoch's access key, so bans and removals take effect at the relay through the MLS Remove alone. Because the key is shared, a valid signature does not identify the signer.
 
-> **Open (agora-pozi.8):** validate against MLS security properties before relying on it.
+> **Open (agora-pozi.8):** the epoch access proof awaits external cryptographic review.
 
 #### Sealed Envelope (Sender-Sealed, Relay-Opaque)
 

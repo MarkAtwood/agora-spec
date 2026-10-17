@@ -71,53 +71,30 @@ Clients MAY establish direct WebRTC data channels to each other, bypassing Relay
 
 On WireGuard-based overlays (Tailscale, Headscale), direct peer connections benefit from overlay-managed NAT traversal. Overlay-internal `100.x.x.x` addresses appear as ICE host candidates and are preferred over STUN-discovered public addresses when both peers are on the same overlay network.
 
-## 11.6 Client-Relay Authentication
+## 11.6 Client Hello and Connection Admission
 
-The connection handshake authenticates the Relay to the client and negotiates protocol versions. It does **not** authenticate the client's DID for message routing. Access to publish envelopes and submit MLS operations is granted by the epoch access proof carried on each envelope (ARCHITECTURE §6.2), which shows that the sender is a current member without revealing which member. A Relay MUST NOT require DID authentication to publish, subscribe, fetch history or submit MLS operations, and MUST NOT keep DID ban lists; bans are MLS Removes (ARCHITECTURE §6.2).
+Relays never authenticate client identity. Writes are gated by the epoch access proof carried on each envelope (ARCHITECTURE §6.2), which shows that the sender is a current member without revealing which member. Group registration is gated by the CO billing key (§10.5.1), and storage and bandwidth by the quotas of the `RelayServiceAgreement` (§10.5.1). A Relay MUST NOT request or accept DID authentication from a client, and MUST NOT keep DID ban lists; bans are MLS Removes (ARCHITECTURE §6.2).
 
-> **Open (agora-pozi.9):** how a Relay meters admission and quota before a client has proven membership in any channel, without authenticating its DID.
+### Client Hello
 
-DID challenge-response (Steps 3–4 below) is used only for KeyPackage Store ownership (§5.2.1.1): a client uploading or deleting its own KeyPackages proves control of the DID. Clients that do not write to the KeyPackage Store omit `did` and `deviceKey` from `ClientHello` and skip Steps 3–4.
-
-> **Open (agora-pozi.10):** whether a KeyPackage Store is IO-hosted at all, and therefore whether a Relay ever performs DID challenge-response.
-
-### Handshake Protocol
-
-Authentication is initiated by the client immediately after transport connection. It uses a `0x04` Control frame.
-
-**Step 1: Client Hello**
-
-The client sends a `ClientHello` control frame requesting a challenge, optionally declaring its DID for KeyPackage Store access:
+Immediately after transport connection the client sends a `ClientHello` in a `0x04` Control frame. It is unauthenticated and carries only version information:
 
 ```json
 {
   "@type": "ClientHello",
-  "did": "did:key:z6Mk...",
-  "deviceKey": "base64url(Ed25519 pubkey)",
   "clientVersion": "agora/v1",
   "supportedTransportVersions": ["v1"],
   "supportedGossipVersions": ["v1"],
-  "supportedFrameVersions": [1],
-  "ts": "2026-03-12T12:00:00.000Z"
+  "supportedFrameVersions": [1]
 }
 ```
 
-`did` and `deviceKey` are OPTIONAL and are present only when the client intends to write to the KeyPackage Store. When present, `deviceKey` is the device's Ed25519 public key, which MUST match a verification method listed in the DID document for the declared DID.
-
-Text format capabilities (§5.2.7) are not declared to the Relay. A Relay that cached them per DID and served them to other clients would learn identity, contrary to ARCHITECTURE S1.
-
-**Step 2: Relay Challenge**
-
-The Relay responds with a `RelayChallenge`:
+The Relay answers with a `RelayHello`:
 
 ```json
 {
-  "@type": "RelayChallenge",
-  "nonce": "base64url(32 random bytes)",
-  "relayDID": "did:key:z6MkRelay...",
-  "relaySig": "base64url...",
-  "ts": "2026-03-12T12:00:00.000Z",
-  "expiresIn": 30,
+  "@type": "RelayHello",
+  "relayDID": "did:web:relay.example.com",
   "negotiated": {
     "transportVersion": "v1",
     "gossipVersion": "v1",
@@ -126,73 +103,44 @@ The Relay responds with a `RelayChallenge`:
 }
 ```
 
-`relaySig` is the Relay's Ed25519 signature over `nonce || relayDID || ts`. This simultaneously authenticates the Relay to the client. `expiresIn` is in seconds; the client must respond within this window.
+`negotiated` holds the highest version of each kind supported by both sides. If there is no common version of any kind, the Relay closes the connection. The client MUST check `relayDID` against the Relay's manifest (§10.2.1); the Relay itself is authenticated by its TLS certificate or `.onion` address (§10.3.4.7).
 
-**Step 3: Client Response** (KeyPackage Store access only)
+Text format capabilities (§5.2.7) are not declared to the Relay. A Relay that cached them per client and served them to other clients would learn identity, contrary to ARCHITECTURE S1.
 
-```json
-{
-  "@type": "ClientAuth",
-  "did": "did:key:z6Mk...",
-  "nonce": "base64url...",
-  "sig": "base64url..."
-}
-```
+### Connection Admission
 
-`sig` is the client's Ed25519 signature over `nonce || clientDID || relayDID || ts` using the `deviceKey` declared in `ClientHello`. The Relay verifies:
+A Relay rate-limits connections, subscriptions, history reads (live stream and JMAP, §11.8) and push registrations (§11.7.3) per network address and per `channelToken`. Limit values are local Relay policy. Per-address limits MUST NOT be the sole control, because many clients can share one address (Tor exits, carrier NAT).
 
-1. `sig` is a valid signature by the declared `deviceKey`
-2. `deviceKey` is listed as an active verification method in the DID document for `did`
-3. `nonce` matches the issued challenge and has not expired
-
-**Step 4: Session Token** (KeyPackage Store access only)
-
-On successful verification, the Relay issues a `SessionToken`:
+Under load, a Relay MAY require a proof-of-work challenge before accepting a connection. It then answers the `ClientHello` with an `AdmissionChallenge` instead of a `RelayHello`:
 
 ```json
 {
-  "@type": "SessionToken",
-  "token": "base64url(32 random bytes)",
-  "did": "did:key:z6Mk...",
-  "expiresAt": "2026-03-12T20:00:00.000Z",
-  "relaySig": "base64url..."
+  "@type": "AdmissionChallenge",
+  "challenge": "base64url(32 random bytes)",
+  "difficulty": 20,
+  "expiresIn": 30
 }
 ```
 
-The token is included as a frame header field in all subsequent KeyPackage Store write operations on this connection. It expires after 8 hours or on disconnection, whichever comes first. Clients reconnecting after expiry repeat the full handshake.
-
-### Connections Without DID Authentication
-
-A connection that does not perform Steps 3–4 MAY:
-- Subscribe to gossip topics
-- Fetch public space state and history
-- Receive messages on subscribed topics
-- Publish envelopes and submit MLS operations that carry a valid epoch access proof (ARCHITECTURE §6.2)
-
-It MUST NOT:
-- Upload KeyPackages
-- Access KeyPackage Store write endpoints
-
-### DID Document Freshness
-
-This subsection applies only to Relays that operate a KeyPackage Store. The Relay caches DID documents to avoid resolving them on every connection. Cached DID documents have a TTL of 1 hour. Clients revoking a device key SHOULD notify their connected Relays via a signed `DeviceRevocation` control frame to accelerate cache invalidation:
+The client computes `powNonce` such that `SHA256(challenge || powNonce)` has at least `difficulty` leading zero bits, the same construction as §10.5.2, and replies within `expiresIn` seconds:
 
 ```json
 {
-  "@type": "DeviceRevocation",
-  "did": "did:key:z6Mk...",
-  "revokedKey": "base64url(Ed25519 pubkey)",
-  "sig": "base64url..."
+  "@type": "AdmissionProof",
+  "challenge": "base64url...",
+  "powNonce": "base64url..."
 }
 ```
 
-`sig` is signed by any remaining valid device key for the same DID. Relays MUST process `DeviceRevocation` frames immediately and invalidate any active sessions using the revoked key.
+On a valid proof the Relay sends the `RelayHello`; otherwise it closes the connection. A Relay MUST accept each `challenge` at most once. A proof-of-work challenge lets a client whose address has hit its per-address limit still connect, so clients behind shared addresses are not locked out.
+
+Privacy Pass tokens are a possible future admission extension and are not part of this version.
 
 ## 11.7 Push Notification Proxy (Optional)
 
 Mobile clients backgrounded by the OS cannot maintain a persistent WebTransport or WebSocket connection. Agora supports an optional **Push Notification Proxy** that enables mobile wake-up notifications without exposing message content, channel identity, or sender identity to the notification infrastructure.
 
-Push proxies are entirely optional. Relays MAY designate one; clients MAY register with one. Clients that maintain persistent connections (desktop clients, server-side bots) do not need them.
+Push is enabled by default on mobile clients, and the push proxy's observations are within the observation budget (ARCHITECTURE §5 item 6). Users MAY disable push; a client with push disabled makes no registration. A Relay MAY designate a push proxy in its manifest (§11.7.2), and a CO MAY designate its own push proxy for its members. Clients that maintain persistent connections (desktop clients, server-side bots) do not need one.
 
 ### 11.7.1 Privacy Model
 
@@ -208,8 +156,6 @@ The fundamental constraint: APNs (Apple) and FCM (Google) are centralized servic
 - Which channels the client subscribes to
 - Any message content
 - The identity of any message sender
-
-> **Open (agora-pozi.11):** whether per-handle wake-up timing is acceptable by default or must be an opt-in budget extension.
 
 The `pushHandle` is the separation layer: the Relay knows `channelToken` → pushHandle and never the client's DID; the proxy knows pushHandle → device token. Neither party links a device to a DID or a channel.
 
@@ -245,7 +191,7 @@ POST /v1/agora/push/register
 Response: 200 { "registered": true, "ttl": 2592000 }
 ```
 
-4. Registers `{ pushHandle, proxyEndpoint, channelTokens }` with their Relay. This registration is not DID-authenticated (§11.6); the Relay keys it by `pushHandle` only:
+4. Registers `{ pushHandle, proxyEndpoint, channelTokens }` with their Relay. This registration carries no identity and is rate-limited per address and per `channelToken` (§11.6); the Relay keys it by `pushHandle` only:
 
 ```
 POST /v1/agora/push/register
@@ -262,7 +208,7 @@ POST /v1/agora/push/register
 
 When a Relay receives an envelope on a `channelToken` for which a `pushHandle` is registered and that handle's client is not currently connected, the Relay:
 
-1. Looks up the `{ pushHandle, proxyEndpoint }` registered for that `channelToken`.
+1. Looks up the `{ pushHandle, proxyEndpoint }` registered for that `channelToken`. The Relay sends the wake-up to whichever proxy the client registered, its own or one designated by the client's CO.
 2. Sends a signed wake-up request to the proxy:
 
 ```
@@ -280,7 +226,9 @@ signature: sig1=:base64url...:
 
 3. The proxy maps `pushHandle → deviceToken` and sends a zero-content push notification to APNs or FCM.
 
-Both payloads are content-free silent pushes. The OS wakes the app; the app reconnects to its Relay and receives queued messages.
+Wake-ups carry no content. Both payloads are content-free silent pushes. The OS wakes the app; the app reconnects to its Relay and receives queued messages.
+
+To blur timing, Relays SHOULD add random jitter before sending a wake-up and SHOULD coalesce wake-ups for the same `pushHandle` that fall within the jitter window into one request.
 
 `urgency: "high"` is used for direct messages or @mentions; `urgency: "normal"` is used for general channel traffic. Since the Relay cannot inspect sealed content to determine urgency, the sending client attaches an advisory urgency hint to the outer `RoutingEnvelope`:
 
@@ -309,7 +257,7 @@ A client MAY rotate its `pushHandle` at any time for privacy or after suspected 
 
 JMAP ([RFC 8620](https://jmap.io)) is used at two layers that run on different operators:
 
-- **Relay sync API (IO).** Agora Relays expose a JMAP API limited to blind objects: ciphertext envelopes keyed by `channelToken`, KeyPackages, and blobs (§11.8.1–§11.8.8). It provides history retrieval and state synchronization (state tokens, `/changes` deltas, batched method calls, ResultReferences, and EventSource push) without requiring a persistent connection. A Relay holds no `channelToken`→`channelCID` mapping and serves no Space, Channel, membership, role or invite objects (ARCHITECTURE S1, §5.3 item 4).
+- **Relay sync API (IO).** Agora Relays expose a JMAP API limited to blind objects: ciphertext envelopes keyed by `channelToken`, and blobs (§11.8.1–§11.8.8). It provides history retrieval and state synchronization (state tokens, `/changes` deltas, batched method calls, ResultReferences, and EventSource push) without requiring a persistent connection. A Relay holds no `channelToken`→`channelCID` mapping and serves no Space, Channel, membership, role or invite objects (ARCHITECTURE S1, §5.3 item 4).
 - **Management API (client / CO).** The Space, channel, membership, role and invite API runs in the client (a local daemon) or on CO infrastructure, never on a Relay (§11.8.9).
 
 ### 11.8.1 Endpoints
@@ -326,11 +274,7 @@ GET  /jmap/download/{accountId}/{blobId}/{name}  Blob download
 
 ### 11.8.2 Authentication
 
-Relay JMAP requests MUST NOT require DID authentication (§11.6). Envelope history is addressed by `channelToken`; envelopes written through the sync API carry the same epoch access proof as on the live stream (ARCHITECTURE §6.2). `KeyPackage/set` is the only method that requires proof of DID ownership.
-
-> **Open (agora-pozi.9):** how a Relay meters JMAP request admission and quota without identity.
-
-> **Open (agora-pozi.10):** whether `KeyPackage/*` belongs on the Relay at all, and how a KeyPackage owner proves DID control over HTTP.
+Relays never authenticate client identity on JMAP requests (§11.6). Envelope history is addressed by `channelToken`; envelopes written through the sync API carry the same epoch access proof as on the live stream (ARCHITECTURE §6.2). Requests are rate-limited per network address and per `channelToken` (§11.6).
 
 ### 11.8.3 Capability and Session Object
 
@@ -393,18 +337,6 @@ receivedAt      UTCDate    Relay's clock; authoritative for stable sort order
 expiresAt       UTCDate|null  null = no configured expiry
 ```
 
-#### KeyPackage
-
-An MLS KeyPackage held in the Relay's KeyPackage Store (§5.2.1.1). Exposed here for CRUD access without using the low-level REST endpoint directly. The same atomic-consumption semantics apply: `KeyPackage/get` with `consume: true` atomically removes the package from the store.
-
-```
-id              String     Server-assigned opaque id
-ownerDID        String     DID of the user who uploaded this package
-packageData     String     base64url: raw MLS KeyPackage bytes
-createdAt       UTCDate
-expiresAt       UTCDate|null
-```
-
 ### 11.8.5 Methods
 
 All methods follow RFC 8620 conventions. `/get`, `/set`, `/changes`, and `/query` have their standard semantics. Methods marked **read-only** have no `/set`.
@@ -415,9 +347,6 @@ All methods follow RFC 8620 conventions. `/get`, `/set`, `/changes`, and `/query
 | `Message/changes` | State-token delta. Returns added/updated/destroyed ids since a given state. |
 | `Message/query` | Filter by `channelToken`; sort by `receivedAt` (default) or `seqNo`. |
 | `Message/queryChanges` | RFC 8620 extended query-delta. |
-| `KeyPackage/get` | Fetch by ids. Pass `"consume": true` in args to atomically consume (same guarantee as REST `GET /v1/agora/kp/{did}`). |
-| `KeyPackage/set` | Upload new packages (`create`); destroy expired ones. `ownerDID` must match the DID whose ownership the client proved (§11.8.2). |
-| `KeyPackage/changes` | Delta for the proven owner's own packages. |
 
 **Batching and ResultReferences.** Standard RFC 8620 §4 batching applies. Multiple method calls in a single request execute in order; `#`-prefixed argument keys reference results of prior calls via RFC 6901 JSON Pointers.
 
@@ -458,7 +387,7 @@ The Relay emits `StateChange` events on the EventSource stream when any tracked 
 
 ```
 event: state
-data: {"changed": {"a-relay": {"Message": "s-43", "KeyPackage": "s-7"}}}
+data: {"changed": {"a-relay": {"Message": "s-43"}}}
 ```
 
 Only object types whose state has changed are included in a given event. The live stream (§11.1–§11.2) provides lower-latency delivery for new messages; EventSource is the appropriate trigger for history-sync clients and background processes that do not maintain a live stream connection.
@@ -469,14 +398,12 @@ Only object types whose state has changed are included in a given event. The liv
 |---|---|---|
 | History retrieval and sync | ✓ | ✗ |
 | Space / channel / membership / role / invite management | ✗ (client / CO only, §11.8.9) | ✗ |
-| KeyPackage CRUD | ✓ | ✓ (also REST endpoint) |
 | Programmatic / bot access | ✓ | ✗ |
 | Blob upload / download | ✓ | ✗ |
 | New message delivery | ✗ | ✓ |
 | MLS handshake (Commit / Proposal / Welcome) | ✗ | ✓ |
 | Presence and typing indicators | ✗ | ✓ |
 | Push notification registration | ✗ | ✓ |
-| DID auth handshake (KeyPackage Store only) | See §11.8.2 | ✓ (control frame) |
 
 ### 11.8.9 Management API (Client / CO)
 

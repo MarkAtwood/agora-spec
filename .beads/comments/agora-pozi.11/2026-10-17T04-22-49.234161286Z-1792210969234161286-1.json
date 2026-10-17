@@ -1,0 +1,7 @@
+{
+  "id": "1792210969234161286-1",
+  "issue_id": "agora-pozi.11",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: push allowed by default and in the §5 budget. Wake-ups carry no content; relays SHOULD add random jitter and coalesce nearby wake-ups; a CO MAY designate its own push proxy; users MAY disable push.",
+  "created_at": "2026-10-17T04:22:49.234161286Z"
+}

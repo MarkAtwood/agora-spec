@@ -1,0 +1,7 @@
+{
+  "id": "1792211775056313854-1",
+  "issue_id": "agora-pozi.25",
+  "author": "agent",
+  "text": "Also: profiles still use did:web for employees (o365 ~32, gsuite ~6, universal ~2 occurrences); switch to did:webvh per DID-method decision (agora-pozi.6). did:webvh portability simplifies the domain-migration text (agora-pozi.20.53).",
+  "created_at": "2026-10-17T04:36:15.056313854Z"
+}

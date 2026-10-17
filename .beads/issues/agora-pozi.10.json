@@ -2,13 +2,15 @@
   "id": "agora-pozi.10",
   "title": "Q3: KeyPackage store placement",
   "description": "DID-keyed KP store learns social graph at group creation. Option: DID-doc KeyPackageEndpoint hosted by CO/user-chosen provider; IO-hosted store = declared budget extension. (ARCHITECTURE.md §8)",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T02:48:15.43326988Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T02:48:15.43326988Z",
+  "updated_at": "2026-10-17T04:36:14.944099813Z",
+  "closed_at": "2026-10-17T04:36:14.944099813Z",
+  "close_reason": "Decided by Mark 2026-10-16; applied to spec (see decision comment)",
   "dependencies": [
     {
       "issue_id": "agora-pozi.10",

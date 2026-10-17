@@ -1,0 +1,7 @@
+{
+  "id": "1792210906860013094-1",
+  "issue_id": "agora-pozi.9",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16), option A: no identity at relays ever. Writes gated by epoch access proof; registrations by billing key; storage/bandwidth by RSA quotas. Remaining reads/connections/subscriptions/push registration limited per network address and per channelToken; relay MAY require proof-of-work challenge under load (fair to Tor users sharing exit IPs). Delete client-relay DID challenge-response handshake (§11.6) — only survived for KP store, moved off relay by Q3. Privacy Pass deferred as possible future extension.",
+  "created_at": "2026-10-17T04:21:46.860013094Z"
+}

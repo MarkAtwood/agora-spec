@@ -1,0 +1,7 @@
+{
+  "id": "1792211021671786465-1",
+  "issue_id": "agora-pozi.12",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16): rule locked. (1) Every discovery record is signed by the party it describes: CO for Space records, user for user records, relay for relay records. (2) Relays forward/cache but never author or modify Space or user records; no 'spaces hosted here' lists. (3) Only public Spaces advertise; private Spaces reached by invite. (4) Directories are independent publishers listing only CO-signed records. KeyPackageLowAlert removal covered by Q3.",
+  "created_at": "2026-10-17T04:23:41.671786465Z"
+}

@@ -1,0 +1,7 @@
+{
+  "id": "1792211415499967609-1",
+  "issue_id": "agora-pozi.6",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-16): three methods, individual's choice. did:webvh = default (pending maturity check); did:plc = opt-in (Bluesky identity reuse); did:key = opt-in self-custody: no device add/rotation/recovery beyond user's own backup, clients MUST warn at creation, user trusted with keys. did:key multi-device = copy identity key to each device (no per-device revocation; remedy is new identity). did:key KeyPackage pointer = Pkarr record (Mainline DHT, signed by the key). Employer-provisioned identities: employer picks method, normally did:webvh. CO MAY restrict accepted DID methods per Space (client-enforced). did:key still used for device keys and some service identities. Org impersonation: with webvh, document changes require holder-signed history; org update keys visible in history.",
+  "created_at": "2026-10-17T04:30:15.499967609Z"
+}

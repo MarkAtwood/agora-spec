@@ -1,0 +1,7 @@
+{
+  "id": "1792211775089078266-1",
+  "issue_id": "agora-pozi.8",
+  "author": "agent",
+  "text": "Design decisions applied. For external review also include: CO registration service countersigns only for a requester it authenticates as a current channel member under Space state, at most one announcement per chain and epoch (spec §5.2.2).",
+  "created_at": "2026-10-17T04:36:15.089078266Z"
+}

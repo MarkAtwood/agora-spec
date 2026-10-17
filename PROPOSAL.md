@@ -72,18 +72,22 @@ DIDs, and content addressing.
 Draft specification, revision in progress. No conformant implementation. No
 payments or cryptocurrency in the first release.
 
-Open decisions, tracked in Beads under epic `agora-pozi`:
+Design decisions made in this revision:
 
-1. **Epoch access proof** (`spec/05` §5.2.2). Members derive a shared signing
-   key per epoch from the MLS exporter, so a relay can admit current members
-   without identifying them. New design; unreviewed.
-2. **Admission without identity.** How a relay meters abuse before a client
-   proves membership in anything.
-3. **KeyPackage store placement.** The last place user DIDs can reach
-   infrastructure.
-4. **DID method for individuals** without an employer provisioning service,
-   since `did:key` documents cannot change.
-5. Push proxy defaults, discovery, and relay transparency logs.
+- **Epoch access proof** (`spec/05` §5.2.2). Members derive a shared signing
+  key per epoch from the MLS exporter, so a relay can admit current members
+  without identifying them. Each new epoch key is countersigned by the
+  communications operator, so a member being removed cannot hijack the chain.
+  This is new design and the one item still awaiting external review.
+- **No identity at relays.** Relays rate-limit connections by network address
+  and routing token, with proof of work under load. There is no login.
+- **KeyPackages live with whoever runs the user's identity**, never on relays.
+- **Identity.** `did:webvh` by default; `did:plc` for people who want to reuse
+  a Bluesky identity; `did:key` for people who hold their own keys and accept
+  that their backup is their only recovery. Communities may restrict which
+  methods they accept.
+- **Push** is on by default with content-free, jittered wake-ups.
+- **Discovery** records are signed only by the party they describe.
 
 ## What we are asking for
 

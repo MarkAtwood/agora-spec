@@ -16,7 +16,7 @@ Agora is transport-agnostic at the application layer. The following deployment t
 
 **Dual-stack (clearnet + overlay)**: A Relay MAY publish both clearnet and overlay endpoints. Clients on the overlay prefer the overlay path; external clients use the clearnet path. Both sets of clients share the same space state and message history.
 
-**Managed / SaaS**: A relay operator (the "managed provider") provisions and operates a dedicated Agora relay fleet on behalf of a customer. Each customer receives their own isolated deployment (separate relay processes, separate database, separate blob store), not a shared multi-tenant instance. The customer controls, or delegates control of, the DNS name that roots their deployment; the managed provider's infrastructure hosts it (typically via CNAME or DNS delegation). The managed provider's identity appears as `operatorDID` in each relay manifest (§10.2.1), but `relayDID` is anchored to the customer's DNS domain, not the provider's. This preserves namespace ownership: if the customer migrates to self-hosted, their DNS name and all derived identities (`did:web:<customer-domain>:users:...`) are portable without re-enrollment. `operatorDID` and `relayDID` are IO keys and are distinct principals from every CO key, even where one entity holds both roles (ARCHITECTURE §2.4).
+**Managed / SaaS**: A relay operator (the "managed provider") provisions and operates a dedicated Agora relay fleet on behalf of a customer. Each customer receives their own isolated deployment (separate relay processes, separate database, separate blob store), not a shared multi-tenant instance. The customer controls, or delegates control of, the DNS name that roots their deployment; the managed provider's infrastructure hosts it (typically via CNAME or DNS delegation). The managed provider's identity appears as `operatorDID` in each relay manifest (§10.2.1), but `relayDID` is anchored to the customer's DNS domain, not the provider's. This preserves namespace ownership: if the customer migrates to self-hosted, their DNS name and all derived identities (`did:webvh:<SCID>:<customer-domain>:users:...`) are portable without re-enrollment. A did:webvh identity (§2.1) is also portable to a different domain, because its SCID and signed document history move with it. `operatorDID` and `relayDID` are IO keys and are distinct principals from every CO key, even where one entity holds both roles (ARCHITECTURE §2.4).
 
 **IPv6**: All Relay endpoints SHOULD support IPv6. Relay URIs MUST use bracket notation for IPv6 address literals (`wss://[2001:db8::1]/v1/agora/ws`). ICE gathers both IPv4 and IPv6 host candidates; dual-stack clients race both address families.
 
@@ -24,9 +24,9 @@ Agora is transport-agnostic at the application layer. The following deployment t
 
 A deployment's ability to participate in the public Agora mesh depends on whether it has a DNS root:
 
-**Discoverable deployments** (public internet, managed/SaaS, dual-stack) SHOULD be anchored to a DNS name. That name is the root of the deployment's identity namespace: relay DIDs are `did:web:<domain>`, organizational user DIDs are `did:web:<domain>:users:...`, and the relay manifest is served at `https://<domain>/.well-known/agora-relay`. Any two deployments with distinct DNS names have non-overlapping identity namespaces by construction; no registry or authority is required to prevent conflicts.
+**Discoverable deployments** (public internet, managed/SaaS, dual-stack) SHOULD be anchored to a DNS name. That name is the root of the deployment's identity namespace: relay DIDs are `did:web:<domain>`, organizational user DIDs are normally `did:webvh:<SCID>:<domain>:users:...`, and the relay manifest is served at `https://<domain>/.well-known/agora-relay`. Any two deployments with distinct DNS names have non-overlapping identity namespaces by construction; no registry or authority is required to prevent conflicts.
 
-**Non-discoverable deployments** (private overlay, air-gapped, Tor-only) have no DNS root requirement. Relay DIDs are `did:key:...`; user DIDs are `did:key:...` or `did:web` anchored to an internal-only domain. These deployments cannot join the public gossipsub mesh or federate with external organizations. This is an explicit architectural trade-off.
+**Non-discoverable deployments** (private overlay, air-gapped, Tor-only) have no DNS root requirement. Relay DIDs are `did:key:...`; user DIDs are `did:key:...` or `did:webvh` anchored to an internal-only domain. These deployments cannot join the public gossipsub mesh or federate with external organizations. This is an explicit architectural trade-off.
 
 No registry, whitelist, or certificate authority governs which DNS names may root an Agora deployment. DNS ownership is the sole claim to a namespace.
 
@@ -64,7 +64,6 @@ The manifest is a signed JSON-LD document that serves as the Relay's authoritati
     "webTransport":    "https://relay.example.com/v1/agora/wt",
     "webSocket":       "wss://relay.example.com/v1/agora/ws",
     "onion":           "ws://examplerelay3xyzabc.onion/v1/agora/ws",
-    "keyPackageStore": "https://relay.example.com/v1/agora/kp",
     "peerAPI":         "https://relay.example.com/v1/agora/peer",
     "jmapSync":        "https://relay.example.com/v1/agora/jmap",
     "gossipQuic":      "/ip4/203.0.113.42/udp/9001/quic-v1"
@@ -81,8 +80,6 @@ The manifest is a signed JSON-LD document that serves as the Relay's authoritati
   ],
   "capabilities": [
     "gossipsub-v1.1",
-    "keypackage-store-v1",
-    "keypackage-forwarding-v1",
     "tor-hidden-service-v1",
     "peer-api-v1",
     "jmap-sync-v1"
@@ -128,9 +125,6 @@ For relays operating exclusively on a private overlay, Tor hidden service, or ai
 | `gossipsub-v1.1` | Participates in libp2p gossipsub v1.1 mesh over TCP |
 | `gossipsub-quic-v1` | Participates in libp2p gossipsub v1.1 mesh over QUIC-v1 (preferred) |
 | `peer-api-h3` | Peer API is served over HTTP/3 (QUIC); `Alt-Svc: h3` header is present |
-| `keypackage-store-v1` | Hosts the KeyPackage Store API (§5.2.1.1) |
-| `keypackage-forwarding-v1` | Supports inter-relay KeyPackage forwarding |
-| `keypackage-ipfs-supply-v1` | Can replenish the KeyPackage store from a DID's IPFS supply CID (§5.2.1.1) |
 | `tor-hidden-service-v1` | Reachable via a `.onion` endpoint |
 | `sfu-v1` | Hosts an SFU for voice channel routing |
 | `peer-api-v1` | Implements the Peer API v1 (§10.2.2) |
@@ -266,7 +260,7 @@ Each gossipsub **topic** maps to a specific scope:
 
 No topic carries a Space CID, MLS group ID or other Space identifier (ARCHITECTURE S1). Space state, moderation records and other Space-level records reach members from the CO's Space endpoint and in-band MLS notifications (§3.4); Welcomes go to the invitee's `KeyPackageEndpoint` (§4.6).
 
-The `v1/` prefix is the gossip protocol version for that topic family. A future breaking change to message framing on a topic introduces a `v2/` prefix. Relays MUST subscribe to all versions of topics they serve. Clients negotiate which version to publish on via the `negotiated.gossipVersion` field in the `RelayChallenge` (§11.6). During a version transition period, Relays bridge messages between `v1/` and `v2/` topic variants for the same channel.
+The `v1/` prefix is the gossip protocol version for that topic family. A future breaking change to message framing on a topic introduces a `v2/` prefix. Relays MUST subscribe to all versions of topics they serve. Clients negotiate which version to publish on via the `negotiated.gossipVersion` field in the `RelayHello` (§11.6). During a version transition period, Relays bridge messages between `v1/` and `v2/` topic variants for the same channel.
 
 **Reference implementations for libp2p gossipsub:**
 - Go: [`go-libp2p-pubsub`](https://github.com/libp2p/go-libp2p-pubsub)
@@ -289,9 +283,10 @@ A **SpaceAd** or **UserAd** message is gossiped periodically (default TTL: 60 se
     "wss://relay.example.com",
     "wss://relay.example.net"
   ],
-  "isPublic": true,
+  "iconCID": "bafyrei...",
+  "inviteURL": "https://invite.example.com/dev",
   "spaceEndpoint": ["https://spaces.example.com/v1/agora/space/1f3a..."],
-  "advertisedBy": "did:key:z6Mk...",
+  "advertisedBy": "did:webvh:QmSCID...:example.com:co",
   "sig": "base64url...",
   "ts": "2026-03-12T00:00:00Z"
 }
@@ -299,9 +294,11 @@ A **SpaceAd** or **UserAd** message is gossiped periodically (default TTL: 60 se
 
 `spaceEndpoint` lists the CO's Space endpoint URLs (§3.4). `relayHints` are connection hints only; clients are not required to use them and SHOULD attempt direct peer connections first. `relayHints` MAY include `.onion` addresses, clearnet HTTPS/WSS URIs, overlay-internal hostnames, and IPv6 address literals.
 
-A SpaceAd is a voluntary CO publication; Relays forward it on `v1/agora/discovery` like any other gossip message.
+**Signing rule.** Every discovery record is signed by the party it describes: the CO for Space records, the user for user records, and the Relay for relay records. `advertisedBy` is the CO DID that signs the Space's state (ARCHITECTURE S4), and `sig` is its signature over the SpaceAd excluding `sig`, signed per §13.1.1. A UserAd is signed the same way by the user's DID. Clients MUST discard a SpaceAd or UserAd whose signature does not verify against the described party.
 
-> **Open (agora-pozi.12):** Whether any discovery path (SpaceAd or directory entry) requires an IO to publish CO information on the CO's behalf.
+Only public Spaces advertise. A CO MUST NOT publish a SpaceAd or directory entry for a private Space; private Spaces are reached only by invitation (§4.3).
+
+A SpaceAd is a voluntary CO publication. Relays forward and cache SpaceAds and UserAds on `v1/agora/discovery` like any other gossip message. A Relay MUST NOT author or modify a Space or user record, and MUST NOT publish lists of the Spaces it serves.
 
 ### 10.3.3 Relay Discovery Bootstrap
 
@@ -360,7 +357,7 @@ A `RelayDirectory` lists Relays available for client connection:
 }
 ```
 
-`ttl` is the number of seconds before the client should re-fetch the document. `includes` is a list of other directory document URLs whose contents are merged into this one; clients MUST limit include recursion depth to 3 to prevent cycles. `sig` is the maintainer's Ed25519 signature over the document (excluding the `sig` field), signed per §13.1.1. Clients SHOULD verify the signature against the `maintainer` DID but MAY accept unsigned directories with a user-visible warning.
+`ttl` is the number of seconds before the client should re-fetch the document. `includes` is a list of other directory document URLs whose contents are merged into this one; clients MUST limit include recursion depth to 3 to prevent cycles. `sig` is the maintainer's Ed25519 signature over the document (excluding the `sig` field), signed per §13.1.1. Clients SHOULD verify the signature against the `maintainer` DID but MAY accept unsigned directories with a user-visible warning. A `RelayEntry` is a connection hint; the relay record that counts is the Relay-signed manifest (§10.2.1), which clients MUST verify before use (§10.3.4.7).
 
 #### 10.3.4.2 Space Directory
 
@@ -381,15 +378,7 @@ A `SpaceDirectory` lists Spaces available for browsing or joining:
     {
       "@type": "SpaceDirectoryEntry",
       "spaceCID": "bafyrei...",
-      "name": "Example Corp Community",
-      "description": "Example Corp open source project",
-      "iconCID": "bafyrei...",
-      "memberCount": 340,
-      "isPublic": true,
-      "inviteURL": "https://invite.example.com/community",
-      "relayHints": [
-        "wss://relay.example.com"
-      ],
+      "spaceAd": { "@type": "SpaceAd", "spaceCID": "bafyrei...", "...": "...", "sig": "base64url..." },
       "tags": ["cryptography", "embedded", "fips", "open-source"],
       "language": "en",
       "addedBy": "did:key:z6MkMaintainer...",
@@ -402,7 +391,9 @@ A `SpaceDirectory` lists Spaces available for browsing or joining:
 }
 ```
 
-`inviteURL` is a human-readable join link; the join flow itself is handled by the Space's invite mechanism (§4.3). `spaceCID` is the authoritative space identity; clients verify this against the space's genesis state document when connecting.
+A directory is an independent publisher and lists only CO-signed Space records. `spaceAd` is the CO-signed SpaceAd (§10.3.2) for the Space, copied unmodified; clients MUST verify its signature and MUST discard an entry whose `spaceAd` is missing, fails verification, or names a different `spaceCID`. Name, description, icon, member count, invite link and relay hints come only from `spaceAd`; `tags`, `language`, `addedBy` and `addedAt` are the directory's own annotations, covered by the directory `sig`.
+
+The SpaceAd's `inviteURL` is a human-readable join link; the join flow itself is handled by the Space's invite mechanism (§4.3). `spaceCID` is the authoritative space identity; clients verify this against the space's genesis state document when connecting.
 
 #### 10.3.4.3 Combined Directory
 
@@ -456,7 +447,7 @@ Relay operators SHOULD re-announce every 30 minutes. Clients performing a cold-s
 
 ##### User Endpoint Discovery (BEP-44 / Pkarr)
 
-A `did:key` user MAY publish a BEP-44 mutable item on Mainline to advertise their current relay endpoints, profile CID, and KeyPackage supply CID. This enables contact initiation without requiring a shared directory or prior relay knowledge.
+A `did:key` user has no DID document, so it publishes its Pkarr pointer record here (§2.1): a BEP-44 mutable item on Mainline, signed by the identity key, carrying its KeyPackage pointer and profile pointer. It names no relay or other IO (ARCHITECTURE §2). A `did:key` user MUST publish this record to be reachable for invitations. This enables contact initiation without requiring a shared directory or prior relay knowledge.
 
 **Key derivation.** The BEP-44 key is the user's raw 32-byte ed25519 authentication public key, extracted directly from their `did:key` identifier. No additional key material is required.
 
@@ -464,22 +455,19 @@ A `did:key` user MAY publish a BEP-44 mutable item on Mainline to advertise thei
 
 ```
 _agora.             TXT  "v=1"
-_relay._agora.      TXT  "wt=https://relay1.example.com/v1/agora/wt"
-_relay._agora.      TXT  "wt=https://relay2.example.com/v1/agora/wt"
 _profile._agora.    TXT  "cid=bafyrei..."
-_kp._agora.         TXT  "cid=ipfs://bafyrei.../keypackages.cbor;n=50"
+_kp._agora.         TXT  "url=https://kp.example.net/v1/agora/kp/z6Mk..."
 ```
 
-Multiple `_relay._agora` TXT records are permitted; clients treat them as an ordered preference list. All fields are optional except `v`.
+`v` and `_kp` are required; `_profile` is optional.
 
 | Record | Key | Value | Required |
 |---|---|---|---|
 | `_agora` | `v` | Schema version (`1`) | Yes |
-| `_relay._agora` | `wt` or `ws` | WebTransport or WebSocket relay endpoint URL | No |
 | `_profile._agora` | `cid` | `ipfs://` URI of the user's current profile IPLD node | No |
-| `_kp._agora` | `cid` | `ipfs://` URI of the user's KeyPackage supply batch; `n` = count | No |
+| `_kp._agora` | `url` | The user's KeyPackage endpoint, the equivalent of a DID document `KeyPackageEndpoint` (§2.1) | Yes |
 
-The total DNS packet MUST fit within 1000 bytes (BEP-44 value limit). In practice a record with two relay endpoints, a profile CID, and a KeyPackage CID occupies approximately 350–400 bytes.
+The total DNS packet MUST fit within 1000 bytes (BEP-44 value limit). In practice a record with a profile CID and a KeyPackage URL occupies about 200 bytes.
 
 **Verification.** BEP-44 mutable items are self-certifying: the DHT node returns the value together with the ed25519 signature, and the lookup key is the public key itself. Clients MUST verify the signature before using any field. A valid signature proves the record was produced by the holder of the DID's authentication key.
 
@@ -487,11 +475,11 @@ The total DNS packet MUST fit within 1000 bytes (BEP-44 value limit). In practic
 1. Decode the `did:key` identifier to recover the raw 32-byte ed25519 public key.
 2. Issue a BEP-44 `get` query for that key.
 3. Verify the returned signature against the key.
-4. Parse TXT records and use relay endpoints, profile CID, or KeyPackage supply CID as needed.
+4. Parse TXT records and use relay endpoints, profile CID, or KeyPackage endpoint as needed.
 
 **Publication and refresh.** Clients SHOULD publish their record on first login and re-publish every 2 hours. BEP-44 mutable items have no explicit TTL but decay from the DHT within approximately 2 hours without re-announcement. Stale or absent records are not an error; clients fall back to other discovery mechanisms.
 
-**Scope.** This mechanism applies only to `did:key` users. `did:web` users have a domain-anchored DID document served over HTTPS; their relay endpoints are discoverable via standard DID resolution and do not require Mainline publication.
+**Scope.** This mechanism applies only to `did:key` users. `did:webvh` and `did:plc` users publish their `KeyPackageEndpoint` and profile pointer in their DID document, found by standard DID resolution, and do not require Mainline publication.
 
 #### 10.3.4.7 Trust Model
 
@@ -510,8 +498,6 @@ Directory maintainers are identified by their `maintainer` DID and signature. Th
 A conformant Relay is designed to know as little as possible about the traffic it routes. The following is both a design target and a compliance requirement: a Relay operator responding to a legal demand or subpoena MUST be able to testify truthfully to all of the following:
 
 - I do not know who my users are (no identity registration, no account system, no persistent user records).
-
-> **Open (agora-pozi.9):** The client-relay handshake (§11.6) authenticates member DIDs, which contradicts this statement; admission without identity is unresolved (ARCHITECTURE §7 item 9, §11 Q2).
 
 - I do not know who is in any group (channel membership is not visible at the relay layer; `channelToken` is epoch-rotating and non-reversible without the epoch secret).
 - I do not know who sent any message (sealed sender design; sender DID is inside the MLS ciphertext).
@@ -538,8 +524,7 @@ The `channelToken` rotates with every MLS epoch. A Relay that captures routing t
 A conformant Relay MUST:
 
 - Implement WebSocket transport (§11.2); WebTransport is RECOMMENDED.
-- Implement the client-relay authentication handshake (§11.6).
-- Implement the KeyPackage Store API (§5.2.1.1).
+- Implement the client hello and connection admission controls (§11.6), without authenticating client identity.
 - Implement the Peer API and relay-to-relay authentication (§10.2).
 - Verify the epoch access proof on every envelope before caching or forwarding it, and drop envelopes that fail verification (ARCHITECTURE §6.2).
 - Respect `expiryHint` on cached message envelopes (§5.2.4).
@@ -556,16 +541,15 @@ A conformant Relay MUST:
 - Support IPv6 on all endpoints; use bracket notation for IPv6 literals in advertised URIs.
 - Enforce per-`channelToken` rate limits as the primary spam control mechanism; per-IP limits MUST NOT be the sole mechanism.
 
-> **Open (agora-pozi.8):** The epoch access proof mechanism is a candidate pending review against MLS security properties (ARCHITECTURE §8 Q1).
-
-> **Open (agora-pozi.10):** Whether a Relay hosts a KeyPackage store at all, or KeyPackages are located through the user's DID document (ARCHITECTURE §8 Q3).
+> **Open (agora-pozi.8):** The epoch access proof mechanism awaits external cryptographic review.
 
 A conformant Relay MUST NOT:
 
 - Attempt to decrypt MLS ciphertext.
 - Log or retain sender DIDs (sealed sender design means the Relay never has them).
 - Use per-IP rate limiting as the sole spam control mechanism.
-- Reuse a consumed KeyPackage.
+- Store or serve MLS KeyPackages; KeyPackages are held at the user's `KeyPackageEndpoint` (§2.1).
+- Author or modify Space or user discovery records, or publish lists of the Spaces it serves (§10.3.2).
 - Modify gossipsub messages in transit.
 - Make or enforce decisions about membership, roles, moderation or content, including bans, timeouts, deletes and pin limits; these are enforced by MLS removal and member clients (ARCHITECTURE S2, §5.2.2).
 - Sign Space state, channel state, role assignments, moderation records or retention policy (ARCHITECTURE S4).
@@ -611,13 +595,6 @@ A `RelayServiceAgreement` is a bilaterally signed document between a CO billing 
   },
   "validFrom": "2026-03-12T00:00:00Z",
   "validUntil": "2027-03-12T00:00:00Z",
-  "keyPackageSLA": {
-    "minimumCount": 20,
-    "alertThreshold": 5,
-    "alertMechanism": "both",
-    "guaranteedRetentionDays": 90,
-    "replenishFromIPFS": true
-  },
   "relaySig": "base64url...",
   "billingSig": "base64url..."
 }
@@ -645,8 +622,6 @@ A registration carries nothing that identifies a Space or channel. The CO's regi
 `storageQuotaGb` and `bandwidthTierGbPerMonth` are the quotas the Relay enforces for this agreement (§10.4.3).
 
 `observationBudget` records the connection-log retention (ARCHITECTURE §5 item 1) and any opt-in observation-budget extensions (ARCHITECTURE S6) the CO has agreed to. The Relay MUST declare the same values in its manifest (§10.2.1) and MUST NOT exceed them.
-
-`keyPackageSLA` is an optional clause that elevates the relay's KeyPackage Store behavior from best-effort to a contractual obligation (§5.2.1.1). When present, all fields are required and the relay's conformance to them is a term of the agreement.
 
 Relays publish their service tiers in their `RelayAd`:
 

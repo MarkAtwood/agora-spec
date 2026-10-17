@@ -1,0 +1,7 @@
+{
+  "id": "1792211233128884499-1",
+  "issue_id": "agora-pozi.8",
+  "author": "agent",
+  "text": "Flaw found 2026-10-16: accessKeyAnnouncement is signed with the previous epoch access key, which a member being removed also holds; they can forge an announcement for a key only they know, race the real one, keep relay access and lock out legitimate members (availability, not confidentiality). DECIDED (Mark), option A: every accessKeyAnnouncement MUST be countersigned by the CO registration service (billing key) to be accepted; if the service is unreachable the relay keeps accepting the last vouched key. Bead stays open for external cryptographic review.",
+  "created_at": "2026-10-17T04:27:13.128884499Z"
+}
