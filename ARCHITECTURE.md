@@ -292,9 +292,12 @@ Consequences:
   meantime can post ciphertext until the rotation, which members' clients
   drop, but cannot read it. This cost is accepted in §9.
 - **Commit conflicts.** When two Commits target the same MLS epoch, the one
-  the channel's sequencer stamps first wins, among stamped Commits published
-  within 10 seconds of their stamp and valid under Space state; the others
-  are skipped by every member alike. Once a rotated admission key is
+  the channel's sequencer stamps first wins, among stamped Commits that are
+  valid MLS Commits for that epoch, whether or not they were published.
+  Members fill gaps in the stamp order from the sequencer's log, so the log
+  is the sole referee and no clock is consulted; the others are skipped by
+  every member alike. Authorization under Space state is checked after the
+  winner is chosen, and an unauthorized winner is a policy violation. Once a rotated admission key is
   registered, the sequencer stamps no Commit on the old token's commit
   stream. If the Space designates no
   sequencer, the Commit with the lowest envelope `id` among those received
@@ -441,8 +444,9 @@ All resolved 2026-10-16 except the external review in Q1.
   therefore map that token, and the billing DID it is registered under, to the
   named Space. This ties the CO's billing DID to a Space that already
   advertises itself and its relays, and lets push and address clustering tie
-  the followers' other tokens under that CO to a known community. Privacy
-  claims about tokens elsewhere in this document and the protocol spec exclude
+  the followers' other tokens under that CO to a known community. The
+  Space's public view also names every DID that may post to such a channel.
+  Privacy claims about tokens elsewhere in this document and the protocol spec exclude
   these published tokens.
 - **Push links a device's channels at its relay.** A relay serving push holds
   each `pushHandle` with its registered routing tokens, so it can cluster

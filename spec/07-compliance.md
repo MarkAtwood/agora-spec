@@ -214,7 +214,7 @@ Logger addition in a DM group follows the standard MLS Add + Commit path:
 1. The regulated member's client fetches a fresh `KeyPackage` for the Space's `loggerDID` from the logger's `KeyPackageEndpoint` (below).
 2. The client issues an MLS Add Proposal for the logger DID.
 3. The client immediately commits the proposal. No consent threshold applies (§7.7).
-4. Unless the logger DID is already on the group's member list, the client, as committer, sends the group's admission host a `DMMembers` addition that adds the logger DID to `members` and `complianceLoggers`, and waits for a `204` (§4.6).
+4. Once its Commit has won (§5.1.1), and unless the logger DID is already on the group's member list, the client, as committer, sends the group's admission host a `DMMembers` list that adds the logger DID to `members` and `complianceLoggers`, and waits for a `204` (§4.6).
 5. The client delivers the MLS `Welcome` by POST to the logger's `KeyPackageEndpoint`, completing the logger's admission to the MLS group. The logger does not issue a `Welcome`; it only supplies the `KeyPackage`.
 6. The client updates the `DMGroupDescriptor` to add the logger DID to the `complianceLoggers` array and sends the updated descriptor to the group (§4.6).
 
@@ -325,7 +325,7 @@ DM compliance capture is enforced only at CO enforcement points (ARCHITECTURE §
 }
 ```
 
-`mlsGroupID` is the DM group's MLS group ID (§4.6). For a Space channel, `channelID` (as in `ComplianceRecord`) replaces `mlsGroupID`. `readmittedAtEpoch` is `null` while the logger has not been re-admitted.
+`mlsGroupID` is the DM group's MLS group ID (§4.6). For a Space channel, `channelID` (as in `ComplianceRecord`) replaces `mlsGroupID`. `readmittedAtEpoch` is `null` while the logger has not been re-admitted. An attachment capture gap (§7.4) carries `recordCID`, the CID of the Message's `ComplianceRecord`, and `missingBlobId`, the attachment's `blobId`, in place of `removedAtEpoch` and `readmittedAtEpoch`.
 - The CO's audit pipeline SHOULD reconcile `DMComplianceAuditEntry` records (§7.8.8) against the groups the logger actually holds and alert the compliance officer to discrepancies.
 
 **Accepted cost.** A modified or non-conformant client can create or join a DM group without the logger, and no infrastructure component will stop it; such groups are invisible to the logger. The mitigation is the managed endpoint, the same trust boundary regulated firms already rely on for every other channel (ARCHITECTURE §9).
@@ -347,7 +347,7 @@ The following table summarizes the conformance requirements for DM group complia
 | Publish `KeyPackageEndpoint` in logger DID document | Compliance logger operator | MUST |
 | Provide fresh (non-reused) KeyPackage per request | Compliance logger operator | MUST |
 | Refuse to send in a DM group lacking the logger | Regulated member's client | MUST |
-| Send the `DMMembers` addition and receive `204` before delivering the Welcome of any Add | Committing client | MUST |
+| Send the updated `DMMembers` and receive `204` before delivering the Welcome of any Add | Committing client | MUST |
 | Send `Welcome` to the logger's `KeyPackageEndpoint` when committing its Add | Committing client | MUST |
 | Accept `Welcome` by POST at the `KeyPackageEndpoint` | Compliance logger operator | MUST |
 | Record detectable capture gaps in the compliance audit chain | Compliance logger | MUST |

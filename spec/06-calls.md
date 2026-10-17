@@ -260,7 +260,7 @@ TURN servers are listed in the CO-signed Space state document (ARCHITECTURE S4):
 "turnServers": [
   {
     "@type": "TURNDescriptor",
-    "uri": "turns:turn.example.com:5349",
+    "uri": "turns:turn.example.com:443?transport=tcp",
     "credentialEndpoint": "https://turn-creds.acme.example/v1/agora/turn",
     "transport": "tcp",
     "regions": ["us-west", "eu-central"],
@@ -269,7 +269,7 @@ TURN servers are listed in the CO-signed Space state document (ARCHITECTURE S4):
 ]
 ```
 
-`uri` follows the standard TURN URI format (RFC 7065). `credentialEndpoint` is the HTTPS URL of the CO credential service that issues credentials for this server (§6.11 TURN Credentials). A TURN server has no DID: it never signs anything a client verifies, and the TLS certificate of `uri` authenticates it. `turns:` (TLS) is required; `turn:` (plaintext) MUST NOT be used. A `TURNDescriptor` MUST NOT carry any shared secret or key from which TURN credentials can be computed.
+`uri` follows the standard TURN URI format (RFC 7065). `credentialEndpoint` is the HTTPS URL of the CO credential service that issues credentials for this server (§6.11 TURN Credentials). A TURN server has no DID: it never signs anything a client verifies, and the TLS certificate of `uri` authenticates it. `turns:` (TLS) is required; `turn:` (plaintext) MUST NOT be used. A TURN server SHOULD accept TURN over TLS on TCP port 443, which networks that allow only web traffic still pass. A `TURNDescriptor` MUST NOT carry any shared secret or key from which TURN credentials can be computed.
 
 **Reference implementations:** [`coturn`](https://github.com/coturn/coturn) is the standard open-source TURN/STUN server.
 

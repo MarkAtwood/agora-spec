@@ -36,7 +36,7 @@ No registry, whitelist, or certificate authority governs which DNS names may roo
 
 Relays form a gossipsub mesh with each other for fanout. This section specifies how Relays discover each other, authenticate, establish trust levels, and maintain the mesh. The model follows a well-known manifest endpoint, RFC 9421 HTTP Message Signatures for relay-to-relay authentication, graduated trust levels, and zero-configuration bootstrap from any single known peer.
 
-**Transport for relay-to-relay communication.** libp2p supports multiple transports; Relays SHOULD prefer **QUIC-v1** (`/ip4/.../udp/.../quic-v1` multiaddr) for gossipsub connections, with TCP (`/ip4/.../tcp/...`) as the fallback for environments where UDP is blocked. QUIC eliminates head-of-line blocking between gossip streams and removes TCP from the relay-to-relay data path entirely. The Peer API (§10.2.2) SHOULD be served over **HTTP/3** (QUIC); Relays MUST also support HTTP/1.1 or HTTP/2 over TLS as a fallback and SHOULD advertise HTTP/3 availability via `Alt-Svc: h3="<port>"` response headers. Relay operators that cannot expose UDP MAY operate TCP-only, but MUST declare this in their manifest `capabilities` by omitting `gossipsub-quic-v1`.
+**Transport for relay-to-relay communication.** libp2p supports multiple transports; Relays SHOULD prefer **QUIC-v1** (`/ip4/.../udp/.../quic-v1` multiaddr) for gossipsub connections, with TCP (`/ip4/.../tcp/...`) as the fallback for environments where UDP is blocked. QUIC eliminates head-of-line blocking between gossip streams and removes TCP from the relay-to-relay data path entirely. The Peer API (§10.2.2) SHOULD be served over **HTTP/3** (QUIC); Relays MUST also support HTTP/1.1 or HTTP/2 over TLS as a fallback and SHOULD advertise HTTP/3 availability via `Alt-Svc: h3=":<port>"` response headers. A Relay SHOULD serve everything on port 443: its client endpoints and Peer API over TCP and UDP 443, and libp2p QUIC on UDP 443, sharing one QUIC listener with HTTP/3 and telling connections apart by their TLS ALPN (`h3` or `libp2p`). An operator MAY use other ports; every endpoint, multiaddr and SRV record carries its port. Relay operators that cannot expose UDP MAY operate TCP-only, but MUST declare this in their manifest `capabilities` by omitting `gossipsub-quic-v1`.
 
 ### 10.2.1 Relay Manifest
 
@@ -65,7 +65,7 @@ The manifest is a typed payload envelope (§13.1) of type `urn:agora:type:RelayM
     "peerAPI":         "https://relay.example.com/v1/agora/peer",
     "jmapSync":        "https://relay.example.com/v1/agora/jmap",
     "admissionKeys":   "https://relay.example.com/v1/agora/admission-keys",
-    "gossipQuic":      "/ip4/203.0.113.42/udp/9001/quic-v1"
+    "gossipQuic":      "/ip4/203.0.113.42/udp/443/quic-v1"
   },
   "keys": [
     {
@@ -143,7 +143,7 @@ For relays operating exclusively on a private overlay, Tor hidden service, or ai
 
 Relays expose a **Peer API** at the URL declared in `endpoints.peerAPI` for relay-to-relay operations. All Peer API requests (except `manifest` and `health`, which are unauthenticated) are signed using RFC 9421 HTTP Message Signatures (§10.2.3).
 
-Relays SHOULD serve the Peer API over HTTP/3 and advertise this via `Alt-Svc: h3="9001"` (or the appropriate port) on all HTTP responses. A connecting Relay that receives an `Alt-Svc` header SHOULD upgrade to HTTP/3 for subsequent requests. Relays MUST continue to accept HTTP/1.1 and HTTP/2 over TLS on the same `peerAPI` URL for peers that cannot use QUIC.
+Relays SHOULD serve the Peer API over HTTP/3 and advertise this via `Alt-Svc: h3=":443"` (or the appropriate port) on all HTTP responses. A connecting Relay that receives an `Alt-Svc` header SHOULD upgrade to HTTP/3 for subsequent requests. Relays MUST continue to accept HTTP/1.1 and HTTP/2 over TLS on the same `peerAPI` URL for peers that cannot use QUIC.
 
 ```
 GET  /v1/agora/peer/manifest
@@ -171,16 +171,21 @@ GET  /v1/agora/peer/health
      Unauthenticated.
 
 GET  /v1/agora/peer/blob/{cid}?token=<channelToken>
-     Pull of one blob held under channelToken (§10.4.4).
+     Pull of one blob (§10.4.4). The requester sets token to the token
+     under which it will store the blob; the responder does not check it.
      Response: 200 with the blob bytes, or 404 if this relay does not hold
-     the CID under that token. Authenticated.
+     the CID. Authenticated.
 
 POST /v1/agora/peer/blob?token=<channelToken>
      Eager replication of one blob held under channelToken (§10.4.4).
      Body: the blob bytes, Content-Type application/octet-stream.
-     Response: 201 stored or already held, 404 if channelToken is not
-     registered here, 507 if the agreement's storage quota would be exceeded.
-     Authenticated.
+     Header: Agora-Storage-Auth of the original upload, unchanged (§11.8.2).
+     The receiving relay verifies admissionSig against the key registered
+     for channelToken and sha256 against the body, and does not check
+     expires or nonce.
+     Response: 201 stored or already held, 403 if the header is missing or
+     fails these checks, 404 if channelToken is not registered here, 507 if
+     the agreement's storage quota would be exceeded. Authenticated.
 ```
 
 `<channelToken>` in these paths is the token in base64url without padding (RFC 4648 §5).
@@ -230,7 +235,7 @@ Relay-to-relay trust is graduated. Trust level determines which Peer API operati
 | Level | Name | Criteria | Permissions |
 |---|---|---|---|
 | 0 | Unknown | No prior contact | Manifest fetch only; `announce` accepted for evaluation |
-| 1 | Seen | Valid manifest, valid signature, first contact | `announce`, `health`; gossip rate-limited to 10 msg/s |
+| 1 | Seen | Valid manifest, valid signature, first contact | `announce`, `health`; gossip rate-limited to 10 msg/s; blob pull, and blob push for tokens registered with the receiving Relay (§10.4.4) |
 | 2 | Known | 7+ days of sustained peering without incident | Full gossip; `peers` accessible; 1000 msg/s |
 | 3 | Trusted | Explicitly operator-configured | Full access; relaxed rate limits; no gossip throttling |
 
@@ -247,7 +252,7 @@ A new Relay with no existing peers joins the gossipsub mesh using any of the fol
 **Method 3: DNS-SD.** The Relay queries both `_agora-relay._udp.<domain>` (QUIC, preferred) and `_agora-relay._tcp.<domain>` (TCP fallback) SRV records:
 
 ```
-_agora-relay._udp.example.com. SRV 10 0 9001 relay.example.com.
+_agora-relay._udp.example.com. SRV 10 0 443  relay.example.com.
 _agora-relay._tcp.example.com. SRV 20 0 443  relay.example.com.
 _agora-relay._udp.example.com. TXT "did=did:web:relay.example.com manifest=https://relay.example.com/.well-known/agora-relay"
 _agora-relay._tcp.example.com. TXT "did=did:web:relay.example.com manifest=https://relay.example.com/.well-known/agora-relay"
@@ -634,9 +639,9 @@ Relay federation is permissionless. Any Relay that speaks the protocol may join 
 
 ### 10.4.4 Blob Storage and Retrieval
 
-A Relay stores blobs in a content-addressed store keyed by the multihash of each block's CID (§13.1), so it serves the same bytes under a `raw` or a `dag-pb` CID with that multihash. Each blob is held under the `channelToken` for which it was uploaded or replicated. "Pin" in this specification means retention in that store under a pin instruction (ARCHITECTURE §6.2); it does not mean pinning on the public IPFS network. A file is stored as several blocks (§14.3.4); each block is a blob for the purposes of this section.
+A Relay stores blobs in a content-addressed store keyed by the multihash of each block's CID (§13.1), so it serves the same bytes under a `raw` or a `dag-pb` CID with that multihash. Each blob is held under every `channelToken` for which it was uploaded, replicated, pulled or pinned, and is charged to and retained for the agreement of each such token. "Pin" in this specification means retention in that store under a pin instruction (ARCHITECTURE §6.2); it does not mean pinning on the public IPFS network. A file is stored as several blocks (§14.3.4); each block is a blob for the purposes of this section.
 
-A conformant Relay MUST serve every blob it holds over HTTPS at `GET /v1/agora/blob/{cid}` on the origin of its manifest (§10.2.1). The endpoint is unauthenticated and rate-limited per network address (§11.6), and it MUST send `Access-Control-Allow-Origin: *` so that browser clients can fetch from it directly. A request MAY carry the query parameter `token`, a `channelToken` in base64url without padding, which asks for pull-through (below). A Relay that declares `jmap-sync-v1` also serves the same bytes through JMAP download (§11.8.1). These are the fetch paths for blobs, including `ipfs://` URIs (§10.3.4.5); a client needs no IPFS node or public IPFS gateway.
+A conformant Relay MUST serve every blob it holds over HTTPS at `GET /v1/agora/blob/{cid}` on the origin of its manifest (§10.2.1). The endpoint is unauthenticated and rate-limited per network address (§11.6), and it MUST send `Access-Control-Allow-Origin: *` so that browser clients can fetch from it directly. A request MAY carry the query parameter `token`, a `channelToken` in base64url without padding, which asks for pull-through (below). A Relay also serves the same bytes through JMAP download (§11.8.1). These are the fetch paths for blobs, including `ipfs://` URIs (§10.3.4.5); a client needs no IPFS node or public IPFS gateway.
 
 A client MUST verify that the bytes it receives hash to the requested CID and MUST discard them otherwise, whatever the source: a Relay, a peer Relay, the CO archive, another of the user's devices or the IPFS network. Because every blob is either ciphertext the Relay cannot read or a record a CO chose to publish (§10.4.3), a Relay can serve blobs to any requester without learning anything beyond the ARCHITECTURE §5 observation budget.
 
@@ -646,10 +651,9 @@ A client MUST verify that the bytes it receives hash to the requested CID and MU
 
 **Replication among a channel's Relays.** The Relays that carry a channel's `channelToken` are the members of that token's channel topic mesh (§10.3.1), and they replicate the channel's blobs among themselves over the Peer API (§10.2.2):
 
-- *Eager replication.* A Relay that accepts an upload MUST copy the blob, with `POST /v1/agora/peer/blob`, to other Relays carrying the token until it is held by at least `replicationFloor` Relays including itself, where `replicationFloor` is taken from the agreement under which the token is registered with it (§10.5.1), or by every Relay carrying the token if fewer carry it.
+- *Eager replication.* A Relay that accepts an upload MUST copy the blob, with `POST /v1/agora/peer/blob`, forwarding the upload's `Agora-Storage-Auth`, to other Relays carrying the token until it is held by at least `replicationFloor` Relays including itself, where `replicationFloor` is taken from the agreement under which the token is registered with it (§10.5.1), or by every Relay carrying the token if fewer carry it. "Relays carrying the token" means the peers it knows to be subscribed to the token's channel topic. Replication follows the upload response and does not delay it. The Relay retries Relays that are unreachable or answer `507` with exponential backoff for at least 24 hours, then stops and keeps its own copy. A client that needs the floor met before it posts the Message MAY also upload the blob to a second listed Relay.
 - *Pull-through.* A Relay that receives a fetch, with `token` set, for a CID it does not hold, for a token registered with it under a current agreement, SHOULD fetch the CID from another Relay carrying that token with `GET /v1/agora/peer/blob/{cid}`, verify it against the CID, store it under the token and serve it. Without `token`, or for a token not registered with it, it answers 404 and fetches nothing.
-- A Relay that receives a replicated blob accepts it only for a token registered with it under a current agreement, verifies it against its CID, charges it to that agreement's storage quota and keeps it for that agreement's retention window from receipt. A Relay MUST NOT pull, push or cache blobs for a token not registered with it.
-- Relays carrying the same token MAY exchange its blobs with Bitswap over the libp2p connections they hold for the channel topic, in place of the Peer API, under the same rules. They MUST NOT announce those CIDs to, or request them from, the public IPFS DHT.
+- A Relay that receives a replicated blob accepts it only for a token registered with it under a current agreement, verifies it against its CID, verifies the forwarded `Agora-Storage-Auth` as §10.2.2 describes, charges it to that agreement's storage quota and keeps it for that agreement's retention window from receipt. A Relay MUST NOT pull, push or cache blobs for a token not registered with it.
 
 Replication adds nothing to what a Relay knows: a Relay that replicates or pulls a blob already carries the channel's token and its envelopes, the CIDs and sizes it learns are those it stores (ARCHITECTURE §5 item 4), and a peer learns only that the requesting Relay carries a token, which the channel topic mesh already shows it.
 
@@ -657,9 +661,9 @@ Replication adds nothing to what a Relay knows: a Relay that replicates or pulls
 
 **Relay replacement.** A Relay newly added to a channel's relay list (§10.3.5) obtains the channel's existing blobs by pull-through as clients request them. The CO MAY also seed it with a `seed` pin instruction listing CIDs (§11.4), on which the Relay pulls each listed CID it lacks from other Relays carrying the token, or, if none holds it, the CO MAY upload it from its archive under an ordinary upload authorization (§11.8.2).
 
-**Pinning.** A pin instruction (§11.4) applies only at the Relay that receives it, so a client pinning a blob sends the instruction to each Relay in the channel's relay list. A Relay that receives a `pin` for a CID it does not hold under that token SHOULD first pull it as above. Pinning a `dag-pb` root block (§14.3.4) also pins every block it links to; unpinning it removes that exemption.
+**Pinning.** A pin instruction (§11.4) applies only at the Relay that receives it, so a client pinning a blob sends the instruction to each Relay in the channel's relay list. A Relay that receives a `pin` for a CID it does not hold SHOULD first pull it as above. A `pin` for a CID it holds under another token adds the pin's token as a holder (above). Pinning a `dag-pb` root block (§14.3.4) also pins every block it links to; unpinning it removes that exemption.
 
-**Public IPFS.** Agora is IPFS-compatible, not IPFS-dependent. A Relay or client MAY run an IPFS node, and none is required to. Relays, clients and the CO MUST NOT announce on, provide to or request from the public IPFS network (its DHT, public Bitswap peers or public gateways) any blob other than public content: records a CO publishes (§3.4, §10.3.2), and the envelopes and blobs of a broadcast channel whose `keyAccess` is `public` in a public Space (§5.2.1.4). Requesting a CID there discloses interest in it to unknown parties, so private ciphertext is neither announced nor requested. Bitswap MAY be used for private ciphertext only between known peers: Relays carrying the same token under the CO's agreements (above), the CO archive, and a user's own devices, which find each other through the self-group (§2.6). Public content MAY be published to the public IPFS network by the CO, a member or a Relay holding it (ARCHITECTURE §9).
+**Public IPFS.** Agora is IPFS-compatible, not IPFS-dependent. A Relay or client MAY run an IPFS node, and none is required to. Relays, clients and the CO MUST NOT announce on, provide to or request from the public IPFS network (its DHT, public Bitswap peers or public gateways) any blob other than public content: records a CO publishes (§3.4, §10.3.2), and the envelopes and blobs of a broadcast channel whose `keyAccess` is `public` in a public Space (§5.2.1.4). Requesting a CID there discloses interest in it to unknown parties, so private ciphertext is neither announced nor requested. Bitswap MAY be used for private ciphertext only between a user's own devices, which find each other through the self-group (§2.6), and between those devices and the CO archive. Relays exchange blobs only over the Peer API. Public content MAY be published to the public IPFS network by the CO, a member or a Relay holding it (ARCHITECTURE §9).
 
 **No member-to-member exchange.** A client fetches blobs only from Relays, the CO archive and its own user's devices. Devices of different members MUST NOT exchange blobs directly, and clients MUST NOT announce themselves or their content on a local network (for example by mDNS). Disconnected operation is out of scope for this version except through a radio-mesh gateway (profiles/radio-mesh-gateway.md).
 
@@ -667,7 +671,7 @@ Replication adds nothing to what a Relay knows: a Relay that replicates or pulls
 
 A Relay may receive a takedown request (a legal demand, or a report from a third party) naming a CID it stores. The Relay cannot read the blob or envelope, so it cannot judge the content, and it MUST NOT attempt to decrypt it.
 
-The Relay looks up the `channelToken` under which the CID was stored or pinned and the agreement under which that token is registered, and SHOULD forward the request, with the CID, to the CO at the agreement's `contact` (§10.5.1). The CO identifies the content from its own records and handles it through its moderation process (§4.5). The Relay MAY stop serving the CID and delete it, as a storage decision under its own policy and law; doing so removes one copy and is not a moderation decision (ARCHITECTURE S2). The Relay MUST NOT disclose to the requester anything beyond the ARCHITECTURE §5 observation budget, and does not learn or reveal which Space or member the content belongs to.
+The Relay looks up each `channelToken` under which it holds the CID (§10.4.4) and each agreement under which such a token is registered, and SHOULD forward the request, with the CID, to the CO at each such agreement's `contact` (§10.5.1). The CO identifies the content from its own records and handles it through its moderation process (§4.5). The Relay MAY stop serving the CID and delete it, as a storage decision under its own policy and law; doing so removes one copy and is not a moderation decision (ARCHITECTURE S2). The Relay MUST NOT disclose to the requester anything beyond the ARCHITECTURE §5 observation budget, and does not learn or reveal which Space or member the content belongs to.
 
 ### 10.4.6 Envelope History
 
@@ -851,7 +855,7 @@ A registration service registers each channel admission public key (§5.2.2) wit
 2. check that it holds the agreement, signed by itself and by `billing`, that the current time is within `validFrom` and `validUntil`, that the agreement is not superseded (§10.5.1), and that its `serviceType` receives registrations;
 3. check that `ts` is within 300 seconds of its clock and, for every listed token, later than the `ts` of the last request it accepted that listed the same token under the same agreement, so that a replayed request cannot restore a deregistered key.
 
-The IO applies a valid request entirely or not at all. An IO with a `sequencer` agreement that applies a registration whose key has `replaces` MUST, from that moment, stop stamping Commits on the commit stream of the replaced token (§14.4.3), answering a Commit submitted there with HTTP 409 and `stream-closed` (§11.4); it continues to stamp operations on the replaced token's operation stream until that token is deregistered. Other IOs ignore `replaces`. The field adds no linkage beyond what an IO already observes: an IO may link the key epochs of one channel (§12.3). Registering a token already registered under the same agreement with the same key, and deregistering a token not registered, succeed without change. A token is registered with at most one key; the IO MUST reject a registration that lists a token already registered with a different key.
+The IO applies a valid request entirely or not at all. An IO with a `sequencer` agreement that applies a registration whose key has `replaces` MUST, from that moment, stop stamping Commits on the commit stream of the replaced token (§14.4.3), answering a Commit submitted there with HTTP 409 and `stream-closed` (§11.4); it continues to stamp operations on the replaced token's operation stream until that token is deregistered. A Relay uses `replaces` only to send `token-rotated` (§11.4); other IOs ignore it. The field adds no linkage beyond what an IO already observes: an IO may link the key epochs of one channel (§12.3). Registering a token already registered under the same agreement with the same key, and deregistering a token not registered, succeed without change. A token is registered with at most one key; the IO MUST reject a registration that lists a token already registered with a different key.
 
 **Response.** On success the IO returns HTTP 204. On failure it returns the status below with a JSON body `{ "error": "<code>" }` and changes nothing:
 

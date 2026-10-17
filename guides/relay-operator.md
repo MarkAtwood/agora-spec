@@ -125,7 +125,7 @@ A production Agora relay deployment has these components:
 **Required components:**
 - `agora-relay`: the relay process. Implements all protocol-level behavior.
 - Database: SQLite for development/small deployments; PostgreSQL for production. Holds held ciphertext envelopes keyed by `channelToken`, the peer table, loaded agreements, registered admission public keys with their tokens and the `ts` of the last accepted registration request per token (spec §10.5.3), pin state, quota counters, and push registrations.
-- Blob store: content-addressed storage for opaque blobs, each held under the `channelToken` for which it was uploaded or replicated: the root and chunk blocks of encrypted files (spec §14.3.4), group-encrypted blobs (spec §3.4), pinned CIDs, and records a CO explicitly publishes, such as public Space state and directory documents (spec §10.4.3). Blocks are keyed by multihash, so one stored block answers to both its `raw` and its `dag-pb` CID (spec §10.4.4). Backed by the local filesystem (`blob_backend = "local"`) or an S3-compatible object store (`blob_backend = "s3"`) for HA deployments.
+- Blob store: content-addressed storage for opaque blobs, each held under every `channelToken` for which it was uploaded, replicated, pulled or pinned, and charged to and retained for the agreement of each such token (spec §10.4.4): the root and chunk blocks of encrypted files (spec §14.3.4), group-encrypted blobs (spec §3.4), pinned CIDs, and records a CO explicitly publishes, such as public Space state and directory documents (spec §10.4.3). Blocks are keyed by multihash, so one stored block answers to both its `raw` and its `dag-pb` CID (spec §10.4.4). Backed by the local filesystem (`blob_backend = "local"`) or an S3-compatible object store (`blob_backend = "s3"`) for HA deployments.
 
 **Blob access.** Blobs are reachable through exactly two public interfaces, both on the client-facing port:
 
@@ -136,18 +136,18 @@ These two HTTPS interfaces are the client fetch path for every blob, including `
 
 **Blob replication.** A client uploads each blob once, to any one relay in the channel's relay list, and the relays carrying that token replicate it among themselves over the Peer API (spec §10.2.2, §10.4.4). A file of up to 2^32 bytes arrives as a root block plus up to 16,384 chunk blocks of 256 KiB each, every one a separate upload and a separate CID (spec §14.3.4).
 
-- *Eager replication.* After accepting an upload, the relay pushes the blob with `POST /v1/agora/peer/blob?token=<channelToken>` to other relays carrying the token until at least `replicationFloor` relays, counting itself, hold it, or every relay carrying the token if fewer do. `replicationFloor` comes from the agreement under which the token is registered here; it defaults to 2 and is not a relay setting (spec §10.5.1). A peer answers 201 (stored or already held), 404 (token not registered there) or 507 (that agreement's storage quota is full).
-- *Pull-through.* When a client fetch with `token` names a CID this relay lacks, and the token is registered here under a current agreement, the relay fetches it from a relay carrying the token with `GET /v1/agora/peer/blob/{cid}?token=<channelToken>`, checks it against the CID, stores it under the token and serves it. A fetch without `token`, or for a token not registered here, gets 404 and triggers nothing.
-- *Inbound.* The relay accepts replicated or pulled blobs only for tokens registered with it under a current agreement, verifies each against its CID, charges it to that agreement's storage quota and keeps it for that agreement's `retentionDays` from receipt. It never pushes, pulls or caches blobs for any other token.
+- *Eager replication.* After answering the upload, the relay pushes the blob with `POST /v1/agora/peer/blob?token=<channelToken>`, forwarding the upload's `Agora-Storage-Auth` header unchanged, to other relays carrying the token (the peers it knows to be subscribed to the token's channel topic) until at least `replicationFloor` relays, counting itself, hold it, or every relay carrying the token if fewer do. `replicationFloor` comes from the agreement under which the token is registered here; it defaults to 2 and is not a relay setting (spec §10.5.1). A peer answers 201 (stored or already held), 403 (header missing or failing its checks), 404 (token not registered there) or 507 (that agreement's storage quota is full). The relay retries peers that are unreachable or answer 507 with exponential backoff for at least 24 hours, then stops and keeps its own copy (spec §10.4.4).
+- *Pull-through.* When a client fetch with `token` names a CID this relay lacks, and the token is registered here under a current agreement, the relay fetches it from a relay carrying the token with `GET /v1/agora/peer/blob/{cid}?token=<channelToken>`, checks it against the CID, stores it under the token and serves it. The `token` on a peer pull names the token under which the requester will store the blob; the responding relay does not check it and serves any blob it holds (spec §10.2.2). A fetch without `token`, or for a token not registered here, gets 404 and triggers nothing.
+- *Inbound.* The relay accepts pushed blobs only for tokens registered with it under a current agreement. For each push it verifies the forwarded `Agora-Storage-Auth`: `admissionSig` against the key registered for the push's token and `sha256` against the body, without checking `expires` or `nonce`, and answers 403 if the header is missing or fails (spec §10.2.2). It verifies each blob against its CID, charges it to that agreement's storage quota and keeps it for that agreement's `retentionDays` from receipt. It never pushes, pulls or caches blobs for any other token. A blob already held under another token gains the new token as a holder and is charged to that token's agreement as well; a `pin` for a held CID does the same (spec §10.4.4).
 - *Seeding.* A CO that adds this relay to a channel's relay list may send a `seed` pin instruction listing CIDs, signed with the channel's admission key (spec §11.4). The relay acknowledges at once, then pulls each listed CID it lacks from other relays carrying the token and keeps it for the ordinary retention window, without a pin exemption.
 
-Peer API blob requests are authenticated with HTTP Message Signatures like the rest of the Peer API (spec §10.2.3) and travel on the peer port (§11.1). Replication tells a relay nothing new: a peer that asks for a token's blob already carries that token, which the channel topic mesh shows anyway (spec §10.4.4).
+Peer API blob requests are authenticated with HTTP Message Signatures like the rest of the Peer API (spec §10.2.3) and travel on port 443 with the relay's other traffic (§11.1). Replication tells a relay nothing new: a peer that pushes or pulls a token's blob already carries that token, which the channel topic mesh shows anyway, and blobs are ciphertext or published records that any requester may fetch (spec §10.4.4). A Level 1 peer may pull blobs and push blobs for tokens registered here (spec §10.2.4).
 
-**Public IPFS.** Spec §10.4.4 forbids announcing on, providing to or requesting from the public IPFS network (its DHT, public Bitswap peers or public gateways) any blob that is not public content, and permits Bitswap for private ciphertext only between relays carrying the same token. This relay runs no IPFS node and exchanges blobs with peers only over the Peer API. It also never publishes public content to IPFS, because it cannot tell public content from ciphertext by looking at the bytes. A CO that wants its published records, or the blobs of a public broadcast channel, on the public IPFS network publishes them from its own node.
+**Public IPFS.** Spec §10.4.4 forbids announcing on, providing to or requesting from the public IPFS network (its DHT, public Bitswap peers or public gateways) any blob that is not public content, and permits Bitswap for private ciphertext only among a user's own devices and between those devices and the CO archive. Relays exchange blobs only over the Peer API, never by Bitswap, and this relay runs no IPFS node. It also never publishes public content to IPFS, because it cannot tell public content from ciphertext by looking at the bytes. A CO that wants its published records, or the blobs of a public broadcast channel, on the public IPFS network publishes them from its own node.
 
 There is no admin read endpoint for blob or envelope bytes. The Admin API has two content operations, both for takedown handling (§17): `GET /admin/content/{cid}` returns the agreement and contact for a CID, and `DELETE /admin/content/{cid}` deletes it (§5.2). Both sit behind the same bearer-token authentication as every other admin endpoint.
 
-**Admission key registration.** COs send `AdmissionKeyRegistration` and `AdmissionKeyDeregistration` requests to `POST /v1/agora/admission-keys` on the client-facing port. The URL is published as `endpoints.admissionKeys` in the manifest and equals the `endpoint` of each relay agreement (spec §10.2.1, §10.5.1). Each request is one CBOR-encoded typed payload envelope signed by the agreement's billing DID. The relay verifies it, applies it entirely or not at all, and answers 204 or one of the error codes of spec §10.5.3. Registrations are never gossiped and the relay reveals them to no one but the CO that sent them (spec §10.4.3).
+**Admission key registration.** COs send `AdmissionKeyRegistration` and `AdmissionKeyDeregistration` requests to `POST /v1/agora/admission-keys` on the client-facing port. The URL is published as `endpoints.admissionKeys` in the manifest and equals the `endpoint` of each relay agreement (spec §10.2.1, §10.5.1). Each request is one CBOR-encoded typed payload envelope signed by the agreement's billing DID. The relay verifies it, applies it entirely or not at all, and answers 204 or one of the error codes of spec §10.5.3. When it applies a registration whose key names a token in `replaces`, it sends each connection subscribed to that token an `Error` with code `token-rotated` and keeps those subscriptions open (spec §11.4). Registrations are never gossiped and the relay reveals them to no one but the CO that sent them (spec §10.4.3).
 
 **Optional components:**
 - SFU (Selective Forwarding Unit): voice/video channel routing (spec §6.6). An IO component that is never an MLS member. Can be a separate process or a separate host.
@@ -229,10 +229,14 @@ webtransport_addr = "0.0.0.0:443"
 # default: "0.0.0.0:443"
 websocket_addr = "0.0.0.0:443"
 
-# Peer API and gossipsub QUIC listen address.
-# This port must be reachable from peer relays.
-# default: "0.0.0.0:9001"
-peer_addr = "0.0.0.0:9001"
+# Peer API and libp2p (gossipsub) listen address.
+# This port must be reachable from peer relays. On 443 the relay
+# shares one QUIC listener with HTTP/3 and tells connections apart
+# by ALPN ("h3" vs "libp2p"), per spec §10.1. An operator who cannot
+# share 443 may pick another port; the manifest endpoints, multiaddrs
+# and SRV records then carry that port.
+# default: "0.0.0.0:443"
+peer_addr = "0.0.0.0:443"
 
 # Admin API listen address. must be bound to a non-public interface.
 # default: "127.0.0.1:9099"
@@ -420,8 +424,8 @@ blob_pull_through_timeout_seconds = 10
 
 # Directory of fully signed ServiceAgreement envelopes, one encoded
 # envelope per file, each signed by this relay (provider) and by the
-# CO billing DID. An agreement is identified by the CID of its encoded
-# envelope. The relay loads only agreements whose serviceType is
+# CO billing DID. An agreement is identified by the CID of its body
+# bytes (spec §10.5.1). The relay loads only agreements whose serviceType is
 # "relay", whose provider is identity.relay_did, and whose endpoint
 # equals this relay's admission key registration URL,
 # https://<server.hostname>/v1/agora/admission-keys, which is also
@@ -541,16 +545,15 @@ wake_jitter_max_ms = 2000
 # ─────────────────────────────────────────────
 # [jmap]: JMAP sync API, token-keyed Envelopes and blobs (spec §11.8)
 # ─────────────────────────────────────────────
-# The relay serves only Envelope sync and blob upload/download. It
-# serves no Space, channel, membership, role or invite objects; that
+# Every relay serves this API and declares jmap-sync-v1; it is the only
+# path for envelope history and blob upload and cannot be disabled
+# (spec §10.4.3). The relay serves only Envelope sync and blob
+# upload/download. It serves no Space, channel, membership, role or
+# invite objects; that
 # management API runs in the client or on CO infrastructure
 # (spec §11.8.9). JMAP requests are unauthenticated and rate-limited
 # like the live stream (spec §11.8.2).
 [jmap]
-
-# Whether to expose the JMAP sync API and declare jmap-sync-v1.
-# default: true
-enabled = true
 
 # JMAP base URL (published as endpoints.jmapSync in the manifest).
 base_url = "https://relay.example.com/v1/agora/jmap"
@@ -692,7 +695,7 @@ VOLUME ["/etc/agora-relay", "/var/lib/agora-relay"]
 
 USER agora
 
-EXPOSE 443/udp 443/tcp 9001/udp 9001/tcp
+EXPOSE 443/udp 443/tcp
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
     CMD curl -fk https://localhost:443/v1/agora/peer/health || exit 1
@@ -724,8 +727,6 @@ services:
     ports:
       - "443:443/tcp"
       - "443:443/udp"
-      - "9001:9001/udp"
-      - "9001:9001/tcp"
     volumes:
       - ./config:/etc/agora-relay:ro
       - relay-data:/var/lib/agora-relay
@@ -801,9 +802,6 @@ service:
     websocket:
       port: 443
       protocol: TCP
-    peer:
-      port: 9001
-      protocol: UDP
 
 config:
   hostname: "relay.example.com"
@@ -1087,7 +1085,7 @@ Lists the busiest `channelToken`s by traffic over a window, for capacity and abu
 }
 ```
 
-`agreement_id` is the agreement under which the token's admission key is registered. `key_status` is `registered`; `suspended` for a token this relay has suspended (spec §10.4.7); or `withdrawn` for a token whose key was deregistered or whose agreement ended while the relay still holds envelopes under it (spec §11.4). A token changes only when the CO rotates the channel's admission key, not on MLS epochs (spec §10.4.2). Counters are per token; the relay keeps no link between a token and the one that replaces it.
+`agreement_id` is the agreement under which the token's admission key is registered. `key_status` is `registered`; `suspended` for a token this relay has suspended (spec §10.4.7); or `withdrawn` for a token whose key was deregistered or whose agreement ended while the relay still holds envelopes under it (spec §11.4). A token changes only when the CO rotates the channel's admission key, not on MLS epochs (spec §10.4.2). Counters are per token. The relay uses a registration's `replaces` only to send `token-rotated` to the old token's subscribers (spec §10.5.3, §11.4) and keeps no link between a token and the one that replaces it.
 
 Admission is normally decided by the CO's registrations: to cut a token off, the CO deregisters its key (spec §10.5.3). The relay may also suspend one token under its own policy and law (spec §10.4.7); see the next two operations.
 
@@ -1239,7 +1237,7 @@ agora_relay_connections_active{transport="websocket"} 144
 |---|---|---|---|
 | `agora_relay_live_messages_received_total` | Counter | `t` (`ClientHello`, `AdmissionProof`, `Subscribe`, `Unsubscribe`, `Publish`, `PinInstruction`, `PushRegister`), `path` (`stream`, `datagram`) | Live protocol messages received from clients (spec §11.4) |
 | `agora_relay_envelopes_delivered_total` | Counter | `path` (`stream`, `datagram`) | `Deliver` messages sent to subscribers |
-| `agora_relay_live_errors_total` | Counter | `code` (the `error-code` values of spec §11.4: `bad-message`, `unsupported-version`, `unknown-token`, `token-withdrawn`, `bad-admission-sig`, `insufficient-pow`, `expired`, `replayed`, `too-large`, `rate-limited`, `quota-exceeded`, `unknown-cid`, `internal`) | `Error` messages sent, by code |
+| `agora_relay_live_errors_total` | Counter | `code` (the `error-code` values of spec §11.4: `bad-message`, `unsupported-version`, `unknown-token`, `token-withdrawn`, `token-rotated`, `bad-admission-sig`, `insufficient-pow`, `expired`, `replayed`, `too-large`, `rate-limited`, `quota-exceeded`, `unknown-cid`, `internal`) | `Error` messages sent, by code |
 | `agora_relay_envelope_bytes_received_total` | Counter | none | Total routing envelope bytes received in `Publish` and on the mesh |
 | `agora_relay_envelope_bytes_delivered_total` | Counter | none | Total routing envelope bytes sent in `Deliver` |
 | `agora_relay_channel_token_active` | Gauge | none | Number of distinct channelTokens with active subscribers |
@@ -1914,10 +1912,8 @@ Not applicable. A relay operates no compliance logger and holds no logger key. T
 
 | Port | Protocol | Direction | Purpose | Access |
 |---|---|---|---|---|
-| 443 | UDP (QUIC) | Inbound | WebTransport (primary client transport) | Public internet |
-| 443 | TCP (TLS) | Inbound | WebSocket (fallback client transport), JMAP sync API, blob CAS, admission key registration, `/.well-known/agora-relay` | Public internet |
-| 9001 | UDP (QUIC) | Inbound + Outbound | Gossipsub QUIC (peer relay mesh) | Peer relay IPs |
-| 9001 | TCP (TLS) | Inbound + Outbound | Gossipsub TCP fallback, Peer API HTTP/3 fallback, including blob replication and pull-through (spec §10.2.2) | Peer relay IPs |
+| 443 | UDP (QUIC) | Inbound + Outbound | WebTransport (primary client transport); Peer API over HTTP/3 and libp2p gossipsub QUIC, on one QUIC listener split by ALPN (`h3` or `libp2p`) | Public internet |
+| 443 | TCP (TLS) | Inbound + Outbound | WebSocket (fallback client transport), JMAP sync API, blob CAS, admission key registration, `/.well-known/agora-relay`; Peer API over HTTP/1.1 or HTTP/2, gossipsub TCP fallback, including blob replication and pull-through (spec §10.2.2) | Public internet |
 | 9099 | TCP | Inbound | Admin API | Internal only (loopback or management VLAN) |
 | 9100 | TCP | Inbound | Prometheus metrics scrape | Internal only (monitoring system) |
 
@@ -1930,7 +1926,7 @@ relay.example.com.      IN  AAAA   2001:db8::1
 
 ; SRV records for DNS-SD discovery (spec §10.2.5, Method 3)
 ; QUIC (preferred, lower priority number = higher preference)
-_agora-relay._udp.example.com.  IN  SRV  10 0 9001  relay.example.com.
+_agora-relay._udp.example.com.  IN  SRV  10 0 443   relay.example.com.
 ; TCP fallback
 _agora-relay._tcp.example.com.  IN  SRV  20 0 443   relay.example.com.
 
@@ -1948,11 +1944,12 @@ Spec §10.2.5 asks relays to publish both SRV records, and a relay that cannot e
 ### 11.3 Firewall Rules
 
 **Public interface (internet-facing):**
-- ALLOW UDP 443 from anywhere (WebTransport)
-- ALLOW TCP 443 from anywhere (WebSocket, JMAP, blob CAS, admission key registration, well-known)
-- ALLOW UDP 9001 from peer relay CIDR ranges (or from anywhere, if operating a permissionless public relay)
-- ALLOW TCP 9001 from peer relay CIDR ranges
+- ALLOW UDP 443 from anywhere (WebTransport, Peer API over HTTP/3, gossipsub QUIC)
+- ALLOW TCP 443 from anywhere (WebSocket, JMAP, blob CAS, admission key registration, well-known, Peer API, gossipsub TCP fallback)
+- ALLOW UDP 443 and TCP 443 outbound (connections to peer relays)
 - DENY all other inbound
+
+Peer traffic shares 443 with client traffic, so a public relay cannot restrict peers by source IP at the firewall. Peer authentication happens at the Peer API (spec §10.2.3). A relay that peers only with known relays and serves peers on a separate port may firewall that port to their address ranges.
 
 **Management interface (internal):**
 - ALLOW TCP 9099 from monitoring/ops CIDR only (Admin API)
@@ -2276,7 +2273,7 @@ Each instance announces itself with the same `relay_did` (the shared identity) b
   "peerAPI":       "https://relay1.internal.example.com/v1/agora/peer",
   "jmapSync":      "https://relay.example.com/v1/agora/jmap",
   "admissionKeys": "https://relay.example.com/v1/agora/admission-keys",
-  "gossipQuic":    "/ip4/10.0.1.1/udp/9001/quic-v1"
+  "gossipQuic":    "/ip4/10.0.1.1/udp/443/quic-v1"
 }
 ```
 

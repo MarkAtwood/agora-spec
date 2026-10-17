@@ -128,8 +128,9 @@ Error = {
   "v": 1, "t": "Error",
   ? "id": req-id,                ; absent for a connection-level error
   "code": error-code,
-  ? "token": channel-token,      ; the token concerned, for unknown-token
-                                 ; or token-withdrawn without "id"
+  ? "token": channel-token,      ; the token concerned, for unknown-token,
+                                 ; or token-withdrawn or token-rotated
+                                 ; without "id"
   ? "detail": tstr               ; diagnostic text, not for display
 }
 
@@ -137,7 +138,7 @@ error-code = "bad-message" / "unsupported-version" / "unknown-token"
            / "token-withdrawn" / "bad-admission-sig" / "insufficient-pow"
            / "expired" / "replayed" / "too-large" / "rate-limited"
            / "quota-exceeded" / "unknown-cid" / "stream-closed"
-           / "internal"
+           / "token-rotated" / "internal"
 
 PinInstruction = {
   "v": 1, "t": "PinInstruction", "id": req-id,
@@ -188,13 +189,13 @@ If the Relay already holds an envelope with the same `id` under the token, it an
 
 **Deliver.** A client processes a delivered envelope as §5.2.2 describes.
 
-**Error.** An `Error` without `id` reports a problem with the connection as a whole; the Relay MAY close the connection after sending it. The exceptions are `unknown-token` and `token-withdrawn` carrying `token`, which concern one token and leave the connection open.
+**Error.** An `Error` without `id` reports a problem with the connection as a whole; the Relay MAY close the connection after sending it. The exceptions are `unknown-token`, `token-withdrawn` and `token-rotated` carrying `token`, which concern one token and leave the connection open.
 
 **Stream closed.** `stream-closed` is not sent on the live protocol. It is the code a sequencer returns for a Commit submitted on the commit stream of a token whose key has been replaced (§10.5.3, §14.4.3).
 
-**Withdrawn tokens.** `unknown-token` means that no admission key is registered for the token. `token-withdrawn` means that the token's key was registered and is no longer admitted: the CO deregistered it (§10.5.3), the agreement under which it was registered has ended (§10.5.1, §10.5.3), or the Relay suspended the token (§10.4.7). When a key stops being admitted, the Relay sends each connection subscribed to its token an `Error` without `id`, with code `token-withdrawn` and `token` set to that token, and ends those subscriptions without closing the connection. It answers a later `Subscribe`, `Publish` or `PinInstruction` naming that token with `token-withdrawn` for as long as it still holds envelopes under the token, and with `unknown-token` after that. On either code the client fetches the current `ChannelAdmissionKey` (§5.2.2). If its token is the one refused, the client uses another Relay in the key's relay list (§10.3.5).
+**Withdrawn tokens.** `unknown-token` means that no admission key is registered for the token. `token-withdrawn` means that the token's key was registered and is no longer admitted: the CO deregistered it (§10.5.3), the agreement under which it was registered has ended (§10.5.1, §10.5.3), or the Relay suspended the token (§10.4.7). When a key stops being admitted, the Relay sends each connection subscribed to its token an `Error` without `id`, with code `token-withdrawn` and `token` set to that token, and ends those subscriptions without closing the connection. It answers a later `Subscribe`, `Publish` or `PinInstruction` naming that token with `token-withdrawn` for as long as it still holds envelopes under the token, and with `unknown-token` after that. On either code the client fetches the current `ChannelAdmissionKey` (§5.2.2). If its token is the one refused, the client uses another Relay in the key's relay list (§10.3.5). When a Relay applies a registration whose key has `replaces` (§10.5.3), it sends each connection subscribed to the replaced token an `Error` without `id`, with code `token-rotated` and `token` set to the replaced token, and keeps those subscriptions open. On `token-rotated` the client fetches the current `ChannelAdmissionKey` (§5.2.2).
 
-**PinInstruction.** A pin instruction asks the Relay to keep, or stop keeping, envelopes and blobs past retention (§5.2.6). The Relay MUST reject an instruction, with code `bad-message`, whose `signed` value does not decode to a `pin-op`. A routing envelope's `signed` map (§5.2.2) has no `op` member, so a signature made for one is never accepted as the other. The Relay then looks up the key registered for `channelToken` and verifies `admissionSig` over the exact bytes of `signed`, answering as for `Publish`. It answers `expired` if `expires` has passed or is more than 600 seconds ahead of its clock, and `replayed` if it has already accepted the same `nonce` for that token. For `pin`, it exempts each listed CID that it holds under that token from retention expiry and charges the storage to the agreement under which the key is registered, answering `quota-exceeded` if the agreement's quota would be exceeded and `unknown-cid` if it holds none of the CIDs after attempting to pull them (§10.4.4). For `unpin`, it removes the exemption. For `seed`, it fetches each listed CID it does not hold from other Relays carrying the token, as for pull-through (§10.4.4), and keeps what it obtains for the ordinary retention window without a pin exemption; it answers `Ack` once it has accepted the instruction, before the fetches finish. A CO sends `seed` to a Relay newly added to a channel's relay list, signing with the channel's admission key, which its registration service holds. Envelope CIDs in a `pin-op` are envelope `id`s, the CIDs of the envelopes' `signed` bytes (§5.2.2). The role check that decides whether a member may pin is made by clients against Space state (ARCHITECTURE §6.2), never by the Relay.
+**PinInstruction.** A pin instruction asks the Relay to keep, or stop keeping, envelopes and blobs past retention (§5.2.6). The Relay MUST reject an instruction, with code `bad-message`, whose `signed` value does not decode to a `pin-op`. A routing envelope's `signed` map (§5.2.2) has no `op` member, so a signature made for one is never accepted as the other. The Relay then looks up the key registered for `channelToken` and verifies `admissionSig` over the exact bytes of `signed`, answering as for `Publish`. It answers `expired` if `expires` has passed or is more than 600 seconds ahead of its clock, and `replayed` if it has already accepted the same `nonce` for that token. For `pin`, it adds the pin's token as a holder of each listed CID that it holds (§10.4.4), exempts those CIDs from retention expiry and charges the storage to the agreement under which the key is registered, answering `quota-exceeded` if the agreement's quota would be exceeded and `unknown-cid` if it holds none of the CIDs after attempting to pull them (§10.4.4). For `unpin`, it removes the exemption. For `seed`, it fetches each listed CID it does not hold from other Relays carrying the token, as for pull-through (§10.4.4), and keeps what it obtains for the ordinary retention window without a pin exemption; it answers `Ack` once it has accepted the instruction, before the fetches finish. A CO sends `seed` to a Relay newly added to a channel's relay list, signing with the channel's admission key, which its registration service holds. Envelope CIDs in a `pin-op` are envelope `id`s, the CIDs of the envelopes' `signed` bytes (§5.2.2). The role check that decides whether a member may pin is made by clients against Space state (ARCHITECTURE §6.2), never by the Relay.
 
 **PushRegister.** Defined in §11.7.3.
 
@@ -377,7 +378,7 @@ JMAP ([RFC 8620](https://jmap.io)) is used at two layers that run on different o
 
 ### 11.8.1 Endpoints
 
-A Relay that declares the `jmap-sync-v1` capability MUST expose the following endpoints under the base URL declared in `endpoints.jmapSync` in its manifest. Paths are relative to that base; with the base `https://relay.example.com/v1/agora/jmap`, the Session object is at `https://relay.example.com/v1/agora/jmap/.well-known/jmap`.
+Every Relay declares the `jmap-sync-v1` capability (§10.4.3) and MUST expose the following endpoints under the base URL declared in `endpoints.jmapSync` in its manifest. Paths are relative to that base; with the base `https://relay.example.com/v1/agora/jmap`, the Session object is at `https://relay.example.com/v1/agora/jmap/.well-known/jmap`.
 
 ```
 GET  {base}/.well-known/jmap                      Session object (unauthenticated)

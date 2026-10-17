@@ -90,15 +90,15 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Full re-registration of current keys | at least every 24 h | MUST | §10.5.3 |
 | Grace before deregistering the previous admission key after rotation | 300 s, for application messages and operations only; no Commit is stamped on the previous key's commit stream once the new key is registered | RECOMMENDED; MUST for the sequencer rule | §10.5.3 |
 | Canonical-Commit window without a sequencer | 5 s | MUST | §5.1.1 |
-| Hold of epoch state for an earlier-stamped counting Commit | 15 s after the stamp `ts` of the applied Commit | MUST | §5.1.1 |
-| Publication of a stamped Commit after its stamp | within 10 s, or the Commit is skipped | MUST | §5.1.1 |
 | Retention of the previous epoch's sealing key | 60 s | Descriptive | §5.2.2 |
 | Admission key fetch while connected | at least once an hour | MUST | §5.2.2 |
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
 | Hold of a Welcome whose authorization cannot yet be decided | 7 days | See section | §4.3 |
-| `DMMembers` freshness | `seq` and `ts` both greater than the current list's; `ts` within 300 s of the host's clock | MUST | §4.6 |
+| `DMMembers` freshness | `seq` (the MLS epoch in which the membership takes effect) greater than the current list's; `ts` within 300 s of the host's clock | MUST | §4.6 |
 | DM admission host handover fallback | any remaining member after 24 h without a handover Commit | See section | §4.6.4 |
 | Old DM admission host stops serving | 30 days after no DID it serves remains a member, or once every such DID is offboarded | MAY (from then on) | §4.6.4 |
+| Non-member view refetch on a post from an unlisted `senderDID` | at most once a minute per Space | See section | §5.2.1.4 |
+| Eager blob replication retry | exponential backoff for at least 24 h, then stop | Descriptive | §10.4.4 |
 | SFU `challenge` freshness for a `join` | 30 s | MUST | §6.6 |
 | Registrations under a superseded agreement | admitted for 1 h | MUST | §10.5.1 |
 | Relay retirement notice (`retiresAt`) | at least 30 days | MUST, unless agreed otherwise out of band | §10.4.7 |
@@ -137,10 +137,11 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `replaces` | `AdmissionKeyRegistration` entry member (rotated token); also a `PushRegister` member (previous handle) | §10.5.3, §11.7.6 |
 | `replicationFloor` | `ServiceAgreement` member | §10.5.1, §10.4.4 |
 | `archive` | `ChannelAdmissionKey` member | §3.4, §10.4.4 |
-| `broadcasters` | Non-member view member, array of `{channelID, dids}` | §3.3, §3.4, §5.2.1.4 |
+| `broadcasters` | Non-member view member, array of `{channelID, keyEpoch, dids}` | §3.3, §3.4, §5.2.1.4 |
 | `chunkCount`, `thumbnailChunkCount`, `contentKey`, `thumbnailContentKey` | JMAP object extension properties | §14.3.4 |
 | `seed` | `pin-op` operation | §11.4, §10.4.4 |
 | `stream-closed` | Error code (sequencer commit stream) | §11.4, §14.4.3 |
+| `token-rotated` | Error code (live protocol, rotated token) | §11.4, §10.5.3 |
 | `token` | Query parameter of the blob fetch and Peer API blob paths | §10.4.4, §10.2.2 |
 
 **Capability and model strings** (Agora-internal).

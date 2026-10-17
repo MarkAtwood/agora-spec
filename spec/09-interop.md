@@ -131,7 +131,7 @@ The channel's entry in Space state records the gateway's presence and type:
 2. Gateway decrypts it using its MLS leaf key (it is a full group member).
 3. Gateway translates Agora inner payload to Matrix event format:
    - New `urn:ietf:params:jmap:chat#Message` → `m.room.message` with `msgtype: m.text`
-   - New `Message` with `attachments` → `m.room.message` with `msgtype: m.image/m.file` etc.; media fetched from IPFS and re-uploaded to the Matrix media server
+   - New `Message` with `attachments` → `m.room.message` with `msgtype: m.image/m.file` etc.; media fetched from the channel's relays (§10.4.4), decrypted with the attachment's `contentKey` and checked against its `sha256` (§14.3.4), and re-uploaded to the Matrix media server
    - `Message` edit (body contains `editedAt`, §5.2.3) → `m.room.message` with `m.new_content` relation
    - `Message` deletion (body contains `deletedAt` and `deletedForAll: true`, §5.2.3) → `m.room.redaction`
    - `urn:ietf:params:jmap:chat#Reaction` → `m.reaction`

@@ -516,13 +516,15 @@ An Add of a leaf whose credential names the committer's own DID is an **own-devi
   "spaces": [
     {
       "space": "agora://bafkrei...",
-      "spaceEndpoint": ["https://spaces.example.com/v1/agora/space/1f3a..."]
+      "spaceEndpoint": ["https://spaces.example.com/v1/agora/space/1f3a..."],
+      "state": "member",
+      "v": 7
     }
   ]
 }
 ```
 
-`space` is the Space identifier (§3.2) and `spaceEndpoint` the Space endpoint URLs the device last used (§3.4). Each record replaces the previous one. A device sends a new record whenever the user joins or leaves a Space or a Space's endpoints change. Because it names Spaces, the record travels only inside the self-group.
+`space` is the Space identifier (§3.2) and `spaceEndpoint` the Space endpoint URLs the device last used (§3.4). `state` is `member` or `left`, and `v` is the entry's version, an unsigned integer. A device that changes an entry sets its `v` to one more than the highest `v` it holds for that `space`. A receiving device merges a record into the one it holds entry by entry, keyed by `space`, keeping the entry with the higher `v` (on equal `v`, `left` wins, then the lower `spaceEndpoint` list compared as UTF-8 bytes of its JSON encoding), and always sends its merged record. No clock is consulted. A device keeps `left` entries so that a stale record cannot restore a Space the user left; only `member` entries name the user's Spaces. A device sends a new record whenever the user joins or leaves a Space or a Space's endpoints change. Because it names Spaces, the record travels only inside the self-group.
 
 **History transfer.** A new device cannot decrypt messages from epochs before it joined. An existing device MAY send it a history transfer: an MLS application message in the self-group of type `urn:agora:type:HistoryTransfer` with body:
 

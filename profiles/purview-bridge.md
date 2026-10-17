@@ -207,7 +207,7 @@ The bridge writes the following headers. A header whose value is absent for a gi
 | Header | Required | Source | Description |
 |---|---|---|---|
 | `x-agora-record-version` | yes | constant | Version of this item format. Currently `1`. |
-| `x-agora-envelope-id` | yes | record `outerEnvelopeCID` | CID of the routing envelope that carried the message (spec §5.2.2). Unique per logged MLS message. Duplicate-check key. |
+| `x-agora-envelope-id` | yes | record `outerEnvelopeCID` | Envelope `id` of the routing envelope that carried the message: the CID of its `signed` bytes (spec §5.2.2, §7.4). Unique per logged MLS message. Duplicate-check key. |
 | `x-agora-record-cid` | yes | logger | CID of the stored `ComplianceRecord` envelope. |
 | `x-agora-prev-record-cid` | no | record `prevRecordCID` | Chain link to the previous record in the channel's log. |
 | `x-agora-logger-did` | yes | record `sig` `kid` | DID of the logger that signed the record. |

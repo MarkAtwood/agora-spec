@@ -66,6 +66,8 @@ Between Relays, gossipsub v1.1 peer scoring and flood control apply (§10.3.1). 
 - **Connections, subscriptions, history reads and push registrations** are rate-limited per network address and per `channelToken`. Relays MUST enforce per-`channelToken` rate limits on message publication.
 - **Under load**, a Relay MAY require a proof-of-work challenge (`AdmissionChallenge` and `AdmissionProof`, §11.6) before accepting a connection. This admits clients that share an address, such as Tor users behind one exit, without penalizing all of them for one abuser.
 - **Removed members and leaked keys.** A removed member, or anyone who obtains an admission key, can have envelopes admitted until the CO rotates the key (§5.2.2). Members drop such envelopes because MLS processing fails, so the cost is relay capacity and member bandwidth, not content. The CO bounds it by rotating on every removal and on any suspected leak, and the Relay's per-token rate limits bound it meanwhile.
+- **DM member lists.** An identity host cannot verify that a DID added to a DM group's `complianceLoggers` is a logger (§4.6). A member can thereby give any DID a permanent place on the host's list, which yields the admission key (the ability to post envelopes that fail MLS processing) but no content.
+- **DM handover squatting.** A former member that shares an identity host with a remaining member, and knows the group's MLS group ID, can create a list for the group at that host first (§4.6). The host then refuses that member's creation, and the group moves to another member's host instead (§4.6.4).
 - **Wake-ups.** Wake-ups carry no content and no urgency (§11.7), so a sender cannot cause a high-priority wake on a recipient's device.
 
 Privacy Pass tokens are a possible future extension. Spam control is local policy; there is no global reputation system (by design; global reputation systems become censorship infrastructure).
@@ -180,7 +182,7 @@ Timestamps in documents are RFC 3339 date-times in UTC (`Z` suffix). The excepti
 
 Clients, Relays and CO services SHOULD keep their clocks synchronized to UTC, for example with NTP (RFC 5905). Unless a section states its own window, a party comparing another party's timestamp with its own clock MUST NOT treat an object as not yet valid unless its start time is more than 300 seconds ahead of its own clock, and checks expiry against its own clock with no added tolerance.
 
-Message order does not depend on any clock: messages are ordered by `seq` (§5.1.1), call coordination by epoch and envelope `id` (§6.14), and the routing envelope `ts` is set by an unidentified holder of the admission key (§5.2.2). Clocks do decide the following:
+Message order does not depend on any clock: messages are ordered by `seq` (§5.1.1), competing Commits in a Space with a sequencer by commit stream position (§5.1.1), call coordination by epoch and envelope `id` (§6.14), and the routing envelope `ts` is set by an unidentified holder of the admission key (§5.2.2). Clocks do decide the following:
 
 | Check | Whose clock | Defined in |
 |---|---|---|
@@ -194,6 +196,9 @@ Message order does not depend on any clock: messages are ordered by `seq` (§5.1
 | TURN credential expiry | TURN server | §6.11 |
 | Relay-to-relay request freshness | Receiving Relay | §10.2.3 |
 | Member authentication `ts` | CO service | §3.5 |
+| `DMMembers` `ts` | Identity host | §4.6 |
+| Commit collection window in a group without a sequencer (elapsed time) | Each receiving client | §5.1.1 |
+| 24-hour DM handover fallback | Each remaining member's client | §4.6.4 |
 | `expiryHint` and envelope retention | Relay | §5.2.4, §10.4.3 |
 | Push registration TTL | Relay | §11.7.3 |
 | 24-hour `RecoveryAssertion` rule | Party applying the assertion | §2.4.4 |
