@@ -1,0 +1,7 @@
+{
+  "id": "1792219830778216152-1",
+  "issue_id": "agora-pozi.28.5",
+  "author": "agent",
+  "text": "SUPERSEDED IN PART (Mark 2026-10-16): Mark asked subagents to apply the fixes and changes to the jmap-foo drafts. Applying the 14 suggestions in notes/jmap-draft-suggestions.md to ~/PROJECT/jmap-chat-spec; the Agora-only overrides stay in the Agora profile (spec/14 §14.6) unless Mark says otherwise. Commits in jmap-chat-spec require Mark's approval.",
+  "created_at": "2026-10-17T06:50:30.778216152Z"
+}

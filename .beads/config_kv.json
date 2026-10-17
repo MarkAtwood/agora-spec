@@ -26,5 +26,6 @@
   "kv.memory.agora-stable-did": "Agora employer DID naming (Mark 2026-10-16, option A'): localIdentifier MUST be stable, never reassigned, MUST NOT derive from name/email/UPN; org picks source (employee ID, IdP immutable ID, random). Rationale is operational stability of compliance/audit keys, not anonymity (corporate IDs aren't anonymous). alsoKnownAs flow kept only for domain migration.",
   "kv.memory.agora-translog": "Agora relay transparency log (Mark 2026-10-16, option C): dropped entirely, matching nie. Do not re-add as protocol feature, guide practice or manifest field.",
   "kv.memory.agora-urn": "Treat urn:agora: as a registered URN namespace (Mark 2026-10-16); do not raise RFC 8141 registration again.",
-  "kv.memory.corundum-flexible": "CORUNDUM is not fixed (Mark 2026-10-16): it can change to align with Agora (signing, identity, key custody). Frame Corundum fit decisions as change Corundum / change Agora / keep both."
+  "kv.memory.corundum-flexible": "CORUNDUM is not fixed (Mark 2026-10-16): it can change to align with Agora (signing, identity, key custody). Frame Corundum fit decisions as change Corundum / change Agora / keep both.",
+  "kv.memory.jmap-drafts-editable": "Mark 2026-10-16: jmap-chat-spec drafts may now be edited (applying notes/jmap-draft-suggestions.md); ask before committing there; Agora-only overrides not applied to drafts unless asked."
 }

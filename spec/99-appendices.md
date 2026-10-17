@@ -139,3 +139,9 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 ---
 
 *End of specification.*
+
+## Appendix E: Acknowledgments
+
+This appendix is non-normative.
+
+Agora's relay peering design (§10.2: signed relay manifest, key lifecycle, request signing and graduated trust levels) derives from the operator federation design of the CORUNDUM federated social protocol. Agora applies it one layer down, between relays that hold no identity or membership knowledge.

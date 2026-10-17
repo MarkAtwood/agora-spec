@@ -402,6 +402,11 @@ All resolved 2026-10-16 except the external review in Q1.
   those relays, by choice. Under legal demand an IO can produce which network
   addresses used a given CO's service, not which Space, channel or sender.
 
+- **A party that runs both a social or identity service and relays can link
+  its own users to the COs whose traffic they use.** It never learns content,
+  channel or Space. Users and communities can choose relays run by someone else
+  (§2.4; profiles/corundum.md).
+
 ## 10. Review test
 
 Every section of the specification MUST be able to answer:
