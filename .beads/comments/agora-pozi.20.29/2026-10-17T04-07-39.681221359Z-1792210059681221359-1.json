@@ -1,0 +1,7 @@
+{
+  "id": "1792210059681221359-1",
+  "issue_id": "agora-pozi.20.29",
+  "author": "agent",
+  "text": "DID-path part fixed with stable-identifier pass (A'); endpoint path and lifecycle-state drift remain.",
+  "created_at": "2026-10-17T04:07:39.681221359Z"
+}

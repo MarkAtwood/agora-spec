@@ -17,7 +17,9 @@ This specification extends the DID Sidecar's `IdentityProvider` interface to cov
 | **Cat 3** — SAML-only / legacy IdPs | AD FS, Shibboleth, legacy Ping Federate | HR system, AD-LDAP, or manual IT |
 | **Cat 4** — On-premises Active Directory | Any Windows AD forest without Entra sync | LDAP DirSync control or USNChanged polling |
 
-All four categories produce the same output: a populated DID document at `did:web:did.example.com:users:{encoded-id}/did.json`, triggered by the same sidecar event handler introduced in the Google Workspace spec. The categories differ only in which `IdentityProvider` implementation feeds that handler and which JML source drives user lifecycle events.
+All four categories produce the same output: a populated DID document for `did:web:did.example.com:users:{localIdentifier}` (served at `https://did.example.com/users/{localIdentifier}/did.json`), triggered by the same sidecar event handler introduced in the Google Workspace spec. The categories differ only in which `IdentityProvider` implementation feeds that handler and which JML source drives user lifecycle events.
+
+**DID path rule (all categories).** The `localIdentifier` follows spec §2.5.2 and O365 spec §2: stable, never reassigned, and never derived from a name, email, UPN or `userName`. The recommended default is a random lowercase base32 value minted by the sidecar at provisioning (e.g. `k7f3qd2m`). The source's immutable user ID (Okta `id`, SCIM `externalId` or `id`, AD `objectGUID`, HR employee ID) is an allowed alternative. Either way, the sidecar keys its private user record on that source ID (`stableID`) and maps it to the `localIdentifier`; the mapping is never published. A sidecar-minted value is preferred because it survives a change of IdP or JML source. Renames and email or UPN changes update only the private record and credential claims, never the DID; only a move of the DID host changes the DID (O365 spec §6.4).
 
 The VC issuance model is identical to the Google Workspace spec: self-issued `EmployeeCredential` signed by the org root key, served via StatusList2021 for revocation. No external VC platform is required for any category.
 
@@ -238,7 +240,7 @@ DELETE /scim/v2/Groups/{id}        Delete group
 
 Authentication to the SCIM endpoint uses Bearer token auth. The token is a pre-shared secret configured in the upstream provisioner and stored in the sidecar config. For Azure AD and Okta as upstream provisioners, this is the standard "provisioning secret token" in their SCIM connector configuration.
 
-**User identifier mapping:** SCIM uses `externalId` (the upstream system's user ID) and `id` (the SCIM provider's internal ID). The sidecar MUST store `externalId` as the canonical user identifier and use it to construct the DID path. If `externalId` is absent, the sidecar MUST fall back to the `userName` attribute.
+**User identifier mapping:** SCIM uses `externalId` (the upstream system's user ID) and `id` (the SCIM provider's internal ID). The sidecar MUST store `externalId` as the `stableID` mapped to the DID (§1), falling back to the SCIM `id` if `externalId` is absent (§4.4).
 
 ### 4.3 SCIM Client Mode
 
@@ -264,7 +266,7 @@ full_sync_interval = "24h"
 
 ### 4.4 Stable User ID Requirement
 
-SCIM user identifiers MUST be stable through attribute changes (name changes, email changes, org unit moves). The sidecar MUST key DID documents on `externalId` if present, falling back to the SCIM server's internal UUID (`id`). The sidecar MUST NOT key on `userName` or `emails[].value` because these can change.
+SCIM user identifiers MUST be stable through attribute changes (name changes, email changes, org unit moves). The sidecar MUST key its user records on `externalId` if present, falling back to the SCIM server's internal UUID (`id`). The sidecar MUST NOT key on `userName` or `emails[].value` because these can change.
 
 If a provider rotates user IDs on attribute changes, the sidecar treats the rotation as a deletion of the old user and creation of a new one, producing a new DID for the same person. The operator MUST configure `externalId` mapping to avoid this.
 
@@ -324,7 +326,7 @@ Content-Type: application/json
 | `LEAVE_OF_ABSENCE` | Suspend DID, revoke VC |
 | `RETURN_FROM_LEAVE` | Reactivate DID, re-issue VC |
 
-The sidecar matches Workday workers to DID records using `email` as the primary key (`workdayId` is rarely surfaced in other systems). If the email changes (e.g., on a legal name change), the sidecar applies the same UPN-change handling as the O365 spec §6.4: a new DID path is provisioned, the old one is aliased, and it is eventually tombstoned.
+The sidecar matches Workday workers to DID records using `employeeId` as the `stableID` (`workdayId` is rarely surfaced in other systems). If the email changes (e.g., on a legal name change), the sidecar updates its private record and re-issues the VC; the DID is unchanged (§1).
 
 Workday integration setup (Workday Studio outbound integration or Report-as-a-Service) is the responsibility of the operator's Workday administrator and is outside the scope of this specification. The sidecar endpoint accepts the payload above regardless of which Workday integration mechanism produces it.
 
@@ -420,7 +422,7 @@ POST /v1/admin/reactivate     Reactivate a user
 POST /v1/admin/update-claims  Update department/role claims
 POST /v1/admin/revoke-device  Revoke a specific device key
 GET  /v1/admin/status         List all DID states
-GET  /v1/admin/audit/{email}  Audit log for a user
+GET  /v1/admin/audit/{localIdentifier}  Audit log for a user
 ```
 
 The admin API is documented with an OpenAPI spec. A minimal web UI SHOULD be provided for IT helpdesk use to support routine operations such as lost device revocation without requiring raw API calls.
@@ -498,7 +500,7 @@ func (p *LDAPProvider) PollChanges(ctx context.Context) ([]*UserRecord, error) {
 | AD Attribute | `UserRecord` Field |
 |---|---|
 | `objectGUID` | `stableID` (canonical key; never changes) |
-| `userPrincipalName` | `upn` / DID path source |
+| `userPrincipalName` | `upn` (not used in the DID) |
 | `mail` | `email` |
 | `displayName` | `displayName` |
 | `sAMAccountName` | `username` |
@@ -509,7 +511,7 @@ func (p *LDAPProvider) PollChanges(ctx context.Context) ([]*UserRecord, error) {
 | `pwdLastSet == 0` + `ACCOUNTDISABLE` | Suspended state |
 | Object in Deleted Objects container | Deletion → tombstone |
 
-`objectGUID` is the stable identifier and does not change on rename, move, or attribute modification. The DID path is derived from UPN at provisioning time; if UPN changes, the same UPN-change handling as the O365 spec §6.4 applies.
+`objectGUID` is the stable identifier and does not change on rename, move, or attribute modification. The DID path follows §1, so a UPN change updates only the sidecar's private record.
 
 ### 6.3 DirSync Implementation
 

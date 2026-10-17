@@ -187,14 +187,14 @@ WebRTC ICE succeeds with direct peer connectivity in most cases but fails for pa
 
 ### TURN Server Identity
 
-TURN servers in Agora have DIDs, published in the Space state document:
+TURN servers are listed in the CO-signed Space state document (ARCHITECTURE S4):
 
 ```json
 "turnServers": [
   {
     "@type": "TURNDescriptor",
-    "did": "did:key:z6MkTURN...",
     "uri": "turns:turn.example.com:5349",
+    "credentialEndpoint": "https://turn-creds.acme.example/v1/agora/turn",
     "transport": "tcp",
     "regions": ["us-west", "eu-central"],
     "credentialScheme": "co-issued"
@@ -202,7 +202,7 @@ TURN servers in Agora have DIDs, published in the Space state document:
 ]
 ```
 
-`uri` follows the standard TURN URI format (RFC 7065). `turns:` (TLS) is required; `turn:` (plaintext) MUST NOT be used. A `TURNDescriptor` MUST NOT carry any shared secret or key from which TURN credentials can be computed.
+`uri` follows the standard TURN URI format (RFC 7065). `credentialEndpoint` is the HTTPS URL of the CO credential service that issues credentials for this server (§6.11 TURN Credentials). A TURN server has no DID: it never signs anything a client verifies, and the TLS certificate of `uri` authenticates it. `turns:` (TLS) is required; `turn:` (plaintext) MUST NOT be used. A `TURNDescriptor` MUST NOT carry any shared secret or key from which TURN credentials can be computed.
 
 **Reference implementations:** [`coturn`](https://github.com/coturn/coturn) is the standard open-source TURN/STUN server.
 
@@ -211,7 +211,7 @@ TURN servers in Agora have DIDs, published in the Space state document:
 TURN credentials (`credentialScheme: "co-issued"`) are short-lived RFC 8489 long-term credentials issued to members by a CO-run credential service, using the TURN REST pattern:
 
 1. The TURN operator and the CO credential service share a secret. It is held only by those two parties and is never published.
-2. A member requests credentials from the CO credential service, which issues them only to current members of the Space.
+2. A member requests credentials from the CO credential service at the descriptor's `credentialEndpoint`, which issues them only to current members of the Space.
 3. The service returns `username = expiryUnixTime || ":" || randomNonce` and `password = HMAC(secret, username)`. The username MUST NOT contain a DID or any other persistent identifier.
 4. The TURN server verifies the HMAC and the expiry without learning the client's DID or any persistent identity.
 
@@ -236,11 +236,13 @@ TURN credentials MUST NOT be derived from MLS epoch secrets or exporter outputs:
 
 ## 6.12 Recording Grant Sub-Protocol
 
-This section fully specifies the `RecordingGrant` mechanism referenced in §6.6 — the key delivery sub-protocol, the recording archive format, participant disclosure requirements, and compliance recording configuration.
+This section specifies the `RecordingGrant` mechanism referenced in §6.6: recorder admission and media access, participant disclosure and consent, the recording archive format, and compliance recording configuration.
+
+There is no recording-specific key. The recorder is an MLS member of the voice channel's group and decrypts media exactly as any other member does: SRTP on its own DTLS hop (§6.10) and SFrame with exporter-derived media keys (§6.9). The `RecordingGrant` is the authorization and disclosure record for that membership; it carries no key material.
 
 ### 6.12.1 RecordingGrant Schema
 
-A channel Admin issues a `RecordingGrant` as an MLS application message to the voice channel's MLS group:
+A channel Admin or the Space Owner issues a `RecordingGrant` as an MLS application message to the voice channel's MLS group:
 
 ```json
 {
@@ -251,6 +253,7 @@ A channel Admin issues a `RecordingGrant` as an MLS application message to the v
   "grantedBy": "did:key:z6MkAdmin...",
   "scope": "audio-video",
   "purpose": "compliance",
+  "retentionDays": 2555,
   "expiresAt": "2026-03-13T00:00:00Z",
   "participantDisclosure": "This call is being recorded for regulatory compliance by Acme Corp Compliance Archive.",
   "ts": "2026-03-12T12:00:00Z",
@@ -258,7 +261,9 @@ A channel Admin issues a `RecordingGrant` as an MLS application message to the v
 }
 ```
 
-`grantedTo` is the DID of the recording principal. The recorder holds media keys and produces plaintext, so it is a CO component (ARCHITECTURE §2.3, S8). Clients MUST NOT issue a `RecordingGrant` to, or deliver recording keys to, a DID that appears in Space state as an SFU, TURN server or relay, or any other IO key. `scope` is `"audio-only"`, `"video-only"`, or `"audio-video"`. `purpose` is `"operational"` (ad-hoc recording by an admin) or `"compliance"` (regulatory retention obligation). `participantDisclosure` MUST be displayed to all channel participants before recording begins.
+The grant is signed per §13.1.1 by `grantedBy`. Because only an Admin or Owner may issue it, it is a CO-signed record (ARCHITECTURE S4): recipients MUST verify that `grantedBy` holds the Admin or Owner role in current Space state and MUST ignore a grant that fails this check. The one exception is a grant whose `grantedTo` is the `vtcCompliance.recorderDID` of a Space in which `grantedBy` is a member and `vtcCompliance.enabled` is `true` (§6.12.5, §6.12.7): the CO-signed `vtcCompliance` block is then the authorization, and any member of that Space MAY issue the grant.
+
+`grantedTo` is the DID of the recording principal. The recorder can derive media keys and produces plaintext, so it is a CO component (ARCHITECTURE §2.3) and MUST run under CO control (S8). Clients MUST NOT issue a `RecordingGrant` to, or add to a channel group as a recorder, a DID that appears in Space state as an SFU or relay, or as any other IO key. `scope` is `"audio-only"`, `"video-only"`, or `"audio-video"`. `purpose` is `"operational"` (ad-hoc recording by an admin) or `"compliance"` (regulatory retention obligation). `retentionDays` is the retention period the CO commits to for the archive (§6.12.4). `participantDisclosure` MUST be displayed to all channel participants before recording begins (§6.12.3).
 
 A `RecordingRevoke` terminates the grant early:
 
@@ -273,59 +278,42 @@ A `RecordingRevoke` terminates the grant early:
 }
 ```
 
-Both `RecordingGrant` and `RecordingRevoke` are stored in the channel's IPLD history DAG — the full grant and revocation history is permanently auditable.
+`RecordingRevoke` is signed per §13.1.1 by `revokedBy`, which MUST hold the Admin or Owner role in current Space state. Both `RecordingGrant` and `RecordingRevoke` are stored in the channel's IPLD history DAG, so the full grant and revocation history is permanently auditable.
 
-### 6.12.2 Key Delivery Sub-Protocol
+### 6.12.2 Recorder Admission and Media Access
 
-The recording key is derived from the MLS exporter interface and delivered to the recorder's DID via an encrypted `RecordingKeyDelivery` message.
+**Admission.** The issuer of a `RecordingGrant`, or another Admin or Owner, adds `grantedTo` to the voice channel's MLS group with an ordinary Add Commit using a KeyPackage from the recorder's `KeyPackageEndpoint` (§7.8.2), in the same epoch as, or before, the grant is sent. The recorder is a passive member (§5.2.1.3): it never issues Commits or Proposals.
 
-**Key derivation.** Each participant derives the recording key for the current MLS epoch as:
+**Media access.** The recorder joins the call (§6.3) as a receive-only participant and transmits no media. In SFU topology it subscribes through the SFU like any participant and removes SFrame (§6.9) with the senders' exporter-derived media keys; the SFU gains nothing (§6.6 SFU Recording). In mesh topology it is a mesh peer and decrypts SRTP on its own DTLS-SRTP connections (§6.10). No key is delivered to the recorder by any participant, and no participant action beyond normal call participation is required.
 
-```
-recordingKey = MLS-Exporter("agora-recording-key-v1", grantCID_bytes, 32)
-```
+**Scope.** As a member, the recorder can technically decrypt every track in the call. `scope` is a CO obligation, not a cryptographic limit: the recorder MUST NOT store tracks outside `scope`.
 
-where `grantCID_bytes` is the raw CID bytes of the `RecordingGrant` that authorized this recording session. Using the grant CID as context binds the key to the specific grant — different grants for the same channel in different epochs produce different keys. The derivation occurs entirely within the MLS stack; the epoch secret is never exposed to application code.
+**Grant end.** On a valid `RecordingRevoke` or when `expiresAt` passes, the recorder MUST stop recording. For an `"operational"` grant, the issuer (or, failing that, any Admin or Owner client that observes the grant end) MUST commit a Remove of the recorder's leaf; the recorder then cannot derive media keys for later epochs. A compliance recorder declared in `vtcCompliance` (§6.12.5) remains a member for as long as `vtcCompliance.enabled` is `true`.
 
-**Key delivery.** Each participant's client delivers the derived key to the recorder's DID via an MLS application message of type `RecordingKeyDelivery`, sent as a PrivateMessage targeted to the recorder's DID within the channel group:
+**Epoch gaps.** The recorder can capture only media it receives while it is in the call. Epochs of an active call during which it captured no media are recorded as `epochsGapped` in the `VTCComplianceAuditEntry` (§6.12.6).
 
-```json
-{
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "RecordingKeyDelivery",
-  "grantCID": "bafyrei...",
-  "epoch": 17,
-  "encryptedKey": "base64url...",
-  "senderDID": "did:key:z6MkParticipant...",
-  "ts": "2026-03-12T12:00:00Z",
-  "sig": "base64url..."
-}
-```
+### 6.12.3 Participant Disclosure and Consent
 
-`encryptedKey` is the 32-byte `recordingKey` encrypted to the recorder's X25519 `keyAgreement` key from its DID document, using HPKE (RFC 9180, DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM). The HPKE `info` parameter is `"agora-recording-key-delivery-v1" || grantCID_bytes`.
-
-**Delivery timing.** Clients MUST deliver a `RecordingKeyDelivery` message:
-1. Immediately on receiving a valid `RecordingGrant`, for the current epoch
-2. At each subsequent MLS epoch advance (key rotation), for the new epoch's derived key, for the duration of the grant
-3. NOT after receiving a `RecordingRevoke` or after `expiresAt` has passed
-
-The recorder collects `RecordingKeyDelivery` messages from each participant. It needs only one valid delivery per epoch to decrypt that epoch's media. However, clients MUST NOT withhold delivery; failing to deliver is a protocol violation for a participant who is in the call.
-
-**Epoch gaps.** If the recorder misses a `RecordingKeyDelivery` for an epoch (e.g., it was offline), it cannot decrypt media from that epoch retroactively. The `VTCComplianceAuditEntry` (§6.12.6) records any epoch gaps detected by the compliance logger.
-
-### 6.12.3 Participant Disclosure
-
-Before recording begins, participating clients MUST display the `participantDisclosure` string from the `RecordingGrant` as a non-dismissable system message in the voice channel's text feed and as a visible indicator in the call UI for the duration of the recording. The indicator MUST persist for the full duration of the grant.
+Before recording begins, participating clients MUST display the `participantDisclosure` string from the `RecordingGrant` as a non-dismissable system message in the voice channel's text feed and as a visible indicator in the call UI. The indicator MUST persist for the full duration of the grant. Clients MUST also show the indicator whenever the channel group contains a leaf for the `vtcCompliance.recorderDID` of the Space.
 
 A participant who joins a voice channel where a `RecordingGrant` is already active MUST be shown the disclosure immediately on join, before their audio or video is transmitted. Their client MUST NOT enable media transmission until the disclosure has been rendered.
 
-For compliance grants (`"purpose": "compliance"`), the disclosure MUST include the `loggerLabel` and `retentionDays` from the space's `ComplianceLoggingConfig`:
+**Consent model.** Recording is channel-level state, not a per-participant choice. Media keys are group-wide (§6.9), so a recorder that is a member can decrypt every participant, and the protocol does not offer per-participant exclusion. Consent depends on the grant's `purpose`:
+
+- **Compliance grants** (`"purpose": "compliance"`). Recording is mandated for regulated members and cannot be vetoed. Consent is expressed by transmitting media after the disclosure is shown. A participant who does not consent MUST be able to remain muted with camera off, or leave.
+- **Operational grants** (any other `purpose`). Each participant's client MUST obtain an explicit affirmative acknowledgement from its user before transmitting that user's media while the grant is active. A participant who declines remains in the call with media off. One participant's refusal does not stop the recording of others.
+
+In either case, clients MUST NOT transmit a participant's media automatically on join while a grant is active.
+
+The grant governs CO recording only. Any member can capture media it receives by other means; the protocol cannot prevent this.
+
+For compliance grants (`"purpose": "compliance"`), the disclosure MUST include the `loggerLabel` from the space's `ComplianceLoggingConfig` and the grant's `retentionDays`:
 
 > **This call is being recorded for regulatory compliance by [loggerLabel] and retained for [retentionDays] days.**
 
 ### 6.12.4 Recording Archive Format
 
-The recorder writes received media to IPFS and records metadata as a `VTCComplianceRecord`:
+The recorder writes each recording to CO-controlled storage (ARCHITECTURE S8) and records its metadata as a `VTCComplianceRecord`:
 
 ```json
 {
@@ -356,9 +344,11 @@ The recorder writes received media to IPFS and records metadata as a `VTCComplia
 }
 ```
 
-`mediaCID` is the IPFS CID of the recorded media file. `prevRecordCID` chains records into the same append-only IPLD structure used for text compliance (§7.4), making the recording archive tamper-evident. `recorderSig` is the recorder's Ed25519 signature over all other fields, signed per §13.1.1.
+`mediaCID` is the CID of the encrypted media object. `prevRecordCID` chains records into the same append-only IPLD structure used for text compliance (§7.4), making the recording archive tamper-evident. `recorderSig` is the recorder's Ed25519 signature over all other fields, signed per §13.1.1. Records and media objects are stored on CO infrastructure and retained for the grant's `retentionDays`.
 
-Media SHOULD be stored as Opus audio in an Ogg or WebM container (audio-only recordings) or VP8/VP9/AV1 video with Opus audio in a WebM container (audio-video recordings). The recorder MUST decode the SRTP streams using the delivered recording keys and re-encode to the archive format before writing to IPFS. The raw SRTP packets MUST NOT be stored.
+Media SHOULD be stored as Opus audio in an Ogg or WebM container (audio-only recordings) or VP8/VP9/AV1 video with Opus audio in a WebM container (audio-video recordings). The recorder decrypts SRTP and SFrame as a member (§6.12.2) and re-encodes to the archive format. Raw SRTP or SFrame packets MUST NOT be stored.
+
+**Encryption at rest.** Each media file MUST be sealed before it leaves the recorder process, using HPKE single-shot `Seal` (RFC 9180, DHKEM(X25519, HKDF-SHA256), HKDF-SHA256, AES-128-GCM) to the X25519 `keyAgreement` key in the recorder's DID document, with `info = "agora-recording-archive-v1" || grantCID_bytes`. `mediaCID` addresses the sealed object. Plaintext media MUST NOT be written to any IO component; a sealed object MAY be replicated to IO blob or pinning storage, which then holds only ciphertext.
 
 Per-epoch media files are stored separately (one `mediaCID` per epoch) and linked by the `VTCComplianceRecord` chain.
 
@@ -386,7 +376,7 @@ To enable automatic compliance recording for a space's voice channels, the space
 
 When `autoGrant` is `true`, the `RecordingGrant` is issued by the first Admin or Owner client that observes the call starting. The grant `expiresAt` is set to the call end plus a configurable grace period (default 5 minutes) to capture any reconnecting participants.
 
-The recorder operates as a passive member (§5.2.1.3) of each voice channel's MLS group — it holds a leaf credential, receives all MLS application messages (including `RecordingKeyDelivery` messages), and does not issue Commits or Proposals. The recorder whose DID is declared in `vtcCompliance.recorderDID` MUST have a `KeyPackageEndpoint` service entry in its DID document (same requirement as the text compliance logger, §7.8.2) and MUST pre-upload an HPKE public key in its DID document's `keyAgreement` entry.
+The recorder operates as a passive member (§5.2.1.3) of each voice channel's MLS group, admitted as in §6.12.2: it holds a leaf credential, derives media keys like any member, and does not issue Commits or Proposals. The recorder whose DID is declared in `vtcCompliance.recorderDID` MUST have a `KeyPackageEndpoint` service entry in its DID document (same requirement as the text compliance logger, §7.8.2) and MUST publish an X25519 `keyAgreement` key in its DID document for archive encryption (§6.12.4). Auto-issued grants carry `retentionDays` from this block.
 
 ### 6.12.6 VTC Compliance Audit Entry
 
@@ -409,11 +399,11 @@ The space's IPLD compliance audit chain receives a `VTCComplianceAuditEntry` for
 }
 ```
 
-`epochsGapped` is an array of epoch numbers for which no `RecordingKeyDelivery` was received, resulting in an unrecorded segment. An empty array means complete capture. Non-empty arrays are compliance gaps that must be reported to the compliance officer.
+`epochsGapped` is an array of epoch numbers of the call during which the recorder captured no media (§6.12.2), resulting in an unrecorded segment. An empty array means complete capture. Non-empty arrays are compliance gaps that must be reported to the compliance officer.
 
 ### 6.12.7 VTC Compliance in DM Voice Groups
 
-A DM group (§4.6) may include a voice channel component. The obligation from §7.8 extends to voice: a regulated Space member participating in a DM voice group MUST add the space's `recorderDID` to the DM group's MLS group and issue a `RecordingGrant` for the recorder before any voice media is transmitted, following the same mechanics as §6.12.2. The `DMGroupDescriptor` `complianceLoggers` array records both text logger DIDs and VTC recorder DIDs.
+A DM group (§4.6) may include a voice channel component. The obligation from §7.8 extends to voice: a regulated Space member participating in a DM voice group MUST add the space's `recorderDID` to the DM group's MLS group and issue a `RecordingGrant` for the recorder before any voice media is transmitted, following the same admission mechanics as §6.12.2. The `DMGroupDescriptor` `complianceLoggers` array records both text logger DIDs and VTC recorder DIDs.
 
 Participant disclosure (§6.12.3) applies in DM voice groups identically to space voice channels. Non-regulated DM participants receive the disclosure notice and MAY leave before transmitting media.
 

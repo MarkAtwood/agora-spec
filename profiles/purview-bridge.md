@@ -125,9 +125,9 @@ The bridge creates subfolders lazily on first message for each space/channel. Fo
 
 ### 2.3 DID-to-M365 Identity Mapping
 
-The bridge maintains a mapping table `{ agoraDID → m365UPN }`, populated by one of the following methods:
+The bridge maintains a mapping table `{ agoraDID → m365UPN }`. The mapping is private CO data: it MUST be held only in the CO's directory, the DID provisioning service's (sidecar's) database and the bridge's own store, and MUST NOT be written into any DID document, profile, Space state or other published or gossiped record. The table is populated by one of the following methods:
 
-1. **SAML/OIDC attribute injection** (preferred for enterprise deployments): when a user authenticates to Agora via the enterprise IdP, their M365 UPN is included as a SAML attribute (`urn:oid:1.2.840.113549.1.9.1` / email) or OIDC claim (`upn` or `email`). The Agora client records this mapping at login time and includes it in the user's DID document service entry.
+1. **Provisioning-service record** (preferred for enterprise deployments): when a device is enrolled, the DID provisioning service (spec §2.5.4) already validates the IdP token, whose SAML attribute (`urn:oid:1.2.840.113549.1.9.1` / email) or OIDC claim (`upn` or `email`) carries the M365 UPN. The provisioning service records `{ agoraDID → m365UPN }` in its private database, and the bridge reads it over an authenticated internal interface. The Agora client takes no part in the mapping.
 
 2. **Manual provisioning**: an admin-supplied CSV mapping `agoraDID,m365UPN` loaded at bridge startup. This is the fallback for environments without SAML/OIDC integration.
 

@@ -255,16 +255,16 @@ Receiving Relays verify the signature, independently fetch the new Relay's manif
 
 ### 10.3.1 Gossip Protocol
 
-Agora uses **libp2p gossipsub v1.1** for peer discovery, space and channel advertisement, live message delivery, and MLS handshake message delivery (Welcome, Commit, Proposal).
+Agora uses **libp2p gossipsub v1.1** for peer discovery, voluntary CO advertisements, and live delivery of token-keyed ciphertext envelopes, including MLS Commits and Proposals, which travel in the channel's own envelopes.
 
 Each gossipsub **topic** maps to a specific scope:
 
 | Topic pattern | Purpose |
 |---|---|
 | `v1/agora/discovery` | Global space/user advertisements |
-| `v1/agora/space/<spaceCID>` | Space-scoped events: joins, state updates, moderation records |
 | `v1/agora/channel/<channelToken>` | Per-channel messages and ephemeral presence/typing events |
-| `v1/agora/mls/<groupID>` | MLS handshake messages: Welcome, Commit, Proposal |
+
+No topic carries a Space CID, MLS group ID or other Space identifier (ARCHITECTURE S1). Space state, moderation records and other Space-level records reach members from the CO's Space endpoint and in-band MLS notifications (§3.4); Welcomes go to the invitee's `KeyPackageEndpoint` (§4.6).
 
 The `v1/` prefix is the gossip protocol version for that topic family. A future breaking change to message framing on a topic introduces a `v2/` prefix. Relays MUST subscribe to all versions of topics they serve. Clients negotiate which version to publish on via the `negotiated.gossipVersion` field in the `RelayChallenge` (§11.6). During a version transition period, Relays bridge messages between `v1/` and `v2/` topic variants for the same channel.
 
@@ -290,13 +290,14 @@ A **SpaceAd** or **UserAd** message is gossiped periodically (default TTL: 60 se
     "wss://relay.example.net"
   ],
   "isPublic": true,
+  "spaceEndpoint": ["https://spaces.example.com/v1/agora/space/1f3a..."],
   "advertisedBy": "did:key:z6Mk...",
   "sig": "base64url...",
   "ts": "2026-03-12T00:00:00Z"
 }
 ```
 
-`relayHints` are connection hints only — clients are not required to use them and SHOULD attempt direct peer connections first. `relayHints` MAY include `.onion` addresses, clearnet HTTPS/WSS URIs, overlay-internal hostnames, and IPv6 address literals.
+`spaceEndpoint` lists the CO's Space endpoint URLs (§3.4). `relayHints` are connection hints only — clients are not required to use them and SHOULD attempt direct peer connections first. `relayHints` MAY include `.onion` addresses, clearnet HTTPS/WSS URIs, overlay-internal hostnames, and IPv6 address literals.
 
 A SpaceAd is a voluntary CO publication; Relays forward it on `v1/agora/discovery` like any other gossip message.
 
@@ -548,6 +549,7 @@ A conformant Relay MUST:
 - Route messages by `channelToken` only; never attempt to resolve tokens to identities.
 - Cache message envelopes up to the lesser of: configured retention window (default 30 days) or the envelope's `expiryHint`.
 - Pin IPFS content stored under a `RelayServiceAgreement` within the agreement's retention window.
+- Store only ciphertext envelopes, blobs addressed by CID that it cannot interpret (including group-encrypted blobs, §3.4), and records a CO explicitly publishes (such as SpaceAds, directory documents and public Space state).
 - Honor pin and unpin instructions authorized by the epoch access proof, retaining pinned CIDs regardless of retention window or `expiryHint` until unpinned (ARCHITECTURE §6.2).
 - Enforce the storage and bandwidth quotas set by each `RelayServiceAgreement` (§10.5.1), keyed to the agreement and never to member identity.
 - Validate outer envelope structure and `channelToken` format before forwarding; drop malformed envelopes silently.

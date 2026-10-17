@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.20.54",
+  "title": "universal-idp §8 enrollment links sign-in to directory by email",
+  "description": "Email fallback key is fragile under email change; use IdP immutable ID per spec §2.5.2 A' decision.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T04:07:39.794780012Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T04:07:39.794780012Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.54",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T04:07:39.801164582Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

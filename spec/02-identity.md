@@ -64,7 +64,7 @@ The user profile is stored separately from the DID document, as an IPLD node add
 ```json
 {
   "service": [{
-    "id": "did:web:example.com:users:alice#profile",
+    "id": "did:web:example.com:users:k7f3qd2m#profile",
     "type": "AgoraProfile",
     "serviceEndpoint": "ipfs://bafyrei..."
   }]
@@ -101,19 +101,19 @@ A **recovery key** is a dedicated Ed25519 keypair generated at account creation 
 {
   "verificationMethod": [
     {
-      "id": "did:web:example.com:users:alice#keys-1",
+      "id": "did:web:example.com:users:k7f3qd2m#keys-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:web:example.com:users:alice",
+      "controller": "did:web:example.com:users:k7f3qd2m",
       "publicKeyMultibase": "z6Mk..."
     },
     {
-      "id": "did:web:example.com:users:alice#recovery-1",
+      "id": "did:web:example.com:users:k7f3qd2m#recovery-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:web:example.com:users:alice",
+      "controller": "did:web:example.com:users:k7f3qd2m",
       "publicKeyMultibase": "zRECOVERY..."
     }
   ],
-  "recoverableIdentity": ["did:web:example.com:users:alice#recovery-1"]
+  "recoverableIdentity": ["did:web:example.com:users:k7f3qd2m#recovery-1"]
 }
 ```
 
@@ -123,7 +123,7 @@ The recovery key is **never used for normal protocol operations**. Its only func
 {
   "@context": "https://agora.protocol/ns/v1",
   "@type": "RecoveryAssertion",
-  "did": "did:web:example.com:users:alice",
+  "did": "did:web:example.com:users:k7f3qd2m",
   "newDeviceKey": "base64url(new Ed25519 pubkey)",
   "revokeAll": true,
   "ts": "2026-03-12T12:00:00.000Z",
@@ -131,7 +131,7 @@ The recovery key is **never used for normal protocol operations**. Its only func
 }
 ```
 
-`recoverySig` is an Ed25519 signature by the recovery key, signed per §13.1.1. `revokeAll: true` instructs peers to treat all previously registered device keys as revoked once the assertion takes effect (§2.4.4). The `RecoveryAssertion` is published to `v1/agora/discovery` and appended to the user's profile IPLD chain. Relays take no action on a `RecoveryAssertion`: they hold no per-DID sessions, and a revoked device loses channel access when its leaves are Removed (§2.2).
+`recoverySig` is an Ed25519 signature, signed per §13.1.1, by a key listed in the DID document's `recoverableIdentity` relationship: either the recovery key or the social recovery key (§2.4.2). Verifiers MUST reject a `RecoveryAssertion` whose signature does not verify under a `recoverableIdentity` key of the DID document in effect before the assertion. `revokeAll: true` instructs peers to treat all previously registered device keys as revoked once the assertion takes effect (§2.4.4). The `RecoveryAssertion` is published to `v1/agora/discovery` and appended to the user's profile IPLD chain. Relays take no action on a `RecoveryAssertion`: they hold no per-DID sessions, and a revoked device loses channel access when its leaves are Removed (§2.2).
 
 **The recovery key is the root of trust for identity recovery.** Its private key MUST NOT leave a secure offline boundary — paper backup, air-gapped device, or hardware security key. It MUST NOT be imported into any networked device or software keystore under any circumstances during normal operation.
 
@@ -139,7 +139,13 @@ The recovery key is **never used for normal protocol operations**. Its only func
 
 Social recovery designates a set of **guardians** — other Agora users trusted to collectively authorize identity recovery. A threshold scheme (e.g., 3-of-5) ensures that no single guardian can unilaterally recover the account, and that losing any one guardian does not prevent recovery.
 
-**Setup:** The client generates a random 256-bit recovery secret `S`, splits it into `N` shares using Shamir's Secret Sharing (SSS), and encrypts each share individually to a guardian's X25519 key agreement key:
+**Setup:** The client generates a random 256-bit recovery secret `S`, splits it into `N` shares using Shamir's Secret Sharing (SSS), and encrypts each share individually to a guardian's X25519 key agreement key. The client also derives the **social recovery key** from `S`:
+
+```
+seed = HKDF-SHA256(IKM = S, salt = "" (zero-length), info = "agora/v1/social-recovery-key", L = 32)
+```
+
+`seed` is used as an Ed25519 private key seed (RFC 8032 §5.1.5). The client MUST register the derived public key in the DID document as a verification method listed in `recoverableIdentity`, exactly as the recovery key is registered (§2.4.1), with fragment `#social-recovery-1`. This public key is the recovery commitment: it lets anyone check both a reconstruction of `S` and a `RecoveryAssertion` signed with the derived key. After registration the client MUST erase `S` and `seed`.
 
 ```json
 {
@@ -154,17 +160,17 @@ Social recovery designates a set of **guardians** — other Agora users trusted 
       "encryptedShare": "base64url..."
     }
   ],
-  "recoveryCommitment": "base64url(SHA256(S))",
+  "recoveryKeyID": "did:key:z6Mk...#social-recovery-1",
   "ts": "2026-03-12T12:00:00.000Z",
   "sig": "base64url..."
 }
 ```
 
-The `SocialRecoveryConfig` is stored in the user's profile IPLD chain. `recoveryCommitment` is a SHA-256 hash of `S` used to verify share reconstruction without revealing `S` before recovery begins.
+The `SocialRecoveryConfig` is stored in the user's profile IPLD chain; it carries only the encrypted shares and a `recoveryKeyID` pointer. The recovery commitment itself (the social recovery public key) is held only in the DID document, and verifiers MUST take it from there, not from the `SocialRecoveryConfig`.
 
-**Recovery:** The user contacts `threshold` guardians out-of-band and requests their shares. Each guardian decrypts their encrypted share using their X25519 key and transmits it to the recovering user. The user reconstructs `S` from the shares, verifies it against `recoveryCommitment`, then uses `S` to derive a new signing key and publish a `RecoveryAssertion` signed with it.
+**Recovery:** The user contacts `threshold` guardians out-of-band and requests their shares. Each guardian decrypts their encrypted share using their X25519 key and transmits it to the recovering user. The user reconstructs `S` from the shares, re-derives the social recovery key as above, and checks that its public key matches the `#social-recovery-1` key in the DID document; a mismatch means a share is wrong. The user then publishes a `RecoveryAssertion` (§2.4.1) naming a freshly generated device key in `newDeviceKey` and signed with the social recovery key. Because `S` is now known to the recovering device, the client SHOULD then re-run setup with a new `S` and replace the `#social-recovery-1` key.
 
-`S` itself is never stored anywhere — it exists only transiently during setup (to split) and recovery (to reconstruct). Guardians hold encrypted shares; relays hold nothing related to recovery.
+`S` itself is never stored anywhere — it exists only transiently during setup (to split) and recovery (to reconstruct). Guardians hold shares only — never `S`, the derived key, or any signing authority; relays hold nothing related to recovery.
 
 **Guardian obligations:** Guardians SHOULD confirm their designation when first asked. The account owner SHOULD periodically verify that all guardians remain reachable and responsive, and should re-key shares when a guardian becomes unreachable or leaves the system.
 
@@ -236,11 +242,14 @@ did:web:{orgDomain}:users:{localIdentifier}
 
 Resolution: `GET https://{orgDomain}/users/{localIdentifier}/did.json`
 
-Examples:
-- `did:web:acme.com:users:alice` → `GET https://acme.com/users/alice/did.json`
-- `did:web:acme.com:users:alice.chen` → `GET https://acme.com/users/alice.chen/did.json`
+Example:
+- `did:web:acme.com:users:k7f3qd2m` → `GET https://acme.com/users/k7f3qd2m/did.json`
 
-The `localIdentifier` SHOULD be derived from the user's IdP principal (UPN, username, or employee ID) and MUST be stable for the lifetime of the account. It MUST NOT be reassigned to a different person after the original user departs.
+The `localIdentifier` MUST be stable for the lifetime of the account and MUST NOT be reassigned to a different person after the original user departs. It MUST NOT be derived from a person's name, email address, UPN, or any other attribute that can change. The organization chooses the source: an employee ID, the IdP's immutable user ID, or a random value minted by the provisioning service. The provisioning service keeps the mapping to the IdP principal in its private store; the mapping is not published.
+
+A DID is not a display name. Clients identify a person by the display profile (§2.3) and the organization's signed credentials, never by parsing the DID.
+
+Because the DID is stable, group memberships, compliance records and audit trails stay keyed to one identifier for a person's whole tenure. A `did:web` DID still changes if the organization's domain changes; that migration is handled by provisioner-signed `alsoKnownAs` links between the old and new documents (§2.5.7).
 
 The DID document is served by the organization's **DID Provisioning Service** — a lightweight HTTPS service, typically deployed alongside the organization's IdP or directory service. It is a CO component. Relays play no part in identity provisioning and never receive or verify IdP tokens; IdP authentication is between the client, the IdP and the provisioning service. The service:
 
@@ -257,17 +266,15 @@ When a user is onboarded to Agora, the organization creates a stub DID document 
 ```json
 {
   "@context": "https://www.w3.org/ns/did/v1",
-  "id": "did:web:acme.com:users:alice",
+  "id": "did:web:acme.com:users:k7f3qd2m",
   "verificationMethod": [],
   "authentication": [],
   "keyAgreement": [],
-  "service": [{
-    "id": "did:web:acme.com:users:alice#agora",
-    "type": "AgoraRelay",
-    "serviceEndpoint": "wss://relay.acme.com/v1/agora/ws"
-  }]
+  "service": []
 }
 ```
+
+The DID document MUST NOT name an infrastructure operator (relay or other IO) as the user's service endpoint; clients choose IOs independently of identity (ARCHITECTURE §2). Service entries limited to CO- or user-chosen endpoints (e.g. a `KeyPackageEndpoint`, §2.5.4) MAY be added later.
 
 The stub document is valid and resolvable. It has no keys, so no one can authenticate as Alice yet. The document becomes operational when Alice's first device key is registered in §2.5.4.
 
@@ -291,7 +298,7 @@ Neither private key leaves the secure enclave. The client holds only the public 
 {
   "@context": "https://agora.protocol/ns/v1",
   "@type": "DeviceKeyRegistrationRequest",
-  "did": "did:web:acme.com:users:alice",
+  "did": "did:web:acme.com:users:k7f3qd2m",
   "deviceLabel": "Alice's MacBook Pro",
   "deviceEd25519PublicKey": "base64url(Ed25519 pubkey)",
   "deviceX25519PublicKey": "base64url(X25519 pubkey)",
@@ -321,9 +328,9 @@ Neither private key leaves the secure enclave. The client holds only the public 
 {
   "verificationMethod": [
     {
-      "id": "did:web:acme.com:users:alice#device-{deviceKeyFingerprint}",
+      "id": "did:web:acme.com:users:k7f3qd2m#device-{deviceKeyFingerprint}",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:web:acme.com:users:alice",
+      "controller": "did:web:acme.com:users:k7f3qd2m",
       "publicKeyMultibase": "z...",
       "meta": {
         "deviceLabel": "Alice's MacBook Pro",
@@ -333,14 +340,14 @@ Neither private key leaves the secure enclave. The client holds only the public 
       }
     },
     {
-      "id": "did:web:acme.com:users:alice#device-{deviceKeyFingerprint}-x25519",
+      "id": "did:web:acme.com:users:k7f3qd2m#device-{deviceKeyFingerprint}-x25519",
       "type": "X25519KeyAgreementKey2020",
-      "controller": "did:web:acme.com:users:alice",
+      "controller": "did:web:acme.com:users:k7f3qd2m",
       "publicKeyMultibase": "z..."
     }
   ],
-  "authentication": ["did:web:acme.com:users:alice#device-{deviceKeyFingerprint}"],
-  "keyAgreement": ["did:web:acme.com:users:alice#device-{deviceKeyFingerprint}-x25519"]
+  "authentication": ["did:web:acme.com:users:k7f3qd2m#device-{deviceKeyFingerprint}"],
+  "keyAgreement": ["did:web:acme.com:users:k7f3qd2m#device-{deviceKeyFingerprint}-x25519"]
 }
 ```
 
@@ -362,8 +369,8 @@ Device revocation can be initiated by the user (lost or retired device) or by th
 {
   "@context": "https://agora.protocol/ns/v1",
   "@type": "DeviceRevocationRequest",
-  "did": "did:web:acme.com:users:alice",
-  "revokeDeviceKeyID": "did:web:acme.com:users:alice#device-{fingerprint}",
+  "did": "did:web:acme.com:users:k7f3qd2m",
+  "revokeDeviceKeyID": "did:web:acme.com:users:k7f3qd2m#device-{fingerprint}",
   "reason": "device-lost | device-retired | security-incident",
   "ts": "2026-03-12T12:00:00.000Z",
   "requestingSig": "base64url(signature by a surviving device key)"
@@ -376,8 +383,8 @@ Device revocation can be initiated by the user (lost or retired device) or by th
 {
   "@context": "https://agora.protocol/ns/v1",
   "@type": "AdminRevocationRequest",
-  "did": "did:web:acme.com:users:alice",
-  "revokeDeviceKeyID": "did:web:acme.com:users:alice#device-{fingerprint}",
+  "did": "did:web:acme.com:users:k7f3qd2m",
+  "revokeDeviceKeyID": "did:web:acme.com:users:k7f3qd2m#device-{fingerprint}",
   "revokeAll": false,
   "reason": "employee-offboarding | security-incident | policy-violation",
   "adminDID": "did:web:acme.com:users:it-admin",
@@ -440,7 +447,7 @@ For enterprise `did:web` identities, the recovery mechanisms of §2.4 interact w
 
 - **Recovery key (§2.4.1):** Valid, but the recovery key can only rotate device keys — it cannot override an organization-initiated `revokeAll`. Recovery keys are appropriate for individual-initiated recovery (lost device, not offboarding).
 
-- **Social recovery (§2.4.2):** Valid for user-initiated recovery. The provisioning service accepts a `RecoveryAssertion` signed by the social recovery reconstructed key as equivalent to an IdP token for first-device enrollment, provided the `recoveryCommitment` in the DID document verifies.
+- **Social recovery (§2.4.2):** Valid for user-initiated recovery. The provisioning service accepts a `RecoveryAssertion` as equivalent to an IdP token for first-device enrollment, provided `recoverySig` verifies under the social recovery key (`#social-recovery-1`, a `recoverableIdentity` key) in the user's DID document.
 
 - **Encrypted backup (§2.4.3):** Valid. The backup restores MLS state and device keys. The restored device still needs to be enrolled via §2.5.4 to update the DID document with the restored public key.
 

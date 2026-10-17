@@ -34,7 +34,7 @@ The VC layer uses the W3C VC Data Model with the org's own `did:web` as issuer. 
 ┌──────────────────────────────────────────────────────────────┐
 │  DID Sidecar  (operator-hosted, registered as GCP OAuth app) │
 │                                                              │
-│  GET  /users/{email-encoded}/did.json   Serve DID document   │
+│  GET  /users/{id}/did.json              Serve DID document   │
 │  GET  /.well-known/did.json             Org root DID         │
 │  GET  /.well-known/did-configuration.json  Domain linkage    │
 │  POST /v1/notify                        Directory API push   │
@@ -43,9 +43,9 @@ The VC layer uses the W3C VC Data Model with the org's own `did:web` as issuer. 
 │  POST /v1/tombstone                     Full DID revocation   │
 │  POST /v1/suspend                       Suspend DID           │
 │  POST /v1/reactivate                    Reactivate DID        │
-│  GET  /v1/credentials/:email/employee   Serve employee VC     │
-│  GET  /v1/status/:email                 DID state            │
-│  GET  /v1/audit/:email                  Audit log            │
+│  GET  /v1/credentials/:id/employee      Serve employee VC     │
+│  GET  /v1/status/:id                    DID state            │
+│  GET  /v1/audit/:id                     Audit log            │
 │                                                              │
 │  Background workers:                                         │
 │  - Channel renewal (refreshes push subscription)            │
@@ -123,19 +123,18 @@ The DID document structure is identical to the O365 spec (§3) with the followin
 
 ### 3.1 DID Naming
 
-Each employee DID uses their Google Workspace primary email encoded into the path:
+The naming rule is the same as O365 spec §2 and spec §2.5.2: the path segment is a stable `localIdentifier` that is never reassigned and MUST NOT be derived from the primary email, name or any other changeable attribute.
 
 ```
-alice@example.com  →  did:web:did.example.com:users:alice.at.example.com
+did:web:did.example.com:users:k7f3qd2m
+https://did.example.com/users/k7f3qd2m/did.json
 ```
 
-The encoding rule is the same as O365: `@` maps to `.at.`; other non-alphanumeric characters map to `-`. The corresponding URL is:
+**Recommended default:** the sidecar mints a random lowercase base32 value at Joiner time (§4.2), checks it for uniqueness, and stores the mapping to the Google user `id` (the Directory API `id` field, which is also the OIDC `sub` claim) in its private DB. The mapping is never published.
 
-```
-https://did.example.com/users/alice.at.example.com/did.json
-```
+**Allowed alternatives:** the Google user `id`, or an HR employee ID that is never reused. A sidecar-minted random value is preferred because it survives a move to a different IdP; the Google user `id` does not.
 
-The `primaryEmail` field from the Directory API `users.list` resource is the canonical identifier. This is stable unless the user's primary email changes; email changes are treated as Mover events (§4.3).
+A `primaryEmail` change does not change the DID; it is an attribute update handled as a Mover event (§4.3). Only a move of the DID host changes the DID, handled as in O365 spec §6.4.
 
 ### 3.2 Org Root DID
 
@@ -217,8 +216,8 @@ Actions:
 
 1. Fetch the full user record including custom schema attributes (§4.6) and group memberships.
 2. Derive Agora roles from group membership (§4.7).
-3. Provision a stub DID document (state: `STUB`).
-4. Store the user record in the sidecar DB keyed by Google user ID (stable through email changes).
+3. Mint the `localIdentifier` (§3.1) and provision a stub DID document (state: `STUB`).
+4. Store the user record in the sidecar DB keyed by Google user ID, with the private mapping to the `localIdentifier`.
 5. Send an enrollment invitation email via Google Workspace SMTP relay or Gmail API, including an enrollment URL pre-populated with the user's DID.
 
 The enrollment invitation email is sent using the Gmail API with domain-wide delegation, impersonating an admin account or a dedicated `noreply@example.com` address. Example:
@@ -231,14 +230,14 @@ Hi Alice,
 Your organization has set up end-to-end encrypted communication via Agora.
 Click the link below to enroll your device:
 
-https://enroll.example.com/?did=did%3Aweb%3Adid.example.com%3Ausers%3Aalice.at.example.com
+https://enroll.example.com/?did=did%3Aweb%3Adid.example.com%3Ausers%3Ak7f3qd2m
 
 This link expires in 7 days. If you need a new link, contact IT.
 ```
 
 ### 4.3 Mover
 
-Triggered by a push notification for an existing user with changed attributes (`orgUnitPath`, custom schema attributes, or group membership changes).
+Triggered by a push notification for an existing user with changed attributes (`orgUnitPath`, `primaryEmail`, custom schema attributes, or group membership changes). A `primaryEmail` change updates only the sidecar's private record and, if a credential claim changed, the `EmployeeCredential`; the DID is unchanged (§3.1).
 
 Group membership changes do not trigger a user-level push notification — the Directory API push fires only on user object changes. The sidecar MUST therefore poll `groups.list` on a configurable schedule (default: 1 hour) for users with active DID documents, comparing group membership against stored state. This is the primary limitation relative to the O365 Mover workflow, which triggers declaratively on group membership changes.
 
@@ -285,8 +284,8 @@ Authorization: Bearer <admin-token>
 Content-Type: application/json
 
 {
-  "email": "alice@example.com",
-  "keyId": "did:web:did.example.com:users:alice.at.example.com#device-macbook-1",
+  "did": "did:web:did.example.com:users:k7f3qd2m",
+  "keyId": "did:web:did.example.com:users:k7f3qd2m#device-macbook-1",
   "reason": "lost-device",
   "revokedBy": "helpdesk@example.com"
 }
@@ -344,7 +343,7 @@ The sidecar issues `EmployeeCredential` VCs directly, signed by the org root DID
   "issuanceDate": "2026-03-13T00:00:00Z",
   "expirationDate": "2027-03-13T00:00:00Z",
   "credentialSubject": {
-    "id": "did:web:did.example.com:users:alice.at.example.com",
+    "id": "did:web:did.example.com:users:k7f3qd2m",
     "employeeId": "EMP-12345",
     "displayName": "Alice Smith",
     "department": "Engineering",
@@ -389,7 +388,7 @@ For initial deployment, Option B is the recommended choice. Options A and C are 
 ### 5.4 VC Serving Endpoint
 
 ```http
-GET /v1/credentials/{email-encoded}/employee
+GET /v1/credentials/{localIdentifier}/employee
 Authorization: Bearer <employee's Google OAuth token>
 
 → 200 OK
@@ -401,7 +400,7 @@ Content-Type: application/json
 }
 ```
 
-Only the credential subject MAY fetch their own VC (the token `sub` MUST match the credential subject's email). Admins with the `AgoraDIDAdmin` role MAY fetch any user's VC for audit purposes.
+Only the credential subject MAY fetch their own VC (the token `sub`, the Google user `id`, MUST map in the sidecar's private DB to the credential subject's DID). Admins with the `AgoraDIDAdmin` role MAY fetch any user's VC for audit purposes.
 
 ---
 
@@ -566,9 +565,9 @@ Implementations:
 
 1. **Google Workspace Events API vs. Directory API push.** The newer Google Workspace Events API (`workspace.googleapis.com`) supports subscriptions to changes across Workspace applications and may eventually supersede the Directory API's per-resource push channels. It currently supports Chat, Meet, and limited Workspace resources; Directory/user events may be added. The sidecar's `IdentityProvider` interface is designed so migration is a drop-in replacement rather than a rewrite.
 
-2. **Primary email as DID path.** Using the primary email in the DID path creates a forward dependency: if Google ever supports non-email-based primary identifiers, the naming convention breaks. The internal sidecar DB always keys on Google's stable user ID (the `id` field in the Directory API, which does not change with email changes). The DID path is derived from the current email at provisioning time and does not change unless an explicit Mover email-change event occurs. This is a known limitation.
+2. **Primary email as DID path.** Resolved: the DID path is a stable `localIdentifier`, not the email (§3.1).
 
-3. **OID4VCI implementation scope.** §5.3 Option C identifies OID4VCI as the long-term VC delivery path but defers implementation. When implemented, the sidecar acts as an OID4VCI Authorization Server and Credential Issuer. The OAuth authorization server endpoint is the same Google OAuth app used for enrollment auth; the credential endpoint is `/v1/credentials/{email-encoded}/employee`. The primary outstanding question is wallet interoperability: no widely-deployed mobile wallet currently handles org-issued `EmployeeCredential` types with custom `credentialSubject` schemas.
+3. **OID4VCI implementation scope.** §5.3 Option C identifies OID4VCI as the long-term VC delivery path but defers implementation. When implemented, the sidecar acts as an OID4VCI Authorization Server and Credential Issuer. The OAuth authorization server endpoint is the same Google OAuth app used for enrollment auth; the credential endpoint is `/v1/credentials/{localIdentifier}/employee`. The primary outstanding question is wallet interoperability: no widely-deployed mobile wallet currently handles org-issued `EmployeeCredential` types with custom `credentialSubject` schemas.
 
 4. **Restricted Workspace editions.** The Admin SDK Directory API is available on all Workspace editions, but domain-wide delegation requires a Super Admin to configure it. The service account JSON key approach (§7) works on all editions. The Cloud KMS dependency requires a linked GCP project, which is standard for Workspace Business/Enterprise but may require additional setup for legacy G Suite Basic accounts.
 

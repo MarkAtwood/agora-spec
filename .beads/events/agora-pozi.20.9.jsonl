@@ -1,3 +1,4 @@
 {"id":"01a147e2-4a06-74e5-ba25-0c4f31785459","issue_id":"agora-pozi.20.9","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T03:22:54.854321299Z"}
 {"id":"01a147e2-4a08-7953-bec0-7a104392d497","issue_id":"agora-pozi.20.9","event_type":"label_added","actor":"agent","comment":"Added label: spec","created_at":"2026-10-17T03:22:54.85661151Z"}
 {"id":"01a147e2-4a0a-7b78-9750-acc55a6faa69","issue_id":"agora-pozi.20.9","event_type":"label_added","actor":"agent","comment":"Added label: security","created_at":"2026-10-17T03:22:54.858752013Z"}
+{"id":"01a147fb-37dd-7579-bf6f-72d1cec21591","issue_id":"agora-pozi.20.9","event_type":"closed","actor":"agent","old_value":"","new_value":"Fixed in be91134 (phase B); verified in text 2026-10-16","created_at":"2026-10-17T03:50:08.605359119Z"}

@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.7",
   "title": "DM token derived from group ID is static",
   "description": "SPEC l.2461 derives the DM routing token from the MLS group ID, so it never rotates and links all DM traffic across epochs for the relay. Fix: derive per-epoch via MLS exporter like channel tokens. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:22:54.754917849Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:22:54.754917849Z",
+  "updated_at": "2026-10-17T03:50:08.531079812Z",
+  "closed_at": "2026-10-17T03:50:08.531079812Z",
+  "close_reason": "Fixed in be91134 (phase B); verified in text 2026-10-16",
   "labels": [
     "spec",
     "security"

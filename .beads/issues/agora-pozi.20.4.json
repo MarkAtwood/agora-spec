@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.4",
   "title": "KeyPackage validation checks sender DID",
   "description": "SPEC l.1297 validates a KeyPackage against the sender's DID. It must be validated against the KeyPackage owner's DID (credential in the KP leaf), not whoever relayed or fetched it. Fix: bind check to KP credential identity. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:22:54.599354408Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:22:54.599354408Z",
+  "updated_at": "2026-10-17T03:50:08.447764611Z",
+  "closed_at": "2026-10-17T03:50:08.447764611Z",
+  "close_reason": "Fixed in be91134 (phase B); verified in text 2026-10-16",
   "labels": [
     "spec",
     "mls"

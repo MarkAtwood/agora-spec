@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.43",
   "title": "Social recovery: commitment location and verification key",
   "description": "01 §2.4.2 stores SocialRecoveryConfig/recoveryCommitment in profile IPLD chain; §2.5.8 says DID document. No pre-registered key derived from S, so verifiers cannot check social-recovery RecoveryAssertion. Also §2.5.3 stub DID doc AgoraRelay service entry ties user to relay (separation).",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:45:00.72793827Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:45:00.72793827Z",
+  "updated_at": "2026-10-17T03:54:27.363821259Z",
+  "closed_at": "2026-10-17T03:54:27.363821259Z",
+  "close_reason": "Fixed in P1 pass 2026-10-16 (uncommitted at close; see next commit)",
   "dependencies": [
     {
       "issue_id": "agora-pozi.20.43",

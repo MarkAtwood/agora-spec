@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.20.53",
+  "title": "Provisioning service continuity across domain migration",
+  "description": "When the org domain changes, the provisioning service's own did:web DID moves too; the 'same provisioning service' successor check for alsoKnownAs links (spec §2.5.2, O365 §6.4) is ambiguous across old and new hosts. Define the trust chain (e.g. old provisioner signs the new provisioner DID).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T04:07:39.748779699Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T04:07:39.748779699Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.53",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T04:07:39.755042715Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

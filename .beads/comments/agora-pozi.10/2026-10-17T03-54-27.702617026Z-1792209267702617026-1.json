@@ -1,0 +1,7 @@
+{
+  "id": "1792209267702617026-1",
+  "issue_id": "agora-pozi.10",
+  "author": "agent",
+  "text": "P1 pass: Welcomes and logger Welcomes now POST to the recipient's KeyPackageEndpoint (§4.6, §7.8.2), but the KP Store API (§5.2.1.1, §10.4.3) is still a relay-hosted DID-keyed store; KeyPackageLowAlert/SupplyImported broadcast DIDs on discovery. Resolve together.",
+  "created_at": "2026-10-17T03:54:27.702617026Z"
+}

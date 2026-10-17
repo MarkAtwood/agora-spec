@@ -12,7 +12,7 @@ This specification defines how an organization using Microsoft 365 / Entra ID ma
 
 Two components perform this work.
 
-**The DID Sidecar** is a lightweight HTTPS service registered as an Entra application. It owns the namespace `https://did.example.com/users/{upn}/did.json` and serves per-user `did:web` documents. It receives provisioning events from Graph Lifecycle Workflows via a Logic App bridge, and accepts authenticated device key registration requests from employees during Agora enrollment. It is the only component that mutates DID documents.
+**The DID Sidecar** is a lightweight HTTPS service registered as an Entra application. It owns the namespace `https://did.example.com/users/{localIdentifier}/did.json` and serves per-user `did:web` documents. It receives provisioning events from Graph Lifecycle Workflows via a Logic App bridge, and accepts authenticated device key registration requests from employees during Agora enrollment. It is the only component that mutates DID documents.
 
 **Entra Verified ID** issues a signed `EmployeeCredential` verifiable credential to each enrolled employee's wallet (Microsoft Authenticator). The VC is the organization's cryptographic attestation that the holder is a current employee with specific claims (department, role, clearance level). Space admission requires a valid VC as a precondition for DID registration. VC revocation is the organization's mechanism for immediately invalidating access without modifying the DID document.
 
@@ -47,7 +47,7 @@ These two components are intentionally independent and address different concern
 ┌─────────────────────────────────────────────────────────────────────┐
 │  DID Sidecar  (operator-hosted, registered as Entra app)            │
 │                                                                     │
-│  GET  /users/{upn}/did.json       Serve DID document (public)      │
+│  GET  /users/{id}/did.json        Serve DID document (public)      │
 │  POST /v1/provision               JML event receiver                │
 │  POST /v1/register-device-key     Device key registration           │
 │  POST /v1/revoke-device-key       Device key tombstone (IT/MDM)     │
@@ -59,8 +59,8 @@ These two components are intentionally independent and address different concern
               │
               │  serves
               ▼
-  did:web:did.example.com:users:alice          (Alice's Agora DID)
-  did:web:did.example.com:users:bob            (Bob's Agora DID)
+  did:web:did.example.com:users:k7f3qd2m       (Alice's Agora DID)
+  did:web:did.example.com:users:p2x9rw4c       (Bob's Agora DID)
 ```
 
 ---
@@ -70,22 +70,26 @@ These two components are intentionally independent and address different concern
 Each employee's DID takes the form:
 
 ```
-did:web:did.example.com:users:<upn-encoded>
+did:web:did.example.com:users:<localIdentifier>
 ```
 
-`<upn-encoded>` is the employee's Entra UPN with `@` replaced by `.at.` and all other non-alphanumeric characters replaced by `-`:
+Per spec §2.5.2, `<localIdentifier>` MUST be stable for the life of the account, MUST NOT be reassigned, and MUST NOT be derived from the UPN, email address, display name or any other attribute that can change. A DID is not a display name; clients show the display profile (spec §2.3), never a parsed DID.
+
+**Recommended default:** the sidecar mints a random lowercase base32 value at Joiner time (the examples use 8 characters), checks it for uniqueness, and stores the mapping to the Entra `objectId` (`aadObjectId`, the token `oid` claim) in its private store (§6.3). The mapping is never published.
+
+**Allowed alternatives:** the Entra `objectId`, or an HR employee ID that is never reused. A sidecar-minted random value is preferred because it survives a move to a different tenant or IdP; an `objectId` does not.
 
 ```
-alice@example.com  →  did:web:did.example.com:users:alice.at.example.com
+did:web:did.example.com:users:k7f3qd2m
 ```
 
 The `did:web` specification maps colons in the DID path to slashes in the URL path, so this resolves to:
 
 ```
-https://did.example.com/users/alice.at.example.com/did.json
+https://did.example.com/users/k7f3qd2m/did.json
 ```
 
-**UPN stability:** UPNs can change (name changes, domain migrations). On a UPN change (Mover event), the sidecar provisions a new DID document at the new path in `STUB` state and publishes a signed `RecoveryAssertion` (Agora spec §2.4.1) from the old DID pointing to the new one. The old document MUST remain accessible for a 30-day grace period, after which it transitions to `TOMBSTONED` and returns `410 Gone` with a `Link` header pointing to the new document. UPN change handling is described in detail in §6.4.
+**UPN changes:** a UPN change (name change, email domain change) does not change the DID. It is a directory attribute update handled by the Mover workflow (§5.3). The sidecar identifies users by `aadObjectId`; the `upn` in Logic App payloads is informational. Only a change of the DID host (`did.example.com`) changes the DID; that organization domain migration is described in §6.4.
 
 ---
 
@@ -112,30 +116,23 @@ Each user's DID document moves through the following states:
 | `SUSPENDED`  | VC revoked (e.g., leave of absence); device keys preserved in DB      | 200 with stub document (keys stripped from response)      |
 | `TOMBSTONED` | Employee terminated; DID permanently revoked                          | 410 Gone with signed tombstone document                   |
 
-The stub document served in `STUB` state is a valid DID document containing the org's revocation key as the sole `verificationMethod`, a `status: "pending-enrollment"` service entry, and no `authentication` or `keyAgreement` entries. Agora clients that resolve this DID during a space Add operation will find no usable authentication key; the Add commit MUST fail gracefully and prompt enrollment.
+The stub document served in `STUB` state is a valid DID document with an empty `verificationMethod`, a `status: "pending-enrollment"` service entry, and no `authentication` or `keyAgreement` entries. It contains no organization key: an org key listed as a `verificationMethod` in a user's document would let the org sign as that user. The org's authority over the document is the `provisionerSig` on every document update (spec §2.4.4, §2.5.7). Agora clients that resolve this DID during a space Add operation will find no usable authentication key; the Add commit MUST fail gracefully and prompt enrollment.
 
 ### 3.2 Stub Document (Pre-Enrollment)
 
 ```json
 {
   "@context": "https://www.w3.org/ns/did/v1",
-  "id": "did:web:did.example.com:users:alice.at.example.com",
-  "verificationMethod": [
-    {
-      "id": "did:web:did.example.com:users:alice.at.example.com#org-revocation-1",
-      "type": "Ed25519VerificationKey2020",
-      "controller": "did:web:did.example.com",
-      "publicKeyMultibase": "zORG_REVOCATION_KEY..."
-    }
-  ],
+  "id": "did:web:did.example.com:users:k7f3qd2m",
+  "verificationMethod": [],
   "service": [
     {
-      "id": "did:web:did.example.com:users:alice.at.example.com#enrollment",
+      "id": "did:web:did.example.com:users:k7f3qd2m#enrollment",
       "type": "AgoraEnrollmentEndpoint",
       "serviceEndpoint": "https://enroll.example.com/v1/enroll"
     },
     {
-      "id": "did:web:did.example.com:users:alice.at.example.com#status",
+      "id": "did:web:did.example.com:users:k7f3qd2m#status",
       "type": "AgoraEmployeeStatus",
       "serviceEndpoint": {
         "status": "pending-enrollment",
@@ -148,25 +145,19 @@ The stub document served in `STUB` state is a valid DID document containing the 
 }
 ```
 
-The `controller` field is the org's root DID (`did:web:did.example.com`), not the user's DID, giving the org controller authority to update or tombstone the document without the user's private key. The user gains co-controller status when they register their first device key; from that point both the user (via device key) and the org (via controller authority) can mutate the document, but only the user can sign messages as that identity.
+The `controller` field is the org's root DID (`did:web:did.example.com`), not the user's DID, recording the org's authority to update or tombstone the document without the user's private key. The org exercises that authority by signing each document update with the provisioning service key (`provisionerSig`, spec §2.5.7), not with any key listed in the user's document. The user gains co-controller status when they register their first device key; from that point both the user (via device key) and the org (via controller authority) can mutate the document, but only the user can sign messages as that identity.
 
 ### 3.3 Active Document (Post-Enrollment)
 
 ```json
 {
   "@context": "https://www.w3.org/ns/did/v1",
-  "id": "did:web:did.example.com:users:alice.at.example.com",
+  "id": "did:web:did.example.com:users:k7f3qd2m",
   "verificationMethod": [
     {
-      "id": "did:web:did.example.com:users:alice.at.example.com#org-revocation-1",
+      "id": "did:web:did.example.com:users:k7f3qd2m#device-macbook-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:web:did.example.com",
-      "publicKeyMultibase": "zORG_REVOCATION_KEY..."
-    },
-    {
-      "id": "did:web:did.example.com:users:alice.at.example.com#device-macbook-1",
-      "type": "Ed25519VerificationKey2020",
-      "controller": "did:web:did.example.com:users:alice.at.example.com",
+      "controller": "did:web:did.example.com:users:k7f3qd2m",
       "publicKeyMultibase": "zDEVICE_KEY_1...",
       "meta": {
         "deviceLabel": "Alice's MacBook Pro",
@@ -175,9 +166,9 @@ The `controller` field is the org's root DID (`did:web:did.example.com`), not th
       }
     },
     {
-      "id": "did:web:did.example.com:users:alice.at.example.com#device-iphone-2",
+      "id": "did:web:did.example.com:users:k7f3qd2m#device-iphone-2",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:web:did.example.com:users:alice.at.example.com",
+      "controller": "did:web:did.example.com:users:k7f3qd2m",
       "publicKeyMultibase": "zDEVICE_KEY_2...",
       "meta": {
         "deviceLabel": "Alice's iPhone 16",
@@ -186,9 +177,9 @@ The `controller` field is the org's root DID (`did:web:did.example.com`), not th
       }
     },
     {
-      "id": "did:web:did.example.com:users:alice.at.example.com#recovery-1",
+      "id": "did:web:did.example.com:users:k7f3qd2m#recovery-1",
       "type": "Ed25519VerificationKey2020",
-      "controller": "did:web:did.example.com:users:alice.at.example.com",
+      "controller": "did:web:did.example.com:users:k7f3qd2m",
       "publicKeyMultibase": "zRECOVERY_KEY...",
       "meta": {
         "deviceLabel": "Recovery key",
@@ -198,16 +189,16 @@ The `controller` field is the org's root DID (`did:web:did.example.com`), not th
     }
   ],
   "authentication": [
-    "did:web:did.example.com:users:alice.at.example.com#device-macbook-1",
-    "did:web:did.example.com:users:alice.at.example.com#device-iphone-2"
+    "did:web:did.example.com:users:k7f3qd2m#device-macbook-1",
+    "did:web:did.example.com:users:k7f3qd2m#device-iphone-2"
   ],
   "keyAgreement": [...],
   "recoverableIdentity": [
-    "did:web:did.example.com:users:alice.at.example.com#recovery-1"
+    "did:web:did.example.com:users:k7f3qd2m#recovery-1"
   ],
   "controller": [
     "did:web:did.example.com",
-    "did:web:did.example.com:users:alice.at.example.com"
+    "did:web:did.example.com:users:k7f3qd2m"
   ],
   "service": [
     {
@@ -245,7 +236,7 @@ The organization defines one credential type in Verified ID: `EmployeeCredential
   "issuanceDate": "2026-03-13T00:00:00Z",
   "expirationDate": "2027-03-13T00:00:00Z",
   "credentialSubject": {
-    "id": "did:web:did.example.com:users:alice.at.example.com",
+    "id": "did:web:did.example.com:users:k7f3qd2m",
     "employeeId": "EMP-12345",
     "displayName": "Alice Smith",
     "department": "Engineering",
@@ -377,7 +368,7 @@ DID Sidecar synchronous response (within 30 s):
 
 ```json
 {
-  "did": "did:web:did.example.com:users:alice.at.example.com",
+  "did": "did:web:did.example.com:users:k7f3qd2m",
   "state": "stub",
   "enrollmentURL": "https://enroll.example.com/?did=did%3Aweb%3A..."
 }
@@ -387,7 +378,7 @@ The `enrollmentURL` is included in the welcome email sent by the subsequent buil
 
 ### 5.3 Mover Workflow
 
-**Trigger:** User attribute change — `department`, `jobTitle`, or membership in role-mapped security groups.
+**Trigger:** User attribute change — `department`, `jobTitle`, `userPrincipalName`, or membership in role-mapped security groups. A `userPrincipalName` change does not change the DID (§2); the sidecar updates its private mapping (§6.3), and a name change that alters `displayName` re-issues the `EmployeeCredential`.
 **Mode:** Launch and continue.
 
 The Mover event independently updates two things:
@@ -429,7 +420,7 @@ Two actions execute in parallel:
 ```json
 {
   "@context": "https://www.w3.org/ns/did/v1",
-  "id": "did:web:did.example.com:users:alice.at.example.com",
+  "id": "did:web:did.example.com:users:k7f3qd2m",
   "verificationMethod": [],
   "authentication": [],
   "service": [
@@ -477,8 +468,8 @@ Authorization: Bearer <admin-token>
 Content-Type: application/json
 
 {
-  "upn": "alice@example.com",
-  "keyId": "did:web:did.example.com:users:alice.at.example.com#device-macbook-1",
+  "did": "did:web:did.example.com:users:k7f3qd2m",
+  "keyId": "did:web:did.example.com:users:k7f3qd2m#device-macbook-1",
   "reason": "lost-device",
   "revokedBy": "helpdesk@example.com"
 }
@@ -507,7 +498,7 @@ Authorization: Bearer <step-up-token>
 Content-Type: application/json
 
 {
-  "upn": "alice@example.com",
+  "did": "did:web:did.example.com:users:k7f3qd2m",
   "devicePublicKey": "zDEVICE_KEY...",
   "deviceLabel": "Alice's MacBook Pro",
   "registeredVia": "webauthn",
@@ -520,7 +511,7 @@ The sidecar MUST validate all five conditions before writing the key:
 
 1. Token `acr` is `"mfa"`
 2. Token `amr` includes `"hwk"` or `"fido"` (password-only MFA is not sufficient)
-3. Token `oid` matches the UPN in the request body
+3. Token `oid` maps, in the sidecar's private store, to the `did` in the request body
 4. `vcPresentation` is a valid, non-expired, non-revoked `EmployeeCredential`
 5. `proofOfPossession` is a valid Ed25519 signature by `devicePublicKey` over the canonical proof payload
 
@@ -532,7 +523,7 @@ The sidecar MUST validate all five conditions before writing the key:
 
 ```
 # Public (no auth)
-GET    /users/{upn-encoded}/did.json     Serve DID document
+GET    /users/{localIdentifier}/did.json Serve DID document
 
 # Enrollment (Entra OIDC token, step-up MFA required)
 POST   /v1/register-device-key           Register a new device key
@@ -544,8 +535,8 @@ POST   /v1/revoke-device-key             IT-initiated device key tombstone
 POST   /v1/tombstone                     IT-initiated full DID tombstone
 POST   /v1/suspend                       Suspend DID (leave of absence)
 POST   /v1/reactivate                    Reactivate suspended DID
-GET    /v1/audit/{upn}                   Full audit log for a user's DID
-GET    /v1/status/{upn}                  Current DID state
+GET    /v1/audit/{localIdentifier}       Full audit log for a user's DID
+GET    /v1/status/{localIdentifier}      Current DID state
 
 # Enrollment Service webhook (internal, mTLS)
 POST   /v1/internal/enrollment-complete  Called by Enrollment Service post-MLS-Add
@@ -557,7 +548,7 @@ POST   /v1/internal/mls-remove-ack       Acknowledgment of MLS Remove commit
 | Endpoint group              | Auth mechanism                    | Required claims                                                     |
 | --------------------------- | --------------------------------- | ------------------------------------------------------------------- |
 | Public DID documents        | None                              | —                                                                   |
-| Device key registration     | Entra OIDC bearer token           | `acr: mfa`, `amr: [hwk\|fido]`, `oid` matches UPN                  |
+| Device key registration     | Entra OIDC bearer token           | `acr: mfa`, `amr: [hwk\|fido]`, `oid` maps to the DID              |
 | Admin operations            | Entra bearer token                | `Authentication Policy Administrator` role or `AgoraDIDAdmin` app role |
 | Logic App bridge            | Entra managed identity token      | `AgoraDIDProvisioner` app role                                      |
 | Enrollment Service webhook  | mTLS with pre-shared cert         | —                                                                   |
@@ -567,24 +558,25 @@ POST   /v1/internal/mls-remove-ack       Acknowledgment of MLS Remove commit
 The sidecar stores DID documents and audit logs. Two deployment options are supported:
 
 **Azure Blob Storage (preferred for Azure deployments):**
-One blob per user at `did-documents/{upn-encoded}/current.json`. Historical versions at `did-documents/{upn-encoded}/history/{seq}.json`. Audit log at `did-documents/{upn-encoded}/audit.jsonl`.
+One blob per user at `did-documents/{localIdentifier}/current.json`. Historical versions at `did-documents/{localIdentifier}/history/{seq}.json`. Audit log at `did-documents/{localIdentifier}/audit.jsonl`. A private `principals.json` maps each `localIdentifier` to the Entra `objectId` and current UPN.
 
 **PostgreSQL:**
-Table `did_documents(upn TEXT PK, state TEXT, document JSONB, seq INT, updated_at TIMESTAMPTZ)`. Table `did_audit(id BIGSERIAL, upn TEXT, event TEXT, actor TEXT, payload JSONB, ts TIMESTAMPTZ)`.
+Table `did_documents(local_id TEXT PK, aad_object_id TEXT UNIQUE, upn TEXT, state TEXT, document JSONB, seq INT, updated_at TIMESTAMPTZ)`. Table `did_audit(id BIGSERIAL, local_id TEXT, event TEXT, actor TEXT, payload JSONB, ts TIMESTAMPTZ)`. The `aad_object_id` and `upn` columns are the private mapping (spec §2.5.2) and are never served.
 
 The sidecar's data store is the authoritative source. DID documents are derived directly from this store with no caching layer — serving a tombstoned identity as active would allow a terminated employee to continue sending messages. All DID document endpoints MUST return `Cache-Control: no-store, no-cache`.
 
-### 6.4 UPN Change Handling
+### 6.4 UPN Change and Domain Migration
 
-When a UPN changes:
+A UPN change does not change the DID (§2). The sidecar updates the UPN in its private mapping (§6.3); if a credential claim such as `displayName` changed, the Mover workflow (§5.3) re-issues the `EmployeeCredential`. No DID document update is needed. The user updates their own display profile (spec §2.3), which the org does not sign.
 
-1. Sidecar provisions the new DID document at the new path (`STUB` state)
-2. Sidecar adds a `alsoKnownAs` entry in the old document pointing to the new DID
-3. Sidecar signs a `RecoveryAssertion` (Agora spec §2.4.1) using the org's revocation key, asserting the new DID supersedes the old one
-4. Sidecar gossips the `RecoveryAssertion` to the Relay(s) serving the user's spaces
-5. Old DID document transitions to `TOMBSTONED` after a 30-day grace period, returning `410 Gone` with a `Link: <new-did-document-url>; rel="successor"` header
+The DID changes only when the organization moves the DID host (e.g. `did.example.com` to `did.example.net`). This is an org-side migration, not a recovery: the org MUST NOT sign a `RecoveryAssertion` for it (spec §2.4.1, §2.4.2). For each user, the sidecar keeps the same `localIdentifier` and:
 
-The user's Agora client detects the `RecoveryAssertion` on next connection, updates its local identity record, and the space state reflects the new DID. Device keys do not need to be re-registered — the sidecar copies all `verificationMethod` entries from the old document to the new one as part of the UPN change operation.
+1. Publishes the document at the new host, copying `verificationMethod`, `authentication` and `keyAgreement` and setting `alsoKnownAs: ["<old DID>"]`
+2. Updates the old document to add `alsoKnownAs: ["<new DID>"]`
+3. Signs both with `provisionerSig` (spec §2.5.7), records the change in the audit log, and gossips both updates on `v1/agora/discovery`
+4. Tombstones the old document after a 30-day grace period, returning `410 Gone` with a `Link: <new-did-document-url>; rel="successor"` header
+
+A client MUST treat the new DID as the successor of the old one only when both documents carry a valid `provisionerSig` from the same provisioning service and each lists the other in `alsoKnownAs`. On detecting this, the client updates its local identity record, and the Enrollment Service issues a space state update replacing the old DID with the new one, as for a Mover role update (§5.3). Device keys do not need to be re-registered.
 
 ---
 
@@ -673,6 +665,6 @@ The Logic App contains no business logic — it is a thin authenticated bridge. 
 
 3. **Non-Authenticator wallets.** This specification assumes Microsoft Authenticator as the VC wallet. The Verified ID service supports OID4VC-compliant third-party wallets in principle, but compatibility varies. Organizations that want employees to use a different wallet (e.g., a corporate-branded wallet) MUST validate compatibility against the specific Verified ID API version in use.
 
-4. **On-premises AD hybrid identity.** Organizations with on-premises AD synced to Entra via Entra Connect have UPNs controlled by on-premises AD. UPN changes on-premises propagate to Entra via sync, which can trigger the Mover workflow. The default sync interval (30 minutes) introduces lag between the on-premises change and the DID update. For terminations, this lag is a risk: the specification calls for immediate on-demand workflow execution to bypass the sync cycle, but this requires the termination to be processed in Entra ID directly, or for the HR system to trigger both on-premises AD and Entra simultaneously.
+4. **On-premises AD hybrid identity.** Organizations with on-premises AD synced to Entra via Entra Connect have UPNs controlled by on-premises AD. UPN changes on-premises propagate to Entra via sync, which can trigger the Mover workflow; they do not change the DID (§2). The default sync interval (30 minutes) introduces lag between an on-premises change and the sidecar update. For terminations, this lag is a risk: the specification calls for immediate on-demand workflow execution to bypass the sync cycle, but this requires the termination to be processed in Entra ID directly, or for the HR system to trigger both on-premises AD and Entra simultaneously.
 
 5. **Intune integration for device key registration.** Device key registration requires phishing-resistant MFA (`hwk` or `fido`). On Intune-managed devices, Windows Hello for Business satisfies this requirement automatically. On unmanaged or BYOD devices, a FIDO2 security key is the only option. The organization MUST decide whether to allow BYOD enrollment or require managed devices — this policy decision significantly affects the enrollment UX.

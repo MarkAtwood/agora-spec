@@ -38,7 +38,7 @@ Compliance logging is enabled in the Space state document by the space owner:
 }
 ```
 
-`loggerDID` is the DID of the compliance logging principal. `logStore` is the IPFS CID root of the compliance log — a content-addressed, append-only IPLD structure. `retentionDays` is the minimum retention period the logger is obligated to maintain. `scope` is `all-channels` or a list of channel path globs.
+`loggerDID` is the DID of the compliance logging principal. `logStore` is the IPFS CID root of the compliance log — a content-addressed, append-only IPLD structure. The compliance log and the compliance audit chain (§7.8.8) hold plaintext and member DIDs and are CO data (ARCHITECTURE S8); any copy stored on IO infrastructure MUST be encrypted under a key the CO holds and the IO does not. `retentionDays` is the minimum retention period the logger is obligated to maintain. `scope` is `all-channels` or a list of channel path globs.
 
 The `scope` field governs which Space channels receive the logger. The value `"all-channels"` causes the logger to be added to every channel in the Space, including channels created after compliance logging is enabled. A glob list (e.g., `["engineering/*", "legal/*"]`) limits logging to matching channel paths.
 
@@ -52,7 +52,7 @@ The `scope` field governs which Space channels receive the logger. The value `"a
 
 The field is part of the signed `ComplianceLoggingConfig`. Only DIDs listed here are regulated members; membership of a Space with `complianceLogging.enabled: true` does not by itself make a member regulated.
 
-Once `complianceLogging.enabled` is set to `true` and gossiped to the space topic, conformant clients MUST add the `loggerDID` to the MLS group of every channel matching `scope` on the next available Commit. This addition IS recorded in the MLS group membership (verifiable by any MLS-aware client) but MUST NOT produce a UI-visible join notification.
+Once `complianceLogging.enabled` is set to `true` and published as Space state (§3.4), conformant clients MUST add the `loggerDID` to the MLS group of every channel matching `scope` on the next available Commit. This addition IS recorded in the MLS group membership (verifiable by any MLS-aware client) but MUST NOT produce a UI-visible join notification.
 
 Disabling compliance logging requires a signed Space state mutation by the space owner. Clients remove the logger DID from channel MLS groups via Remove commits. The `complianceLogging` history in the IPLD space state chain retains a permanent record of when logging was enabled and disabled.
 
@@ -133,7 +133,7 @@ VTC compliance recording is governed by the `RecordingGrant` mechanism and the `
 
 **Scope.** §7.1–§7.5 cover: text messages in space channels, reactions, edit events, delete events, file attachments, and DM text messages for regulated members (§7.8). §6.12 covers: audio and video media streams in space voice channels and DM voice groups for regulated members (§6.12.7).
 
-**Same logger DID or separate.** The `complianceLogging.loggerDID` and `vtcCompliance.recorderDID` MAY be the same DID or different DIDs. Using the same DID is operationally simpler but requires the compliance principal to support both text archiving (passive member, §5.2.1.3) and VTC recording (HPKE key receipt and media decryption). Using separate DIDs allows specialist infrastructure for each function. Either configuration is conformant.
+**Same logger DID or separate.** The `complianceLogging.loggerDID` and `vtcCompliance.recorderDID` MAY be the same DID or different DIDs. Using the same DID is operationally simpler but requires the compliance principal to support both text archiving (passive member, §5.2.1.3) and VTC recording (admission to call groups and media decryption, §6.12.2). Using separate DIDs allows specialist infrastructure for each function. Either configuration is conformant.
 
 **`retentionDays` alignment.** The `vtcCompliance.retentionDays` SHOULD match `complianceLogging.retentionDays` to avoid a regulatory gap where text records are retained longer than corresponding voice records of the same conversation. If they differ, the longer value governs the overall retention obligation for the channel.
 
@@ -175,8 +175,8 @@ Logger addition in a DM group follows the standard MLS Add + Commit path:
 1. The regulated member's client fetches a fresh `KeyPackage` for the Space's `loggerDID` from the logger's `KeyPackageEndpoint` (below).
 2. The client issues an MLS Add Proposal for the logger DID.
 3. The client immediately commits the proposal. No consent threshold applies (§7.7).
-4. The client, as committer, sends the MLS `Welcome` to the logger, completing the logger's admission to the MLS group. The logger does not issue a `Welcome`; it only supplies the `KeyPackage`.
-5. The client updates the `DMGroupDescriptor` to add the logger DID to the `complianceLoggers` array and publishes the updated descriptor CID.
+4. The client, as committer, delivers the MLS `Welcome` by POST to the logger's `KeyPackageEndpoint`, completing the logger's admission to the MLS group. The logger does not issue a `Welcome`; it only supplies the `KeyPackage`.
+5. The client updates the `DMGroupDescriptor` to add the logger DID to the `complianceLoggers` array and sends the updated descriptor to the group (§4.6).
 
 If the regulated member is joining an existing DM group (rather than creating one), steps 2–5 are performed at join time, before the member sends any application messages. Messages sent by other members before the regulated member joined are not retroactively accessible to the logger — the logger's archive begins at the MLS epoch of its admission.
 
@@ -190,7 +190,7 @@ If the regulated member is joining an existing DM group (rather than creating on
 }
 ```
 
-The endpoint MUST return a fresh, unused `KeyPackage` on each GET request. Reusing KeyPackages breaks MLS forward secrecy guarantees and is a conformance violation.
+The endpoint MUST return a fresh, unused `KeyPackage` on each GET request and MUST accept a `Welcome` by POST. The logger operator is the CO, so this endpoint is CO-hosted and the CO's knowledge of which groups admit its logger is not an IO observation. Reusing KeyPackages breaks MLS forward secrecy guarantees and is a conformance violation.
 
 ### 7.8.3 Logger Removal Prohibition
 
@@ -294,7 +294,8 @@ The following table summarizes the conformance requirements for DM group complia
 | Publish `KeyPackageEndpoint` in logger DID document | Compliance logger operator | MUST |
 | Provide fresh (non-reused) KeyPackage per request | Compliance logger operator | MUST |
 | Refuse to send in a DM group lacking the logger | Regulated member's client | MUST |
-| Send `Welcome` to the logger when committing its Add | Committing client | MUST |
+| Send `Welcome` to the logger's `KeyPackageEndpoint` when committing its Add | Committing client | MUST |
+| Accept `Welcome` by POST at the `KeyPackageEndpoint` | Compliance logger operator | MUST |
 | Record detectable capture gaps in the compliance audit chain | Compliance logger | MUST |
 | Use DM group for persistent named multi-party private conversation | Any user | SHOULD use private channel instead |
 

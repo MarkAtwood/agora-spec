@@ -31,13 +31,13 @@ Clients SHOULD buffer messages for up to 500ms waiting for a gap to close before
 
 ### 5.2.1 MLS Group Structure
 
-Each channel's encryption model is determined by its **mode** (§3.2). `interactive` and `community` channels each have their own MLS group; `broadcast` channels use a signature-only model with no MLS group. In all cases, space membership does not imply channel membership — each channel manages its own state independently.
+Each channel's encryption model is determined by its **mode** (§3.2). `interactive` and `community` channels each have their own MLS group; a `broadcast` channel has an MLS group of its authorized posters only (the publisher group) and carries content encrypted under a CO-distributed channel content key. In all cases, space membership does not imply channel membership — each channel manages its own state independently.
 
 This section covers `interactive` and `community` channels. `broadcast` channels are specified in §5.2.1.4.
 
 **`interactive` mode** (§3.2): full MLS group, all channel members hold leaves. Maximum 200 members. Standard §5.2.1 behavior applies without modification.
 
-**`community` mode** (§3.2): MLS group limited to active speakers. Space members outside the speaker group can observe the gossipsub topic but cannot decrypt messages until admitted. See §5.2.1.2.
+**`community` mode** (§3.2): MLS group limited to active speakers. Space members outside the speaker group cannot follow the channel's envelopes, because they do not hold the exporter-derived `channelToken`, until admitted. See §5.2.1.2.
 
 Each channel manages its own MLS epoch independently. This enables per-channel access control (e.g., private channels within a public space) without any additional mechanism; it is a direct consequence of the MLS design.
 
@@ -46,7 +46,7 @@ Each channel manages its own MLS epoch independently. This enables per-channel a
 MLS operations follow RFC 9420 exactly:
 
 - **`KeyPackage`** — uploaded to the Relay KeyPackage Store (§5.2.1.1); single-use, and rotated on each new device session and after each use.
-- **`Welcome`** — sent to new members via `v1/agora/mls/<groupID>` or direct encrypted delivery.
+- **`Welcome`** — delivered by POST to the new member's `KeyPackageEndpoint` (§4.6); never on a gossip topic. A Welcome MUST include the `ratchet_tree` extension (RFC 9420 §12.4.3.3) carrying the full ratchet tree. A joiner MUST obtain the ratchet tree only from that extension and MUST NOT fetch it from a relay or any other IO; no IO stores or serves ratchet trees or other MLS group state. A joiner MUST reject a Welcome that lacks the `ratchet_tree` extension.
 - **`Commit`** — a state-advancing operation (Add, Remove, Update); gossiped to all current group members.
 - **`Proposal`** — a pre-commit operation that may be included in a subsequent Commit by any authorized member.
 
@@ -146,6 +146,8 @@ A `RelayServiceAgreement` (§10.5.1) MAY include a `keyPackageSLA` clause that e
 
 `KeyPackageLowAlert` is gossiped only to `v1/agora/discovery`, not to any channel topic — it contains no channel or space information.
 
+> **Open (agora-pozi.10):** `KeyPackageLowAlert` and `KeyPackageSupplyImported` broadcast a user DID to the whole relay mesh; this is resolved with KeyPackage store placement.
+
 **`guaranteedRetentionDays`** — the relay will retain uploaded KeyPackages (without consuming them) for at least this many days from the upload timestamp. After this period, unexpired KeyPackages are still valid but the relay MAY evict them under storage pressure, and MUST alert the owning DID before doing so.
 
 **`replenishFromIPFS`** — if `true`, the relay will attempt to fetch fresh KeyPackages from the owning DID's declared IPFS supply endpoint before returning 404 on a fetch or before triggering an alert. This is the relay self-healing from IPFS without requiring the user to be online.
@@ -222,24 +224,9 @@ The `forward=true` parameter instructs the Relay to attempt peer-relay fetching 
 
 ##### KeyPackage Exhaustion
 
-If all KeyPackages for a target DID have been consumed and no fresh ones are available from peer relays or IPFS supply, the sender MUST NOT reuse a previously consumed KeyPackage. Instead:
+If all KeyPackages for a target DID have been consumed and no fresh ones are available from peer relays or IPFS supply, the sender MUST NOT reuse a previously consumed KeyPackage. Instead, the sender queues the Add locally and retries the fetch from the target's store with backoff. The target replenishes its own supply when it next comes online, through the `GET /count` monitoring above.
 
-1. The sender queues the Welcome message locally.
-2. The sender publishes a `KeyPackageRequest` to `v1/agora/discovery`:
-
-```json
-{
-  "@context": "https://agora.protocol/ns/v1",
-  "@type": "KeyPackageRequest",
-  "targetDID": "did:key:z6Mk...",
-  "requestedBy": "did:key:z6MkSender...",
-  "ts": "2026-03-12T12:00:00Z"
-}
-```
-
-3. When the target comes online, their client sees the `KeyPackageRequest`, generates fresh KeyPackages, uploads them to both IPFS and the relay store, and the waiting sender completes the Welcome flow.
-
-`KeyPackageRequest` messages are ephemeral (not stored in IPLD history) and MUST NOT identify which channel or space triggered the request.
+KeyPackages are obtained only by fetching them directly from the target's store. A client MUST NOT publish any message on a gossip topic that names the target DID or the requesting DID to solicit KeyPackages.
 
 ##### KeyPackage Validation
 
@@ -254,25 +241,23 @@ A Welcome constructed with an invalid or expired KeyPackage MUST be rejected.
 
 #### 5.2.1.2 Community Channel Mode
 
-A `community` channel has a bounded MLS group called the **speaker group**. Only members of the speaker group can post or decrypt messages. Space members outside the speaker group can subscribe to the channel's gossipsub topic but will receive ciphertext they cannot decrypt until they are admitted.
+A `community` channel has a bounded MLS group called the **speaker group**. Only members of the speaker group can post or decrypt messages. Space members outside the speaker group do not hold the channel's exporter-derived `channelToken` and cannot follow or decrypt its traffic until they are admitted.
 
 **Speaker group bounds.** The `speakerCap` field in the channel state (default 200, maximum 500) is the hard upper limit on simultaneous MLS group members. A channel admin MUST NOT issue an Add commit that would push membership above `speakerCap`.
 
 **Idle eviction.** A speaker who has not sent any `ApplicationMessage` in the channel within `idleEvictDays` days (default 7) is eligible for eviction. The channel's designated **SpeakerBot** (a DID listed in the channel state as `speakerBot`) issues periodic Remove commits for idle speakers. If no `speakerBot` is configured, channel admins perform evictions manually. Eviction is not punitive — evicted members are eligible for immediate re-admission when they next request to speak.
 
-**SpeakRequest.** A space member who is not currently in the speaker group and wants to post sends a `SpeakRequest` gossip message to the channel topic:
+**SpeakRequest.** A space member who is not currently in the speaker group and wants to post sends a `SpeakRequest` as an MLS application message in a DM group (§4.6) with the channel's `speakerBot`, or with a channel admin if no `speakerBot` is configured. The requester holds no key for the speaker group, so the request cannot travel in the channel's own envelopes; it MUST NOT be sent in the clear on any topic. The requester's identity is carried and authenticated by the sealed envelope (§5.2.2), so the inner payload carries only the channel:
 
 ```json
 {
   "@type": "SpeakRequest",
   "channelCID": "bafyrei...",
-  "requesterDID": "did:key:z6Mk...",
-  "ts": "2026-04-22T09:00:00Z",
-  "sig": "base64url..."
+  "ts": "2026-04-22T09:00:00Z"
 }
 ```
 
-`sig` is the requester's Ed25519 signature, signed per §13.1.1. The SpeakerBot or a channel admin responds by issuing a standard MLS Add commit using a KeyPackage from the requester's store. If the speaker group is at capacity, the SpeakerBot SHOULD first evict the longest-idle current speaker before adding the requester.
+The SpeakerBot or a channel admin responds by issuing a standard MLS Add commit using a KeyPackage from the requester's store. If the speaker group is at capacity, the SpeakerBot SHOULD first evict the longest-idle current speaker before adding the requester.
 
 **Admission latency.** Admission requires one round of MLS Add + Welcome delivery. Clients in `community` channels SHOULD display a "waiting to join" indicator if the user tries to post before their Welcome has been processed.
 
@@ -294,16 +279,32 @@ A **passive member** is an MLS group member that holds a leaf credential and par
 
 #### 5.2.1.4 Broadcast Channel Mode
 
-A `broadcast` channel carries no MLS group. Messages are **signed but not encrypted** — they are readable by any space member who knows the channel token. The security property provided is authenticity (was this posted by an authorized poster?) not confidentiality.
+A `broadcast` channel is a one-to-many CO publication. Posts are encrypted under a channel **content key** that the CO distributes (§3.4) and are signed inside the ciphertext by the poster. The outer envelope reveals no sender. The properties provided are authenticity (was this posted by an authorized poster?) and confidentiality against IOs and non-members, without MLS forward secrecy (see Security properties below).
 
 **Authorized posters.** The set of authorized posters for a broadcast channel is determined by space role: any space member holding a role listed in the channel state's `broadcasterRoles` array may post. Typically this is a dedicated `broadcaster` role held by admins or a bot.
 
-**Message structure.** Broadcast messages use the standard outer routing envelope (§5.2.2) but with no inner MLS encryption. The `innerPayload` field carries a plaintext-signed JSON-LD body:
+**Publisher group.** The authorized posters form the channel's MLS group, the **publisher group**. Channel admins Add each DID that holds a role in `broadcasterRoles` and Remove it when the role is revoked. Subscribers are not members of the publisher group and consume no KeyPackages. The publisher group provides the epoch access proof (§5.2.2) unchanged: the access key chain is registered and announced as for any channel, and relays admit only envelopes signed with the current epoch access key, so only current posters can publish. The publisher group does not carry the content key: the CO issues it, and posters fetch it from the Space endpoint (§3.4) as subscribers do.
+
+**Content key.** Each broadcast channel has a sequence of content keys, each a `BroadcastKey` record (§3.4) numbered by `keyEpoch`. Subscribers and posters obtain the current key from the Space endpoint; for a channel with `keyAccess: public` the key is public Space state, so whether a broadcast channel is private or public is an access policy on the same mechanism. A poster MUST encrypt under the `BroadcastKey` with the highest `keyEpoch` whose `notBefore` has passed. Clients SHOULD fetch the current `BroadcastKey` on reconnect and MUST fetch it when they see an `accessKeyAnnouncement` whose `channelToken` they cannot derive.
+
+**Broadcast channel token.** A broadcast channel's `channelToken` is derived from the content key, not from the MLS exporter: `channelToken = HKDF-SHA256(IKM = key, salt = "" (zero-length), info = "agora broadcast token" || keyEpoch, L = 32)`, with `keyEpoch` as a big-endian uint64. Subscribers compute it from the `BroadcastKey`. It rotates whenever the key rotates and does not change on publisher group Commits; tokens of different key epochs are unlinkable without the keys. The access key chain carries the token change:
+
+- On a publisher group Commit, the committer's `accessKeyAnnouncement` carries the new MLS `epoch`, the new access public key and the `channelToken` of the current content key.
+- On a key rotation without a Commit, the first poster to post under the new `keyEpoch` first sends, on the previous `channelToken`, an envelope carrying an `accessKeyAnnouncement` with the unchanged `epoch` and access public key and the new `channelToken`, signed with the current epoch's access private key. The relay follows the chain from token to token as for any channel.
+
+**Message structure.** Broadcast messages use the standard outer routing envelope (§5.2.2), whose `epoch` and `accessSig` are those of the publisher group. In place of `sealedEnvelope`, the envelope carries a `broadcastPayload` field:
+
+```
+broadcastPayload = nonce || AEAD-Seal(key, nonce, plaintext, aad = "agora/broadcast/v1" || channelToken)
+```
+
+The AEAD is that of the default ciphersuite (§5.2.1), AES-128-GCM. `nonce` is 12 bytes, freshly random for every message; because many posters share one key, counter nonces are not used. Recipients MUST reject a `broadcastPayload` whose associated data does not match the `channelToken` of the envelope it arrived in. `plaintext` is the signed JSON-LD body:
 
 ```json
 {
   "@type": "BroadcastMessage",
   "channelCID": "bafyrei...",
+  "keyEpoch": 7,
   "body": {
     "@type": "TextBody",
     "content": "v2.1.0 released — see release notes for details.",
@@ -315,17 +316,21 @@ A `broadcast` channel carries no MLS group. Messages are **signed but not encryp
 }
 ```
 
-`sig` is the sender's Ed25519 signature, signed per §13.1.1. Recipients MUST verify `sig` against the sender's DID document before displaying the message. Recipients MUST also verify that `senderDID` holds a space role listed in `broadcasterRoles`.
+`sig` is the sender's Ed25519 signature, signed per §13.1.1. Recipients MUST verify `sig` against the sender's DID document before displaying the message, MUST verify that `channelCID` and `keyEpoch` match the key used to decrypt, and MUST verify that `senderDID` holds a space role listed in `broadcasterRoles`.
 
-**Relay handling.** The Relay stores broadcast messages as signed blobs, identical to any other channel message. Because broadcast messages are not encrypted, the Relay CAN read their content — this is an intentional and declared property of broadcast channels. Clients MUST display a visible indicator (e.g., a megaphone icon) on broadcast channels to make clear to users that messages in this channel are not confidential.
+**Relay handling.** The Relay stores broadcast messages as ciphertext blobs, identical to any other channel message. It learns a `channelToken`, the publisher group's epoch access signature, a sequence number, a timestamp and an opaque blob, and nothing about who posted. Clients MUST display a visible indicator (e.g., a megaphone icon) on broadcast channels to make clear to users that the channel has the weaker properties stated below.
 
-**No MLS group means no KeyPackage consumption** for broadcast channels. Senders do not need to consume a recipient's KeyPackage to post. There are no Welcome or Commit messages for broadcast channels.
+**Rotation and removal.** To remove a subscriber, the CO publishes a new `BroadcastKey` with `keyEpoch` incremented and stops serving keys to the removed subscriber (§3.4). The CO SHOULD also rotate the key at least every 30 days, and MUST rotate it before 2^32 messages have been encrypted under one key (the AES-GCM limit for random nonces).
 
-**Compliance logging.** Broadcast channel messages are already plaintext; no special compliance logger admission is required. The Relay stores them as durable signed records. For FINRA/MiFID purposes, broadcast messages in a space with compliance logging enabled are automatically captured to the compliance archive.
+**Security properties.** A broadcast channel provides confidentiality against IOs and non-members, and sender authenticity through the inner signature. It is weaker than MLS: there is no forward secrecy or post-compromise security within a key epoch, since one key protects every message of that epoch; a removed subscriber retains the keys of the epochs it held and can read their messages; and any key holder can decrypt the whole epoch. Only the inner signature, not possession of the key, authorizes a post. This is appropriate for one-to-many announcements; channels that need MLS properties MUST use `community` or `interactive` mode.
+
+**KeyPackage consumption.** Only publisher group changes consume KeyPackages, and only those of posters. Posting consumes no recipient's KeyPackage, and subscribers receive no Welcome or Commit messages.
+
+**Compliance logging.** The compliance logger needs no publisher group admission. It obtains each `BroadcastKey` from the Space endpoint as a member (§3.4), follows the channel's tokens, and decrypts. For FINRA/MiFID purposes, broadcast messages in a space with compliance logging enabled are automatically captured to the compliance archive.
 
 ### 5.2.2 Message Format
 
-All messages use a two-layer structure: an outer **routing envelope** visible to Relays, and an inner **sealed envelope** whose sender identity is hidden from Relays. The inner payload is MLS-encrypted.
+All messages use a two-layer structure: an outer **routing envelope** visible to Relays, and an inner **sealed envelope** whose sender identity is hidden from Relays. The inner payload is MLS-encrypted, except in `broadcast` channels, whose payload is encrypted under the channel content key instead (§5.2.1.4).
 
 #### Outer Routing Envelope
 
@@ -413,6 +418,7 @@ All inner payload types are defined in the Agora JSON-LD context namespace (`htt
 | `TextBody` | Formatted text; `format` field declares the content type (see §5.2.7) |
 | `MediaBody` | Reference to IPFS-hosted media (CID + MIME type + size) |
 | `EmbedBody` | URL unfurl card (title, description, image CID) |
+| `SpeakRequest` | Request for admission to a `community` channel's speaker group, sent in a DM group (§5.2.1.2) |
 | `ReactionEvent` | Emoji reaction add/remove targeting a message CID (see §5.2.8) |
 | `EditEvent` | Replacement body for a prior message CID |
 | `DeleteEvent` | Tombstone for a prior message CID |

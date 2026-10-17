@@ -2,13 +2,15 @@
   "id": "agora-pozi.20.37",
   "title": "Leaks in messaging: SpeakRequest, KeyPackageRequest, broadcast",
   "description": "From phase B (04-messaging): SpeakRequest (§6.1.2) in clear exposes requesterDID+channelCID; KeyPackageRequest on discovery topic exposes requestedBy/targetDID (social graph, ties Q3 agora-pozi.10); broadcast channels (§6.1.4) have no MLS group so channelToken/access proof undefined and senderDID visible. nie agoraold-sy6s used a relay-generated secret for broadcast — rejected (violates S3).",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:45:00.452950898Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:45:00.452950898Z",
+  "updated_at": "2026-10-17T03:54:27.20816028Z",
+  "closed_at": "2026-10-17T03:54:27.20816028Z",
+  "close_reason": "Fixed in P1 pass 2026-10-16 (uncommitted at close; see next commit)",
   "dependencies": [
     {
       "issue_id": "agora-pozi.20.37",

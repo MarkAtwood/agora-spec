@@ -2,13 +2,15 @@
   "id": "agora-pozi.23",
   "title": "Opaque Space distribution: no Space-ID gossip topics",
   "description": "Required by Q6(b). v1/agora/space/\u003cspaceCID\u003e and v1/agora/mls/\u003cgroupID\u003e topics expose Space/group identity to relays (09 §4.1, 02, 03 §9.5 moderation broadcast, 07 §18.3). Decision (Mark 2026-10-16): distribute Space state by CID from a CO-hosted endpoint; no relay topic. Remove/replace these topics across parts.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T03:45:00.360882794Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T03:45:00.360882794Z",
+  "updated_at": "2026-10-17T03:54:27.067721401Z",
+  "closed_at": "2026-10-17T03:54:27.067721401Z",
+  "close_reason": "Fixed in P1 pass 2026-10-16 (uncommitted at close; see next commit)",
   "dependencies": [
     {
       "issue_id": "agora-pozi.23",

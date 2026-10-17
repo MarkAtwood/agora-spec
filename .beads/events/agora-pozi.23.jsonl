@@ -1,1 +1,2 @@
 {"id":"01a147f6-83cb-70f8-a224-38f74269d5ae","issue_id":"agora-pozi.23","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T03:45:00.363064001Z"}
+{"id":"01a147ff-29b9-7b48-ba5f-f59a412599d8","issue_id":"agora-pozi.23","event_type":"closed","actor":"agent","old_value":"","new_value":"Fixed in P1 pass 2026-10-16 (uncommitted at close; see next commit)","created_at":"2026-10-17T03:54:27.129740653Z"}

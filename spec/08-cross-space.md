@@ -57,13 +57,13 @@ Sharing a channel requires bilateral authorization: the home space admin and the
 
 `guestAlias` is the channel path under which the shared channel appears in the guest space's sidebar. It is a local display alias only — the channel's canonical identity remains `homeChannel`. `guestRoles` is the list of guest space roles whose members are eligible for admission. `guestPermissions` defines the capability constraints applied to guest space members in this channel, independently of their role in their own space.
 
-The agreement is stored as an IPLD node, CID-referenced from both space state documents, and gossiped on both `v1/agora/space/<homeSpaceCID>` and `v1/agora/space/<guestSpaceCID>`.
+The agreement is stored as an IPLD node, CID-referenced from both space state documents, and served by both Spaces' endpoints and announced to each Space's members in-band, like any Space state change (§3.4).
 
-The agreement is a CO-to-CO document: both signatures are CO keys of the respective Spaces (S4). Relays carry and store it as opaque data like any other envelope; they MUST NOT interpret it or act on it, and it confers no authority on any IO.
+The agreement is a CO-to-CO document: both signatures are CO keys of the respective Spaces (S4). It links two Spaces, so it is never sent on a gossipsub topic and is not stored on IO infrastructure in the clear; it confers no authority on any IO.
 
 ## 8.4 Member Admission
 
-When a `ChannelShareAgreement` is established and gossiped, conformant clients from the guest space whose roles match `guestRoles` are eligible to join the shared channel's MLS group. Admission follows the standard MLS Add flow, initiated either by:
+When a `ChannelShareAgreement` is established and published in both Spaces' state, conformant clients from the guest space whose roles match `guestRoles` are eligible to join the shared channel's MLS group. Admission follows the standard MLS Add flow, initiated either by:
 
 - A home space admin issuing a Welcome to the guest member directly, or
 - A guest space admin issuing a bulk Welcome on behalf of all eligible members (this requires that the guest admin is themselves already an MLS group member, admitted by the home space admin as part of agreement setup).
@@ -130,7 +130,7 @@ On revocation:
 
 1. The revoking admin issues MLS Remove commits for all members of the foreign space from the channel's MLS group.
 2. The alias entry is removed from the guest space's state document.
-3. The `ChannelShareRevocation` is gossiped on both space topics and stored in both space IPLD state chains.
+3. The `ChannelShareRevocation` is stored in both space IPLD state chains and distributed like any Space state change (§3.4).
 4. Clients of the guest space remove the channel from their sidebar on next state refresh.
 5. Guest space members lose the ability to decrypt new messages immediately (the MLS epoch advances on the Remove commits); they retain locally cached history up to the revocation epoch.
 

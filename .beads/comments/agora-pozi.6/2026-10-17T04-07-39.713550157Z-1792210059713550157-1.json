@@ -1,0 +1,7 @@
+{
+  "id": "1792210059713550157-1",
+  "issue_id": "agora-pozi.6",
+  "author": "agent",
+  "text": "O365/GSuite profiles keep org root DID as DID-document 'controller'; under DID Core that may let org keys act for the user. Decide with non-impersonation.",
+  "created_at": "2026-10-17T04:07:39.713550157Z"
+}
