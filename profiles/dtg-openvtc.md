@@ -104,5 +104,4 @@ Agora's default DID method is `did:webvh` (spec §2.1), and OpenVTC uses `did:we
 
 - Which governance authority identifiers and credential types a client's default TRQP policy should name. This is a matter for deployments and trust communities, not this profile.
 - How often trust communities issue public- or directed-scope VMCs to members' own DIDs. If they mostly issue pairwise credentials, section 3 finds little to show until they add a public issuance.
-- Whether spec §5.2.1.5, which says a signature is verified "over exactly those bytes", should say "by the rules of the format" for proof formats such as Data Integrity with JCS, where the verifier derives the signed form from the carried bytes. Agora still never transforms the bytes.
 - Whether a VSC with predicates, proved in zero knowledge, can satisfy the subject check of §5.2.1.5. The DTG zero-knowledge profile is not settled.
