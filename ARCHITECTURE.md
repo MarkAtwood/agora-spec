@@ -20,7 +20,7 @@ This is Agora's first design principle. Where any other part of this
 specification conflicts with it, this document governs and the conflict is an
 erratum.
 
-Relay blindness (protocol spec §11.1) limits what infrastructure can *know*.
+Relay blindness (protocol spec §10.4.1) limits what infrastructure can *know*.
 Operator separation limits what infrastructure can *decide*, and guarantees it
 can be *swapped*. Blindness without separation produces a relay that is
 ignorant but still in charge; separation without blindness produces a relay
@@ -113,7 +113,7 @@ budget MUST be opt-in by the CO, MUST be declared in the relay manifest, and
 MUST be visible to members.
 
 **S7. Contracts, not configuration.** The only binding between a CO and an IO is
-the `RelayServiceAgreement` (protocol spec §12.2) and the verification material
+the `RelayServiceAgreement` (protocol spec §10.5.1) and the verification material
 defined in §6. An IO MUST NOT require CO data beyond these as a condition of
 service.
 
@@ -161,7 +161,7 @@ An IO MAY observe the following and nothing else:
 8. Its own peering relationships with other IOs.
 
 Agora does not claim network-layer anonymity against an IO. Members who need it
-use an overlay transport (protocol spec §3.4, §8). This matches the privacy
+use an overlay transport (protocol spec §10.1, §11). This matches the privacy
 whitepaper: "Agora is not anonymous."
 
 ## 6. The CO–IO interface
@@ -227,7 +227,9 @@ existing group.
 ## 7. Disposition of conflicts in the imported specs
 
 Each item below is an erratum against the imported documents
-(`import/`, see `notes/research-2026-10-16.md` for line references). The
+(`import/`, see `notes/research-2026-10-16.md` for line references). Section
+and line numbers in this list are those of the imported documents, not of
+`spec/`. The
 restructured specification resolves each as stated.
 
 1. **Relay ban and timeout enforcement** (protocol spec §9.5, §11.3, l.2439–2441).
@@ -271,7 +273,7 @@ restructured specification resolves each as stated.
   commit ordering across relays, and cost per envelope.
 - **Q2. Admission without identity.** How does an IO meter abuse and quota
   before a client has proven membership in any channel, without authenticating
-  its DID? Candidates: agreement-scoped bearer tokens, PoW (protocol spec §12),
+  its DID? Candidates: agreement-scoped bearer tokens, PoW (protocol spec §10.5.2),
   Privacy Pass.
 - **Q3. KeyPackage store placement.** A DID-keyed KeyPackage store learns who
   fetches whose KeyPackages, which is the social graph at group creation. Option:

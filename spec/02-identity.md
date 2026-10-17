@@ -1,12 +1,11 @@
-# Agora Protocol: Identity
+# 2. Identity
 
 > Binds: CO. Source: import/agora-protocol-spec-unified.md lines 56–484 (§2).
 
-## 2. Identity
 
 *Binds: CO.*
 
-### 2.1 User DID
+## 2.1 User DID
 
 Every user has a **Decentralized Identifier (DID)** as their persistent identity. DIDs are self-certifying: possession of the private key proves identity without any registry or certificate authority. The recommended methods are:
 
@@ -50,7 +49,7 @@ Example DID document:
 
 The `keyAgreement` key is the source material for MLS KeyPackage generation. The `authentication` key signs all protocol messages.
 
-### 2.2 Device Keys
+## 2.2 Device Keys
 
 A single user identity can span multiple physical devices. MLS handles multi-device membership natively — each device is a separate MLS leaf node in every group the user belongs to. Where the DID method supports document updates, the user's DID document lists all active device verification keys as separate `verificationMethod` entries.
 
@@ -58,7 +57,7 @@ A single user identity can span multiple physical devices. MLS handles multi-dev
 
 Revoking a device means removing its leaf node from all relevant MLS trees with an MLS `Remove` proposal for that device's leaf, committed by a member permitted to commit (any of the user's other devices, or another member authorized under Space state), and removing the corresponding `verificationMethod` from the DID document. An `Update` commit refreshes only the committer's own leaf and MUST NOT be used to revoke another device. Both operations must be performed for full revocation; removing only one leaves residual access.
 
-### 2.3 User Display Profile
+## 2.3 User Display Profile
 
 The user profile is stored separately from the DID document, as an IPLD node addressed by CID. Where the DID method supports `service` entries in an updatable document, the DID document links to the current profile CID via a `service` endpoint:
 
@@ -88,13 +87,13 @@ Profile schema (JSON-LD):
 
 Profile updates are signed by the user's authentication key and gossiped on `v1/agora/discovery`. Because the profile is content-addressed, clients can cache it indefinitely — a stale profile will produce a CID mismatch against the current DID document's `serviceEndpoint`, prompting a refresh.
 
-### 2.4 Account Recovery
+## 2.4 Account Recovery
 
 `did:key` identities are self-certifying — the private key is the identity. Loss of all device private keys is permanent identity loss with no protocol-level remedy unless recovery mechanisms are established in advance. Agora specifies three complementary recovery mechanisms. Clients SHOULD implement all three; users SHOULD activate at least one before they need it.
 
 > **Open (agora-pozi.6):** Registering a recovery key and rotating device keys both require an updatable DID document, which `did:key` does not provide; recovery for `did:key` users awaits the DID method decision.
 
-#### 2.4.1 Recovery Key
+### 2.4.1 Recovery Key
 
 A **recovery key** is a dedicated Ed25519 keypair generated at account creation time and stored entirely separately from all device keys — typically printed as a recovery phrase, stored on an air-gapped device, or written to paper and placed somewhere physically secure. It is registered in the DID document as a verification method with a `recoverableIdentity` relationship:
 
@@ -132,11 +131,11 @@ The recovery key is **never used for normal protocol operations**. Its only func
 }
 ```
 
-`recoverySig` is an Ed25519 signature by the recovery key, signed per §14.1. `revokeAll: true` instructs peers to treat all previously registered device keys as revoked once the assertion takes effect (§2.4.4). The `RecoveryAssertion` is published to `v1/agora/discovery` and appended to the user's profile IPLD chain. Relays take no action on a `RecoveryAssertion`: they hold no per-DID sessions, and a revoked device loses channel access when its leaves are Removed (§2.2).
+`recoverySig` is an Ed25519 signature by the recovery key, signed per §13.1.1. `revokeAll: true` instructs peers to treat all previously registered device keys as revoked once the assertion takes effect (§2.4.4). The `RecoveryAssertion` is published to `v1/agora/discovery` and appended to the user's profile IPLD chain. Relays take no action on a `RecoveryAssertion`: they hold no per-DID sessions, and a revoked device loses channel access when its leaves are Removed (§2.2).
 
 **The recovery key is the root of trust for identity recovery.** Its private key MUST NOT leave a secure offline boundary — paper backup, air-gapped device, or hardware security key. It MUST NOT be imported into any networked device or software keystore under any circumstances during normal operation.
 
-#### 2.4.2 Social Recovery
+### 2.4.2 Social Recovery
 
 Social recovery designates a set of **guardians** — other Agora users trusted to collectively authorize identity recovery. A threshold scheme (e.g., 3-of-5) ensures that no single guardian can unilaterally recover the account, and that losing any one guardian does not prevent recovery.
 
@@ -171,7 +170,7 @@ The `SocialRecoveryConfig` is stored in the user's profile IPLD chain. `recovery
 
 **Reference implementations for SSS:** [`hashicorp/vault` SSS](https://github.com/hashicorp/vault/tree/main/shamir) (Go), [`secrets.js`](https://github.com/grempe/secrets.js) (JS), [`sharks` crate](https://crates.io/crates/sharks) (Rust).
 
-#### 2.4.3 Encrypted Backup
+### 2.4.3 Encrypted Backup
 
 A client MAY export an encrypted backup of device key material and MLS state to a user-chosen location — a local file, cloud storage, IPFS, or any other storage the user controls. The backup is encrypted with a user-chosen passphrase using Argon2id key derivation:
 
@@ -190,7 +189,7 @@ backup    = AEAD_AES_256_GCM(backupKey, backupPayload)
 - Timestamp and DID
 
 **HSM / Secure Enclave / non-extractable keys.** Private keys cannot be exported by design. The backup contains only:
-- The MLS group state exported via the MLS key export interface (RFC 9420 §8)
+- The MLS group state exported via the MLS key export interface (RFC 9420 §11)
 - Public keys and DID document
 - Timestamp and DID
 
@@ -202,7 +201,7 @@ Clients SHOULD prompt users to export an encrypted backup at account creation an
 
 **Reference implementations for Argon2id:** [`golang.org/x/crypto/argon2`](https://pkg.go.dev/golang.org/x/crypto/argon2) (Go), [`argon2` npm package](https://www.npmjs.com/package/argon2) (JS/Node), [`argon2` crate](https://crates.io/crates/argon2) (Rust), [`argon2-cffi`](https://pypi.org/project/argon2-cffi/) (Python).
 
-#### 2.4.4 Recovery Precedence and Conflict Resolution
+### 2.4.4 Recovery Precedence and Conflict Resolution
 
 The `ts` field of a `RecoveryAssertion` is self-asserted by its signer and MUST NOT be used to order competing assertions: any holder of a recovery credential could backdate it. If multiple recovery mechanisms produce conflicting valid `RecoveryAssertion` messages for the same DID, they are resolved as follows:
 
@@ -211,11 +210,11 @@ The `ts` field of a `RecoveryAssertion` is self-asserted by its signer and MUST 
 
 > **Open (agora-pozi.6):** An externally ordered record (e.g. a transparency log) for recovery assertions of identities without a provisioning service is undecided.
 
-### 2.5 Enterprise Identity Provisioning (SAML / OIDC)
+## 2.5 Enterprise Identity Provisioning (SAML / OIDC)
 
 In enterprise deployments, user identities are managed by the organization via an existing Identity Provider (IdP) — Microsoft Entra ID, Okta, Ping, or any SAML 2.0 / OIDC-compliant IdP. This section specifies how `did:web` identities are provisioned by the organization and how device keys are registered by user agents against that identity, maintaining the correct trust separation: the organization controls the identity namespace and can revoke it; the device controls the private key material, and the organization cannot use it (see §2.5.1 for the limits of this). Vendor-specific integrations are described non-normatively in `profiles/o365-employer-did.md`, `profiles/gsuite-employer-did.md` and `profiles/universal-idp-did.md`.
 
-#### 2.5.1 Trust Separation
+### 2.5.1 Trust Separation
 
 The fundamental constraint this section enforces:
 
@@ -227,7 +226,7 @@ This mirrors how S/MIME and WebAuthn work in enterprise: the org manages the cer
 
 > **Open (agora-pozi.6):** Whether device keys are anchored independently of an org-controlled `did:web` document, so that key insertion by the org is detectable or prevented, is undecided.
 
-#### 2.5.2 DID Namespace and Document Hosting
+### 2.5.2 DID Namespace and Document Hosting
 
 The organization provisions `did:web` identities in a controlled namespace:
 
@@ -251,7 +250,7 @@ The DID document is served by the organization's **DID Provisioning Service** �
 - Accepts authenticated device revocation requests (§2.5.5)
 - Publishes DID document updates to the Agora gossipsub discovery mesh (§3)
 
-#### 2.5.3 Initial Provisioning (Onboarding)
+### 2.5.3 Initial Provisioning (Onboarding)
 
 When a user is onboarded to Agora, the organization creates a stub DID document containing no device keys. This happens in the same workflow as email account creation — automated via HR system integration or the IdP's provisioning API (SCIM 2.0 is the standard mechanism):
 
@@ -274,7 +273,7 @@ The stub document is valid and resolvable. It has no keys, so no one can authent
 
 The provisioning service MUST record the creation timestamp and provisioning operator identity in an audit log.
 
-#### 2.5.4 Device Key Registration
+### 2.5.4 Device Key Registration
 
 When Alice installs the Agora client on a new device, the client performs the following enrollment sequence:
 
@@ -304,7 +303,7 @@ Neither private key leaves the secure enclave. The client holds only the public 
 }
 ```
 
-`existingDeviceSig` is a signature by an existing registered device key, signed per §14.1. For first-device enrollment it is absent. For subsequent devices it MUST be present — the IdP token alone authorizes adding a device only on first enrollment; subsequent enrollment requires proof of an existing authorized device.
+`existingDeviceSig` is a signature by an existing registered device key, signed per §13.1.1. For first-device enrollment it is absent. For subsequent devices it MUST be present — the IdP token alone authorizes adding a device only on first enrollment; subsequent enrollment requires proof of an existing authorized device.
 
 `secureEnclaveAttested` is `true` if the platform supports hardware attestation of key generation. When `true`, the provisioning service SHOULD verify the attestation before accepting the key.
 
@@ -349,11 +348,11 @@ Neither private key leaves the secure enclave. The client holds only the public 
 
 **Step 6 — Gossip publication.** The provisioning service gossips the updated DID document hash on `v1/agora/discovery`.
 
-**Step 7 — KeyPackage upload.** The newly enrolled client generates an initial batch of MLS KeyPackages (§6.1) and uploads them to its KeyPackage store, completing enrollment.
+**Step 7 — KeyPackage upload.** The newly enrolled client generates an initial batch of MLS KeyPackages (§5.2.1) and uploads them to its KeyPackage store, completing enrollment.
 
 > **Open (agora-pozi.10):** Where KeyPackages are stored (CO-hosted endpoint via the DID document, or an IO store as a declared budget extension) is undecided.
 
-#### 2.5.5 Device Revocation
+### 2.5.5 Device Revocation
 
 Device revocation can be initiated by the user (lost or retired device) or by the organization (employee departure, security incident).
 
@@ -402,7 +401,7 @@ Relays take no action on a `DeviceRevocation`: they do not authenticate member D
 
 **MLS remediation.** Revocation of a device key does not automatically remove that device's MLS leaf nodes from all groups. The revoked device's client (if still running) SHOULD issue `Remove` self-proposals on all its group memberships. If the device is genuinely lost, other group members MUST issue `Remove` commits when they detect the key is revoked. Space administrators SHOULD run periodic reconciliation to ensure revoked device keys have no active MLS leaves in their channels.
 
-#### 2.5.6 Offboarding
+### 2.5.6 Offboarding
 
 When an employee leaves, the organization performs a full account suspension:
 
@@ -413,7 +412,7 @@ When an employee leaves, the organization performs a full account suspension:
 5. The organization retains the DID document (does not delete it) for the regulatory retention period
 6. After the retention period, the document MAY be blanked (empty `verificationMethod`) but MUST NOT be removed — the URL must remain resolvable to avoid dangling references in archived compliance records
 
-#### 2.5.7 Provisioning Service DID Document
+### 2.5.7 Provisioning Service DID Document
 
 The provisioning service itself is a DID-bearing principal:
 
@@ -431,11 +430,11 @@ The provisioning service itself is a DID-bearing principal:
 }
 ```
 
-Every DID document update the provisioning service publishes MUST include a `provisionerSig` field: an Ed25519 signature over the updated DID document by the provisioning service's key, signed per §14.1. Clients MUST verify this signature when processing DID document updates received via gossip.
+Every DID document update the provisioning service publishes MUST include a `provisionerSig` field: an Ed25519 signature over the updated DID document by the provisioning service's key, signed per §13.1.1. Clients MUST verify this signature when processing DID document updates received via gossip.
 
 This creates a two-party integrity guarantee: the user's device key proves the user authorized the key, and the provisioner's signature proves the organization accepted and recorded the registration. The provisioner cannot forge an existing device's signature, but it can add a new key (§2.5.1).
 
-#### 2.5.8 Relationship to §2.4 Recovery Mechanisms
+### 2.5.8 Relationship to §2.4 Recovery Mechanisms
 
 For enterprise `did:web` identities, the recovery mechanisms of §2.4 interact with organizational authority as follows:
 

@@ -1,4 +1,4 @@
-# Agora Protocol: Appendices
+# Appendices
 
 > Binds: both. Source: import/agora-protocol-spec-unified.md lines 4084–4139 (Appendices A, B).
 

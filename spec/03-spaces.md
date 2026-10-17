@@ -1,12 +1,11 @@
-# Agora Protocol: Spaces and Space State
+# 3. Spaces and Space State
 
 > Binds: both. Source: import/agora-protocol-spec-unified.md lines 485–583 (§3.1–3.3).
 
-## 3. Topology
 
 *Binds: both.*
 
-### 3.1 Participants
+## 3.1 Participants
 
 Agora separates the Infrastructure Operator (IO), which runs Relays and other infrastructure, from the Communications Operator (CO), which runs a community; for a Space the CO is the Space owner and its delegated admins (ARCHITECTURE §2). A Relay is an IO component.
 
@@ -14,7 +13,7 @@ Agora separates the Infrastructure Operator (IO), which runs Relays and other in
 - **Relay** — an always-on server that participates in gossipsub, caches recent messages within a configured retention window, serves WebTransport and WebSocket endpoints for clients, and optionally pins IPFS content. Anyone may operate a Relay; no permission is required.
 - **Peer** — any participant in the gossipsub mesh, including both Relays and clients with persistent connections.
 
-### 3.2 Space and Channel Hierarchy
+## 3.2 Space and Channel Hierarchy
 
 A **Space** is a named collection of channels, analogous to a Discord server. A **Channel** is a named, typed stream of messages within a Space.
 
@@ -45,7 +44,7 @@ agora://bafyrei.../voice/lounge
 
 Channel nesting is structural only — a parent channel (such as `engineering`) can itself be a message channel, a category header, or both. The namespace is a tree; there is no enforced depth limit.
 
-### 3.3 Space State Document
+## 3.3 Space State Document
 
 The Space state document is stored as an IPLD DAG node. Its CID changes on every mutation. The Space's identity is anchored to its genesis CID; subsequent state is represented as a signed chain of mutations, each referencing the prior state CID in its `prevStateCID` field. This makes the Space history tamper-evident: replacing any intermediate state document breaks the chain.
 
@@ -103,5 +102,5 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
 }
 ```
 
-`sig` is an Ed25519 signature over the document, signed per §14.1 by the Space owner's authentication key or a delegated admin's key. Space state and channel state are signed only by these CO keys (ARCHITECTURE S4). A Relay or other IO key MUST NOT sign Space or channel state, and clients MUST reject Space or channel state that is not signed by the owner or by an admin authorized under the prior state.
+`sig` is an Ed25519 signature over the document, signed per §13.1.1 by the Space owner's authentication key or a delegated admin's key. Space state and channel state are signed only by these CO keys (ARCHITECTURE S4). A Relay or other IO key MUST NOT sign Space or channel state, and clients MUST reject Space or channel state that is not signed by the owner or by an admin authorized under the prior state.
 

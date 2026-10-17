@@ -1,24 +1,23 @@
-# Agora Protocol: Security Considerations
+# 12. Security Considerations
 
 > Binds: both. Source: import/agora-protocol-spec-unified.md lines 3223–3352 (§13).
 
-## 13. Security Considerations
 
 *Binds: both.*
 
-### 13.1 Forward Secrecy
+## 12.1 Forward Secrecy
 
 MLS provides forward secrecy by design. Each epoch derives a new application secret via the MLS key schedule. Compromise of a member's current epoch key material does not expose prior messages, which were encrypted under previous epoch secrets.
 
-### 13.2 Post-Compromise Security
+## 12.2 Post-Compromise Security
 
 MLS `Update` proposals (triggered by devices or by time-based policy) ratchet the ratchet tree forward, healing from key compromise. A member whose keys were compromised but who subsequently performs an `Update` commit regains security — the compromised old key material cannot decrypt new messages. Space operators SHOULD enforce periodic key rotation (recommended: 7-day maximum epoch lifetime for active channels).
 
-### 13.3 Relay Trust and Legal Exposure
+## 12.3 Relay Trust and Legal Exposure
 
 Relays are untrusted for message content and blind to membership and sender identity. The threat model addressed here is: a Relay operator receives a subpoena or legal demand. What can they produce?
 
-What each operator can be compelled to produce is defined in ARCHITECTURE.md §4: an IO yields only what is inside its observation budget (ARCHITECTURE.md §5), and a CO yields what its own retention policy keeps. The authoritative record for a regulated community is the CO's archive (§17), never a Relay.
+What each operator can be compelled to produce is defined in ARCHITECTURE.md §4: an IO yields only what is inside its observation budget (ARCHITECTURE.md §5), and a CO yields what its own retention policy keeps. The authoritative record for a regulated community is the CO's archive (§7), never a Relay.
 
 **What a Relay can observe:** exactly the ARCHITECTURE.md §5 observation budget — network-layer connection metadata within the retention declared in its manifest, ciphertext envelopes with their size, timing, `channelToken` and expiry hint, verification material and proofs that do not identify the member, CIDs it stores, agreement-keyed quota state, and its own peering relationships.
 
@@ -36,7 +35,7 @@ What each operator can be compelled to produce is defined in ARCHITECTURE.md §4
 
 Clients SHOULD connect to multiple Relays simultaneously. A single Relay going dark (legal seizure, operator shutdown) does not partition a user from their channels as long as at least one other Relay serving that `channelToken` is reachable.
 
-### 13.4 Metadata Leakage
+## 12.4 Metadata Leakage
 
 The sealed sender design eliminates sender identity from the Relay layer. Residual metadata leakage points:
 
@@ -48,17 +47,17 @@ The sealed sender design eliminates sender identity from the Relay layer. Residu
 
 **Presence, typing and DM membership** — presence and typing indicators are MLS application messages, and a DM is an ordinary MLS group addressed by `channelToken`. A Relay sees them only as ciphertext envelopes within the ARCHITECTURE.md §5 budget; it cannot distinguish them from other traffic by type, and it does not learn who is in a DM.
 
-**Tor gossipsub fingerprinting** — as noted in §8.3, gossipsub peer scoring observes message timing and subscription behavior independently of IP. A client connecting via Tor is not fully anonymous at the gossipsub layer. Clients requiring strong anonymity against a Relay-level adversary should treat this as a known residual risk.
+**Tor gossipsub fingerprinting** — as noted in §11.3, gossipsub peer scoring observes message timing and subscription behavior independently of IP. A client connecting via Tor is not fully anonymous at the gossipsub layer. Clients requiring strong anonymity against a Relay-level adversary should treat this as a known residual risk.
 
-**Channel token to channel CID correlation** — the `channelToken` is derived from the MLS exporter with a dedicated label and the `channelCID` as context (§6.2). An adversary who obtains a member's group state for an epoch (e.g., via member compromise) can compute the token for any channel they know the CID of. This is acceptable: that compromise already implies full message compromise for that epoch; the token mapping adds no new capability beyond what the compromised group state already provides.
+**Channel token to channel CID correlation** — the `channelToken` is derived from the MLS exporter with a dedicated label and the `channelCID` as context (§5.2.2). An adversary who obtains a member's group state for an epoch (e.g., via member compromise) can compute the token for any channel they know the CID of. This is acceptable: that compromise already implies full message compromise for that epoch; the token mapping adds no new capability beyond what the compromised group state already provides.
 
-### 13.5 Denial of Service
+## 12.5 Denial of Service
 
-Gossipsub v1.1 includes peer scoring and flood control built-in. Relays MUST enforce per-`channelToken` rate limits on message publication. A Relay rate-limits and meters by routing token, `RelayServiceAgreement` and network address, never by member identity (ARCHITECTURE.md S1, §9); envelopes that fail the membership proof (ARCHITECTURE.md §6.2) are rejected. Spam control is local policy — there is no global reputation system (by design; global reputation systems become censorship infrastructure).
+Gossipsub v1.1 includes peer scoring and flood control built-in. Relays MUST enforce per-`channelToken` rate limits on message publication. A Relay rate-limits and meters by routing token, `RelayServiceAgreement` and network address, never by member identity (ARCHITECTURE.md S1, §4); envelopes that fail the membership proof (ARCHITECTURE.md §6.2) are rejected. Spam control is local policy — there is no global reputation system (by design; global reputation systems become censorship infrastructure).
 
 > **Open (agora-pozi.9):** How a Relay meters abuse and quota before a client has proven membership in any channel, without authenticating its DID (candidates: agreement-scoped bearer tokens, proof-of-work, Privacy Pass).
 
-### 13.6 Key Storage: HSM and Secure Enclave Guidance
+## 12.6 Key Storage: HSM and Secure Enclave Guidance
 
 All private key operations in Agora (signing, key agreement, MLS leaf operations) SHOULD be performed inside a hardware-backed secure boundary wherever the platform provides one. The protocol is designed so that no operation requires extracting raw private key bytes to application memory.
 
@@ -78,7 +77,7 @@ All private key operations in Agora (signing, key agreement, MLS leaf operations
 
 - **MLS leaf operations** (KeyPackage generation, Commit signing, Update proposals) — MUST use keys held in the secure boundary. `openmls` supports pluggable crypto backends; implementations SHOULD provide a backend that delegates to the platform keystore rather than holding raw key bytes.
 
-- **MLS key schedule / epoch secrets** — these are MLS-internal derived values, not persistent keys. They exist transiently in MLS stack memory during epoch processing and SHOULD NOT be exposed to application code. All operations requiring epoch secret access MUST use the MLS exporter interface (RFC 9420 §8.5) rather than accessing the epoch secret directly.
+- **MLS key schedule / epoch secrets** — these are MLS-internal derived values, not persistent keys. They exist transiently in MLS stack memory during epoch processing and SHOULD NOT be exposed to application code. All operations requiring epoch secret access MUST use the MLS exporter interface (RFC 9420 §11.5) rather than accessing the epoch secret directly.
 
 - **X25519 key agreement** (for encrypting social recovery shares, HPKE operations) — SHOULD use hardware-backed key agreement where the platform supports it. Where hardware X25519 is unavailable, software implementation in a sandboxed process is the fallback.
 
@@ -88,11 +87,11 @@ All private key operations in Agora (signing, key agreement, MLS leaf operations
 
 **Relay operator key storage:** Relay signing keys SHOULD be held in an HSM or TPM-backed keystore on the relay host. Cloud HSM services (AWS CloudHSM, GCP Cloud HSM, Azure Dedicated HSM) are appropriate for hosted relay deployments. At minimum, keys SHOULD be stored in the OS keyring rather than on-disk in plaintext.
 
-### 13.7 Non-Repudiation and Organizational Non-Impersonation
+## 12.7 Non-Repudiation and Organizational Non-Impersonation
 
 Agora provides a stronger non-repudiation guarantee than any conventional enterprise messaging platform, and a structural property that prevents silent organizational impersonation of users. Both properties emerge from the architecture rather than from policy.
 
-#### 13.7.1 Why Conventional Enterprise Platforms Cannot Provide This
+### 12.7.1 Why Conventional Enterprise Platforms Cannot Provide This
 
 In all conventional enterprise messaging and email systems — Microsoft Teams, Slack, Zoom, Exchange/Outlook with S/MIME, Google Workspace — the organization controls the root of trust end-to-end:
 
@@ -102,17 +101,17 @@ In all conventional enterprise messaging and email systems — Microsoft Teams, 
 
 In all of these systems, impersonation by the organization leaves no mandatory cryptographic trace in the messages themselves.
 
-#### 13.7.2 The Agora Architecture
+### 12.7.2 The Agora Architecture
 
 Agora separates the identity namespace from the signing key material at a structural level:
 
 - **DID document (org-controlled):** The organization controls `did:web:{orgDomain}:users:{id}` — it can add, remove, and update key entries in the document (§2.5). This is the identity namespace.
-- **Private key material (device-controlled):** Ed25519 signing keys are generated inside the device's secure enclave and never leave it (§13.6). The DID document contains only the public key. The organization receives no copy of the private key at any point — there is no enrollment flow that transmits private key material to the provisioning service (§2.5.4).
+- **Private key material (device-controlled):** Ed25519 signing keys are generated inside the device's secure enclave and never leave it (§12.6). The DID document contains only the public key. The organization receives no copy of the private key at any point — there is no enrollment flow that transmits private key material to the provisioning service (§2.5.4).
 - **Per-message signing:** Every Agora message is signed by the sender's device key. The signing key fingerprint is embedded in the message's MLS authenticated data — it is bound to the ciphertext and cannot be altered without invalidating the message's authentication tag.
 
 Consequence: **the organization cannot sign a message as Alice without access to Alice's private key, which it does not have.** The DID document update authority (org-controlled) and the signing authority (device-controlled) are held by different parties and involve different, non-interchangeable key material.
 
-#### 13.7.3 The Residual Organizational Capability
+### 12.7.3 The Residual Organizational Capability
 
 The organization retains one path to producing a message attributable to Alice's DID: it can register a new device key via the admin enrollment path (§2.5.8, helpdesk recovery) and sign messages with that key. This operation:
 
@@ -128,9 +127,9 @@ Detectable impersonation through the enrollment path — registering a new devic
 
 Implementations SHOULD surface device registration events to the DID subject (Alice) via out-of-band notification (email, push) at the time of admin-initiated registration. This converts a detectable-in-principle property into a detectable-in-practice one.
 
-#### 13.7.4 Non-Repudiation for Compliance
+### 12.7.4 Non-Repudiation for Compliance
 
-The combination of per-message device-key signatures and a tamper-evident IPLD compliance archive (§17) provides non-repudiation stronger than email with DKIM or S/MIME in typical enterprise deployment:
+The combination of per-message device-key signatures and a tamper-evident IPLD compliance archive (§7) provides non-repudiation stronger than email with DKIM or S/MIME in typical enterprise deployment:
 
 - **DKIM** authenticates the sending domain, not the individual sender. An admin with access to the DKIM private key can sign mail on behalf of any address at that domain.
 - **Enterprise S/MIME** with key escrow allows the key custodian (typically the organization) to produce valid signatures for any escrowed identity.

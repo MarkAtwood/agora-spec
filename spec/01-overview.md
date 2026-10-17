@@ -1,16 +1,16 @@
-# Agora Protocol: Overview
+# 1. Overview
 
 > Binds: both. Source: import/agora-protocol-spec-unified.md lines 1–55 (header, Version Policy, §1).
 
-# Agora Protocol Specification v0.2 (Draft)
+**Agora Protocol Specification v0.2 (Draft)**
 
 **Version:** 0.2 (Draft)
 **Date:** 2026-04-21
-**Status:** Draft amendment incorporating DM Channel Type and Compliance Logging patch (§9.6, §17.1, §17.2, §17.5, §17.7, §17.8) and Enterprise Identity Provisioning (§2.5)
+**Status:** Draft amendment incorporating DM Channel Type and Compliance Logging patch (§4.6, §7.1, §7.2, §7.5, §7.7, §7.8) and Enterprise Identity Provisioning (§2.5)
 
 ---
 
-## Version Policy
+## 1.1 Version Policy
 
 All versioned protocol surfaces in this specification are at **v1** for the initial release. The version appears as a path prefix on HTTP endpoints (`/v1/agora/...`), as a topic prefix on gossip topics (`v1/agora/...`), in JSON-LD context URLs (`/ns/v1`), and in document `schemaVersion` fields.
 
@@ -21,18 +21,18 @@ Version negotiation is defined per surface:
 - **Transport endpoints** — the URL path version is fixed at connection time; a client connects to `/v1/agora/wt` or `/v1/agora/ws` and the relay either accepts or returns HTTP 404/410.
 - **Gossip topics** — the version is encoded in the topic string; v1 and v2 topics can coexist on the mesh simultaneously; a relay that supports both subscribes to both topic families.
 - **JSON-LD documents** — the `schemaVersion` field carries the document schema version; processors that do not support the declared version MUST reject the document.
-- **Client-relay handshake** — version negotiation occurs as part of the `ClientHello`/`RelayChallenge` exchange (§8.6).
+- **Client-relay handshake** — version negotiation occurs as part of the `ClientHello`/`RelayChallenge` exchange (§11.6).
 - **Relay-to-relay Peer API** — the version is encoded in the URL path; a relay's manifest `capabilities` array declares which versions it supports.
 
 ---
 
-## 1. Overview
+## 1.2 Introduction
 
 *Binds: both.*
 
 Agora is a decentralized, end-to-end encrypted, real-time group chat protocol. It is designed to support a user experience comparable to Discord — servers with hierarchical channels, presence indicators, typing notifications, voice/video conferencing — without any central authority owning identity, routing, or message storage. No company holds your keys, your membership lists, or your message history.
 
-### Core Protocol Dependencies
+### 1.2.1 Core Protocol Dependencies
 
 | Dependency | Role |
 |---|---|
@@ -48,7 +48,7 @@ Agora does **not** define a central server. It defines a protocol that servers �
 
 Agora defines no payment layer in this release. Commercial terms between a community and the relays it engages are outside the protocol.
 
-### Design Principles
+### 1.2.2 Design Principles
 
 **Operator separation.** Operating the infrastructure is separate from operating the communications. Relays and other infrastructure services decide nothing about any community and MUST be replaceable without changing its identity, membership, history or policy; every authority over a community is held by the community's own operator and exercised with that operator's keys. This is Agora's first design principle, defined normatively in ARCHITECTURE.md, which governs wherever this specification conflicts with it.
 

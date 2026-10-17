@@ -1,8 +1,8 @@
-# Agora Protocol: Encoding and Extensions
+# 13. Encoding and Extensions
 
 > Binds: both. Source: import/agora-protocol-spec-unified.md lines 3353–3426 (§14–15).
 
-## 14. JSON-LD Context and Canonicalization
+## 13.1 JSON-LD Context and Canonicalization
 
 *Binds: both.*
 
@@ -18,9 +18,9 @@ All Agora messages MUST include `"@context": "https://agora.protocol/ns/v1"` or 
 
 The context URL is versioned: `/ns/v1` is the v1 schema. A breaking change to the type system produces `/ns/v2`. The context URL is frozen once published — `/ns/v1` will always describe the v1 schema without modification.
 
-### 14.1 Canonicalization and Signing Pipeline
+### 13.1.1 Canonicalization and Signing Pipeline
 
-This is the single normative signing pipeline for JSON-LD documents. It applies to every signed JSON-LD document in this specification; wherever another section says a JSON-LD document is "signed", "signed per §14.1", or signed over its "canonical" form, this pipeline is meant. No JSON-LD document is signed over a CBOR or other serialization. CBOR wire frames (§8.4) are not JSON-LD documents and are outside this pipeline.
+This is the single normative signing pipeline for JSON-LD documents. It applies to every signed JSON-LD document in this specification; wherever another section says a JSON-LD document is "signed", "signed per §13.1.1", or signed over its "canonical" form, this pipeline is meant. No JSON-LD document is signed over a CBOR or other serialization. CBOR wire frames (§11.4) are not JSON-LD documents and are outside this pipeline.
 
 The pipeline is:
 
@@ -43,7 +43,7 @@ This pipeline is identical to **W3C Data Integrity Proofs** with the `eddsa-rdna
 
 > **Open (agora-pozi.20.16):** The test-vector set does not exist yet; no `test-vectors/` directory is present in the repository.
 
-### 14.2 Context Document Caching
+### 13.1.2 Context Document Caching
 
 Because URDNA2015 requires a JSON-LD expansion step, implementations need access to the context document at `https://agora.protocol/ns/v1`. Fetching this document over the network at signing or verification time is unacceptable for latency and offline operation.
 
@@ -55,7 +55,7 @@ Implementations MUST NOT fetch the context document from the network during sign
 
 ---
 
-## 15. Extension Points
+## 13.2 Extension Points
 
 *Binds: both.*
 
@@ -74,7 +74,7 @@ The protocol is designed to be extended without breaking existing clients:
 | Surface | Current Version | Location | Negotiation Mechanism |
 |---|---|---|---|
 | JSON-LD context | v1 | `@context` URL | Static; reject unknown context URLs |
-| Canonicalization pipeline | URDNA2015 + Ed25519 | §14.1; `proof.cryptosuite` field | Static for v1; new cryptosuite = new surface version |
+| Canonicalization pipeline | URDNA2015 + Ed25519 | §13.1.1; `proof.cryptosuite` field | Static for v1; new cryptosuite = new surface version |
 | Document schema | 1 | `schemaVersion` field | Field presence; reject unsupported values |
 | WebTransport endpoint | v1 | URL path prefix `/v1/agora/wt` | HTTP 404 on unknown version |
 | WebSocket endpoint | v1 | URL path prefix `/v1/agora/ws` | HTTP 404 on unknown version |
