@@ -2,13 +2,15 @@
   "id": "agora-pozi.34.1",
   "title": "Multi-source blob fetch with CID verification",
   "description": "Today a blob lives only on the relay it was uploaded to (§10.3.5, §10.4.4), weakening S5 replaceability for attachments. Specify fetching a CID from any holder (other agreement relays, members' devices via self-group or channel, CO archive, public IPFS for public content only) with mandatory local CID verification; how holders are discovered without leaking membership to IOs; replication of blobs to a replacement relay. Needs design decisions.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:04:16.141988599Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:04:16.141988599Z",
+  "updated_at": "2026-10-17T14:37:30.498786213Z",
+  "closed_at": "2026-10-17T14:37:30.498786213Z",
+  "close_reason": "Implemented and committed",
   "dependencies": [
     {
       "issue_id": "agora-pozi.34.1",

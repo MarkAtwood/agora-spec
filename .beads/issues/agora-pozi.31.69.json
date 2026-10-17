@@ -2,13 +2,13 @@
   "id": "agora-pozi.31.69",
   "title": "[IMP-28] Required test vectors do not exist and several constructions have none planned",
   "description": "Review finding IMP-28: Required test vectors do not exist and several constructions have none planned (lens IMP). Location: spec/13-encoding.md:84-86 (not :148-150). Fix: The missing JWS vector set is already tracked (\"Open (agora-pozi.20.16)\", 13:86), so it is not new. The new part is that no vectors are planned for the exporter, HKDF, AEAD-layout and CID constructions. Missing vectors do not themselves cause divergence: the ambiguities are counted under IMP-2/5/6/13. Add a §13.4 vector requirement once those are fixed. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "deferred",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:44.427618172Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:44.427618172Z",
+  "updated_at": "2026-10-17T14:40:58.083328826Z",
   "labels": [
     "review",
     "imp"

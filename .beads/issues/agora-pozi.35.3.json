@@ -2,13 +2,15 @@
   "id": "agora-pozi.35.3",
   "title": "IRONWEED frame size and voice overhead (decided)",
   "description": "DECIDED (Mark 2026-10-17): L_max 127 B on C4FM/4FSK narrowband, 1024 B on OFDM; TDMA slot length deferred as an open item; voice uses an implicit nonce derived from the 2-byte burst sequence counter (plus sender/key context so (key, nonce) never repeats) and a truncated voice authentication tag of 4-8 bytes (SRTP-style); first fix the §4.4 vs §7.3 frame layout contradiction (preamble and sync first; state whether the PHY header is inside the coded/encrypted block).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:09:12.045811121Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:09:12.045811121Z",
+  "updated_at": "2026-10-17T14:37:30.594635201Z",
+  "closed_at": "2026-10-17T14:37:30.594635201Z",
+  "close_reason": "Implemented and committed",
   "dependencies": [
     {
       "issue_id": "agora-pozi.35.3",

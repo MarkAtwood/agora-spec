@@ -2,13 +2,15 @@
   "id": "agora-pozi.35",
   "title": "Radio spec fixes (IRONWEED, LICHEN)",
   "description": "Fixes to ~/PROJECT/IRONWEED and ~/GIT/project-LICHEN per notes/radio-spec-fixes.md. Commits in those repos need Mark's approval; local only, no push.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:07:31.802992641Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:07:31.802992641Z",
+  "updated_at": "2026-10-17T14:37:30.723632698Z",
+  "closed_at": "2026-10-17T14:37:30.723632698Z",
+  "close_reason": "All children done",
   "dependencies": [
     {
       "issue_id": "agora-pozi.35",
