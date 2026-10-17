@@ -1,0 +1,7 @@
+{
+  "id": "1792254717042561386-1",
+  "issue_id": "agora-pozi.38",
+  "author": "agent",
+  "text": "MIMI analysis in notes/mimi-vs-jmap-chat.md: drop 9.1 Agora content format mode; mimi-content canonical in MIMI groups; fix stale draft versions and mimi URI shapes; decision needed: single Commit orderer per channel (MIMI hub vs Agora sequencer).",
+  "created_at": "2026-10-17T16:31:57.042561386Z"
+}
