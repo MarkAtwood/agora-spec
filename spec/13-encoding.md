@@ -110,7 +110,7 @@ Retired. Signatures are computed over exact `body` bytes (§13.1.1) and involve 
 The protocol is designed to be extended without breaking existing clients:
 
 - **Types are extensible by URI.** New payload types are added by defining a new `type` URI (§13.1). Types defined outside this specification MUST use a URI under the definer's control; the `urn:agora:type:` namespace is reserved for this specification. No registry is needed.
-- **Unknown types are ignored.** A recipient that does not understand an envelope's `type` MUST ignore the payload: it MUST NOT display it, MUST NOT treat it as an error, and MUST continue processing the MLS group or channel normally. A recipient that keeps such a payload (for example in history storage or a compliance archive) MUST keep the encoded envelope byte-for-byte. A recipient that understands the `type` but not the `contentType` MUST treat the payload as an unknown type.
+- **Unknown types are ignored.** A recipient that does not understand an envelope's `type` MUST ignore the payload: it does not display it, MUST NOT treat it as an error, and MUST continue processing the MLS group or channel normally. A recipient that keeps such a payload (for example in history storage or a compliance archive) MUST keep the encoded envelope byte-for-byte. A recipient that understands the `type` but not the `contentType` MUST treat the payload as an unknown type.
 - Space state documents MAY include extension fields whose names are URIs under the definer's control; recipients MUST ignore extension fields they do not understand. A field that a CO enforcement point (ARCHITECTURE §6.3) depends on MUST NOT be added as such an extension. It requires a new `schemaVersion`, so that a client that does not understand it rejects the document instead of ignoring the field.
 - New channel types MAY be introduced by defining new values of the channel `type` field.
 - The live client-relay protocol is versioned and negotiated in the hello exchange (§11.6).
@@ -138,6 +138,7 @@ The protocol is designed to be extended without breaking existing clients:
 | SFU signaling | v1 | `SFUDescriptor.endpoint`, conventionally `/v1/agora/sfu` (§6.6) | HTTP 404 on unknown version |
 | TURN credential service | v1 | `TURNDescriptor.credentialEndpoint`, conventionally `/v1/agora/turn` (§6.11) | HTTP 404 on unknown version |
 | Admission key registration | v1 | `ServiceAgreement.endpoint`, conventionally `/v1/agora/admission-keys`; Relay Manifest `endpoints.admissionKeys` (§10.2.1, §10.5.3) | HTTP 404 on unknown version |
+| DM admission host API | v1 | URL path prefix `/v1/agora/admission-key/` at the origin of the user's `KeyPackageEndpoint` (§4.6) | HTTP 404 on unknown version |
 
 ## 13.3 Derivation Label Registry
 

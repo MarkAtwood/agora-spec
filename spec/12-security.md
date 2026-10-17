@@ -50,7 +50,7 @@ MLS sender-data encryption and the sealed envelope keep sender identity, the MLS
 
 **Subscriptions**: a Relay observes which `channelToken`s a client subscribes to, and Relays that carry a channel's topic between them (§10.3.1) observe the token. A token is stable for a whole key epoch and changes only when the CO rotates the admission key (§5.2.2), so a Relay links a client's subscription to all of that channel's traffic in the key epoch. Decoy subscriptions do not hide membership from a Relay, because a Relay knows which tokens are registered with it. A client that wants to hide how many channels it follows from one Relay SHOULD spread its subscriptions across several of the Relays its COs list (§10.3.5).
 
-**Presence, typing and DM membership**: presence and typing indicators are MLS application messages, and a DM is an ordinary MLS group addressed by `channelToken`. A Relay sees them only as ciphertext envelopes within the ARCHITECTURE.md §5 budget; it cannot distinguish them from other traffic by type, and it does not learn who is in a DM, except as follows. A DM group's admission key is registered under the agreement of the group's admission host (initially the initiator's identity host, §4.6), so a Relay learns whose agreement covers a DM token. When that host serves one user, its agreements stand for that user, and every DM and self-group token registered under them belongs to a group that user initiated or hosts (§10.5.1, ARCHITECTURE §9). A self-group token is followed only by one user's devices, so a Relay that carries it can link those devices, their network addresses and their push handles. The admission host itself serves the DM group's admission key only to the group's members, so it learns who is in the DM (§12.11).
+**Presence, typing and DM membership**: presence and typing indicators are MLS application messages, and a DM is an ordinary MLS group addressed by `channelToken`. A Relay sees them only as ciphertext envelopes within the ARCHITECTURE.md §5 budget; it cannot distinguish them from other traffic by type, and it does not learn who is in a DM, except as follows. A DM group's admission key is registered under the agreement of the group's admission host (one member's identity host, initially the initiator's, §4.6), so a Relay learns whose agreement covers a DM token. When that host serves one user, its agreements stand for that user, and every DM and self-group token registered under them belongs to a group that user is in or recently left (§10.5.1, ARCHITECTURE §9). A self-group token is followed only by one user's devices, so a Relay that carries it can link those devices, their network addresses and their push handles. The admission host gives the key only to its own user, whose client puts it in the group's GroupContext (§4.6), so the host does not learn who else is in the DM (§12.11).
 
 **Tor subscription fingerprinting**: as noted in §11.3, a Relay sees which `channelToken`s a connection subscribes to and when, whatever address the connection comes from. A client connecting via Tor can be recognized across circuits by its subscription set. Clients requiring strong anonymity against a Relay-level adversary should treat this as a known residual risk.
 
@@ -65,9 +65,10 @@ Between Relays, gossipsub v1.1 peer scoring and flood control apply (§10.3.1). 
 - **Storage and bandwidth** are bounded by the agreement's quotas (§10.5.1).
 - **Connections, subscriptions, history reads and push registrations** are rate-limited per network address and per `channelToken`. Relays MUST enforce per-`channelToken` rate limits on message publication.
 - **Under load**, a Relay MAY require a proof-of-work challenge (`AdmissionChallenge` and `AdmissionProof`, §11.6) before accepting a connection. This admits clients that share an address, such as Tor users behind one exit, without penalizing all of them for one abuser.
-- **Removed members and leaked keys.** A removed member, or anyone who obtains an admission key, can have envelopes admitted until the CO rotates the key (§5.2.2). Members drop such envelopes because MLS processing fails, so the cost is relay capacity and member bandwidth, not content. The CO bounds it by rotating on every removal and on any suspected leak, and the Relay's per-token rate limits bound it meanwhile.
-- **DM member lists.** An identity host cannot verify that a DID added to a DM group's `complianceLoggers` is a logger (§4.6). A member can thereby give any DID a permanent place on the host's list, which yields the admission key (the ability to post envelopes that fail MLS processing) but no content.
-- **DM handover squatting.** A former member that shares an identity host with a remaining member, and knows the group's MLS group ID, can create a list for the group at that host first (§4.6). The host then refuses that member's creation, and the group moves to another member's host instead (§4.6.4).
+- **Removed members and leaked keys.** A removed member, or anyone who obtains an admission key, can have envelopes admitted until the CO rotates the key (§5.2.2). Members drop such envelopes because MLS processing fails, so the cost is relay capacity and member bandwidth, not content. The CO bounds it by rotating on every removal and on any suspected leak, and the Relay's per-token rate limits bound it meanwhile. For a DM group, the rotation waits until the client of the admission host's user is online to request a new key from the host and commit it (§4.6), so the window lasts at least that long. After the rotation, the replaced key stays registered until its issuee's client deletes it, and at most 7 days after the new key's issuee confirms the new key to the host (§4.6); if that confirmation never arrives, for example because the rotating client failed after its Commit won, until the replaced key's issuee deletes it or is offboarded. After a move to another host, the previous host's key stays registered until its issuee's client deletes it, 30 days after the move, or until that user is offboarded if the client never returns; members no longer subscribe to it, so envelopes admitted under it reach no member (§4.6.4, §5.2.2).
+- **Bogus DM admission key.** Any DM member can commit a GroupContextExtensions proposal that sets `agora_admission` to a key no Relay has registered (§4.6). Relays then refuse the members' envelopes under that key. Members recover with the previous key, which stays registered, because the issuee of a replaced key deletes it only after a Relay has admitted the new key, and a host deregisters an earlier key on its own only 7 days after the issuee of a later key confirms that key's Commit (§4.6). A key that was issued but never committed is never confirmed, so it does not cause the current key's deregistration. A host's user then rotates the key, or any other member moves the group to its own identity host (§4.6.4), and publishes that Commit under the previous key. A bogus same-host key can come only from a host's user, because members reject a same-host change from any other member (§4.6). This gives a member no new power, because any member may already remove every other member (§4.6).
+- **False compliance entry.** A DM member can add a DID of its choosing with an `agora_compliance` entry (§7.8.2), which compliant clients then do not remove and show as a compliance logger. Members cannot check the entry against Space state they do not see; a member that objects can leave (§4.8). This is an accepted limit.
+- **Removed host's user withdraws the DM key.** The DID a DM admission key was issued to can deregister it at once (§4.6), even after the other members removed it. Relays then refuse every envelope under that key, including the Commit that would move the group to another host (§4.6.4), so the group can no longer be used and its members start a new one. This is an accepted limit.
 - **Unauthorized Commits.** A channel member can submit a valid but unauthorized Commit; if it wins, every member leaves the group and an admin re-creates it (§4.5), after which the admin can remove the sender identified by its MLS signature.
 - **Wake-ups.** Wake-ups carry no content and no urgency (§11.7), so a sender cannot cause a high-priority wake on a recipient's device.
 
@@ -197,7 +198,6 @@ Message order does not depend on any clock: messages are ordered by `seq` (§5.1
 | TURN credential expiry | TURN server | §6.11 |
 | Relay-to-relay request freshness | Receiving Relay | §10.2.3 |
 | Member authentication `ts` | CO service | §3.5 |
-| `DMMembers` `ts` | Identity host | §4.6 |
 | Commit collection window in a group without a sequencer (elapsed time) | Each receiving client | §5.1.1 |
 | 24-hour DM handover fallback | Each remaining member's client | §4.6.4 |
 | `expiryHint` and envelope retention | Relay | §5.2.4, §10.4.3 |
@@ -211,17 +211,22 @@ A poster whose clock is slow keeps encrypting under the previous `BroadcastKey` 
 
 *Binds: clients and CO.*
 
-This section applies to every disclosure this specification requires a client to present:
+This section applies to the disclosures this specification requires a client to present:
 
-- the compliance logging indicator and `retentionNotice` (§7.2, §7.7), including the home-space notice shown to guests (§8.8);
+- the `retentionNotice` (§7.5, §7.7), including the home-space notice shown to guests (§8.8);
 - the `ComplianceDisclosureNotice` in DM groups (§7.8.4);
-- the recording disclosure and indicator, from `participantDisclosure` (§6.12.3);
+- the recording disclosure, from `participantDisclosure` (§6.12.3);
+
+and to the indicators it recommends:
+
+- the compliance logging indicator (§7.7);
+- the recording indicator (§6.12.3);
 - the broadcast-channel indicator (§5.2.1.4);
 - the gateway indicator and `e2eeNote` (§9.3).
 
-**Text equivalent.** Every required indicator MUST have a text equivalent that the client exposes through the platform accessibility API. An icon or color alone does not meet a disclosure requirement.
+**Text equivalent.** An indicator a client presents for a disclosure in this section SHOULD have a text equivalent exposed through the platform accessibility API. An icon or color alone does not meet a disclosure requirement.
 
-**Devices without a display.** A client on a device with no display, such as an audio-only or headless call endpoint, MUST play an audible announcement of the recording disclosure before it enables media transmission in a call with an active `RecordingGrant`. A device that can neither display nor announce the disclosure MUST NOT transmit media while a `RecordingGrant` is active.
+**Devices without a display.** Presenting the recording disclosure (§6.12.3) does not require a display: a client on a device with no display, such as an audio-only or headless call endpoint, SHOULD present it as an audible announcement before it enables media transmission in a call with an active `RecordingGrant`. A device that can neither display nor announce the disclosure MUST NOT transmit media while a `RecordingGrant` is active.
 
 **Language.** Each of the fields `retentionNotice`, `participantDisclosure` and `e2eeNote` MAY be a language map instead of a string: a JSON object whose member names are language tags (RFC 5646) and whose values are strings. A language map MUST contain the member `und`. A client displays the value whose tag best matches the user's language preferences under RFC 4647 lookup, and the `und` value when none matches. Where this specification gives the wording of a notice ("wording equivalent to", §7.8.4; the guest notice, §8.8), clients SHOULD present that wording in the user's language.
 
@@ -242,7 +247,7 @@ This section collects what each party learns. It does not restate the IO limits,
 | Sequencer | As stated in §14.4.6 | §14.4.6 |
 | Registration service (CO) | Which admission keys it registers with which IOs, and when | §5.2.2, §10.5.3 |
 | Space endpoint (CO) | Which members and invitees fetch Space state, admission keys and broadcast keys, and when | §3.4 |
-| DM admission host (initially the initiator's identity host) | Who fetches a DM group's admission key and when, and so who is in the DM and when each member is active, including members it does not serve | §4.6 |
+| DM admission host (one member's identity host, initially the initiator's) | Which DM group IDs its own user's client requests admission keys for, and when, and, from later requests, when members or devices are removed or the group moves to it; not the group's other members | §4.6 |
 | KeyPackage host (CO) | When a user's KeyPackages are fetched, and which groups send that user a Welcome | §5.2.1.1, §4.6 |
 | TURN credential service (CO) | Which members request credentials, and so call attendance | §6.11 |
 | Provisioning service (CO) | The employee's IdP identity, devices, registrations and revocations | §2.5 |
@@ -250,7 +255,9 @@ This section collects what each party learns. It does not restate the IO limits,
 | Group members | Each other's DIDs and devices (MLS leaves), presence, typing and call state | §5.2.1, §5.3, §6.2 |
 | Anyone | DID documents and their full logs, display profiles, and public Space state and advertisements | §2.1, §2.3, §10.3.2 |
 
-**DM admission host.** The admission host keeps that knowledge for as long as it is named in the group's `agora_admission_host` extension. When its user leaves the group or is offboarded (§2.5.6), the remaining members' clients move the extension to another member's identity host (§4.6), after which the old host learns nothing more. An operator that runs both an identity host and relays learns, for a DM it hosts and carries, the members by DID and the group's traffic at its relays (ARCHITECTURE §9). A DM admission host SHOULD therefore list relays it does not operate in the group's `relays`.
+**DM admission host.** The admission host serves no member list and no member other than its own user, which authenticates to it by the §3.5 exchange (§4.6). Every other member reads the admission key from its GroupContext, so the host does not learn the other members' DIDs or when they are active. When its user leaves the group or is offboarded (§2.5.6), the remaining members' clients move the `agora_admission` extension to another member's identity host (§4.6.4), after which the old host learns nothing more. An operator that runs both an identity host and relays sees, for a DM it hosts and carries, its own user's DID and the group's traffic at its relays (ARCHITECTURE §9). A DM admission host SHOULD therefore list relays it does not operate in the group's `relays`.
+
+**Compliance archives and DM admission keys.** A compliance record carries the `GroupContext` of its epoch (§7.4), so a logger's archive of a DM group holds that group's admission key seed. The logger, as a member, already holds that key. Anyone given the archive can compute the group's channel tokens; this is accepted.
 
 **Minimization.** A DID document and its log are public and permanent (§2.1, §2.5.6). A provisioning service SHOULD omit optional verification-method metadata such as `meta.deviceLabel` and `meta.platform` (§2.5.4), or use values that do not contain a person's name. CO services SHOULD NOT retain requester DIDs, network addresses or request timing beyond what operation and abuse handling require, and SHOULD state their retention in the CO's member-facing policy.
 

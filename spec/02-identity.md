@@ -7,7 +7,7 @@
 
 ## 2.1 User DID
 
-Every user has a **Decentralized Identifier (DID)** as their persistent identity. Agora defines three user DID methods. The individual chooses the method; for an employer-provisioned identity the employer chooses (§2.5). Clients MUST support resolving all three and MUST offer `did:webvh` as the default when creating an identity.
+Every user has a **Decentralized Identifier (DID)** as their persistent identity. Agora defines three user DID methods. The individual chooses the method; for an employer-provisioned identity the employer chooses (§2.5). Clients MUST support resolving all three, and SHOULD offer `did:webvh` as the default when creating an identity.
 
 | Capability | `did:webvh` (default) | `did:plc` (opt-in) | `did:key` (opt-in) |
 |---|---|---|---|
@@ -27,7 +27,7 @@ Every user has a **Decentralized Identifier (DID)** as their persistent identity
 
 **`did:plc`** ([did:plc specification](https://web.plc.directory/spec/v0.1/did-plc)) is opt-in. Updates are operations signed by rotation keys and ordered by the PLC directory, with the recovery window defined by that specification. It relies on the PLC directory being available. It lets a Bluesky user use their existing identity in Agora. Agora keys and service entries are added to the document by ordinary PLC operations.
 
-**`did:key`** is opt-in self-custody. The key is the identity: the document cannot be updated, so there is no device list, no key rotation and no recovery beyond the user's own backup (§2.4.3). A client MUST warn the user, before creating a `did:key` identity, that losing the key loses the identity permanently and that a lost or stolen device cannot be revoked. To use several devices, the user copies the identity private key to each device, for example by restoring an encrypted backup (§2.4.3); the identity key MUST therefore be exportable, unless the user keeps it on a single device or a portable hardware key. The identity key is not an MLS leaf key: each device generates its own MLS leaf signature key and signs it with the identity key in a device-binding statement carried in its leaf, which members verify (§5.2.1). The identity key signs the device's JWS signatures (§13.1.1) and KeyPackage publications (§5.2.1.1). Each device is a separate MLS leaf (§2.2), but there is no device list and no per-device revocation: removing a device's leaves does not revoke it, because the device retains the identity key and can bind new leaf keys; the remedy for a lost or compromised device is a new identity.
+**`did:key`** is opt-in self-custody. The key is the identity: the document cannot be updated, so there is no device list, no key rotation and no recovery beyond the user's own backup (§2.4.3). A client SHOULD warn the user, before creating a `did:key` identity, that losing the key loses the identity permanently and that a lost or stolen device cannot be revoked. To use several devices, the user copies the identity private key to each device, for example by restoring an encrypted backup (§2.4.3); the identity key MUST therefore be exportable, unless the user keeps it on a single device or a portable hardware key. The identity key is not an MLS leaf key: each device generates its own MLS leaf signature key and signs it with the identity key in a device-binding statement carried in its leaf, which members verify (§5.2.1). The identity key signs the device's JWS signatures (§13.1.1) and KeyPackage publications (§5.2.1.1). Each device is a separate MLS leaf (§2.2), but there is no device list and no per-device revocation: removing a device's leaves does not revoke it, because the device retains the identity key and can bind new leaf keys; the remedy for a lost or compromised device is a new identity.
 
 A `did:key` user publishes a **Pkarr pointer record**: a BEP-44 mutable item on the Mainline DHT, signed by the identity key and looked up by that key, encoded and refreshed as in §10.3.4.6. It carries these TXT records, plus the optional service records listed in §10.3.4.6:
 
@@ -493,38 +493,40 @@ For enterprise `did:webvh` identities, the recovery mechanisms of §2.4 interact
 
 Each of a user's devices is a separate leaf in every group the user belongs to (§2.2). This section defines how a user's devices share private state and how a new device joins the user's groups.
 
-**Self-group.** When a user has more than one device, the devices MUST maintain a **self-group**: an MLS group, with a fresh random group ID, whose members are only the user's own devices. It never appears in Space state. It is admitted at relays like a DM group whose only member DID is the user, with the admission key issued by the user's identity host (§4.6). The self-group carries:
+**Self-group.** When a user has more than one device, the devices MUST maintain a **self-group**: an MLS group, with a fresh random group ID, whose members are only the user's own devices. It never appears in Space state. It is admitted at relays like a DM group whose admission host is the user's own identity host, with the admission key in the self-group's `agora_admission` GroupContext extension (§4.6). The self-group carries:
 
 - the user's private `single-author` data (§14.3), such as `ReadPosition` and `ChatContact`, including the block list (§4.6.3);
 - the `SocialRecoveryConfig` (§2.4.2);
 - optional history transfers (below);
 - `IdentityChanged` notices (§2.7);
-- `SpaceMembership` records (below).
+- the user's Space list, in the `agora_space_membership` GroupContext extension (below).
 
 **Adding a new device.** When a new device key appears in the user's DID document (for an employee, after §2.5.4), or, for `did:key`, when the user pairs a new device with an existing one and the existing device learns the new device's leaf signature key (for example from a QR code the new device shows), an existing device of the user:
 
 1. fetches a KeyPackage of the new device from the user's `KeyPackageEndpoint` with the `leaf` parameter set to the new device's leaf signature key (§5.2.1.1), and checks that the returned leaf carries that key;
 2. commits an Add of the new device to the self-group;
-3. commits an Add of a further KeyPackage of the new device to each other group the user belongs to, after it has sent the current `SpaceMembership` record (below) in the self-group.
+3. commits an Add of a further KeyPackage of the new device to each other group the user belongs to.
 
-An Add of a leaf whose credential names the committer's own DID is an **own-device Add**. Members MUST accept an own-device Add in any group in which that DID is already a member, provided the added leaf satisfies the credential binding of §5.2.1 (a current `authentication` key of that DID, or for `did:key` a valid device binding): it needs no Space admin authority (§4.3) and is exempt from DM member-addition consent (§4.6.1) and from the message request state (§4.6.3).
+An Add of a leaf whose credential names the committer's own DID is an **own-device Add**. Members MUST accept an own-device Add in any group in which that DID is already a member, provided the added leaf satisfies the credential binding of §5.2.1 (a current `authentication` key of that DID, or for `did:key` a valid device binding): it needs no Space admin authority (§4.3) and is exempt from the message request state (§4.6.3).
 
-**Space membership record.** A new device holds no Space state and no Space endpoint URLs, which it needs to validate own-device Welcomes to Space groups (§4.3) and to fetch channel keys (§3.4). The user's devices therefore keep a `SpaceMembership` record in the self-group: an MLS application message of type `urn:agora:type:SpaceMembership` whose body lists every Space the user is a member of:
+**Space membership list.** A new device holds no Space state and no Space endpoint URLs, which it needs to validate own-device Welcomes to Space groups (§4.3) and to fetch channel keys (§3.4). The user's devices therefore keep the list of the user's Spaces in the self-group's GroupContext as the `agora_space_membership` extension, extension type 0xF0A3 from the RFC 9420 private-use range. Its `extension_data` is an `AgoraSpaceList`, in the TLS presentation language of RFC 9420:
 
-```json
-{
-  "spaces": [
-    {
-      "space": "agora://bafkrei...",
-      "spaceEndpoint": ["https://spaces.example.com/v1/agora/space/1f3a..."],
-      "state": "member",
-      "v": 7
-    }
-  ]
-}
+```
+struct {
+    opaque url<V>;             /* UTF-8 */
+} URL;
+
+struct {
+    opaque space<V>;           /* Space identifier (§3.2), UTF-8 */
+    URL endpoints<V>;          /* Space endpoint URLs (§3.4) */
+} SpaceEntry;
+
+struct {
+    SpaceEntry spaces<V>;
+} AgoraSpaceList;
 ```
 
-`space` is the Space identifier (§3.2) and `spaceEndpoint` the Space endpoint URLs the device last used (§3.4). `state` is `member` or `left`, and `v` is the entry's version, an unsigned integer. A device that changes an entry sets its `v` to one more than the highest `v` it holds for that `space`. A receiving device merges a record into the one it holds entry by entry, keyed by `space`, keeping the entry with the higher `v` (on equal `v`, `left` wins, then the lower `spaceEndpoint` list compared element by element as UTF-8 byte strings, a shorter list that is a prefix of the other being lower). When it sends a record, it sends its merged record; receiving a record does not by itself trigger a send. No clock is consulted. A device keeps `left` entries so that a stale record cannot restore a Space the user left; only `member` entries name the user's Spaces. A device sends a new record whenever the user joins or leaves a Space or a Space's endpoints change. Because it names Spaces, the record travels only inside the self-group.
+`spaces` has one entry for each Space the user is a member of, and no two entries have the same `space`. `endpoints` lists the Space endpoint URLs the device last used for that Space. A device that sees the user join or leave a Space, or a Space's endpoints change, commits a GroupContextExtensions proposal (RFC 9420 §12.1.7) carrying the whole updated list; because that proposal replaces every GroupContext extension, it also carries the group's other extensions unchanged, and an `agora_admission` carried unchanged is not a change to it (§4.6). Competing Commits are resolved by the canonical-Commit rule (§5.1.1); a device whose change lost re-proposes it against the winning list. The device that creates the self-group puts `agora_space_membership` with the current list in its initial GroupContext, and every self-group GroupContext carries it. A new device receives the list in its self-group Welcome (RFC 9420 §12.4.3.1). The self-group's `required_capabilities` lists 0xF0A3, so every device of the user lists it in its leaf `capabilities.extensions` (§5.2.1). Because it names Spaces, the list exists only in the self-group, whose handshake messages are `PrivateMessage`s (§5.2.1).
 
 **History transfer.** A new device cannot decrypt messages from epochs before it joined. An existing device MAY send it a history transfer: an MLS application message in the self-group of type `urn:agora:type:HistoryTransfer` with body:
 

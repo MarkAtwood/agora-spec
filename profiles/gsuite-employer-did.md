@@ -40,7 +40,7 @@ The VC layer uses the W3C VC Data Model with the org's own `did:web` as issuer (
 │                                                              │
 │  GET  /users/{id}/did.jsonl             Serve DID log        │
 │  *    /v1/agora/kp/{id}                 KeyPackageEndpoint   │
-│  *    /v1/admission-key/{groupID}       DM admission keys    │
+│  *    /v1/agora/admission-key/{groupID} DM admission keys    │
 │  GET  /.well-known/did.json             Org root DID         │
 │  GET  /.well-known/did-configuration.json  Domain linkage    │
 │  POST /v1/notify                        Directory API push   │
@@ -567,6 +567,10 @@ Implementations:
 | W3C VC issuance | Internal implementation over `crypto/ed25519` |
 | `did:webvh` log | As O365 spec §9.1 |
 | StatusList2021 | Internal implementation (bitstring + JWT signing) |
+
+### 10.3 DM Message Requests for Colleagues
+
+The organization's managed client configuration (MDM or enrollment policy) can add a rule to the user's accepted senders (spec §4.6.3), for example every DID under the organization's `did:webvh` domain, or every member of the organization's Spaces. DMs from matching senders then skip the message request state. Whether users may decline or block colleagues is also client configuration. Attributes that must be trusted across organizations need a credential format and are out of scope here.
 
 ---
 

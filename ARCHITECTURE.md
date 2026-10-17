@@ -61,7 +61,7 @@ A component's role is determined by what it holds, not by who runs it:
 | Sequencer | IO | Stamps order on encrypted operations and Commits; members' clients validate the stamps (protocol spec §14.4). Bound like a relay: `ServiceAgreement`, registered admission keys, learns the CO and not the Space. A CO SHOULD use one sequencer across its Spaces and SHOULD designate a relay it already has an agreement with |
 | Push proxy | IO | Observation budget includes device push handles (§5); a CO MAY run its own |
 | SFU | IO | MUST NOT be an MLS member (§7, item 6) |
-| KeyPackage host | CO | Run by whoever runs the user's identity (§8, Q3). Issues and serves the admission key of DM groups the user initiates or whose admission host role it takes over (§6.2). MAY refuse KeyPackage fetches and Welcome deliveries from senders the user has blocked, or by policy |
+| KeyPackage host | CO | Run by whoever runs the user's identity (§8, Q3). Issues the admission key of each DM group and self-group whose admission host it is (§6.2) and gives it only to its own user, never to other members. MAY refuse KeyPackage fetches and Welcome deliveries from senders the user has blocked, or by policy |
 | Admission key registration service | CO | Generates and holds channel admission private keys; registers the public keys with IOs (§6.2) |
 | Compliance logger | CO | MLS member; holds plaintext |
 | Archive / Purview bridge | CO | Holds plaintext |
@@ -115,8 +115,8 @@ relays are a recent window kept under the agreement's retention.
 
 **S6. Bounded observation.** An IO component MUST NOT observe, log or retain
 anything outside the observation budget in §5. Any extension that enlarges the
-budget MUST be opt-in by the CO, MUST be declared in the relay manifest, and
-MUST be visible to members.
+budget MUST be opt-in by the CO and MUST be declared in the relay manifest,
+where members can see it.
 
 **S7. Contracts, not configuration.** The only binding between a CO and an IO is
 the `ServiceAgreement` (protocol spec §10.5.1) and the verification material
@@ -130,6 +130,15 @@ stores plaintext (compliance logger, archive, bridges, gateways) MUST run under
 CO control. Co-location on IO hardware is permitted only under contract with the
 IO acting as the CO's processor, and the component remains a CO principal with
 its own DID and keys.
+
+**S9. MLS is the source of truth for groups.** Who is in an MLS group, and in
+which epoch, is what the group's MLS state says. A component that needs a
+group's membership derives it from MLS data (the epoch, the ratchet tree, a
+signed GroupInfo) and MUST NOT keep a separately updated membership list for
+that group. Ordering competing Commits is the delivery service's job, which
+RFC 9420 places outside the group (the sequencer, or the no-sequencer rule,
+protocol spec §5.1.1). Space roles and policy sit above MLS as CO-signed state
+(S4). Relays never see MLS state (S1).
 
 ## 4. What each operator can be compelled to produce
 
@@ -252,11 +261,15 @@ review (§8 Q1):*
   a key. Neither is ever gossiped.
 - It serves the private key to authenticated current members (protocol spec
   §3.5) as a `ChannelAdmissionKey` from the Space endpoint, at
-  `<spaceEndpoint>/admission-key/<channelID>`. For a DM group, the initiator's
-  identity host (the host that serves the initiator's KeyPackages, §8 Q3)
-  issues and serves it at `<host>/admission-key/<groupID>`. When that host's
-  user is no longer a member, a remaining member's client moves the role to
-  its own identity host (protocol spec §4.6). For a shared
+  `<spaceEndpoint>/admission-key/<channelID>`. For a DM group or self-group,
+  the admission host, initially the initiator's identity host (the host that
+  serves the initiator's KeyPackages, §8 Q3), issues the key and gives it only
+  to its own user, whose client puts it in the group's MLS GroupContext.
+  Members read it there, so the host keeps no member list (S9). After a Commit
+  that removes a member or device, the host's user's client requests a new key
+  and commits it. When that host's user is no longer a member, a remaining
+  member's client moves the role to its own identity host (protocol spec
+  §4.6). For a shared
   channel, the home Space's CO issues and registers it. Broadcast channels use
   this same mechanism; their content key is distributed the same way.
 - The routing token is derived from the key:
@@ -481,9 +494,10 @@ All resolved 2026-10-16 except the external review in Q1.
 - **A party that runs both a social or identity service and relays can link
   its own users to the COs whose traffic they use.** For Spaces it never
   learns content, channel or Space. For a DM group whose admission host it
-  runs (protocol spec §4.6), it knows the members by DID, and if the group's
-  relays are its own, it also sees that group's traffic: it then knows which
-  token is which DM and when it is used, though never its content. A DM
+  runs (protocol spec §4.6), it knows its own user's DID and the group's ID,
+  not the other members, and if the group's relays are its own, it also sees
+  that group's traffic: it then knows which token is its user's DM and when it
+  is used, though never its content. A DM
   admission host SHOULD list relays it does not operate. Users and
   communities can choose relays run by someone else (§2.4;
   profiles/corundum.md).
@@ -498,3 +512,4 @@ Every section of the specification MUST be able to answer:
 4. Could the CO replace every IO after this operation without loss (S5)?
 5. Does anything here enlarge the §5 observation budget? If so, is it opt-in,
    declared and visible (S6)?
+6. Does anything here keep group membership or epoch order outside MLS (S9)?

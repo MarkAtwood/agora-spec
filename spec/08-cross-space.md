@@ -130,7 +130,7 @@ Either admin may revoke unilaterally; the counter-party does not need to co-sign
 
 The home space's compliance logging configuration (§7) applies to all messages in the shared channel regardless of the sender's space affiliation. A guest space member sending a message in a compliance-logged shared channel has that message captured by the home space's compliance logger.
 
-Guest space members MUST be notified of this at channel join time. The client displays the home space's `retentionNotice` to guest members on first entry to the shared channel, clearly attributing it to the home space:
+A guest member's client MUST present the home Space's `retentionNotice` to its user, attributed to the home Space, before the user first sends in the shared channel. The client displays the home space's `retentionNotice` to guest members on first entry to the shared channel, clearly attributing it to the home space:
 
 > "This channel is hosted by [Home Space Name] and is subject to their message retention policy: [retentionNotice text]"
 

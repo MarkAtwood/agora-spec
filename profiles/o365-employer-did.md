@@ -61,7 +61,7 @@ These two components are intentionally independent and address different concern
 │  POST /v1/revoke-device-key       Device key removal (IT/MDM)       │
 │  POST /v1/tombstone               DID deactivation                  │
 │  *    /v1/agora/kp/{id}           KeyPackageEndpoint                │
-│  *    /v1/admission-key/{groupID} DM and self-group admission keys  │
+│  *    /v1/agora/admission-key/{groupID} DM and self-group keys      │
 │                                                                     │
 │  Storage: per-user DID logs in Azure Blob or Postgres               │
 │  Keys: log update key in Azure Key Vault (HSM)                      │
@@ -607,11 +607,10 @@ POST   /v1/agora/kp/{localIdentifier}/welcome  Committer delivers an MLS Welcome
 POST   /v1/agora/kp/{localIdentifier}/auth     Caller authentication, if fetches are gated by sender (spec §3.5, §4.6.3)
 
 # Admission keys for DM groups and self-groups (spec §4.6, §6.7)
-GET    /v1/admission-key/{groupID}             Current ChannelAdmissionKey (members only, spec §3.5)
-GET    /v1/admission-key/{groupID}/{keyEpoch}  ChannelAdmissionKey of that keyEpoch
-GET    /v1/admission-key/{groupID}/members     Current member list (DMMembers, members only, spec §3.5)
-PUT    /v1/admission-key/{groupID}/members     Replace the member list (DMMembers; authorized by its signature, no bearer token)
-POST   /v1/auth                                Member authentication (spec §3.5)
+POST   /v1/agora/admission-key/{groupID}                       Issue a new ChannelAdmissionKey to the calling employee (spec §3.5)
+POST   /v1/agora/admission-key/{groupID}/{keyEpoch}/committed  Confirm that the key's Commit won (its issuee only)
+DELETE /v1/agora/admission-key/{groupID}/{keyEpoch}            Deregister that key (its issuee only)
+POST   /auth                                                   Member authentication (spec §3.5)
 
 # Device registration and user revocation ({prov} = /v1, spec §2.5.4, §2.5.5)
 POST   /v1/devices                       Register a new device key (Entra step-up token)
@@ -631,7 +630,7 @@ POST   /v1/internal/enrollment-complete  Called by Enrollment Service post-MLS-A
 POST   /v1/internal/mls-remove-ack       Acknowledgment of MLS Remove commit
 ```
 
-The KeyPackage, Welcome and admission-key endpoints are the only ones other Agora clients call. Relays never call the sidecar and hold no KeyPackages; the sidecar calls relays only to register admission keys (§6.7).
+The KeyPackage and Welcome endpoints are the only ones other users' Agora clients call; only the organization's own employees call the admission-key endpoints. Relays never call the sidecar and hold no KeyPackages; the sidecar calls relays only to register admission keys (§6.7).
 
 ### 6.2 Authentication
 
@@ -640,7 +639,7 @@ The KeyPackage, Welcome and admission-key endpoints are the only ones other Agor
 | Public DID logs             | None                              | None                                                                |
 | KeyPackage upload           | Signature by a device key in the user's verified log | None                                             |
 | KeyPackage fetch, Welcome   | None (rate-limited); a §3.5 bearer token if the org gates by sender (spec §4.6.3) | None                                |
-| Admission-key endpoints     | Spec §3.5 bearer token            | Caller's DID is on the group's member list (spec §4.6)              |
+| Admission-key endpoints     | Spec §3.5 bearer token            | Caller's DID is one the sidecar serves; for DELETE and confirmation, the key's issuee (spec §4.6) |
 | Device key registration     | Entra access token                | `acrs` contains the authentication context ID, `oid` maps to the DID |
 | User device revocation      | Spec §13.1.1 signature by a surviving device key of the DID | None                                     |
 | Admin operations            | Entra bearer token                | `Authentication Policy Administrator` role or `AgoraDIDAdmin` app role |
@@ -684,7 +683,7 @@ The organization chooses its witnesses. What matters is that the organization do
 
 ### 6.7 Admission Keys for DM Groups and Self-Groups
 
-The sidecar hosts each employee's `KeyPackageEndpoint`, so it is the employee's identity host in the sense of spec §4.6 and plays the CO's part for admission of every DM group an employee initiates or moves to it (spec §4.6.4) and of each employee's self-group (spec §2.6). For each such group it generates the admission key, registers it by `AdmissionKeyRegistration` with every IO (relay, SFU, sequencer) that holds a `ServiceAgreement` with the organization whose `serviceType` receives registrations (spec §10.5.3), rotates it when a `DMMembers` replacement drops a DID, and deregisters old keys (spec §10.5.3). Registrations are signed by the organization's billing DID (spec §10.5.1), so the sidecar needs a signing path to that key, for example through the CO's registration service; it never signs them with its own DID. Its base URL `<host>`, which the initiating client puts in the group's `agora_admission_host` extension (spec §4.6), is `https://did.example.com/v1`, the same base under which it serves the §6.1 admission-key endpoints and `POST /v1/auth`. It serves the current key only to DIDs on the group's member list after the spec §3.5 exchange, and in doing so learns the member DIDs of DM groups its employees start (spec §4.6). Relays learn neither the group nor the members, only that the token is covered by the organization's agreement, so a DM's anonymity at a relay is as large as the organization's set of users (ARCHITECTURE §9).
+The sidecar hosts each employee's `KeyPackageEndpoint`, so it is the employee's identity host in the sense of spec §4.6 and plays the CO's part for admission of every DM group an employee initiates or moves to it (spec §4.6.4) and of each employee's self-group (spec §2.6). For each such group it generates the admission key, registers it by `AdmissionKeyRegistration` with every IO (relay, SFU, sequencer) that holds a `ServiceAgreement` with the organization whose `serviceType` receives registrations (spec §10.5.3), and deregisters a key when its issuee asks, 7 days after the issuee of a later key for the same group confirms that key's Commit, or 30 days after that employee is offboarded (spec §4.6, §10.5.3). Rotation and handover are client actions: an employee's client POSTs for a new key and commits it to the group's `agora_admission` GroupContext extension (spec §4.6, §4.6.4). Registrations are signed by the organization's billing DID (spec §10.5.1), so the sidecar needs a signing path to that key, for example through the CO's registration service; it never signs them with its own DID. Its `<host>`, which the employee's client puts in the group's `agora_admission` extension (spec §4.6), is `https://did.example.com`, the origin of the employees' `KeyPackageEndpoint`s; it serves the §6.1 admission-key endpoints under `/v1/agora/admission-key/` and the spec §3.5 exchange at `POST /auth`. It issues keys only to its own employees after the spec §3.5 exchange and keeps no member list; it learns that an employee asked for keys for a group ID, and when, but not the group's other members (spec §4.6). Relays learn neither the group nor the members, only that the token is covered by the organization's agreement, so a DM's anonymity at a relay is as large as the organization's set of users (ARCHITECTURE §9).
 
 ---
 
@@ -768,6 +767,10 @@ The JML Logic App is a Consumption-tier Logic App with:
 - "Launch and continue" on Leaver events (no response required)
 
 The Logic App contains no business logic; it is a thin authenticated bridge. All logic resides in the sidecar.
+
+### 9.3 DM Message Requests for Colleagues
+
+The organization's managed client configuration (MDM or enrollment policy) can add a rule to the user's accepted senders (spec §4.6.3), for example every DID under the organization's `did:webvh` domain, or every member of the organization's Spaces. DMs from matching senders then skip the message request state. Whether users may decline or block colleagues is also client configuration. Attributes that must be trusted across organizations need a credential format and are out of scope here.
 
 ---
 

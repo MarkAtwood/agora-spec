@@ -76,10 +76,9 @@ When a regulated employee's Agora client creates or joins a DM group:
 
 1. The client fetches a fresh encryption credential (`KeyPackage`) for the compliance logger from the logger's `KeyPackageEndpoint`, which you host.
 2. The client adds the logger to the DM group's MLS group via a cryptographic commit and delivers the logger's `Welcome` to that same endpoint. The logger becomes a full member with decryption rights.
-3. The client updates the DM group's descriptor to record the logger's presence.
-4. The client sends a **mandatory disclosure notice** to all other DM group participants before any message is sent.
+3. The client sends a **mandatory disclosure notice** to all other DM group participants before any message is sent.
 
-The client will not send any message into the group until the logger is a member and the disclosure has been shown (spec §7.8.1). No consent threshold applies to adding the logger (spec §7.7).
+The client will not send any message into the group until the logger is a member and the client has sent the disclosure notice (spec §7.8.1). Adding the logger needs no other member's consent (spec §4.6.1, §7.7).
 
 The disclosure notice is a visible system message that participants cannot suppress. It reads:
 

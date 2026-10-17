@@ -76,6 +76,8 @@ type = "none"                        # none | workday | bamboohr | ad-ldap | man
 
 One sidecar instance maps to one identity provider and one JML source. An org using Okta sets `identity_provider.type = "okta"` and `jml_source.type = "none"`; Okta event hooks drive the full lifecycle. An org using Shibboleth for authentication and Workday as HRIS sets `identity_provider.type = "saml"` and `jml_source.type = "workday"`.
 
+**DM message requests for colleagues.** The organization's managed client configuration (MDM or enrollment policy) can add a rule to the user's accepted senders (spec §4.6.3), for example every DID under the organization's `did:webvh` domain, or every member of the organization's Spaces. DMs from matching senders then skip the message request state. Whether users may decline or block colleagues is also client configuration. Attributes that must be trusted across organizations need a credential format and are out of scope here.
+
 ---
 
 ## 3. Category 1: Webhook-Capable IdPs
@@ -691,8 +693,8 @@ Internet → [Reverse Proxy] → /v1/devices              (device enrollment, sp
                            → /v1/hr-event             (HR webhook)
                            → /users/*/did.jsonl       (DID log serving)
                            → /v1/agora/kp/*           (KeyPackageEndpoint, spec §5.2.1.1: fetch, publish, Welcome, auth)
-                           → /v1/admission-key/*      (DM and self-group admission keys, spec §4.6; O365 spec §6.7)
-                           → /v1/auth                 (member authentication for admission keys, spec §3.5)
+                           → /v1/agora/admission-key/* (DM and self-group admission keys, spec §4.6; O365 spec §6.7)
+                           → /auth                    (member authentication for admission keys, spec §3.5)
 
 Internal only:
   LDAP polling  → DC on port 636

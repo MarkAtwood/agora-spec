@@ -54,7 +54,6 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Last-resort KeyPackages | 1 per device | SHOULD | §5.2.1.1 |
 | KeyPackage `lifetime` | 90 days maximum | MUST | §5.2.1 |
 | Envelopes sealed per sending leaf per epoch | 2^20 | MUST NOT exceed | §5.2.2 |
-| DM member-addition consent | unanimous for 2 to 4 members, majority for 5 or more | Default | §4.6.1 |
 | Invite code entropy | at least 128 bits | MUST | §4.3 |
 | Custom emoji `name` | 32 characters | MUST | §5.2.8.4 |
 | Routing envelope size, live stream and gossip | 65536 bytes | MUST NOT exceed | §11.4, §10.3.1 |
@@ -95,9 +94,11 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Admission key fetch while connected | at least once an hour | MUST | §5.2.2 |
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
 | Hold of a Welcome whose authorization cannot yet be decided | 7 days | See section | §4.3 |
-| `DMMembers` freshness | `seq` (the MLS epoch in which the membership takes effect) greater than the current list's; `ts` within 300 s of the host's clock | MUST | §4.6 |
-| DM admission host handover fallback | any remaining member after 24 h without a handover Commit or a `DMGroupDescriptor` naming a new `admissionHostDID` | See section | §4.6.4 |
-| Old DM admission host stops serving | 30 days after no DID it serves remains a member, or once every such DID is offboarded; it deletes the group's member list when it deregisters the key | MAY (from then on) | §4.6.4 |
+| DM admission host handover fallback | any remaining member after 24 h without a handover Commit | See section | §4.6.4 |
+| DM admission key rotation fallback | every host's user's client rotates 24 h after a Commit that removed a leaf, if no Commit has changed `agora_admission` | MUST | §4.6 |
+| DM admission host deregisters a group's key | on its issuee's request; 7 days after the issuee of a later key for the group confirms that key's Commit; or 30 days after the issuee is offboarded | See section | §4.6 |
+| Client deletes a DM admission key that a host move replaced | 30 days after the move Commit, and not before a Relay admitted the new key | See section | §4.6.4 |
+| Client deletes its user's DM admission keys after the user's last leaf is removed | 30 days after that Commit | See section | §4.6.4 |
 | Non-member view refetch on a post from an unlisted `senderDID` | at most once a minute per Space | See section | §5.2.1.4 |
 | Eager blob replication retry | exponential backoff for at least 24 h, then stop | Descriptive | §10.4.4 |
 | SFU `challenge` freshness for a `join` | 30 s | MUST | §6.6 |
@@ -120,7 +121,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 
 **MLS credential types.** `AgoraMIMICredential` (§9.1) uses credential type 0xF0A2 from the RFC 9420 private-use range until it is registered. Interoperating with MIMI providers outside Agora requires a codepoint from the IANA "MLS Credential Types" registry (RFC 9420 §17.5), or use of a credential type MIMI defines. Outside MIMI interop, Agora leaves use the registered `basic` credential type (§5.2.1).
 
-**MLS extension types.** `agora_admission_host` (0xF0A0, GroupContext, §4.6) and `agora_device_binding` (0xF0A1, LeafNode, §5.2.1) use the RFC 9420 private-use range and need no IANA registration.
+**MLS extension types.** `agora_admission` (0xF0A0, GroupContext of DM groups and self-groups, §4.6), `agora_device_binding` (0xF0A1, LeafNode, §5.2.1), `agora_space_membership` (0xF0A3, GroupContext of self-groups, §2.6) and `agora_compliance` (0xF0A4, GroupContext of DM groups, §7.8.2) use the RFC 9420 private-use range and need no IANA registration.
 
 **URN namespaces.**
 
@@ -130,11 +131,10 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `urn:agora:v1` | JMAP capability | §11.8.3 | IANA "JMAP Capabilities" (RFC 8620 §9.4) |
 | `urn:ietf:params:jmap:*` | JMAP family types | External drafts, profiled in §14.6 | Defined by those drafts |
 
-**Types, members and codes.** Payload and record types are registered in the type tables of §5.2.3, which include `KickLift` (§4.5) and `SpaceMembership` (§2.6). The following record members, operation values and codes are Agora-internal.
+**Types, members and codes.** Payload and record types are registered in the type tables of §5.2.3, which include `KickLift` (§4.5). The following record members, operation values and codes are Agora-internal.
 
 | Identifier | Kind | Defined in |
 |---|---|---|
-| `admissionHostDID` | `DMGroupDescriptor` member | §4.6, §4.6.4 |
 | `replaces` | `AdmissionKeyRegistration` entry member (rotated token); also a `PushRegister` member (previous handle) | §10.5.3, §11.7.6 |
 | `replicationFloor` | `ServiceAgreement` member | §10.5.1, §10.4.4 |
 | `archive` | `ChannelAdmissionKey` member | §3.4, §10.4.4 |

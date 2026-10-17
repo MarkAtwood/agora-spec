@@ -35,7 +35,7 @@ communications operator can replace any infrastructure operator without
 changing a community's identity, membership or history, and without
 re-enrolling anyone.
 
-The normative statement is `ARCHITECTURE.md`: eight rules (S1–S8), a closed list
+The normative statement is `ARCHITECTURE.md`: nine rules (S1–S9), a closed list
 of what infrastructure may observe, and the review test every part of the
 specification must pass.
 
@@ -86,9 +86,11 @@ Design decisions made in this revision:
   current members. Relays admit envelopes signed with it without learning
   which member signed. The operator rotates the key when it removes a member,
   so a removed member's envelopes stop being admitted once the new key is
-  registered. For a DM group, the initiator's identity host plays the
-  operator's part, registering under its own billing DID; a host serving one
-  user gives that user no anonymity at the relay. This is new design and the one item still awaiting
+  registered. For a DM group, a member's identity host (at first the
+  initiator's) plays the operator's part for the key alone: it issues the key
+  only to its own user, whose client puts it in the group's MLS state, and
+  registers it under its own agreements; a host serving one user gives that
+  user no anonymity at the relay. This is new design and the one item still awaiting
   external review.
 - **No identity at relays.** Relays rate-limit connections by network address
   and routing token, with proof of work under load. There is no login.

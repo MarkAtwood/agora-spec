@@ -174,7 +174,7 @@ The SFU then replies `admitted` and places the connection in the room keyed by t
 
 **Key epoch change.** When the channel's admission key is rotated (§5.2.2), a client in a call sends `challenge-request`, receives a new `challenge`, and sends a `join` for the new `channelToken` on the same connection. The SFU then moves the connection to the new room. An SFU that receives an `AdmissionKeyDeregistration` (§10.5.3) for a key MUST close every connection whose latest accepted `join` used that key. Re-admission on one connection lets the SFU link the old and new `channelToken` of a room. A Relay links them in the same way through the CO's registrations (§12.3), and the link is within the IO observation budget (ARCHITECTURE §5).
 
-**Leaving and errors.** A client leaves by sending `leave` or closing the WebSocket, and the SFU then stops forwarding to and from that connection. Before it closes a connection for a protocol violation, the SFU sends `error`. `code` values are local to the SFU, and clients MUST NOT display `reason` as trusted text.
+**Leaving and errors.** A client leaves by sending `leave` or closing the WebSocket, and the SFU then stops forwarding to and from that connection. Before it closes a connection for a protocol violation, the SFU sends `error`. `code` values are local to the SFU, and clients MUST treat `reason` as untrusted text from the SFU.
 
 Participants map SFU-forwarded streams to DIDs using information exchanged among themselves in MLS-encrypted messages; the SFU sees only connection-scoped stream identifiers.
 
@@ -328,7 +328,7 @@ A channel Admin or the Space Owner issues a `RecordingGrant` as an MLS applicati
 
 The grant is signed per §13.1.1 by `grantedBy`. Because only an Admin or Owner may issue it, it is a CO-signed record (ARCHITECTURE S4): recipients MUST verify that `grantedBy` holds the Admin or Owner role in current Space state and MUST ignore a grant that fails this check. The one exception is a grant whose `grantedTo` is the `vtcCompliance.recorderDID` of a Space in which `grantedBy` is a member and `vtcCompliance.enabled` is `true` (§6.12.5, §6.12.7): the CO-signed `vtcCompliance` block is then the authorization, and any member of that Space MAY issue the grant.
 
-`grantedTo` is the DID of the recording principal. The recorder can derive media keys and produces plaintext, so it is a CO component (ARCHITECTURE §2.3) and MUST run under CO control (S8). Clients MUST NOT issue a `RecordingGrant` to, or add to a channel group as a recorder, a DID that appears in Space state as an SFU or relay, or as any other IO key. `scope` is `"audio-only"`, `"video-only"`, or `"audio-video"`. `purpose` is `"operational"` (ad-hoc recording by an admin) or `"compliance"` (regulatory retention obligation). `retentionDays` is the retention period the CO commits to for the archive (§6.12.4). `participantDisclosure` MUST be displayed to all channel participants before recording begins (§6.12.3).
+`grantedTo` is the DID of the recording principal. The recorder can derive media keys and produces plaintext, so it is a CO component (ARCHITECTURE §2.3) and MUST run under CO control (S8). Clients MUST NOT issue a `RecordingGrant` to, or add to a channel group as a recorder, a DID that appears in Space state as an SFU or relay, or as any other IO key. `scope` is `"audio-only"`, `"video-only"`, or `"audio-video"`. `purpose` is `"operational"` (ad-hoc recording by an admin) or `"compliance"` (regulatory retention obligation). `retentionDays` is the retention period the CO commits to for the archive (§6.12.4). Clients present `participantDisclosure` as §6.12.3 describes.
 
 A `RecordingRevoke` terminates the grant early:
 
@@ -357,20 +357,20 @@ A `RecordingRevoke` terminates the grant early:
 
 ### 6.12.3 Participant Disclosure and Consent
 
-Before recording begins, participating clients MUST display the `participantDisclosure` string from the `RecordingGrant` as a non-dismissable system message in the voice channel's text feed and as a visible indicator in the call UI. The indicator MUST persist for the full duration of the grant. Clients MUST also show the indicator whenever the channel group contains a leaf for the `vtcCompliance.recorderDID` of the Space.
+Before it transmits its user's media while a grant is active, a client MUST present the `participantDisclosure` string from the `RecordingGrant` to its user. It SHOULD show it as a non-dismissable system message in the voice channel's text feed and as an indicator in the call UI. The indicator SHOULD persist for the full duration of the grant. Clients SHOULD also show the indicator whenever the channel group contains a leaf for the `vtcCompliance.recorderDID` of the Space.
 
-A participant who joins a voice channel where a `RecordingGrant` is already active MUST be shown the disclosure immediately on join, before their audio or video is transmitted. Their client MUST NOT enable media transmission until the disclosure has been rendered.
+This includes a participant who joins a voice channel where a `RecordingGrant` is already active: its client MUST NOT enable media transmission until the disclosure has been presented to its user.
 
 **Consent model.** Recording is channel-level state, not a per-participant choice. Media keys are group-wide (§6.9), so a recorder that is a member can decrypt every participant, and the protocol does not offer per-participant exclusion. Consent depends on the grant's `purpose`:
 
-- **Compliance grants** (`"purpose": "compliance"`). Recording is mandated for regulated members and cannot be vetoed. Consent is expressed by transmitting media after the disclosure is shown. A participant who does not consent MUST be able to remain muted with camera off, or leave.
+- **Compliance grants** (`"purpose": "compliance"`). Recording is mandated for regulated members and cannot be vetoed. Consent is expressed by transmitting media after the disclosure is shown. A participant who does not consent can remain muted with camera off, or leave; nothing in the protocol requires a member to transmit.
 - **Operational grants** (any other `purpose`). Each participant's client MUST obtain an explicit affirmative acknowledgement from its user before transmitting that user's media while the grant is active. A participant who declines remains in the call with media off. One participant's refusal does not stop the recording of others.
 
 In either case, clients MUST NOT transmit a participant's media automatically on join while a grant is active.
 
 The grant governs CO recording only. Any member can capture media it receives by other means; the protocol cannot prevent this.
 
-For compliance grants (`"purpose": "compliance"`), the disclosure MUST include the `recorderLabel` from the Space's `vtcCompliance` block (§6.12.5) and the grant's `retentionDays`:
+For compliance grants (`"purpose": "compliance"`), the disclosure a client presents MUST identify the `recorderLabel` from the Space's `vtcCompliance` block (§6.12.5) and the grant's `retentionDays`, with wording equivalent to:
 
 > **This call is being recorded for regulatory compliance by [recorderLabel] and retained for [retentionDays] days.**
 
@@ -462,7 +462,7 @@ The entry is signed per §13.1.1 by `recorderDID`. `epochsGapped` is an array of
 
 ### 6.12.7 VTC Compliance in DM Voice Groups
 
-A DM group (§4.6) may include a voice channel component. The obligation from §7.8 extends to voice: a regulated Space member participating in a DM voice group MUST add the space's `recorderDID` to the DM group's MLS group and issue a `RecordingGrant` for the recorder before any voice media is transmitted, following the same admission mechanics as §6.12.2. The `DMGroupDescriptor` `complianceLoggers` array records both text logger DIDs and VTC recorder DIDs. The client that commits the recorder's Add MUST send the admission host the `DMMembers` update adding the recorder DID before it delivers the Welcome (§4.6). A recorder, like a text logger, can never be removed from the admission host's member list.
+A DM group (§4.6) may include a voice channel component. The obligation from §7.8 extends to voice: a regulated Space member participating in a DM voice group MUST add the space's `recorderDID` to the DM group's MLS group, with a `recorder` entry in the group's `agora_compliance` extension in the same Commit (§7.8.2), and issue a `RecordingGrant` for the recorder before any voice media is transmitted, following the same admission mechanics as §6.12.2. The recorder's Welcome carries the group's admission key in its GroupContext (§4.6). A recorder, like a text logger, is re-added by the regulated member's client if another member removes it (§7.8.3).
 
 Participant disclosure (§6.12.3) applies in DM voice groups identically to space voice channels. Non-regulated DM participants receive the disclosure notice and MAY leave before transmitting media.
 

@@ -464,7 +464,7 @@ On startup, the client fetches all configured directory sources in parallel. Res
 
 Failed fetches are retried with exponential backoff (base 30 seconds, maximum 1 hour). A source that consistently fails for 7 days is flagged in the UI as unreachable; it is NOT silently removed from the configured source list. The user decides whether to remove it.
 
-Clients MUST NOT auto-add directory sources from space state documents, relay advertisements, or any other protocol message without explicit user confirmation. Auto-population of directory sources is a privilege escalation vector.
+A client MUST NOT add a directory source because a protocol message names it; sources are added only by the user or by whoever manages the device. Auto-population of directory sources is a privilege escalation vector.
 
 #### 10.3.4.5 Content-Addressed Directories
 
@@ -548,11 +548,11 @@ Each entry of a `relays` list is the origin of a Relay; the client reads that Re
 - **Channels of a private Space.** From the `relays` member of the channel's `ChannelAdmissionKey`, which the CO's Space endpoint serves only to authenticated members (§3.4). The list appears in no record an IO can read.
 - **Channels of a public Space.** From `relayHints` in the CO-signed SpaceAd (§10.3.2), and from the `ChannelAdmissionKey`.
 - **Shared channels.** From the `ChannelAdmissionKey` issued by the home Space's CO, which registers the channel's admission key (§8.6).
-- **DM groups.** From the `ChannelAdmissionKey` served by the identity host of the DM's initiator, which issues and registers the group's admission key (§4.6).
+- **DM groups and self-groups.** From `relays` in the group's `agora_admission` GroupContext extension, which carries the key the group's admission host issues and registers (§4.6, §2.6).
 
 A client needs a connection to only one listed Relay per channel for envelopes: the Relays holding a registration for a token exchange its envelopes on the channel topic (§10.3.1). Blobs are uploaded to one listed Relay and replicated among the Relays carrying the token, and a client fetches a blob from any listed Relay, falling back to the channel's `archive` (§10.4.4). Clients SHOULD fall back to another listed Relay when one is unreachable or answers `unknown-token` or `token-withdrawn` for a token the client holds in a current `ChannelAdmissionKey` (§11.4).
 
-**Changing Relays.** To add a Relay, the CO registers every current admission key with it (§10.5.3), then adds it to `relays`; the new Relay obtains existing blobs by pull-through or CO seeding (§10.4.4). To remove a Relay, the CO removes it from `relays`, then deregisters the keys. Because members' MLS state, Space state and admission keys do not change, a CO adds, removes or replaces a Relay without touching Space identity or membership (ARCHITECTURE S5). Clients refresh the relay list whenever they fetch the `ChannelAdmissionKey` (§3.4).
+**Changing Relays.** To add a Relay, the CO registers every current admission key with it (§10.5.3), then adds it to `relays`; the new Relay obtains existing blobs by pull-through or CO seeding (§10.4.4). To remove a Relay, the CO removes it from `relays`, then deregisters the keys. Because members' MLS state, Space state and admission keys do not change, a CO adds, removes or replaces a Relay without touching Space identity or membership (ARCHITECTURE S5). Clients refresh the relay list whenever they fetch the `ChannelAdmissionKey` (§3.4) or, for a DM group or self-group, process a Commit that changes `agora_admission` (§4.6).
 
 ---
 
@@ -817,7 +817,7 @@ The endpoint MUST accept each `challenge` at most once and only within `expires`
 
 ### 10.5.3 Admission Key Registration
 
-A registration service registers each channel admission public key (§5.2.2) with every IO that holds a `ServiceAgreement` with it whose `serviceType` receives registrations (§10.5.1), under that agreement. For channels of a Space the registration service is run by the Space's CO beside its Space endpoint (§3.4), under the CO's agreements; for a shared channel, by the home Space's CO (§8.6); for a DM group or a self-group (§2.6), by the initiator's identity host (§4.6). An identity host registers under the agreements of the party that runs it. An employer provisioning service (§2.5) registers under the employer CO's agreements and billing DID. An identity host that an individual chose holds its own `ServiceAgreement`s under its own billing DID and registers under those, acting as the CO for this purpose. The IOs holding the `relay` agreements a registration service uses are the relays it lists to members (§10.3.5); its `sfu` and `sequencer` agreements are named in Space state (§6.6, §14.4.1). Registrations travel only over HTTPS from the registration service to the IO. They are never gossiped and no client or member sends them.
+A registration service registers each channel admission public key (§5.2.2) with every IO that holds a `ServiceAgreement` with it whose `serviceType` receives registrations (§10.5.1), under that agreement. For channels of a Space the registration service is run by the Space's CO beside its Space endpoint (§3.4), under the CO's agreements; for a shared channel, by the home Space's CO (§8.6); for a DM group or a self-group (§2.6), by the group's admission host, the identity host named in its `agora_admission` extension (§4.6). An identity host registers under the agreements of the party that runs it. An employer provisioning service (§2.5) registers under the employer CO's agreements and billing DID. An identity host that an individual chose holds its own `ServiceAgreement`s under its own billing DID and registers under those, acting as the CO for this purpose. The IOs holding the `relay` agreements a registration service uses are the relays it lists to members (§10.3.5); its `sfu` and `sequencer` agreements are named in Space state (§6.6, §14.4.1). Registrations travel only over HTTPS from the registration service to the IO. They are never gossiped and no client or member sends them.
 
 **Request.** The registration service sends `POST <endpoint>`, where `<endpoint>` is the agreement's `endpoint`, with `Content-Type: application/cbor` and a body that is one encoded typed payload envelope (§13.1) signed per §13.1.1 by the agreement's `billing` DID. The envelope is of one of two types.
 

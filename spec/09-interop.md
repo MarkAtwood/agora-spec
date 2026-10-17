@@ -93,7 +93,7 @@ MIMI interop does not currently specify voice/video interop. VTC channels cannot
 
 ## 9.2 Matrix Gateway
 
-Matrix interop is a **gateway**, not native interop. A Matrix gateway is a CO component (ARCHITECTURE.md §2.3, S8): it MUST run under the control of the CO operating the channel and MUST NOT run in or as part of a relay. Co-location on IO hardware is permitted only as S8 allows, with the gateway remaining a CO principal with its own DID and keys. A Matrix gateway holds an Agora DID, is admitted to the relevant channel MLS groups as a member, decrypts Agora messages, re-encrypts them using Matrix's Megolm E2EE for delivery to Matrix users, and performs the reverse for Matrix→Agora direction. **E2EE is broken at the gateway: the gateway holds plaintext.** This MUST be made visible to all participants (§9.3).
+Matrix interop is a **gateway**, not native interop. A Matrix gateway is a CO component (ARCHITECTURE.md §2.3, S8): it MUST run under the control of the CO operating the channel and MUST NOT run in or as part of a relay. Co-location on IO hardware is permitted only as S8 allows, with the gateway remaining a CO principal with its own DID and keys. A Matrix gateway holds an Agora DID, is admitted to the relevant channel MLS groups as a member, decrypts Agora messages, re-encrypts them using Matrix's Megolm E2EE for delivery to Matrix users, and performs the reverse for Matrix→Agora direction. **E2EE is broken at the gateway: the gateway holds plaintext.** This is disclosed to all participants by §9.3.
 
 ### Gateway Identity and Admission
 
@@ -119,11 +119,14 @@ The channel's entry in Space state records the gateway's presence and type:
     "did": "did:webvh:QmSCID...:example.com:agora:gateway",
     "protocol": "matrix",
     "matrixRoomID": "!abc123:example.com",
+    "unencryptedRemote": false,
     "addedBy": "did:key:z6MkAdmin...",
     "addedAt": "2026-03-12T00:00:00Z"
   }
 ]
 ```
+
+`unencryptedRemote` (boolean, default `false`) is `true` when the bridged Matrix room does not have Megolm E2EE enabled. The gateway determines the room's encryption state; because only Admins sign Space state (§3.3), the Admin who adds the gateway records it, and an Admin updates it when the gateway reports a change.
 
 ### Message Flow: Agora → Matrix
 
@@ -179,7 +182,7 @@ When the Matrix room has Megolm E2EE enabled, the gateway holds both MLS session
 
 The gateway MUST NOT cache decrypted message content beyond the time needed for translation and re-encryption. It SHOULD operate in a memory-only mode with no persistent plaintext storage. Gateway operators SHOULD publish a transparency policy describing their plaintext handling.
 
-When the Matrix room does not have Megolm E2EE enabled, the gateway sends plaintext to the Matrix server. This is a further trust degradation: the Matrix homeserver operator can read bridged messages. This MUST be disclosed to Agora channel members (§9.3).
+When the Matrix room does not have Megolm E2EE enabled, the gateway sends plaintext to the Matrix server. This is a further trust degradation: the Matrix homeserver operator can read bridged messages. The gateway's `GatewayDescriptor` then has `unencryptedRemote` set to `true`, and clients SHOULD disclose this to channel members (§9.3).
 
 ### Implementation Approach
 
@@ -193,7 +196,7 @@ The recommended implementation uses the **Matrix Application Service API** rathe
 
 Any gateway admitted to an Agora channel (Matrix, or any future gateway type) is a CO component subject to the same placement rule as §9.2 and MUST be disclosed to all channel members. This is enforced at the protocol level, not by policy.
 
-**Channel state disclosure.** The `gateways` array in the channel's entry in Space state (§9.2) is visible to all MLS group members. Clients MUST display a visible indicator when a channel has active gateways. The indicator MUST identify the gateway protocol and target system. A channel with an active gateway is not E2EE-private for bridged traffic; members must be able to determine this without reading protocol documentation.
+**Channel state disclosure.** The `gateways` array in the channel's entry in Space state (§9.2) is visible to all MLS group members. Clients SHOULD display an indicator when a channel has active gateways. The indicator SHOULD identify the gateway protocol and target system, and SHOULD say that the remote side is not end-to-end encrypted when a gateway has `unencryptedRemote` set to `true`. A channel with an active gateway is not E2EE-private for bridged traffic; members must be able to determine this without reading protocol documentation.
 
 **Gateway transparency message.** When a gateway DID is added to a channel's MLS group, the adding Admin MUST also send a `SystemEvent` MLS application message (§5.2.3) to the channel announcing the gateway. As an inside-group object it carries no object signature; the Admin's MLS sender signature authenticates it (§13.1.1):
 
@@ -210,7 +213,7 @@ Any gateway admitted to an Agora channel (Matrix, or any future gateway type) is
 
 This specification defines one `event` value, `gateway-added`; receivers MUST ignore a `SystemEvent` whose `event` they do not recognize. The `SystemEvent` reaches members like any message (§5.2.5) and is not the durable record: the `gateways` array in Space state is, and the Space state chain (§3.3) records when each gateway was added.
 
-**Client rendering.** Clients MUST render a persistent banner or channel badge indicating gateway presence. The banner MUST NOT be dismissible per-session without re-appearing on reconnect. Members who joined after a gateway was added see the indicator from the `gateways` array in Space state immediately on first load, whether or not they received the `SystemEvent`.
+**Client rendering.** Clients SHOULD render a persistent banner or channel badge indicating gateway presence. A dismissed banner SHOULD reappear on reconnect. Members who joined after a gateway was added see the indicator from the `gateways` array in Space state immediately on first load, whether or not they received the `SystemEvent`.
 
 
 ---
