@@ -1,0 +1,288 @@
+# Agora Architecture: Operator Separation
+
+Status: Draft, normative. 2026-10-16.
+
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be interpreted
+as described in BCP 14 (RFC 2119, RFC 8174) when, and only when, they appear in
+all capitals.
+
+## 1. The principle
+
+**Operating the infrastructure is separate from operating the communications.**
+
+The party that runs relays and other infrastructure services decides nothing
+about any community, and it MUST be replaceable without changing that
+community's identity, membership, history or policy. Every authority over a
+community — who is in it, what it permits, what it retains, who may see it — is
+held by the community's own operator and exercised with that operator's keys.
+
+This is Agora's first design principle. Where any other part of this
+specification conflicts with it, this document governs and the conflict is an
+erratum.
+
+Relay blindness (protocol spec §11.1) limits what infrastructure can *know*.
+Operator separation limits what infrastructure can *decide*, and guarantees it
+can be *swapped*. Blindness without separation produces a relay that is
+ignorant but still in charge; separation without blindness produces a relay
+that is powerless but still watching. Agora requires both.
+
+## 2. Roles
+
+### 2.1 Infrastructure Operator (IO)
+
+Runs services that carry, store or forward data for communities without being
+part of them: relays (routing, fan-out, envelope cache, gossip, peering), blob
+and IPFS pinning, SFUs, TURN, push proxies, and any KeyPackage store that is not
+operated by the community itself.
+
+### 2.2 Communications Operator (CO)
+
+Runs a community. For a Space this is the Space owner and its delegated admins;
+for an organization it is the org. The CO owns identity provisioning,
+membership, roles, moderation, Space state, retention policy, compliance
+logging, archives, gateways and bridges, enrollment, and the endpoint devices it
+issues.
+
+### 2.3 The key test
+
+A component's role is determined by what it holds, not by who runs it:
+
+- A component that holds MLS group secrets, user signing keys, or plaintext is
+  a **CO component**, regardless of operator or hosting location.
+- A component that holds none of these is an **IO component**.
+
+| Component | Role | Notes |
+|---|---|---|
+| Relay | IO | |
+| Blob / IPFS pinning | IO | |
+| TURN | IO | |
+| Push proxy | IO | Observation budget includes device push handles (§5) |
+| SFU | IO | MUST NOT be an MLS member (§7, item 6) |
+| KeyPackage store | IO or CO | See §8, Q3 |
+| Compliance logger | CO | MLS member; holds plaintext |
+| Archive / Purview bridge | CO | Holds plaintext |
+| IdP / DID sidecar, enrollment service | CO | Holds or controls identity keys |
+| Gateways (Matrix, Slack, Teams) | CO | Break E2EE by design |
+| Community-mode SpeakerBot | CO | MLS member |
+| Managed endpoint devices | CO | Enforcement point for org policy (§6.3) |
+
+### 2.4 One party, two roles
+
+A single entity MAY act as both IO and CO, for example an organization that
+self-hosts its relays. The protocol nonetheless treats the two roles as distinct
+principals:
+
+- IO keys (`relayDID`, `operatorDID`) and CO keys (Space owner, admins, org
+  provisioning key) MUST be distinct.
+- No protocol operation grants an IO key authority over community state because
+  it happens to share an operator with a CO key.
+
+## 3. Normative requirements
+
+**S1. No membership knowledge.** An IO component MUST be able to perform every
+function it is specified to perform without knowing group membership, sender
+identity, or the mapping from routing tokens to channel or Space identities.
+
+**S2. No community policy at the infrastructure.** An IO component MUST NOT
+make or enforce decisions about community membership, roles, moderation, content
+or retention beyond what a CO has expressed in a form the IO can verify without
+learning S1-protected information. The only such forms are those defined in
+§6.
+
+**S3. No community keys at the infrastructure.** An IO component MUST NOT hold
+MLS group secrets, epoch secrets, exporter outputs other than those
+specifically derived for IO verification (§6.2), user signing keys, or
+plaintext.
+
+**S4. Community state is CO-signed.** Space state, channel state, role
+assignments, moderation records and retention policy MUST be signed by CO keys.
+An IO key MUST NOT sign community state, and clients MUST reject community
+state signed by an IO key.
+
+**S5. Replaceability.** A CO MUST be able to add, remove or replace any IO
+without changing Space identity (genesis CID), member identities, MLS group
+state or history, and without re-enrolling any member. History survives an IO
+departure if at least one remaining IO or the CO holds its CIDs.
+
+**S6. Bounded observation.** An IO component MUST NOT observe, log or retain
+anything outside the observation budget in §5. Any extension that enlarges the
+budget MUST be opt-in by the CO, MUST be declared in the relay manifest, and
+MUST be visible to members.
+
+**S7. Contracts, not configuration.** The only binding between a CO and an IO is
+the `RelayServiceAgreement` (protocol spec §12.2) and the verification material
+defined in §6. An IO MUST NOT require CO data beyond these as a condition of
+service.
+
+**S8. Plaintext stays on CO infrastructure.** Any component that produces or
+stores plaintext (compliance logger, archive, bridges, gateways) MUST run under
+CO control. Co-location on IO hardware is permitted only under contract with the
+IO acting as the CO's processor, and the component remains a CO principal with
+its own DID and keys.
+
+## 4. What each operator can be compelled to produce
+
+The separation is meant to be legible to counsel and regulators. It is testable
+by asking what a legal demand served on each party yields.
+
+- **Served on an IO:** connection metadata within its retention window, opaque
+  ciphertext, routing tokens, and whatever else is in §5. Nothing about who is
+  in a community or what they said.
+- **Served on a CO:** everything the CO's own policy retains, from its own
+  archive, under its own retention and legal-hold controls.
+
+The authoritative record for any regulated community is the CO's archive, never
+an IO.
+
+## 5. Infrastructure observation budget
+
+An IO MAY observe the following and nothing else:
+
+1. Network-layer connection metadata: source address, timing, volume, transport.
+   Retention is set by the `RelayServiceAgreement` and MUST be declared in the
+   relay manifest.
+2. Ciphertext envelopes: size, timing, routing token (`channelToken`), and
+   expiry hint.
+3. Verification material and proofs defined in §6, which by construction do not
+   reveal which member produced them.
+4. Content identifiers (CIDs) it stores or pins, and pin/unpin instructions
+   authorized under §6.
+5. Quota and payment state under a `RelayServiceAgreement`, keyed to the
+   agreement and never to member identity.
+6. For push proxies only: opaque device push handles and wake-up timing.
+7. Its own peering relationships with other IOs.
+
+Agora does not claim network-layer anonymity against an IO. Members who need it
+use an overlay transport (protocol spec §3.4, §8). This matches the privacy
+whitepaper: "Agora is not anonymous."
+
+## 6. The CO–IO interface
+
+### 6.1 Space state and the RelayServiceAgreement
+
+The CO publishes signed Space state (S4). It engages IOs by
+`RelayServiceAgreement`, which fixes the channels served, retention, quotas,
+price and observation-budget declarations. Enforcement is by selection: a CO
+that is unhappy with an IO replaces it (S5).
+
+### 6.2 Access control by MLS membership
+
+Membership in the MLS group is the only access control. An IO verifies that an
+envelope comes from a current member without learning which member.
+
+*Candidate mechanism, to be specified in the messaging part and reviewed:* each
+epoch, members derive a shared signing key pair from the MLS exporter
+(label `"agora access"`). The committer publishes the epoch's public key with
+the commit, signed by the previous epoch's access key, so the IO can follow the
+chain. Envelopes carry a signature under the current epoch access key. The IO
+rejects envelopes that fail verification.
+
+Consequences:
+
+- **Bans and removals are MLS Removes.** A removed member does not hold the next
+  epoch's access key. Relays do not keep DID ban lists.
+- **Timeouts and mutes are client-enforced.** Members' clients drop messages
+  from a timed-out member. An IO cannot enforce a timeout without learning the
+  sender, so it does not try.
+- **Pin and delete instructions** are authorized by the same proof, plus a
+  CO-signed role check that clients, not IOs, perform. An IO enforces storage
+  quotas by agreement, not pin semantics by content.
+
+### 6.3 Policy enforcement points
+
+Policy that requires knowing who someone is (compliance capture, DM rules,
+regulated-user status) is enforced at CO enforcement points:
+
+- member clients, especially managed devices the CO issues and controls;
+- CO-run MLS members such as the compliance logger;
+- the CO's archive and audit pipeline.
+
+The infrastructure is never an enforcement point for such policy.
+
+Clients validate membership changes, deletes and role actions against signed
+Space state. A client MUST accept an MLS Welcome only from a sender authorized
+to add members under current Space state, and a Welcome MUST NOT replace an
+existing group.
+
+## 7. Disposition of conflicts in the imported specs
+
+Each item below is an erratum against the imported documents
+(`import/`, see `notes/research-2026-10-16.md` for line references). The
+restructured specification resolves each as stated.
+
+1. **Relay ban and timeout enforcement** (protocol spec §9.5, §11.3, l.2439–2441).
+   Removed. Replaced by §6.2: bans are MLS Removes, timeouts are client-enforced.
+2. **Relay pin-limit and DeleteEvent enforcement** (§6.6, §11.3, l.1536, 1542,
+   2962). The relay can't read these instructions, which sit inside ciphertext.
+   Replaced by §6.2: storage quotas by agreement, pin semantics client-side.
+3. **Compliance hold, Mechanisms A/B** (§17.8.9, l.3878–3911; regulators guide
+   l.306–308). Removed from the relay. Enforcement moves to CO enforcement points
+   (§6.3). Cost accepted in §9.
+4. **channelToken→channelCid mapping and relay-side JMAP** (§8.8, l.2325, vs
+   §11.2). The relay never learns channel CIDs. The JMAP Space, membership,
+   role and invite API runs in the client or on CO infrastructure, not on the
+   relay, as nie's daemon does (`notes/nie-backport-inventory.md`). The relay
+   offers only token-keyed envelope sync.
+5. **Presence and typing events in the clear** (§7, l.1797–1824). Move inside
+   MLS application messages.
+6. **SFU as an MLS member** (§10.6, l.2594). An SFU holding epoch secrets could
+   derive media keys, so it would be a CO component holding plaintext. The SFU
+   MUST NOT be an MLS member. It is admitted by a CO-signed entry in Space state,
+   and media E2EE keys never reach it.
+7. **Relay admin API exposing Space and channel structure** (ops spec
+   l.1004–1050). The admin API reports per-token and per-agreement counters
+   only, never names, types or member counts.
+8. **Relay-hosted compliance logger** (ops spec `operate_logger`, l.502–516). The
+   logger is a CO component (S8). The ops spec option is removed. Co-location,
+   where used, is a contractual arrangement outside the relay's configuration.
+9. **Client–relay DID authentication** (§8.6; ops spec l.2212). An IO that
+   authenticates member DIDs knows who its users are, contrary to §11.1. Access
+   is by §6.2 proof and quota is by agreement. Open question Q2.
+10. **Relay signing community state** (prototype code,
+    `~/GIT/Agora-historical/relay/src/ws.rs` ~1068–1117). Forbidden by S4.
+11. **Relay access-log retention** (ops spec l.1323, 2437, vs regulators guide
+    l.133). Retention is whatever the `RelayServiceAgreement` sets, declared in
+    the manifest (§5 item 1). Both documents are rewritten to say so.
+
+## 8. Open questions
+
+- **Q1. Epoch access key.** Validate §6.2 against MLS security properties:
+  exporter use, front-running by a member being removed in the same epoch,
+  commit ordering across relays, and cost per envelope.
+- **Q2. Admission without identity.** How does an IO meter abuse and quota
+  before a client has proven membership in any channel, without authenticating
+  its DID? Candidates: agreement-scoped bearer tokens, PoW (protocol spec §12),
+  Privacy Pass.
+- **Q3. KeyPackage store placement.** A DID-keyed KeyPackage store learns who
+  fetches whose KeyPackages, which is the social graph at group creation. Option:
+  locate KeyPackages through the user's DID document `KeyPackageEndpoint`,
+  hosted by the CO or a provider the user chooses, and treat any IO-hosted store
+  as a declared budget extension (S6).
+- **Q4. Push proxy budget.** Whether wake-up timing per device handle is
+  acceptable by default or should be an opt-in extension.
+- **Q5. Discovery.** SpaceAds and directory entries are voluntary CO
+  publications. Confirm that no discovery mechanism requires an IO to publish CO
+  information on the CO's behalf.
+
+## 9. Accepted costs
+
+- **A malicious member client can evade CO policy that the infrastructure used
+  to enforce,** for example DM compliance capture. The mitigation is the managed
+  endpoint: regulated users communicate from CO-issued devices, and the
+  compliance logger records gaps it can detect. This is the same trust boundary
+  regulated firms already rely on for every other channel.
+- **Timeouts can't be enforced at the infrastructure.** A timed-out member can
+  still send ciphertext until removed. Members' clients drop it.
+- **Some infrastructure-level abuse controls get coarser.** Without identity, an
+  IO rate-limits by routing token, agreement and network address.
+
+## 10. Review test
+
+Every section of the specification MUST be able to answer:
+
+1. Which operator does this bind: IO, CO, or both?
+2. Does any IO behavior here require S1-protected knowledge?
+3. Does any IO behavior here make a community decision (S2)?
+4. Could the CO replace every IO after this operation without loss (S5)?
+5. Does anything here enlarge the §5 observation budget? If so, is it opt-in,
+   declared and visible (S6)?
