@@ -1,1 +1,2 @@
 {"id":"01a14859-b70a-74a9-97f1-d09b96af9b69","issue_id":"agora-pozi.20.61","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:33:21.54630616Z"}
+{"id":"01a1485c-1a81-7387-9a0d-bf3c58e85214","issue_id":"agora-pozi.20.61","event_type":"closed","actor":"agent","old_value":"","new_value":"Swept spec/ and profiles/: no did:key DID document examples with service or verificationMethod remain; remaining did:key uses are references only","created_at":"2026-10-17T05:35:58.081232369Z"}

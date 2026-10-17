@@ -2,13 +2,15 @@
   "id": "agora-pozi.28",
   "title": "Carry JSON-LD and JMAP-family data on Agora",
   "description": "Mark 2026-10-16: Agora carries any JSON-LD data and especially JMAP-shaped objects (draft-atwood-jmap-* family, plain JSON). Payload format open to redesign. Research: notes/jmap-family-core.md, notes/jmap-family-payloads.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T04:44:15.822030982Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T04:44:15.822030982Z",
+  "updated_at": "2026-10-17T05:36:03.830997539Z",
+  "closed_at": "2026-10-17T05:36:03.830997539Z",
+  "close_reason": "JSON-LD/JMAP carriage specified: typed envelope, JWS, spec/14, profiles (2026-10-16)",
   "dependencies": [
     {
       "issue_id": "agora-pozi.28",
