@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.97",
   "title": "[CON-5] Broadcast key rotation requires a second countersigned announcement for the same epoch, wh",
   "description": "Review finding CON-5: Broadcast key rotation requires a second countersigned announcement for the same epoch, which §5.2.2 forbids (lens CON). Location: spec/05-messaging.md:136 vs :204. Fix: Make the uniqueness rule \"at most one announcement per chain and (`epoch`, `channelToken`)\". Alternatively, add `keyEpoch` to the announcement and key the rule on (`epoch`, `keyEpoch`). Full text: notes/review/CON-verified.md and notes/review/CON.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:46.059139962Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:46.059139962Z",
+  "updated_at": "2026-10-17T06:54:18.916854794Z",
+  "closed_at": "2026-10-17T06:54:18.916854794Z",
+  "close_reason": "MOOT per notes/review/reconciliation.md: Countersigned access-key announcements removed by door-key decision B; broadcast content key and admission key rotate together sharing keyEpoch (spec/03-spaces.md §3.4 BroadcastKey; spec/05-messaging.md §5.2.2 Rotation)",
   "labels": [
     "review",
     "con"

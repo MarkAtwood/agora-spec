@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.41",
   "title": "[SEP-14] The MIMI provider endpoint cannot do what §9.1 says without group secrets",
   "description": "Review finding SEP-14: The MIMI provider endpoint cannot do what §9.1 says without group secrets (lens SEP). Location: spec/09-interop.md:67 (not 216-218). Fix: As proposed. Posting to relays needs `accessSig` and sealing, both of which are exporter-derived (05:202, 218), so \"holds no MLS group secrets\" is false. State that the endpoint holds the access and sealing exporter outputs, or is a group member, as a CO component (09:8, 65 already make it CO). Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:42.86691192Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T06:12:06.911650974Z",
+  "updated_at": "2026-10-17T06:54:15.994522609Z",
+  "closed_at": "2026-10-17T06:54:15.994522609Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/09-interop.md §9.1 (lines ~69-74): endpoint holds admission key as CO component and sealing exporter output either as passive member or via CO member; must not pass to IO",
   "labels": [
     "review",
     "sep"

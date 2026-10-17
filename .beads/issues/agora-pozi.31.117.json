@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.117",
   "title": "[CON-25] Other cross-part inconsistencies on observation and declarations",
   "description": "Review finding CON-25: Other cross-part inconsistencies on observation and declarations (lens CON). Location: spec/10-relays.md:628 vs :87; spec/12-security.md:22; spec/11-transport.md:233; spec/14-jmap.md:193 vs ARCHITECTURE.md:157-160. Fix: Apply the reviewer's fixes. On the sequencer item: D2 settles per-community sequencers, so the fix is an explicit ARCH §5 item 6 exception (or a cross-reference to §14.4.6), not a design change. SFUs named in `SFUDescriptor` (06:110) are in the same position and belong in the same exception. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:47.198017971Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:47.198017971Z",
+  "updated_at": "2026-10-17T06:54:19.85317883Z",
+  "closed_at": "2026-10-17T06:54:19.85317883Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Manifest declares max across agreements (spec/10-relays.md §10.5.1 :685); §12.3 includes item 6 and push (spec/12-security.md §12.3); pushUrgency gone (\"no urgency\", ARCHITECTURE.md §5 item 7); sequencer/SFU covered in ARCHITECTURE.md §5 item 6 and sequencer cannot map token to Space (spec/14-jmap.m",
   "labels": [
     "review",
     "con"

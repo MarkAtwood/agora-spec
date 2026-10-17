@@ -1,3 +1,4 @@
 {"id":"01a14868-bfb0-70a4-bf6e-0d1ce07682a1","issue_id":"agora-pozi.31.110","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:49:46.800042704Z"}
 {"id":"01a14868-bfb2-73a7-b1a3-406e10cab54c","issue_id":"agora-pozi.31.110","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:49:46.802239829Z"}
 {"id":"01a14868-bfb4-7549-b289-aa96f61e3a9c","issue_id":"agora-pozi.31.110","event_type":"label_added","actor":"agent","comment":"Added label: con","created_at":"2026-10-17T05:49:46.804347039Z"}
+{"id":"01a148a3-d7cc-79d1-99dd-29c57a17d498","issue_id":"agora-pozi.31.110","event_type":"closed","actor":"agent","old_value":"","new_value":"FIXED per notes/review/reconciliation.md: spec/09-interop.md:20 now \"Agora groups use ... 0x0001 (§5.2.1), which is the MIMI baseline\"","created_at":"2026-10-17T06:54:19.596643818Z"}

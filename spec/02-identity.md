@@ -29,7 +29,7 @@ Every user has a **Decentralized Identifier (DID)** as their persistent identity
 
 **`did:key`** is opt-in self-custody. The key is the identity: the document cannot be updated, so there is no device list, no key rotation and no recovery beyond the user's own backup (§2.4.3). A client MUST warn the user, before creating a `did:key` identity, that losing the key loses the identity permanently and that a lost or stolen device cannot be revoked. To use several devices, the user copies the identity private key to each device, for example by restoring an encrypted backup (§2.4.3); the identity key MUST therefore be exportable, unless the user keeps it on a single device or a portable hardware key. The identity key is not an MLS leaf key: each device generates its own MLS leaf signature key and signs it with the identity key in a device-binding statement carried in its leaf, which members verify (§5.2.1). The identity key signs the device's JWS signatures (§13.1.1) and KeyPackage publications (§5.2.1.1). Each device is a separate MLS leaf (§2.2), but there is no device list and no per-device revocation: removing a device's leaves does not revoke it, because the device retains the identity key and can bind new leaf keys; the remedy for a lost or compromised device is a new identity.
 
-A `did:key` user publishes a **Pkarr pointer record**: a BEP-44 mutable item on the Mainline DHT, signed by the identity key and looked up by that key, encoded and refreshed as in §10.3.4.6. It carries only these TXT records:
+A `did:key` user publishes a **Pkarr pointer record**: a BEP-44 mutable item on the Mainline DHT, signed by the identity key and looked up by that key, encoded and refreshed as in §10.3.4.6. It carries these TXT records, plus the optional service records listed in §10.3.4.6:
 
 | Record | Value | Required |
 |---|---|---|
@@ -116,6 +116,8 @@ Profile schema:
 ```
 
 A user updates the profile by publishing a new profile node and pointing the `AgoraProfile` service entry (a new DID log entry or PLC operation) or the `_profile._agora` record at its CID. Profile updates are not gossiped; the user's devices send an `IdentityChanged` notice (§2.7) to the user's groups. Because the profile is content-addressed, clients can cache it indefinitely; a stale profile will produce a CID mismatch against the current DID document's `serviceEndpoint` (or the Pkarr `_profile._agora` record), prompting a refresh.
+
+`displayName` and `statusText` are free-form text for people to read. The publisher MUST store each in the form produced by the enforcement rule of the PRECIS Nickname profile (RFC 8266). Clients MUST apply that rule before displaying or comparing either string, and treat a string the rule rejects as absent. When displaying them, clients MUST isolate each string as a bidirectional run (Unicode Standard Annex #9, for example with U+2068 FIRST STRONG ISOLATE and U+2069 POP DIRECTIONAL ISOLATE) so that it cannot reorder surrounding text. Clients SHOULD apply the confusable detection of Unicode Technical Standard #39 to the display names of the members of a group or Space and SHOULD warn the user when two different DIDs have confusable display names, because clients identify a person by the display profile (§2.5.2). Length limits on these strings, where a client or CO sets them, count Unicode scalar values.
 
 ## 2.4 Account Recovery
 
@@ -440,7 +442,7 @@ The request is signed per §13.1.1 by `adminDID`. `revokeAll: true` removes all 
 
 It answers `204` on success, with the error codes of §2.5.4. No push wake-up is sent. The user's remaining devices send an `IdentityChanged` notice (§2.7) to the user's groups when they see the change in the DID log; other members learn of the revocation when they resolve the DID. Relays take no action on a revocation: they never authenticate client identity (§12.5), and the revoked device loses channel access when its MLS leaves are Removed (below).
 
-**MLS remediation.** Revocation of a device key does not automatically remove that device's MLS leaf nodes from all groups. The revoked device's client (if still running) SHOULD issue `Remove` self-proposals on all its group memberships. If the device is lost, other group members MUST issue `Remove` commits when they detect the key is revoked. Space administrators SHOULD run periodic reconciliation to ensure revoked device keys have no active MLS leaves in their channels.
+**MLS remediation.** Revocation of a device key does not automatically remove that device's MLS leaf nodes from all groups. The revoked device's client (if still running) SHOULD send a self-Remove proposal (§4.8) in each of its groups. If the device is lost, other group members MUST issue `Remove` commits when they detect the key is revoked. Space administrators SHOULD run periodic reconciliation to ensure revoked device keys have no active MLS leaves in their channels.
 
 ### 2.5.6 Offboarding
 
@@ -530,7 +532,7 @@ HistoryEntry = {
 
 The receiving device trusts the archive on the authority of the sending device, which is one of the user's own devices; entries carry no proof of the original senders' signatures. The same `HistoryArchive` format is used for the `history` field of an encrypted backup (§2.4.3).
 
-**Restored state.** MLS state or device keys restored from a backup MUST NOT be used while the source device is active, because two devices operating one leaf or one device key fork it. If the source device is active, the restored device enrolls as a new device and uses the backup only to read old history (§2.4.3).
+**Restored state.** A backup carries no MLS state (§2.4.3), so a restored device always joins the user's groups as a new leaf. Device keys restored from a backup MUST NOT be used while the source device is active, because two devices signing with one device key cannot be told apart. If the source device is active, the restored device enrolls as a new device with a new device key and uses the backup only to read old history (§2.4.3).
 
 ## 2.7 Identity Change Notice
 
@@ -538,6 +540,14 @@ User identity records are never gossiped over relay connections. A user's keys, 
 
 To tell other members to re-resolve, a user's device sends an MLS application message of type `urn:agora:type:IdentityChanged` to each group the user belongs to, including the self-group, after any change to the user's DID document, DID log or profile. The body is the empty JSON object `{}` (content type `application/json`); the sender is the MLS sender (§13.1.1). On receipt, a client re-resolves the sender's DID and profile, verifies them per §2.1, and applies the result, including Removing leaves whose signature keys are no longer `authentication` keys of the DID (§2.2). The notice carries no authority: clients MUST act only on what the verified DID document, log or Pkarr record states. Clients MAY coalesce notices and MAY delay re-resolution.
 
+## 2.8 Account Deletion
+
+A user deletes an account in two steps:
+
+1. The user's client leaves every Space and every other group the user belongs to by the procedures of §4.8. Each of the user's devices then deletes its self-group state.
+2. The user retires the DID. For `did:webvh`, the user writes a DID log entry that deactivates the DID, signed with an update key and carrying its witness proofs (§2.1). For `did:plc`, the user submits a tombstone operation. A `did:key` cannot be deactivated; the user destroys every copy of the identity key, including backups (§2.4.3).
+
+A deactivated DID has no `authentication` keys. A member that resolves it, for example after an `IdentityChanged` notice (§2.7) or on its own schedule, Removes any leaves of that DID that remain in its groups (§2.2). For a CO-provisioned identity, deletion is the organization's offboarding (§2.5.6), and the organization retains the DID document as that section requires. Deletion does not erase messages that other members, compliance loggers (§7) or relays already hold; relays drop envelopes when their retention expires (§5.2.5).
+
 
 ---
-

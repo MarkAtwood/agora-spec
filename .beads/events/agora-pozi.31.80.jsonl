@@ -1,3 +1,4 @@
 {"id":"01a14868-b8e5-77ae-8f55-223f939fc0b0","issue_id":"agora-pozi.31.80","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:49:45.06150378Z"}
 {"id":"01a14868-b8e7-7e0c-96e9-4485f2047835","issue_id":"agora-pozi.31.80","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:49:45.063921103Z"}
 {"id":"01a14868-b8e9-7f39-93b2-f62c45b92ce5","issue_id":"agora-pozi.31.80","event_type":"label_added","actor":"agent","comment":"Added label: exa","created_at":"2026-10-17T05:49:45.065998217Z"}
+{"id":"01a148a3-d1e2-7a43-a614-55747fc77531","issue_id":"agora-pozi.31.80","event_type":"closed","actor":"agent","old_value":"","new_value":"FIXED per notes/review/reconciliation.md: spec/10-relays.md §10.2.1: example relayDID did:web:relay.example.com, key id did:web:relay.example.com#key-1; \"signed per §13.1.1 by relayDID\"","created_at":"2026-10-17T06:54:18.082673349Z"}

@@ -100,7 +100,7 @@ Every message received by the logger is written as a signed `ComplianceRecord` t
   "senderDID": "did:key:z6MkSender...",
   "epoch": 17,
   "seq": 1042,
-  "ts": "2026-03-12T12:00:00.000Z",
+  "ts": "2026-03-12T12:00:00Z",
   "plaintextPayload": "base64url...",
   "senderMessage": "base64url...",
   "messageKeys": {
@@ -119,7 +119,7 @@ Every message received by the logger is written as a signed `ComplianceRecord` t
 }
 ```
 
-All byte-valued fields are base64url without padding (RFC 4648 §5).
+All byte-valued fields are base64url without padding (RFC 4648 §5). The same encoding applies to the byte-valued fields (`mlsGroupID`, `channelID`) of the other records of §7 (§7.8.4, §7.8.8, §7.8.9).
 
 - `channelID` is the channel's identifier from Space state (§3.3). In a record for a DM group, `mlsGroupID`, the group's MLS group ID (§4.6), replaces `channelID`.
 - `plaintextPayload` is the decrypted inner payload envelope (§13.1), for example a JMAP Chat `Message` (§5.2.3), from the exact bytes received.
@@ -262,7 +262,7 @@ The disclosure notice is an MLS application message of type `urn:agora:type:Comp
 
 > **[Display name of regulated member]'s messages in this conversation are subject to regulatory retention by [loggerLabel] for [retentionDays] days.**
 
-Non-regulated members have no obligation to remain in the DM group after disclosure. They MAY leave the group (via standard MLS Remove self-proposal) at any time. Their messages prior to their departure remain in the compliance logger's archive for the regulated member's retention period.
+Non-regulated members have no obligation to remain in the DM group after disclosure. They MAY leave the group at any time by the leave flow of §4.8. Their messages prior to their departure remain in the compliance logger's archive for the regulated member's retention period.
 
 ### 7.8.5 Multiple Regulated Members in a Single DM Group
 
@@ -281,6 +281,8 @@ A DM group between a regulated Space member and a participant who has no Space a
 If a regulated member is offline when added to a DM group by another member, the compliance logger addition and disclosure notice MUST be performed by the regulated member's client when they next come online and process the pending MLS Welcome, before their client sends any application messages in the group.
 
 Clients MUST queue the logger addition and disclosure as the first operations to perform on a pending DM group join, ahead of any queued outbound messages. If the client has queued outbound messages (e.g., drafted while offline), those messages MUST NOT be sent until the logger admission commit has been completed and acknowledged.
+
+**Message requests.** A DM group that a regulated member's client holds in the message request state (§4.6.3) is still subject to this section. When the client processes the Welcome, it MUST perform the logger admission of §7.8.2 and send the disclosure notice of §7.8.4 at once, without waiting for the user to accept the request. To do so it authenticates to the group's admission host, replaces the group's member list there so that it includes the logger (§4.6), obtains the admission key and fetches the group's handshake messages; for a regulated member these steps are part of capture and are not deferred until acceptance. The request state suppresses only what §4.6.3 lists for the user's own presentation and signals: notifications beyond the request list, read receipts, typing indicators and the user's own application messages. The adder can therefore see that the regulated member's client has processed the Welcome. Declining or blocking the request does not remove the logger (§7.8.3).
 
 ### 7.8.8 Audit Trail
 
@@ -337,6 +339,7 @@ The following table summarizes the conformance requirements for DM group complia
 | Re-add logger if removed by another member | Regulated member's client | MUST |
 | Notify Space admin of logger removal attempt | Regulated member's client | MUST |
 | Queue logger addition before queued outbound messages on deferred join | Regulated member's client | MUST |
+| Admit logger and send disclosure while the DM is a message request | Regulated member's client | MUST |
 | Publish `DMComplianceAuditEntry` to Space IPLD chain | Compliance logger | MUST |
 | Publish `KeyPackageEndpoint` in logger DID document | Compliance logger operator | MUST |
 | Provide fresh (non-reused) KeyPackage per request | Compliance logger operator | MUST |

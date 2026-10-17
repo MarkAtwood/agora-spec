@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.92",
   "title": "[EXA-19] Smaller example and definition mismatches",
   "description": "Review finding EXA-19: Smaller example and definition mismatches (lens EXA). Location: spec/02-identity.md:107; spec/07-compliance.md:267; spec/14-jmap.md:111, 132, 158; spec/10-relays.md:55, 213; spec/13-encoding.md:76; spec/09-interop.md:121, 147. Fix: All seven sub-points check out. Two corrections:\n  - 07:267: name the signer as `loggerDID`, not `admittedBy`. 07:276 and 07:299 make the logger the writer of the compliance audit chain.\n  - MXID: `@agora_\u003cdid-fragment\u003e` fails even for `did:key`. Matrix localparts must be lowercase (`a-z0-9._=-/+`), and `z6Mk...` contains uppercase letters. Use a lowercase base32 encoding of a hash of the full DID.\n  - 10:55 is resolved together with EXA-7. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:45.751800158Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:45.751800158Z",
+  "updated_at": "2026-10-17T06:54:18.659270636Z",
+  "closed_at": "2026-10-17T06:54:18.659270636Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/02-identity.md §2.3 UserProfile did:webvh alice; 07-compliance.md §7.8.8 l.301 signed by loggerDID; 14-jmap.md §14.3.2 `after` in JmapSet body; §14.4.1 sequencer endpoint /v1/agora/seq + 13-encoding.md registry row; no causalRefs; relay examples use did:web; 13-encoding.md §13.1.1 step 3 did:we",
   "labels": [
     "review",
     "exa"

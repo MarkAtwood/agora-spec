@@ -1,3 +1,4 @@
 {"id":"01a14868-a9d3-703b-99b1-5dec50694943","issue_id":"agora-pozi.31.11","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:49:41.203015988Z"}
 {"id":"01a14868-a9d5-7290-8128-bbfa7e999f8c","issue_id":"agora-pozi.31.11","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:49:41.205168546Z"}
 {"id":"01a14868-a9d7-7319-89b7-d02914d47d31","issue_id":"agora-pozi.31.11","event_type":"label_added","actor":"agent","comment":"Added label: clm","created_at":"2026-10-17T05:49:41.207203561Z"}
+{"id":"01a148a3-c359-7375-97a6-0d64df29d435","issue_id":"agora-pozi.31.11","event_type":"closed","actor":"agent","old_value":"","new_value":"FIXED per notes/review/reconciliation.md: ARCHITECTURE.md §7 l.331 \"Resolved: §8 Q2\"; spec/11-transport.md §11.8 l.364 cites \"ARCHITECTURE S1, §7 item 4\"","created_at":"2026-10-17T06:54:14.361227306Z"}

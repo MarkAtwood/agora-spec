@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.52",
   "title": "[IMP-11] Member and device authentication to CO services is unspecified",
   "description": "Review finding IMP-11: Member and device authentication to CO services is unspecified (lens IMP). Location: spec/03-spaces.md:184; spec/05-messaging.md:204; spec/06-calls.md:214; spec/02-identity.md:320-336; spec/14-jmap.md:216. Fix: As proposed. The only RFC 9421 profile is relay-to-relay (10:165-183), and Q2 removed DID login only for relays. Nothing covers CO services. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:43.493650065Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:43.493650065Z",
+  "updated_at": "2026-10-17T06:54:16.62297928Z",
+  "closed_at": "2026-10-17T06:54:16.62297928Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Decision implemented: spec/03-spaces.md §3.5 Member Authentication (POST \u003cservice\u003e/auth with signed urn:agora:type:MemberAuth, ts ±300 s, 600 s replay cache, ≤1 h bearer token; invite/inviteToken for invitees); used by Space endpoint, TURN, invite service, DM admission host, gated KeyPackage hosts",
   "labels": [
     "review",
     "imp"

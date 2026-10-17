@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.140",
   "title": "[CRY-7] The shared epoch access key signs several structures with no domain separation; the SFU ad",
   "description": "Review finding CRY-7: The shared epoch access key signs several structures with no domain separation; the SFU admission proof is undefined and replayable (lens CRY). Location: spec/06-calls.md:111, spec/06-calls.md:119, spec/05-messaging.md:203, spec/05-messaging.md:206, spec/05-messaging.md:368. Fix: Split the finding. (a) The SFU proof is undefined (P2). 06:111 says the client \"presents the MLS-membership access proof\", and 06:119 says it \"uses the epoch access proof (§5.2.2)\". But §5.2.2 defines only envelope signatures, with no challenge, so whatever is presented is either a replayable gossiped envelope or an undefined signature over SFU-chosen bytes. Defining the proof as a signature over a context string, the SFU DID, a fresh SFU nonce and the `channelToken` closes both. This is a text gap, not something only the agora-pozi.8 external review can settle. (b) Domain separation (P3 on its own). No concrete cross-structure collision can be shown, because none of the signed structures has a defined encoding yet (see CRY-8). Distinct context prefixes are still the right fix and cost nothing once CRY-8 defines encodings. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:25.402195912Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:25.402195912Z",
+  "updated_at": "2026-10-17T06:54:21.080212994Z",
+  "closed_at": "2026-10-17T06:54:21.080212994Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/06-calls.md §6.6 SFU Signaling Protocol l111-176 challenge/join: sfu-admission with ctx \"agora sfu admission\", SFU DID, fresh 30 s single-use nonce, channelToken/keyEpoch signed by admission key; domain separation contexts listed in spec/13-encoding.md registry l159-161 (agora/envelope/v1 vs ag",
   "labels": [
     "review",
     "cry"

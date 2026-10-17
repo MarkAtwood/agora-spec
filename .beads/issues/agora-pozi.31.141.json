@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.141",
   "title": "[CRY-8] The routing-envelope signing input is undefined, `id` is circular, and the \"ts not authent",
   "description": "Review finding CRY-8: The routing-envelope signing input is undefined, `id` is circular, and the \"ts not authenticated\" claim is wrong (lens CRY). Location: spec/05-messaging.md:181-196, spec/05-messaging.md:204, spec/05-messaging.md:313, spec/10-relays.md:673. Fix: 13:9 says \"Agora computes no canonical form\", yet 05:206 signs \"the routing envelope with `accessSig` omitted\", which is a JSON object (05:181-191) with no byte encoding, so no two implementations produce the same input. 05:204 says `billingSig` is \"signed per §13.1.1 over the announcement with `billingSig` omitted\", but §13.1.1 signs an envelope `body` (13:49, 13:68), and the announcement is not one. `id` is \"the CID of the canonical outer envelope\" (05:196) while also being a member of it. PoW hashes `envelopeBytes` (10:673) while `powProof` sits inside the envelope. `ts` and `expiryHint` are covered by `accessSig`, so they are authenticated to \"some current member\", contrary to 05:196 and 05:313. Fix as proposed. It is consistent with D1 (\"signatures over exact bytes\"): fixed CBOR signing input excluding `id`, `accessSig` and `powProof`; `id` computed over the signed bytes; the announcement as a typed envelope `urn:agora:type:AccessKeyAnnouncement`; corrected `ts`/`expiryHint` sentences. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:25.459177831Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:25.459177831Z",
+  "updated_at": "2026-10-17T06:54:21.134286383Z",
+  "closed_at": "2026-10-17T06:54:21.134286383Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/05-messaging.md §5.2.2 l217-247 routing envelope is CBOR with `signed` bstr signed by admissionSig over exact bytes; `id` = CID of complete encoded envelope, not carried; ts/expiryHint sentences corrected (l238); announcement/billingSig removed by admission-key decision; spec/10-relays.md §10.5",
   "labels": [
     "review",
     "cry"

@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.47",
   "title": "[IMP-6] CID computation and the Space genesis self-reference are undefined",
   "description": "Review finding IMP-6: CID computation and the Space genesis self-reference are undefined (lens IMP). Location: spec/13-encoding.md:27 (not :91); spec/01-overview.md:43; spec/99-appendices.md:12; spec/03-spaces.md:36, :49, :55. Fix: As proposed. Grep for multicodec/multihash/sha2-256/base32 finds nothing. 01:43 and 99:12 say \"dag-cbor\", but 13:21 says envelopes are non-canonical CBOR maps, so they are not valid dag-cbor. Also fix 01:43 and 99:12 to the chosen codec. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:43.215439965Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:43.215439965Z",
+  "updated_at": "2026-10-17T06:54:16.369149929Z",
+  "closed_at": "2026-10-17T06:54:16.369149929Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/13-encoding.md §13.1 \"Content identifiers\" (CIDv1, raw 0x55, sha2-256, base32 text / binary in CBOR); spec/03-spaces.md §3.3 \"id is absent from the genesis state document\"; 01:43 and 99:12 now say raw codec (no dag-cbor left). Residual wording only: 03 §3.3 opening still says \"stored as an IPLD",
   "labels": [
     "review",
     "imp"

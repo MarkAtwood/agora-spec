@@ -195,6 +195,66 @@ Binary values in Space state (`channelID`, `mlsGroupID`, `assetKey`) are unpadde
 
 `consistencyModels` is optional and maps a JMAP data type URI to the consistency model identifier the Space selects for that type, overriding the type's default (§14.2.2).
 
+The Space `name`, each channel `name` and each role `label` are text for people to read. They follow the rules of §2.3 for `displayName`: the signer stores each in the enforced form of the PRECIS Nickname profile (RFC 8266), and clients apply that profile's enforcement rule before display or comparison and isolate each string as a bidirectional run when displaying it. Clients SHOULD warn an admin who gives a channel a name confusable (Unicode Technical Standard #39) with another channel name in the Space. Channel paths follow §3.2 instead.
+
+**Field index.** The tables below list every field of a Space state document and of a channel entry, with its type and when it is present. The section named defines the field. "Base64url" means unpadded base64url (RFC 4648 §5); times are RFC 3339 UTC.
+
+| Space field | Type | Presence | Defined in |
+|---|---|---|---|
+| `@type` | `"SpaceState"` | required | §3.3 |
+| `schemaVersion` | string, `"1"` | required | §3.3 |
+| `id` | string | required, except in genesis | §3.3 |
+| `name` | string | required | §3.3 |
+| `iconCID` | CID | optional | §3.3, §3.4 |
+| `owner` | DID | required | §4.1 |
+| `guardian` | object | optional, RECOMMENDED | §3.3, §4.1 |
+| `admins` | array of `{did, scope}` | optional; absent means none | §3.3, §4.1 |
+| `members` | array of `{did, roles}` | required; omitted from the non-member view | §3.3, §4.2, §4.4 |
+| `acceptedDIDMethods` | array of strings | optional; absent means all of §2.1 | §3.3 |
+| `assetKey` | base64url, 16 bytes | required in a Space that is not public | §3.3, §3.4 |
+| `channels` | array of channel entries | required | §3.3 |
+| `roles` | array of role objects | required | §4.2 |
+| `customEmoji` | array of `CustomEmoji` | optional | §5.2.8.4 |
+| `moderationLog` | CID | absent until the first moderation entry | §4.5 |
+| `sequencer` | object `{did, endpoint}` | optional | §3.3, §14.4.1 |
+| `consistencyModels` | object | optional | §14.2.2 |
+| `mlsGroupID` | base64url | required | §3.3 |
+| `prevStateCID` | CID | required, except in genesis | §3.3 |
+| `seq` | unsigned integer | required | §3.6 |
+| `pendingTransfer` | object `{newOwner, ts}` | only while a guardian transfer is pending | §4.1 |
+| `objectedAt` | time | only in an owner's objection | §4.1 |
+| `archived` | boolean, default `false` | optional | §3.6 |
+| `deleted` | time | only in the terminal document | §3.6 |
+| `complianceLogging` | `ComplianceLoggingConfig` | optional | §7.2 |
+| `retentionNotice` | string | required while compliance logging is enabled | §7.5 |
+| `sfus` | array of `SFUDescriptor` | optional | §6.6 |
+| `turnServers` | array of `TURNDescriptor` | optional | §6.11 |
+| `sharedChannels` | array of `SharedChannelAlias` | optional | §8.5 |
+| `calendarId`, `taskListId` | JMAP Id | optional | §14.6.8, §14.6.9 |
+
+| Channel field | Type | Presence | Defined in |
+|---|---|---|---|
+| `channelID` | base64url, 16 bytes | required | §3.3 |
+| `path` | string | required | §3.2 |
+| `type` | `"text"`, `"voice"` or `"category"` | required | §3.2, §6.1 |
+| `name` | string | optional | §3.3 |
+| `mode` | `"interactive"`, `"community"` or `"broadcast"` | required on a `text` channel | §3.2 |
+| `mlsGroupID` | base64url | required on a channel that has an MLS group | §3.3 |
+| `children` | array of channel entries | `category` only | §3.2 |
+| `commitPolicy` | array of role IDs | optional; absent means any member | §4.1 |
+| `keyAccess` | `"members"` or `"public"`, default `"members"` | `broadcast` only | §3.4 |
+| `broadcasterRoles` | array of role IDs | `broadcast` only | §5.2.1.4 |
+| `speakerCap` | unsigned integer, default 200, at most 500 | `community` only | §5.2.1.2 |
+| `idleEvictDays` | unsigned integer, default 7 | `community` only | §5.2.1.2 |
+| `speakerBot` | DID | optional, `community` only | §5.2.1.2 |
+| `pinLimit` | unsigned integer, default 50 | optional | §5.2.6 |
+| `noPin` | boolean, default `false` | optional | §5.2.6 |
+| `powPolicy` | `PowPolicy` | optional | §10.5.2 |
+| `e2eeMedia` | boolean | required, `true`, on a channel that uses an SFU | §6.9 |
+| `gateways` | array of `GatewayDescriptor` | optional | §9.2 |
+| `mimiInterop` | `MIMIInteropConfig` | optional | §9.1 |
+| `archived` | boolean, default `false` | optional | §3.6 |
+
 
 ## 3.4 Space State Distribution
 
@@ -281,3 +341,28 @@ The client sends `POST <service>/auth`, where `<service>` is the service's base 
 An invitee who is not yet a member adds `invite`, the unpadded base64url of the encoded `SpaceInvite` envelope that names it (§4.3), or `inviteToken`, an open-link invite token.
 
 The service MUST verify the signature with `did` as the required signer, MUST check that `service` equals its own base URL and that `ts` is within 300 seconds of its clock, MUST reject an envelope it has accepted in the previous 600 seconds, and MUST check that `did` is a current member under the Space state it holds (for an identity host, a member of the DM group under §4.6; for the home Space endpoint of a shared channel, a guest member eligible under §8.6, which grants access to that channel's records only) or, for the Space endpoint, is named by the presented unexpired, unrevoked `SpaceInvite` or holds a valid open-link token (§4.3). On success it returns a bearer token of at least 128 random bits, valid for at most one hour, which the client sends as `Authorization: Bearer <token>` on later requests to that service.
+
+## 3.6 Space and Channel Lifecycle
+
+*Binds: CO.*
+
+**Creation.** A Space is created in this order:
+
+1. The creating client generates the Space's own MLS group under a fresh random group ID and, for each initial channel, a `channelID` and an MLS group (§3.3).
+2. The owner signs the genesis state document per §13.1.1. It MUST carry `@type`, `schemaVersion`, `name`, `owner`, `members`, `roles`, `channels`, `mlsGroupID` and `seq` set to 0; `assetKey` if the Space is not public; and `guardian` if the Space has one (§4.1). It MUST NOT carry `id` or `prevStateCID`. Every later state document has a `seq` one greater than that of the document its `prevStateCID` names, and clients MUST reject one that does not.
+3. The CO serves the genesis document at its Space endpoints (§3.4). The Space's identifier is `agora://<genesis CID>` (§3.2).
+4. The CO generates each channel's admission key and, for a `broadcast` channel, its `BroadcastKey`, and registers each admission key with its relays (§3.4, §10.5.3).
+5. Admins are granted by later state documents (§4.1), and members join by invite (§4.3).
+
+**Channel creation, rename, move and deletion.** Each is a Space state mutation signed by the owner or by an admin whose scope covers the channel's path (§3.3).
+
+- *Create.* The mutation adds a channel entry with a fresh `channelID` and, for a channel that has one, the `mlsGroupID` of a new MLS group. The CO issues the channel's keys (§3.4) before members are added. Members whose roles cover the path are added as §4.2 describes, and a compliance logger as §7.2 describes.
+- *Rename or move.* The mutation changes `name` or `path` and nothing that identifies the channel: `channelID` and `mlsGroupID` stay the same, so the admission key, channel token and MLS exporter contexts are unchanged (§5.2.2). A move can change which `channelAccess` patterns, admin scopes and compliance `scope` globs match the channel. Admins then add the members the new path covers (§4.2) and Remove those it no longer covers, the CO serves keys under the new matching (§3.4), and loggers are added or removed under §7.2.
+- *Delete.* The mutation removes the channel entry. Only the home Space owner may delete a shared channel (§8.2), and the home Space SHOULD first revoke each `ChannelShareAgreement` that covers it (§8.7). On accepting the mutation, clients stop sending in the channel's group and delete its group state; they keep the messages in their own stores unless the user deletes them. The CO stops serving the channel's keys and deregisters its admission key (§10.5.3). Clients MUST reject a later state document in which a deleted channel's `channelID` appears again.
+
+**Archival.** The owner archives a Space, and the owner or an admin whose scope covers a channel archives that channel, by a mutation that sets `archived` to `true`. While a Space or channel is archived, clients MUST NOT send application messages in its groups and MUST NOT commit an Add to them, and SHOULD present it as read-only. Commits that only Remove leaves, self-Removes (§4.8) and Commits that only update the committer's own leaf remain allowed. The CO keeps serving the state and keys to members, and MAY deregister the admission keys (§10.5.3), after which members read history only from their own stores (§5.2.5). Compliance logging configuration still applies. A mutation by the same authority that sets `archived` to `false` or removes it ends the archival.
+
+**Deletion.** The owner deletes a Space by a final state document that chains on the head as usual and sets `deleted` to the time of deletion. Clients MUST reject a document carrying `deleted` that is not signed by the owner, and MUST reject any document whose `prevStateCID` names a document carrying `deleted`. Before deleting, the owner SHOULD revoke every `ChannelShareAgreement` the Space is party to (§8.7); clients of a guest Space treat a shared channel whose home Space is deleted as revoked.
+
+On accepting the deletion, clients stop sending in all of the Space's groups, delete the group state of the Space's own group and channel groups, and SHOULD show the Space as deleted. They keep the messages in their own stores unless the user deletes them. DM groups are not part of any Space and are not affected (§4.6). The CO announces the deletion like any state change (§3.4), keeps serving `/head` and the final document to members so that members who were offline learn of it, stops serving channel keys, deregisters every admission key (§10.5.3) and stops any mirroring of the Space's records. Relays drop the Space's envelopes when their retention expires (§5.2.5); no protocol message removes them sooner. Deletion does not shorten the compliance logger's retention of what it captured (§7.2) or the removal prohibition of §7.8.3.
+

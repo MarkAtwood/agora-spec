@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.78",
   "title": "[EXA-5] DM reachability relies on \"relay hints\" in the recipient's DID document, which §2 forbids",
   "description": "Review finding EXA-5: DM reachability relies on \"relay hints\" in the recipient's DID document, which §2 forbids (lens EXA). Location: spec/04-access-control.md:151, 153. Fix: The contradiction with 02:37 and 02:302 is real. The reviewer's replacement text says DM traffic flows \"under the CO's `RelayServiceAgreement`\", but a DM group has no CO. 04:116 says \"DM groups are not owned by any Space\". Relays admit only envelopes on a chain registered by a CO registration service (05:203, 10:612), and every announcement needs `billingSig` (05:204). Nothing in spec/ or ARCHITECTURE says who registers and countersigns a DM group's access chain. Delete the relay-hint text either way, and also fix `did:web:agency.example` (EXA-4). Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:44.947764109Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:44.947764109Z",
+  "updated_at": "2026-10-17T06:54:17.961504363Z",
+  "closed_at": "2026-10-17T06:54:17.961504363Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/04-access-control.md §4.6 \"Admission key and relays\": DM initiator's identity host issues/registers admission key and serves it with relay list via agora_admission_host (decision B); no relay-hint text, no did:web:agency.example remains",
   "labels": [
     "review",
     "exa"

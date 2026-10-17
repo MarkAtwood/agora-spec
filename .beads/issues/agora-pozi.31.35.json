@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.35",
   "title": "[SEP-8] IOs other than relays (TURN, SFU, sequencer) have no S7 binding, and the sequencer ignores",
   "description": "Review finding SEP-8: IOs other than relays (TURN, SFU, sequencer) have no S7 binding, and the sequencer ignores the §6.2 proof (lens SEP). Location: spec/06-calls.md:110, 212; spec/14-jmap.md:166, 171, 178, 193; vs ARCHITECTURE.md:116-119 (S7). Fix: As proposed. One more concrete failure: the closing rule (14:178) reads `after` from \"the operation at position 0 of a new epoch's stream\". The sequencer \"does not authenticate submitters\" (14:166), so a non-member who saw the token can take position 0, and members skip that op at decryption (14:173), which leaves the closing head undefined. Requiring `accessSig` at the sequencer fits D2 (\"Sequencer reads nothing\"), because verifying the proof reads no content. 14:193's Space association holds only for Spaces whose state the operator can see (public Spaces, which are CO publications). Reword it rather than call it a §5 violation. Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:42.543992921Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:42.543992921Z",
+  "updated_at": "2026-10-17T06:54:15.60643048Z",
+  "closed_at": "2026-10-17T06:54:15.60643048Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/10-relays.md §10.5.1 serviceType relay/sfu/sequencer/turn/push-proxy; §10.5.4 SFUs and sequencers admit by same rule; spec/14-jmap.md §14.4.3 sequencer verifies admissionSig (bad-admission-sig); spec/06-calls.md §6.11 TURN agreement; ARCHITECTURE.md S7 covers all IO types",
   "labels": [
     "review",
     "sep"

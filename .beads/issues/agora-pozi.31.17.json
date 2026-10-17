@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.17",
   "title": "[GAP-5] Member exit flows are missing (leave Space, leave channel or DM, delete account)",
   "description": "Review finding GAP-5: Member exit flows are missing (leave Space, leave channel or DM, delete account) (lens GAP). Location: spec/07-compliance.md:231; spec/02-identity.md:426; spec/04-access-control.md:20, 88-96; spec/14-jmap.md:61. Fix: As proposed. Self-Remove is mentioned only at 07:231 and 02:426, and neither text says who commits it. The spec has no Space-leave operation and no account deactivation (\"deactivat\" hits only 02:254, which is about the org's revocation authority). The missing member list is the same missing field as in GAP-4, so fix them together. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:41.555420611Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:41.555420611Z",
+  "updated_at": "2026-10-17T07:01:50.184276573Z",
+  "closed_at": "2026-10-17T07:01:50.184276573Z",
+  "close_reason": "Fixed in remaining-items pass 2026-10-17",
   "labels": [
     "review",
     "gap"

@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.142",
   "title": "[CRY-9] Cross-epoch unlinkability claims contradict the chain-following design (and ARCHITECTURE §",
   "description": "Review finding CRY-9: Cross-epoch unlinkability claims contradict the chain-following design (and ARCHITECTURE §5) (lens CRY). Location: spec/10-relays.md:518, spec/12-security.md:34, spec/12-security.md:40, spec/12-security.md:46, spec/05-messaging.md:133, spec/05-messaging.md:216. Fix: 05:203 says \"The relay thereby follows the chain from token to token\". ARCHITECTURE §5 item 6 lists \"which access-key chains (§6.2) are registered under each agreement\" as within the IO budget. Yet 10:518 says a relay \"cannot correlate them without also capturing the epoch secrets\", and 12:34 says it cannot \"Map routing tables across epochs\". Both are false. 05:216 claims the wrapper hides \"epoch boundaries and which messages are Commits\", but the routing envelope carries `epoch` in clear (05:186), and the announcement rides on the envelope carrying the Commit (05:203). 05:133 (\"tokens of different key epochs are unlinkable\") is false for broadcast because of 05:136. Rewrite as proposed: chains are linkable but not mappable to a channel or Space; epoch numbers and Commits are visible; the wrapper hides `group_id`, `content_type` and sender data. Remove or qualify the decoy rationale at 12:46. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:25.514997536Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:25.514997536Z",
+  "updated_at": "2026-10-17T06:54:21.188944172Z",
+  "closed_at": "2026-10-17T06:54:21.188944172Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Claims rewritten for admission-key design: spec/12-security.md §12.3 l31/l39 (may link key epochs of one channel, cannot map to channel/Space), §12.4 l46 (Commits visible via commitStamp under sequencer), l51 decoy rationale replaced; spec/05-messaging.md §5.2.2 l279/l283; no \"unlinkable\"/\"cannot co",
   "labels": [
     "review",
     "cry"

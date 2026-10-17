@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.2",
   "title": "[CLM-2] Relay-side push registrations and `pushUrgency` are outside the observation budget",
   "description": "Review finding CLM-2: Relay-side push registrations and `pushUrgency` are outside the observation budget (lens CLM). Location: spec/11-transport.md:160, 194, 233-238; spec/12-security.md:48; ARCHITECTURE.md:161, 286-288; PRFAQ.md:31. Fix: The registration half follows from decision Q4 (\"push on by default\"; ARCHITECTURE §8 Q4 \"Push is in the §5 budget by default\"): S6 forbids observing anything outside §5, and the relay necessarily holds `channelToken → pushHandle` (11-transport.md:160), yet §5 item 7 reads \"For push proxies only\". Extend item 7 to relays serving push (per-`pushHandle` token sets and proxy endpoint), add per-handle clustering to §9 next to address clustering, and add it to the PRFAQ relay-visibility answer. No decision needed for that part. `pushUrgency` is different: Q4 says \"content-free wake-ups\" and does not cover a sender-supplied DM/mention label, and 12.4 says a Relay \"cannot distinguish them from other traffic by type\". Keeping it means a budget extension and a 12.4 exception. Dropping it makes the 12.4 claim true. Full text: notes/review/CLM-verified.md and notes/review/CLM.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:40.715926242Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:40.715926242Z",
+  "updated_at": "2026-10-17T07:01:49.794963654Z",
+  "closed_at": "2026-10-17T07:01:49.794963654Z",
+  "close_reason": "Fixed in remaining-items pass 2026-10-17",
   "labels": [
     "review",
     "clm"

@@ -19,7 +19,7 @@ The home/guest distinction governs:
 - Namespace ownership (home space owns the path)
 - Channel state mutations (home space admin signs them)
 - Compliance logging (home space's configuration applies to all members, including guests)
-- Channel deletion (only the home space owner can delete)
+- Channel deletion (only the home space owner can delete; §3.6)
 
 Guest space members have full read/write access to the channel's message stream, subject to the roles negotiated in the `ChannelShareAgreement` (§8.3). They are full MLS group members, not observers or read-only participants, unless the agreement specifies otherwise.
 

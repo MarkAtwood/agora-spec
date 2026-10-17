@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.124",
   "title": "[DOC-6] Google CAA custom-scope enforcement and Directory push details are stated as fact and are ",
   "description": "Review finding DOC-6: Google CAA custom-scope enforcement and Directory push details are stated as fact and are likely wrong (lens DOC). Location: profiles/gsuite-employer-did.md:93, :97, :101, :417, :448-451. Fix: Google's Directory API push guide lists user watch events `add`, `delete`, `makeAdmin`, `undelete` and `update`. The resource state is `sync` or the event name, not `exists`/`not_exists`. The guide gives no 7-day channel maximum: expiration is \"the more restrictive\" of the requested value and internal limits. Correct :101 accordingly and make :93/:97 renew on the returned `expiration` rather than a fixed 7 days. I found no Google documentation that lets a GCP project define a custom OAuth scope that CAA gates (Google issues only Google-defined API scopes). Replace :417 and :448-451 with Workspace-level 2SV/security-key enforcement for the enrollment OAuth client, or hedge them as \"verify against current Google documentation\". This ties to DOC-4's decision. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:47.637128646Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:47.637128646Z",
+  "updated_at": "2026-10-17T06:54:20.229352875Z",
+  "closed_at": "2026-10-17T06:54:20.229352875Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: profiles/gsuite-employer-did.md:98 (expiration = more restrictive of requested and Google limits, renew on returned value), :102 (resource state `sync` or add/delete/makeAdmin/undelete/update), :446 \"No custom OAuth scope\", :448 CAA hedged \"verify against current Google documentation\"",
   "labels": [
     "review",
     "doc"

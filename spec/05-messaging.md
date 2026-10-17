@@ -313,7 +313,7 @@ The body of a new `Message` carries the fields that the JMAP Chat federation spe
 - `senderMsgId` is the sender-assigned ULID and identifies the Message to every member. Every cross-member reference to a Message (`replyTo`, `threadRootId`, edit, deletion and reaction targets, `pinnedMessageIds`) uses its `senderMsgId`.
 - `chatId` and the sender are not carried. The Chat is the channel or DM group whose MLS group carried the envelope, and the sender is the MLS sender.
 - Each member's client or daemon keeps the Message in its own JMAP store and sets the server-set fields there: `id`, `senderId` (the sender's DID, or `"self"`), `receivedAt` and the delivery fields.
-- An attachment's `blobId` is the CID of the file stored as a group-encrypted blob (§3.4); `fetchUrl` is not used. `sha256` is a hash of the plaintext and MUST NOT be sent to any IO.
+- An attachment's file is stored as a content-key blob (§14.3.4). The `Attachment` carries the random per-attachment key in its `contentKey` member, an Agora extension of the JMAP Chat `Attachment`, and its `blobId` is the CID of the ciphertext; `fetchUrl` is not used. `size` and `sha256` describe the plaintext file. `contentKey` and `sha256` travel only inside the encrypted Message and MUST NOT be sent to any IO.
 
 A receiving client performs the checks that the JMAP Chat federation specification assigns to a receiving server (New Message Validation, Edit and Reaction Validation), evaluating membership, bans and permissions against current signed Space state (§3.3).
 
@@ -351,7 +351,7 @@ These types have no JMAP Chat equivalent and are defined by this specification:
 | `urn:agora:type:SpaceStateHead` | Notice of a new Space state head CID (§3.4) |
 | `urn:agora:type:IdentityChanged` | Notice, sent by a user to each of its groups, that its DID document or display profile has changed; members re-resolve the sender's DID and profile (§2.1, §2.3). The body is an empty JSON object; the MLS sender identifies the user |
 | `urn:agora:type:ClientCapabilities` | Ephemeral per-device list of renderable body types (§5.2.7.4) |
-| `urn:agora:type:SystemEvent` | Protocol-level event (member join, role change, gateway added (§9.3), etc.) |
+| `urn:agora:type:SystemEvent` | Protocol-level event named by its `event` member; this specification defines only `gateway-added` (§9.3) |
 | `urn:agora:type:VoiceSignal` | WebRTC SDP offer/answer/ICE candidate, targeted to a specific DID (§6.4) |
 | `urn:agora:type:ParticipantState` | Ephemeral call presence (joined/left, muted, video on/off, screen share) (§6.2) |
 | `urn:agora:type:RecordingGrant` | Authorization and disclosure record admitting a CO-run recorder to a call (§6.12) |

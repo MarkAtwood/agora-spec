@@ -1,3 +1,4 @@
 {"id":"01a14868-ba02-7d40-bbc3-767536a33246","issue_id":"agora-pozi.31.85","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:49:45.346869003Z"}
 {"id":"01a14868-ba05-709b-9f44-7c7f189b42ec","issue_id":"agora-pozi.31.85","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:49:45.349040255Z"}
 {"id":"01a14868-ba07-70f9-8128-705ba7391023","issue_id":"agora-pozi.31.85","event_type":"label_added","actor":"agent","comment":"Added label: exa","created_at":"2026-10-17T05:49:45.35106419Z"}
+{"id":"01a148a3-d2e8-768e-9af5-ca540b62d57a","issue_id":"agora-pozi.31.85","event_type":"closed","actor":"agent","old_value":"","new_value":"FIXED per notes/review/reconciliation.md: spec/13-encoding.md §13.1 example: caption \"with body shown as hex\", body h'7b2273656e6465724d73674964223a...' ({\"senderMsgId\":)","created_at":"2026-10-17T06:54:18.34443022Z"}

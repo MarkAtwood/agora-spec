@@ -9,7 +9,7 @@
 
 Agora uses a three-tier authority model. Each tier's permissions are enforced cryptographically: an operation not signed by a key with the required authority MUST be rejected by conformant clients. Relays do not evaluate Space authority; their only access control is the channel admission key (§5.2.2, ARCHITECTURE §6.2).
 
-**Space Owner:** holds the signing key for the Space state document. The Space Owner has sole authority to transfer or delete the space, grant or revoke the Admin role (`admins`, §3.3), set `guardian`, and sign Space state mutations affecting top-level structure. There is exactly one Space Owner at any time. Ownership transfer is executed via a signed `SpaceState` mutation that replaces the `owner` DID, signed by the current owner, or by the guardian procedure below.
+**Space Owner:** holds the signing key for the Space state document. The Space Owner has sole authority to transfer, archive or delete the space (§3.6), grant or revoke the Admin role (`admins`, §3.3), set `guardian`, and sign Space state mutations affecting top-level structure. There is exactly one Space Owner at any time. Ownership transfer is executed via a signed `SpaceState` mutation that replaces the `owner` DID, signed by the current owner, or by the guardian procedure below.
 
 A Space run by an organization, whether a CO serving a community or an enterprise, SHOULD have as owner a service DID of that organization (for example `did:webvh:...:example.com:agora:spaces`), not the personal DID of an employee, so that the organization's key custody and recovery (§2.5) cover the Space and staff changes do not require a transfer.
 
@@ -23,7 +23,7 @@ If an objection and a completion both chain on the same document, the objection 
 
 **Channel/Space Admin:** a role granted by the owner and recorded in `admins` in the Space state document (§3.3). Admins can sign Space state mutations within their granted scope, issue invites, execute moderation operations within channels they administer, and add or remove members from channel MLS groups within their scope.
 
-**MLS Group Committer:** by default, any current MLS group member may issue Commit messages (RFC 9420 default). Space operators MAY restrict Commit authority with a `commitPolicy` field in the channel entry: a list of role IDs whose holders may commit. Restricting commits to a smaller set is recommended for large public channels to reduce competing Commits. A `commitPolicy` does not restrict a Commit that only updates the committer's own leaf (§5.2.1.3) or that is an own-device Add (§2.6). When two Commits target the same epoch, the canonical-Commit rule decides which one stands (§5.1.1): the one the Space's sequencer stamps first, or, with no sequencer, the lowest-hash rule. Clients discard the losing Commit and its committer re-proposes in the new epoch.
+**MLS Group Committer:** by default, any current MLS group member may issue Commit messages (RFC 9420 default). Space operators MAY restrict Commit authority with a `commitPolicy` field in the channel entry: a list of role IDs whose holders may commit. Restricting commits to a smaller set is recommended for large public channels to reduce competing Commits. A `commitPolicy` does not restrict a Commit that only updates the committer's own leaf (§5.2.1.3), that is an own-device Add (§2.6), or whose only proposals are self-Removes (§4.8). When two Commits target the same epoch, the canonical-Commit rule decides which one stands (§5.1.1): the one the Space's sequencer stamps first, or, with no sequencer, the lowest-hash rule. Clients discard the losing Commit and its committer re-proposes in the new epoch.
 
 ## 4.2 Space Roles
 
@@ -207,8 +207,10 @@ Users who need a persistent, named, multi-party private conversation with Space-
 A client MUST hold a DM group in a **message request** state when the member who added the user is not an accepted sender. An accepted sender is a DID the user has accepted a request from, has started a DM with, or has marked as a contact. While a group is in the request state the client:
 
 - MUST NOT notify the user beyond an unobtrusive request list;
-- MUST NOT send read receipts, typing indicators or any other message to the group;
-- MUST NOT authenticate to the group's admission host or fetch the group's messages until the user accepts; the request shows the adder and the members named in the Welcome's ratchet tree.
+- MUST NOT send read receipts, typing indicators or any other message to the group, except as a regulated member's client below;
+- MUST NOT authenticate to the group's admission host or fetch the group's messages until the user accepts, except as a regulated member's client below; the request shows the adder and the members named in the Welcome's ratchet tree.
+
+**Regulated members.** The request state MUST NOT suppress compliance capture. The client of a regulated member (§7.8.1) MUST process the Welcome and perform the logger admission and disclosure of §7.8.2 and §7.8.4 while the group is in the request state, as for a deferred join (§7.8.7). To do so it authenticates to the group's admission host, fetches the group's messages so that it follows the group's epochs, commits the logger's Add, sends the updated `DMGroupDescriptor` and the `ComplianceDisclosureNotice`, and re-adds a removed logger (§7.8.3). Those are the only messages it sends to the group before the user accepts. Only notification, read receipts, typing indicators and display of the group's messages remain suppressed until the user accepts. On decline or block, the client deletes the group state as below; the logger keeps what it has captured under its retention (§7.2).
 
 The user accepts, declines or blocks. On accept, the client adds the sender to its accepted senders and treats the group as any other. On decline, the client deletes the group state and sends nothing. On block, the client also adds the sender's DID to the user's block list, and later Welcomes whose adder is blocked are discarded without notice. The block list and accepted senders are kept locally and synchronized among the user's devices in the self-group (§2.6).
 
@@ -244,6 +246,23 @@ Each item gives the CID of the routing envelope (§5.2.2), the DID of its MLS se
 
 **Open-link joins.** The CO's invite endpoint MUST rate-limit open-link token resolution per network address and per token, and MAY require a proof of work in the format of §10.5.2 from the requester before resolving a token, for example when join requests exceed a rate the CO sets.
 
+## 4.8 Leaving
+
+**Self-Remove.** A self-Remove proposal is an MLS Remove proposal, sent as a standalone proposal message, whose removed leaf's credential names the proposer's DID. RFC 9420 §12.2 does not let a Commit remove its committer, so another member commits it. A client leaves a group as follows:
+
+1. It sends a self-Remove proposal for its own leaf and, when the user is leaving rather than retiring one device (§2.5.5), for every other leaf of the user's DID in the group.
+2. It sends no further application messages in the group.
+3. It keeps its group state until it processes a Commit that removes its leaf, re-sending its proposals in each new epoch in which it is still a member, and then deletes the group state.
+
+A member other than a passive member (§5.2.1.3) that receives a self-Remove proposal MUST commit it before sending any further application message in that group, so that nothing it sends is readable by the leaver. Committing a self-Remove needs no Space admin authority (§4.1) and no consent (§4.6.1), and a `commitPolicy` does not restrict it (§4.1). Competing Commits are resolved by the canonical-Commit rule (§5.1.1). A self-Remove never removes a compliance logger, and §7.8.3 still applies to loggers.
+
+**Leaving a DM group.** A member leaves a DM group by the self-Remove procedure. The committer sends the updated `DMGroupDescriptor` and replaces the member list at the admission host by `DMMembers`, which rotates the admission key (§4.6). When no member remains other than one DID and compliance loggers, the group has ended: that member's client SHOULD tell the user and MAY delete its group state.
+
+**Leaving a channel.** A member leaves a Space channel by the self-Remove procedure in that channel's group. Space state does not change: the member's roles still permit it to read the channel (§4.2), and an admin MAY add it again at its request.
+
+**Leaving a Space.** A member leaves a Space by leaving every group of the Space it belongs to, the Space's own group (`mlsGroupID`, §3.3) last. A Commit in the Space's own group whose self-Removes cover every leaf of a member DID is that member's notice of leaving. The CO MUST then publish Space state, signed by the owner or by an admin whose scope is `["*"]`, that removes the DID from `members` (§3.3), and an admin Removes any of the DID's leaves that remain in the Space's channel groups. The CO stops serving that DID the Space's state and channel keys and rotates the keys it served it (§3.4), as for any removal it authorizes. Leaving creates no moderation record; the former member can rejoin only by a new invite (§4.3).
+
+**Deleting an account.** A user who deletes an account leaves every Space and group by this section first (§2.8).
+
 
 ---
-

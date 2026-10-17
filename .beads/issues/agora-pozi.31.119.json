@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.119",
   "title": "[DOC-1] VC revocation is presented as an access-revocation fast path, but MLS membership is the on",
   "description": "Review finding DOC-1: VC revocation is presented as an access-revocation fast path, but MLS membership is the only access control (lens DOC). Location: profiles/o365-employer-did.md:17, :29, :458, :480; profiles/gsuite-employer-did.md:119, :260, :262-271, :513; ARCHITECTURE.md:191. Fix: As proposed. ARCHITECTURE.md:191 says \"Membership in the MLS group is the only access control.\" No spec section checks a VC per message or per epoch: `grep -i \"verifiable credential|EmployeeCredential\"` over spec/ returns nothing. o365:480 (Action C) already says MLS Remove is what stops decryption. Reword o365:17, :29 and gsuite:119, :260 so that VC revocation blocks only future admissions (o365 §4.3), and the Action C / Phase 1 MLS Remove is the access cut-off. Delete the o365:458 MUST. gsuite:513 is a row about speed. Relabel it \"admission block speed\" rather than an access-revocation row. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:47.339714497Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:47.339714497Z",
+  "updated_at": "2026-10-17T06:54:19.964293586Z",
+  "closed_at": "2026-10-17T06:54:19.964293586Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: profiles/o365-employer-did.md:17,29-30 (VC revocation blocks future admissions; access cut-off = MLS Remove), :492 Action C \"the access cut-off\"; profiles/gsuite-employer-did.md:261,267 (MLS Remove is access cut-off), :509 relabeled \"Admission block speed\"; per-message VC MUST removed (only admissio",
   "labels": [
     "review",
     "doc"

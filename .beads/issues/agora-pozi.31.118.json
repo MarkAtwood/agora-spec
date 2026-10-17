@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.118",
   "title": "[CON-26] Exporter and KDF label inventory: all unique, naming style inconsistent",
   "description": "Review finding CON-26: Exporter and KDF label inventory: all unique, naming style inconsistent (lens CON). Location: spec/04-access-control.md:125; spec/06-calls.md:160; spec/13-encoding.md (no registry). Fix: The inventory is accurate (re-grepped). Mixed hyphen/space style alone is cosmetic: the labels are opaque byte strings and cause no interop problem, so do not renormalize for style alone. The substantive part is adding a label registry table to §13 to prevent future collisions. The DM empty-context issue is CON-1's. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:47.255429946Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:47.255429946Z",
+  "updated_at": "2026-10-17T06:54:19.906297785Z",
+  "closed_at": "2026-10-17T06:54:19.906297785Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Derivation label registry added with collision rule and style-carries-no-meaning statement (spec/13-encoding.md §13.3); DM empty-context gone (group_id context)",
   "labels": [
     "review",
     "con"

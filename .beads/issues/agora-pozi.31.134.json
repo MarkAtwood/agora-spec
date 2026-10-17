@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.134",
   "title": "[CRY-1] No canonical-Commit rule, and the countersignature does not prevent the lockout it was add",
   "description": "Review finding CRY-1: No canonical-Commit rule, and the countersignature does not prevent the lockout it was added for (lens CRY). Location: spec/05-messaging.md:23, spec/05-messaging.md:203-205, spec/04-access-control.md:16, ARCHITECTURE.md:194-201. Fix: (a) RFC 9420 §14 (rfc9420.txt:5207) says: \"Applications MUST have an established way to resolve conflicting Commit messages for the same epoch\", and (5219-5221) the Welcome \"MUST NOT be delivered to a new joiner until it's clear that the Commit has been accepted\". The only ordering text is 05:23 (\"Relays MAY provide sequence attestations\"), which is optional and is not a conflict rule. `commitPolicy` (04:16) is a MAY and only \"recommended\" for large channels. The §14.4 sequencer orders JMAP operations, not Commits. (b) 05:204 gates countersigning on \"a DID it authenticates as a current member of the channel under Space state, and at most one announcement per chain and `epoch`\". The service cannot derive the exporter value, so any current member, including one whose Remove has not yet reached Space state, can claim epoch N+1 with a key only it knows. The \"one per epoch\" rule then locks out the legitimate committer. That is the lockout the sentence says the countersignature prevents. This does not attack Q1. Q1 chose countersigning, and the finding is that the text's version of it does not deliver Q1's stated purpose (\"closes removed-member forgery race\"). The proposed fix stands: th Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:25.036617657Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:25.036617657Z",
+  "updated_at": "2026-10-17T06:54:20.761624474Z",
+  "closed_at": "2026-10-17T06:54:20.761624474Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Decision B implemented: spec/05-messaging.md §5.1.1 l25-30 Canonical Commit rule (sequencer stamp via commitStamp, else lowest envelope id within 5 s; Welcome withheld until won); exporter access keys/announcements/countersignature replaced by CO-issued ChannelAdmissionKey (§5.2.2 Channel Admission ",
   "labels": [
     "review",
     "cry"

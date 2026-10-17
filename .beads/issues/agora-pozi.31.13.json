@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.13",
   "title": "[GAP-1] No way to bring a live group onto a new relay (S5 has no mechanism)",
   "description": "Review finding GAP-1: No way to bring a live group onto a new relay (S5 has no mechanism) (lens GAP). Location: ARCHITECTURE.md:106-109; spec/10-relays.md:612-624; spec/05-messaging.md:203; spec/02-identity.md:302; spec/04-access-control.md:151; spec/12-security.md:36. Fix: As proposed. I found no relay-set, migration or history-import text: \"migrat\" hits only the managed/SaaS DNS paragraph (10-relays:19), and `relayHints` exists only in public SpaceAds (10-relays:284) and ChannelShareAgreement (08-cross-space:103). More evidence: 04-access-control:151 tells senders to use relays \"discoverable from the recipient's DID document relay hints\", but 02-identity:302 forbids DID documents from naming relays, so DMs also have no relay-discovery path. ARCHITECTURE §9 already contemplates \"A Space that publishes its relay list\", so a CO-signed relay set fits the architecture. Registering mid-chain is an extension of Q6's \"AccessChainRegistration of first-epoch access keys\". Its trust matches the per-epoch `billingSig`, but Mark should confirm it because it changes recorded wording. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:41.339928921Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:41.339928921Z",
+  "updated_at": "2026-10-17T06:54:14.421869921Z",
+  "closed_at": "2026-10-17T06:54:14.421869921Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Decision B implemented: spec/10-relays.md §10.3.5 Channel Relay Lists (\"Changing Relays\": CO registers current keys then edits `relays`; S5) + per-type relay discovery incl. DMs via initiator's identity host; spec/05-messaging.md §5.2.2 Channel Admission (CO-issued admission key, registered with eve",
   "labels": [
     "review",
     "gap"

@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.89",
   "title": "[EXA-16] Pkarr record examples disagree with each other and with the no-relay rule",
   "description": "Review finding EXA-16: Pkarr record examples disagree with each other and with the no-relay rule (lens EXA). Location: spec/10-relays.md:465, 476. Fix: As the reviewer proposed. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:45.583317318Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:45.583317318Z",
+  "updated_at": "2026-10-17T06:54:18.504713836Z",
+  "closed_at": "2026-10-17T06:54:18.504713836Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/10-relays.md §10.3.4.6: _profile._agora value \"Bare CID (no scheme)\"; lookup step 4 \"use the profile CID or KeyPackage endpoint\"; 02-identity.md §2.1 l.38 matches",
   "labels": [
     "review",
     "exa"

@@ -1,3 +1,4 @@
 {"id":"01a1486b-2e39-726c-b88d-f4e578e6f8a7","issue_id":"agora-pozi.31.153","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:52:26.169159259Z"}
 {"id":"01a1486b-2e3b-7600-ade0-b800d074994a","issue_id":"agora-pozi.31.153","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:52:26.171393802Z"}
 {"id":"01a1486b-2e3d-772d-a6f6-58efe19dfc56","issue_id":"agora-pozi.31.153","event_type":"label_added","actor":"agent","comment":"Added label: cry","created_at":"2026-10-17T05:52:26.173470933Z"}
+{"id":"01a148aa-ba44-726d-9220-7087f76c0ce0","issue_id":"agora-pozi.31.153","event_type":"closed","actor":"agent","old_value":"","new_value":"Fixed in remaining-items pass 2026-10-17","created_at":"2026-10-17T07:01:50.788159891Z"}

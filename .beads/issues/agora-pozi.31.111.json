@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.111",
   "title": "[CON-19] Wrong or stale cross-references",
   "description": "Review finding CON-19: Wrong or stale cross-references (lens CON). Location: spec/02-identity.md:285; spec/10-relays.md:120; spec/11-transport.md:260; spec/12-security.md:56, :132; spec/08-cross-space.md:3; spec/13-encoding.md:32. Fix: Apply the reviewer's fixes. Each was checked: §10.3 is Discovery; ARCH has no §5.3, and the relay JMAP item is §7 item 4; Q2 is ARCH §8; the helpdesk path is 02:471 in §2.5.8; 08:3 vs 08:6; there is no `PresenceEvent` type. For 12:56, ARCH §7 item 9 also fits. Separately, 02:285 has a provisioning service \"publish DID document updates\" to gossip, a role §10.3 does not define. Changing the reference alone leaves that claim unsupported, so consider deleting the bullet. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:46.858670664Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:46.858670664Z",
+  "updated_at": "2026-10-17T06:54:19.645095556Z",
+  "closed_at": "2026-10-17T06:54:19.645095556Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: 02 gossip bullet removed, identity records never gossiped (spec/02-identity.md :537); 10 operator text cites only §12.3 (spec/10-relays.md :124); 11 cites ARCHITECTURE S1 §7 item 4 (spec/11-transport.md :364); 12 cites §8 Q2 (spec/12-security.md :61) and §2.5.8 (:136-139); 08 header \"Binds: both\"; P",
   "labels": [
     "review",
     "con"

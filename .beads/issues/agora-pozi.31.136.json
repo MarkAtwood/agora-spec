@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.136",
   "title": "[CRY-3] SFrame (base_key, KID, CTR) uniqueness is not guaranteed across streams or restarts; RFC 9",
   "description": "Review finding CRY-3: SFrame (base_key, KID, CTR) uniqueness is not guaranteed across streams or restarts; RFC 9605 §5.2 is misdescribed (lens CRY). Location: spec/06-calls.md:160, spec/06-calls.md:410. Fix: The core defect is real. RFC 9605 §9.1 (rfc9605.txt:1187) says: \"Applications MUST ensure that each (base_key, KID, CTR) combination is used for at most one SFrame encryption operation\". 06:160 says the KID \"is built from the leaf index and the low bits of the MLS epoch\", which reads as context ID 0 for every track. Nothing covers multiple tracks per sender or CTR loss on a reload within one epoch. Two adjustments. (1) The \"misdescribed / pre-RFC draft\" charge is overstated. RFC 9605 §5.2 itself uses the term \"sframe_epoch_secret\" (rfc9605.txt:884), and 06:160 defers to \"as RFC 9605 Section 5.2 specifies\". Only the phrase \"each sender's base key is derived from it and the sender's MLS leaf index\" is wrong: the RFC has one base_key per epoch, and per-KID keys are derived from it. Correct that one phrase. (2) RFC 9605 §9.1 makes CTR persistence conditional (\"In applications where an SFrame context might be written to persistent storage\"). So require one of two things: persist CTR per (epoch, KID) before use, or, after CTR state is lost, use a context ID not used before in that epoch (simpler than a forced Update Commit). Require a distinct context ID for each outbound track and data  Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:25.163940987Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:25.163940987Z",
+  "updated_at": "2026-10-17T06:54:20.864918705Z",
+  "closed_at": "2026-10-17T06:54:20.864918705Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/06-calls.md §6.9 l222 one base_key per epoch with per-KID derivation; l228-231 \"Nonce uniqueness\": distinct context ID per outbound track/simulcast layer, next context ID persisted durably before use, restart continues from stored value",
   "labels": [
     "review",
     "cry"

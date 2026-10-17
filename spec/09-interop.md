@@ -25,17 +25,27 @@ Agora users are identified by DID (`did:webvh`, `did:plc` or `did:key`, §2.1). 
 
 The consequence for Agora is that MIMI interop requires carrying two parallel identifiers for every user in a cross-system MLS group: the Agora DID (which has a resolution spec, a key material binding, and is used for all Agora-internal operations) and the MIMI URI (which the MIMI delivery service requires to route messages and manage room membership). There is no way to derive one from the other or collapse them into a single identifier without either Agora abandoning DIDs or MIMI adopting them.
 
-Each leaf node's credential in a MIMI-interop MLS group therefore carries both:
+Each leaf node's credential in a MIMI-interop MLS group therefore carries both. Outside MIMI interop, leaves carry the `basic` credential of §5.2.1. In a MIMI-interop group, an Agora leaf carries an `AgoraMIMICredential` instead, an MLS credential of credential type 0xF0A2, a value from the RFC 9420 private-use range (0xF000 to 0xFFFF) used until a codepoint is registered (Appendix D). In the TLS presentation language of RFC 9420:
 
-```json
-{
-  "@type": "AgoraMIMICredential",
-  "did": "did:key:z6Mk...",
-  "mimiURI": "mimi://example.com/alice"
-}
+```
+struct {
+    opaque did<V>;        /* UTF-8 bytes of the member's DID */
+    opaque mimi_uri<V>;   /* UTF-8 bytes of the member's MIMI URI */
+} AgoraMIMICredential;
+
+struct {
+    CredentialType credential_type;
+    select (Credential.credential_type) {
+        case basic:     opaque identity<V>;
+        case x509:      Certificate certificates<V>;
+        case agora_mimi: AgoraMIMICredential agora_mimi;   /* 0xF0A2 */
+    };
+} Credential;
 ```
 
-The credential is carried only inside MLS and has no object-level signature (§13.1.1); the leaf node signature, made with the Agora authentication key of `did` (§5.2.1), authenticates it. Agora clients verify the DID and that signature. MIMI clients verify the MIMI URI portion and MUST treat the `did` field as an unknown extension. The `draft-ietf-mimi-content` spec does not explicitly specify that unknown credential fields are to be ignored rather than rejected, which is a known interoperability risk. Agora implementations SHOULD monitor MIMI client behavior for strict credential validation that rejects unknown fields; if this occurs in practice, the fallback is to strip the `did` field from credentials presented to MIMI clients and maintain a side-channel mapping from MIMI URI to Agora DID in the CO's MIMI provider endpoint (see Delivery Service Bridging). This mapping MUST NOT be held by a relay.
+For example, `did` holds the bytes of `did:key:z6Mk...` and `mimi_uri` those of `mimi://example.com/alice`. The leaf's `signature_key` and any `agora_device_binding` extension follow §5.2.1 exactly, with `did` in place of the `basic` credential's `identity`; every check §5.2.1 and §5.2.1.1 make against the credential's DID uses `did`. The credential is carried only inside MLS and has no object-level signature (§13.1.1); the leaf node signature authenticates it.
+
+RFC 9420 §7.3 requires every member's leaf `capabilities.credentials` to list each credential type in use in the group, so every Agora leaf in a MIMI-interop group lists 0xF0A2, and a MIMI client can join only if it supports type 0xF0A2. Agora clients verify `did`, the signature key binding and the leaf signature. A MIMI client that supports the type verifies `mimi_uri` and need not interpret `did`. No MIMI draft defines this credential type, so MIMI clients that implement only the credential types MIMI defines will not support it; this is a known interoperability risk. Where a peer provider's clients cannot support it, the fallback is for Agora leaves to carry a `basic` credential whose `identity` is the MIMI URI, and for the CO's MIMI provider endpoint to hold the mapping from MIMI URI to Agora DID and serve it to Agora members (see Delivery Service Bridging). Agora clients then cannot check the DID binding from the leaf alone; how they obtain the mapping from that endpoint is not specified in this version. This mapping MUST NOT be held by a relay.
 
 For display purposes, neither side needs to parse the other's identifier format: MIMI URIs are rendered as opaque display strings in Agora clients, and Agora DIDs are rendered as opaque display strings in MIMI clients.
 

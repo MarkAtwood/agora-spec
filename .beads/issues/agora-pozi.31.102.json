@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.102",
   "title": "[CON-10] The pin list is `sequenced-v1` with `#Chat` bodies in §5.2.6, but §14 has no such default ",
   "description": "Review finding CON-10: The pin list is `sequenced-v1` with `#Chat` bodies in §5.2.6, but §14 has no such default and requires `JmapSet` for sequenced operations (lens CON). Location: spec/05-messaging.md:354-364; spec/14-jmap.md:61, :73, :158. Fix: Add a §14.2.3 row: `Chat.pinnedMessageIds` | `sequenced-v1` | holders of `pin`. Change §5.2.6 so pin updates are `JmapSet` patches on `Chat` carrying `after`, per §14.4.3. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:46.340782081Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:46.340782081Z",
+  "updated_at": "2026-10-17T06:54:19.172516597Z",
+  "closed_at": "2026-10-17T06:54:19.172516597Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: §14.2.3 row `Chat.pinnedMessageIds` sequenced-v1, holders of pin (spec/14-jmap.md:62); pin updates are JmapSet patches on Chat with `after`, submitted per §14.4.3 (spec/05-messaging.md §5.2.6 PinEvent and UnpinEvent)",
   "labels": [
     "review",
     "con"

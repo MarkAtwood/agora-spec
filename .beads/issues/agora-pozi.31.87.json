@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.87",
   "title": "[EXA-14] Example domains that are not example.com or example.net, including one real company domain",
   "description": "Review finding EXA-14: Example domains that are not example.com or example.net, including one real company domain (lens EXA). Location: spec/10-relays.md:221 only. Fix: Part of this finding is wrong. `.example` is an RFC 2606 reserved TLD, so `acme.example`, `turn-creds.acme.example` and `agency.example` are valid. `raw.githubusercontent.com` is deliberate: 10:317 says \"A file committed to a public GitHub repository and served via `raw.githubusercontent.com` ... is a valid directory\", and the path uses the `example` org. Only `/ipns/agora.protocol/relays/v1` remains a defect: it is an unowned name that reads as normative. Replace it with \"an IPNS name configured by the operator (e.g. `/ipns/bootstrap.example.com`)\". Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:45.459066401Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:45.459066401Z",
+  "updated_at": "2026-10-17T07:01:50.626487988Z",
+  "closed_at": "2026-10-17T07:01:50.626487988Z",
+  "close_reason": "Fixed in remaining-items pass 2026-10-17",
   "labels": [
     "review",
     "exa"

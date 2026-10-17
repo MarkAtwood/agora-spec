@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.74",
   "title": "[EXA-1] Routing envelope has no defined byte encoding, yet `accessSig`, `id` and PoW all hash or s",
   "description": "Review finding EXA-1: Routing envelope has no defined byte encoding, yet `accessSig`, `id` and PoW all hash or sign it (lens EXA). Location: spec/05-messaging.md:181-196, 05:206; spec/10-relays.md:673-681; spec/11-transport.md:54. Fix: The defect is real. No section defines the routing envelope encoding. §13.1 covers only typed payload envelopes, and the routing envelope is not one. 05:196 says \"CID of the canonical outer envelope\", which contradicts 13:9 (\"Agora computes no canonical form\"). 05:206 has accessSig cover \"the routing envelope with `accessSig` omitted\". 10:673 hashes `envelopeBytes` and then puts the nonce inside the same envelope. 11:54 has \"Relays MUST accept both JSON and CBOR\", so the same envelope can arrive as two different byte strings. The reviewer's fix is wrong in one place. \"The encoded map with `accessSig` and `powProof` removed\" still needs a re-encoding step, and §13.1 says CBOR map order and integer widths \"carry no meaning\". Use the D1 exact-bytes rule instead. Define the routing envelope as a CBOR map `{ \"signed\": bstr, \"accessSig\": bstr, \"powProof\"?: map, \"urgency\"?: text, \"accessKeyAnnouncement\"?: ... }`. `signed` holds the exact bytes of a CBOR map with keys `channelToken`, `epoch`, `ts`, `expiryHint`, and `sealedEnvelope` or `broadcastPayload`. `accessSig` is computed over the `signed` bytes. `id` is the CID of the `signed` bytes, is never sent, and the receiver computes it. The Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:44.724751103Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:44.724751103Z",
+  "updated_at": "2026-10-17T06:54:17.728976363Z",
+  "closed_at": "2026-10-17T06:54:17.728976363Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/05-messaging.md §5.2.2 Outer Routing Envelope: CBOR-only RoutingEnvelope {signed: bstr .cbor SignedFields, admissionSig, powProof?}; admissionSig over exact `signed` bytes; id = CID of complete encoded envelope, receiver-computed; \"no JSON form\"; 10-relays.md §10.5.2 PoW = SHA256(signed\\|\\|nonc",
   "labels": [
     "review",
     "exa"

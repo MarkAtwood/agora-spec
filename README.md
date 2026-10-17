@@ -19,7 +19,7 @@ Status: draft specification. No conformant implementation exists.
 | `PRFAQ.md` | Press release and FAQ: customers, risks, status | no |
 | `ARCHITECTURE.md` | Operator separation: roles, rules S1–S8, observation budget | yes, governs on conflict |
 | `spec/` | Protocol, in parts; each part states which operator it binds | yes |
-| `profiles/` | Deployment profiles: employer-managed DIDs (O365, Google Workspace, generic IdP), Purview export, Discord onboarding | no |
+| `profiles/` | Deployment profiles: employer-managed DIDs (O365, Google Workspace, generic IdP), Purview export, Discord onboarding, compliance chain witnessing, CORUNDUM identity sharing, Parlance device data, radio mesh gateway | no |
 | `guides/` | Relay operator guide, regulators' guide, counsel's guide | no |
 | `attic/` | Out of scope for first ship: relay economics and payments, futures, CIO assessment | no |
 | `import/` | Frozen verbatim source from nie, with provenance | no, reference only |

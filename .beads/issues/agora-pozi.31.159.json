@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.159",
   "title": "did:key multi-device: per-device MLS keys vouched by identity key (decided)",
   "description": "DECIDED (Mark 2026-10-16), option A: RFC 9420 requires unique leaf signature keys. did:key users still copy the identity key to each device, but each device generates its own MLS leaf signature key, and the identity key signs a device-binding statement (device key belongs to did:key:...), carried in/with the MLS credential and verified by members. No device list, no per-device revocation (remedy remains a new identity). Amends the earlier copy-key decision (agora-pozi.6).",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T06:30:36.993946689Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T06:30:36.993946689Z",
+  "updated_at": "2026-10-17T06:54:22.029924717Z",
+  "closed_at": "2026-10-17T06:54:22.029924717Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/05-messaging.md §5.2.1 (per-device leaf key + agora_device_binding 0xF0A1 signed by identity key, verified on Add/Update/Welcome); spec/02-identity.md §2.1 and §2.2; spec/13-encoding.md label agora/v1/device-binding; spec/99-appendices.md ext types",
   "dependencies": [
     {
       "issue_id": "agora-pozi.31.159",

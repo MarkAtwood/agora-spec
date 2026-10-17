@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.121",
   "title": "[DOC-3] Universal IdP profile uses one key for both VC issuance and DID-log updates",
   "description": "Review finding DOC-3: Universal IdP profile uses one key for both VC issuance and DID-log updates (lens DOC). Location: profiles/universal-idp-did.md:49-53, :644-655; contrast profiles/gsuite-employer-did.md:150, :456-458. Fix: As proposed. universal:53 says `signing_key_path = ... # also signs DID log entries (§9)`, and :644 offers one backend config \"for both keys\". gsuite:150 says the issuer key \"is separate from the update key of the employee logs ... so it confers no authority over any employee's DID log\". Add separate `update_key_*` and `provisioning_signing_key_*` entries that mirror gsuite:456-458, and remove the comment. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:47.457118231Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:47.457118231Z",
+  "updated_at": "2026-10-17T06:54:20.066621752Z",
+  "closed_at": "2026-10-17T06:54:20.066621752Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: profiles/universal-idp-did.md:56-60 separate `signing_key_*` (VC only), `update_key_*` (DID log only), `provisioning_signing_key_*`; §9 (:657) \"three distinct Ed25519 keys\"",
   "labels": [
     "review",
     "doc"

@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.32",
   "title": "[SEP-5] `pushUrgency` in the outer envelope marks DMs and mentions in the clear",
   "description": "Review finding SEP-5: `pushUrgency` in the outer envelope marks DMs and mentions in the clear (lens SEP). Location: spec/11-transport.md:233-239; vs spec/04-access-control.md:145 (\"relays cannot distinguish DM traffic from channel traffic\"), spec/12-security.md:48. Fix: Remove `pushUrgency` from the RoutingEnvelope. Without depending on SEP-4, the recipient can give a per-token urgency in its relay registration, changing `channelTokens` to `[{token, urgency}]`. This keeps message kind off every envelope and stops senders from forcing high-priority wakes. Full text: notes/review/SEP-verified.md and notes/review/SEP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:42.376266821Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:42.376266821Z",
+  "updated_at": "2026-10-17T06:54:15.405816615Z",
+  "closed_at": "2026-10-17T06:54:15.405816615Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: pushUrgency removed from RoutingEnvelope (spec/05-messaging.md §5.2.2 CDDL); spec/11-transport.md §11.7.4 wake-ups carry no content and no urgency; spec/10-relays.md §10.4.3; spec/12-security.md Wake-ups",
   "labels": [
     "review",
     "sep"

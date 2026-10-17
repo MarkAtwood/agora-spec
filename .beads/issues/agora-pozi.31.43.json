@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.43",
   "title": "[IMP-2] Exact bytes covered by `accessSig`, `billingSig` and the envelope `id` are undefined",
   "description": "Review finding IMP-2: Exact bytes covered by `accessSig`, `billingSig` and the envelope `id` are undefined (lens IMP). Location: spec/05-messaging.md:181-206; spec/13-encoding.md:21, :27 (not :85, :91). Fix: The `accessSig` input and the circular `id` (\"CID of the canonical outer envelope\", 05:196, against 13:9 \"Agora computes no canonical form\") are real gaps. `billingSig` is partly settled already: 13:27 lists \"the `accessKeyAnnouncement` countersignature\" among objects \"stored, served and forwarded as its encoded envelope with `sig` present\". That makes the announcement a typed envelope whose `body` is signed per §13.1.1, so `billingSig` = that envelope's `sig` entry by the billing DID. Still undefined: the announcement's own signature by the previous epoch access key. That key is not a DID, so §13.1.1's DID-URL `kid` cannot name it. Define it as a raw Ed25519 signature over the announcement `body` bytes with a domain-separation prefix. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:43.010453346Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:43.010453346Z",
+  "updated_at": "2026-10-17T06:54:16.117118917Z",
+  "closed_at": "2026-10-17T06:54:16.117118917Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Decision implemented: spec/05-messaging.md §5.2.2 RoutingEnvelope CDDL with \"signed\": bstr .cbor SignedFields, admissionSig over exact signed bytes, id = CIDv1 raw of complete encoded envelope; spec/13-encoding.md §13.1 and §13.1.1 \"Admission signatures\"; billingSig/announcement signatures no longer",
   "labels": [
     "review",
     "imp"

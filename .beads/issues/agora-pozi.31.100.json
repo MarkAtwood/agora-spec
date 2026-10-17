@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.100",
   "title": "[CON-8] The JMAP `Envelope` exposes `seqNo` (which is inside the ciphertext) and does not match `R",
   "description": "Review finding CON-8: The JMAP `Envelope` exposes `seqNo` (which is inside the ciphertext) and does not match `RoutingEnvelope` (lens CON). Location: spec/11-transport.md:336, :349; spec/05-messaging.md:226; spec/10-relays.md:561 (SHOULD-level second history API); spec/11-transport.md:279 vs :341-350, :404. Fix: As the reviewer proposes. Drop `seqNo`. Store the exact encoded `RoutingEnvelope` bytes plus `receivedAt` and the CID. Delete 10:561 or make it an alias. Either define `Envelope/set` with the access proof or delete the write clause at 11:279. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:46.227759194Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:46.227759194Z",
+  "updated_at": "2026-10-17T06:54:19.068880206Z",
+  "closed_at": "2026-10-17T06:54:19.068880206Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: JMAP Envelope now id/channelToken/envelope (exact bytes)/receivedAt/expiresAt, no seqNo, read-only with no Envelope/set (spec/11-transport.md §11.8.4); separate history API replaced by §10.4.6 pointing to live protocol + JMAP sync (spec/10-relays.md §10.4.6)",
   "labels": [
     "review",
     "con"

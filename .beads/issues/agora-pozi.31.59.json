@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.59",
   "title": "[IMP-18] MLS group configuration is unspecified",
   "description": "Review finding IMP-18: MLS group configuration is unspecified (lens IMP). Location: spec/05-messaging.md:46-55, :214, :303; spec/02-identity.md:44, :74, :314. Fix: As proposed. The init-key conflict also appears at 02:74 and 02:314. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:43.872520168Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:43.872520168Z",
+  "updated_at": "2026-10-17T06:54:16.956365175Z",
+  "closed_at": "2026-10-17T06:54:16.956365175Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/05-messaging.md §5.2.1 \"Group configuration\" (group_id 32 random bytes, ≤4096 leaves, PrivateMessage only, no external joins/senders, lifetime ≤90 days, padding 256, generation window 32/1000, ratchet_tree required); init-key conflict removed: 05 §5.2.1 KeyPackage bullet and 02 §2.1 keyAgreemen",
   "labels": [
     "review",
     "imp"

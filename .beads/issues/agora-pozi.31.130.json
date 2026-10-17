@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.130",
   "title": "[DOC-12] Discord browser key generation does not follow the spec §12.6 non-PRF path",
   "description": "Review finding DOC-12: Discord browser key generation does not follow the spec §12.6 non-PRF path (lens DOC). Location: profiles/discord-onboarding.md:139-140, :170; spec/12-security.md:82-85. Fix: As proposed. The key is generated `extractable: true` at :140 before PRF support is known, but the non-PRF path at :170 stores \"a non-extractable device key\". An extractable CryptoKey cannot be made non-extractable. Reorder so the passkey is created and PRF tested first, then generate with `true` (PRF) or `false` (no PRF). The genesis signing at :136-137 must follow that step. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:47.970312821Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:47.970312821Z",
+  "updated_at": "2026-10-17T06:54:20.553676117Z",
+  "closed_at": "2026-10-17T06:54:20.553676117Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: profiles/discord-onboarding.md browser key section (~:138-173): passkey created and PRF tested first, then `generateKey(..., prfSupported, ...)` (non-extractable on no-PRF path), genesis signing after",
   "labels": [
     "review",
     "doc"

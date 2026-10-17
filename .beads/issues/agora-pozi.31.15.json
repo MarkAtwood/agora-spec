@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.15",
   "title": "[GAP-3] Incident response is missing for most key classes",
   "description": "Review finding GAP-3: Incident response is missing for most key classes (lens GAP). Location: spec/04-access-control.md:12; spec/02-identity.md:117-247, 437; spec/06-calls.md:345; spec/10-relays.md:231. Fix: Narrow the list. (1) Losing the owner key does not freeze the Space for did:webvh or did:plc owners. Space state is signed by the owner DID's authentication key (03:131), and DID recovery restores it: the recovery key, social recovery, and for employees the org helpdesk path (02:471), which works even after offboarding because the org holds the update key. Losing the key is fatal only for a `did:key` owner. What remains is compromise: a hostile ownership transfer signed by a stolen owner key has no undo, and nothing says how clients treat state signed by a device key that was later revoked. (2) Recovery-key theft is partly handled by §2.4.4 (02:238-245: log ordering, conflict detection, a 24 h admin-review rule). What is missing is rotating a compromised recovery or social key out. (3) Drop the sequencer: a forged stamp is equivocation, which 14-jmap:188 already detects and handles. (4) Drop the push proxy and Space endpoint/TLS bullets. They state no attacker gain, and §3.4 (03:161) already says an endpoint \"can withhold state but cannot forge it\". Keep the following: logger/recorder key rotation and re-encryption, a manifest `status: \"revoked\"`, bulk response to a provisioning-ke Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:41.448977593Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:41.448977593Z",
+  "updated_at": "2026-10-17T06:54:14.554689131Z",
+  "closed_at": "2026-10-17T06:54:14.554689131Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Decision B+A reflected: spec/04-access-control.md §4.1 (:14 org service DID SHOULD own Space; :16-22 guardian transfer with objection period); spec/03-spaces.md §3.3 `guardian` RECOMMENDED, 72 h default; spec/12-security.md §12.12 (owner-key theft incl. fallback re-found, recovery-key rotation, prov",
   "labels": [
     "review",
     "gap"

@@ -1,3 +1,4 @@
 {"id":"01a14868-bf77-7a48-8287-c5c04b037c15","issue_id":"agora-pozi.31.109","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:49:46.743674435Z"}
 {"id":"01a14868-bf79-7c04-9ed8-20fb8732dfb3","issue_id":"agora-pozi.31.109","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:49:46.745787916Z"}
 {"id":"01a14868-bf7b-7b3f-84d8-bb0587a95a30","issue_id":"agora-pozi.31.109","event_type":"label_added","actor":"agent","comment":"Added label: con","created_at":"2026-10-17T05:49:46.747737494Z"}
+{"id":"01a148a3-d796-75e0-bfd0-9190db5e714a","issue_id":"agora-pozi.31.109","event_type":"closed","actor":"agent","old_value":"","new_value":"FIXED per notes/review/reconciliation.md: spec/09-interop.md:24 lists did:webvh/did:plc/did:key; §4.6 no longer uses did:web; spec/99-appendices.md:11 \"did:web for relay DIDs only (§10.2.1)\"","created_at":"2026-10-17T06:54:19.54238582Z"}

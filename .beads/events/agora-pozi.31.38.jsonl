@@ -1,3 +1,4 @@
 {"id":"01a14868-afb9-7178-9220-d5ba2e82d342","issue_id":"agora-pozi.31.38","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:49:42.713098097Z"}
 {"id":"01a14868-afbb-743c-b7bc-ebfe3b6f4411","issue_id":"agora-pozi.31.38","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:49:42.715278361Z"}
 {"id":"01a14868-afbd-7608-be6d-69b86f5ddd5d","issue_id":"agora-pozi.31.38","event_type":"label_added","actor":"agent","comment":"Added label: sep","created_at":"2026-10-17T05:49:42.717396041Z"}
+{"id":"01a148a3-c8fb-73da-bdc4-858be9ae771e","issue_id":"agora-pozi.31.38","event_type":"closed","actor":"agent","old_value":"","new_value":"FIXED per notes/review/reconciliation.md: \"sequence attestation\" text no longer in spec/05-messaging.md §5.1 (grep: no 'attestation'); ordering assigned to sequencer/canonical Commit rule §5.1.1","created_at":"2026-10-17T06:54:15.803252969Z"}

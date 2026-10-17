@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.123",
   "title": "[DOC-5] Entra step-up depends on `acr`/`amr` values Entra is not documented to emit",
   "description": "Review finding DOC-5: Entra step-up depends on `acr`/`amr` values Entra is not documented to emit (lens DOC). Location: profiles/o365-employer-did.md:530, :551-552, :605 (and gsuite:514, which inherits it). Fix: Microsoft's access-token claims reference describes `acr` as \"a `0` or `1`, only present in v1.0 tokens\". Its `amr` value table lists pwd, rsa, otp, fed, wia, mfa, ngcmfa, wiaormfa and none, with no \"hwk\" or \"fido\". Step-up is expressed through `acrs` (Auth Context IDs, \"used to trigger a demand for step-up authentication\"). Rewrite the check as follows: a Conditional Access authentication context that requires phishing-resistant authentication strength, verified via `acrs`, with the claims-challenge flow (`xms_cc`). Keep the purview-bridge.md style \"verify against current Entra documentation\" hedge on the exact names. Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:47.579432021Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:47.579432021Z",
+  "updated_at": "2026-10-17T06:54:20.174828853Z",
+  "closed_at": "2026-10-17T06:54:20.174828853Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: profiles/o365-employer-did.md §5.6 (:542 CA authentication context via `acrs`, claims challenge, `xms_cc`, explicitly not relying on acr/amr, hedge \"verify ... against current Entra documentation (checked 2026-10)\"); :574, :636 check `acrs`; gsuite:510 table aligned",
   "labels": [
     "review",
     "doc"

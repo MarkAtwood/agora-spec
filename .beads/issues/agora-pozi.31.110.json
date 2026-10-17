@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.110",
   "title": "[CON-18] The MIMI section requires 0x0001 \"in addition to any other suites\"; §5.2.1 allows only 0x0",
   "description": "Review finding CON-18: The MIMI section requires 0x0001 \"in addition to any other suites\"; §5.2.1 allows only 0x0001 (lens CON). Location: spec/09-interop.md:20. Fix: Use the reviewer's wording: \"Agora groups use 0x0001 (§5.2.1), which is the MIMI baseline.\" Full text: notes/review/CON-verified.md and notes/review/CON.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:46.797813824Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:46.797813824Z",
+  "updated_at": "2026-10-17T06:54:19.594377742Z",
+  "closed_at": "2026-10-17T06:54:19.594377742Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/09-interop.md:20 now \"Agora groups use ... 0x0001 (§5.2.1), which is the MIMI baseline\"",
   "labels": [
     "review",
     "con"

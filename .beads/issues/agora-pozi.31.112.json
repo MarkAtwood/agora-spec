@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.112",
   "title": "[CON-20] Same concept, different names across parts",
   "description": "Review finding CON-20: Same concept, different names across parts (lens CON). Location: spec/06-calls.md:306; spec/05-messaging.md:196; spec/14-jmap.md:60, :111; spec/02-identity.md:35 / spec/10-relays.md:465; spec/10-relays.md:102 vs :116, :298; spec/10-relays.md:346 vs :642; spec/03-spaces.md:119, spec/14-jmap.md:132. Fix: Apply the reviewer's fixes, except drop the `regulatedMembers` sub-item. 07:52 already says \"The field is part of the `ComplianceLoggingConfig`\", and it is optional, so leaving it out of the example is not an inconsistency. The manifest-signer item is worth keeping, because 10:120 distinguishes `operatorDID` from `relayDID`, so \"operator's key\" is genuinely ambiguous. Full text: notes/review/CON-verified.md and notes/review/CON.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:46.918330726Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:46.918330726Z",
+  "updated_at": "2026-10-17T06:54:19.697919027Z",
+  "closed_at": "2026-10-17T06:54:19.697919027Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: recorderLabel (spec/06-calls.md :374); expiryHint matches senderExpiresAt (spec/05-messaging.md §5.2.2); causalRefs/PresenceStatus gone from 14; Pkarr profile bare CID `_profile._agora` (spec/02-identity.md :38, spec/10-relays.md §10.3.4.6); manifest signed by relayDID (spec/10-relays.md :102); Rela",
   "labels": [
     "review",
     "con"

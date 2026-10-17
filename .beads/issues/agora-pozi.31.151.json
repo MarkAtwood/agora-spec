@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.151",
   "title": "[CRY-18] did:webvh split-view and rollback are unaddressed; \"auditable without trusting the organiz",
   "description": "Review finding CRY-18: did:webvh split-view and rollback are unaddressed; \"auditable without trusting the organization\" is overstated (lens CRY). Location: spec/02-identity.md:23, spec/02-identity.md:255, spec/12-security.md:135. Fix: 02:23 and 12:135 claim that the organization \"cannot rewrite or hide the entry without producing an invalid history\". Hash chaining prevents an invalid single history. It does not prevent serving a different valid fork, signed with the org's own update key, to a targeted resolver, or serving a stale prefix. 02:241's conflict rule only helps a resolver that sees both entries. A grep finds no \"witness\" or \"watcher\" anywhere in spec/, although did:webvh v1.0 defines both for this purpose. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:26.043164898Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:26.043164898Z",
+  "updated_at": "2026-10-17T06:54:21.660182084Z",
+  "closed_at": "2026-10-17T06:54:21.660182084Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Decision implemented: spec/02-identity.md §2.1 l20 table + l26 \"Witnesses\" (CO-provisioned did:webvh MUST use \u003e=1 org-independent witness, clients MUST verify; individuals MAY; weaker guarantee stated); log entries carry witness proofs l297/l396/l438/l474; spec/12-security.md §12.7.3 l142 split-view",
   "labels": [
     "review",
     "cry"

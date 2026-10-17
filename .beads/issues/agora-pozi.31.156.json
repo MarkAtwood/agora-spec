@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.156",
   "title": "[CRY-24] External commits and external proposals are not addressed",
   "description": "Review finding CRY-24: External commits and external proposals are not addressed (lens CRY). Location: spec/05-messaging.md:48-53. Fix: The gap is real. A grep finds no \"external commit\", \"new_member\" or \"external_pub\" in spec/, so a conforming client would accept a valid `new_member_commit` (RFC 9420 §12.4.3.2). Adjustment to the threat: no Agora flow publishes GroupInfo, and external proposals already require an `external_senders` extension (§12.1.8). An outsider can therefore join only if a current member leaks GroupInfo with `external_pub`. That route skips the joiner-side adder check of 04:78, which a colluding joiner could ignore in any case, hence P3. Fix as proposed: clients MUST reject `new_member_commit`, `new_member_proposal` and `external` senders, and MUST NOT include `external_pub`. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:26.354022598Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:26.354022598Z",
+  "updated_at": "2026-10-17T06:54:21.866959136Z",
+  "closed_at": "2026-10-17T06:54:21.866959136Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/05-messaging.md §5.2.1 l67 members MUST reject new_member_commit/new_member_proposal/external senders, MUST NOT include external_senders, MUST NOT publish GroupInfo with external_pub",
   "labels": [
     "review",
     "cry"

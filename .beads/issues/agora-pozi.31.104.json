@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.104",
   "title": "[CON-12] DM delivery uses \"relay hints\" from the recipient's DID document, which §2 forbids",
   "description": "Review finding CON-12: DM delivery uses \"relay hints\" from the recipient's DID document, which §2 forbids (lens CON). Location: spec/04-access-control.md:151, :153; spec/02-identity.md:37, :302; spec/10-relays.md:476 (step 4, \"use relay endpoints\", although the record format at 10:455-466 has no relay field). Fix: Rewrite §4.6 \"Relay routing\" and \"Cross-topology reachability\". Delete \"relay endpoints\" from 10:476. 04:153 also uses `did:web` (see CON-17). Full text: notes/review/CON-verified.md and notes/review/CON.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:46.451078453Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:46.451078453Z",
+  "updated_at": "2026-10-17T06:54:19.277211732Z",
+  "closed_at": "2026-10-17T06:54:19.277211732Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Relay hints from DID doc removed; DM relays come from the initiator identity host's ChannelAdmissionKey `relays` (spec/04-access-control.md §4.6 \"Reachability\"; spec/10-relays.md §10.3.5); Pkarr record names no relay (spec/10-relays.md §10.3.4.6); did:web no longer in §4.6",
   "labels": [
     "review",
     "con"

@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.152",
   "title": "[CRY-19] A `RecoveryAssertion` can be replayed; nothing binds it to the identity state it replaces",
   "description": "Review finding CRY-19: A `RecoveryAssertion` can be replayed; nothing binds it to the identity state it replaces (lens CRY). Location: spec/02-identity.md:153-163, spec/02-identity.md:243, spec/02-identity.md:467. Fix: Narrow the scope. For self-hosted did:webvh, a replayed assertion changes nothing by itself, because the device key enters the document only through a log entry signed with the update key (02:123). The replay works against the provisioning service, which \"accepts a `RecoveryAssertion` as equivalent to an IdP token\" (02:467). The assertion is published to discovery (02:163). The recovery key is never rotated after use, and the social-recovery key only \"SHOULD\" be (02:198), so the old assertion still verifies against the current document. The 24-hour rule at 02:243 bounds the window but does not close it. Fix as proposed: add `prev` (`versionId` or PLC operation CID) and reject an assertion whose `prev` is not the current head. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:26.106139081Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:26.106139081Z",
+  "updated_at": "2026-10-17T06:54:21.712856302Z",
+  "closed_at": "2026-10-17T06:54:21.712856302Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/02-identity.md §2.4.1 l160/l167 RecoveryAssertion carries `prev` (log versionId); verifiers MUST reject if signature not under recoverableIdentity key at `prev` or `prev` not current log head; §2.5 l484 provisioning service applies same `prev` check",
   "labels": [
     "review",
     "cry"

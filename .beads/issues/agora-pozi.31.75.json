@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.75",
   "title": "[EXA-2] Inside-MLS bodies carry sender fields that §5.2.2 forbids",
   "description": "Review finding EXA-2: Inside-MLS bodies carry sender fields that §5.2.2 forbids (lens EXA). Location: spec/06-calls.md:28; spec/07-compliance.md:224; spec/09-interop.md:190. Fix: As the reviewer proposed. Delete `sender` (ParticipantState), `issuedBy` (ComplianceDisclosureNotice) and `addedBy` (SystemEvent). This follows 05:228: \"Objects carried inside MLS have no object-level signature and no sender field\". Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:44.77988633Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:44.77988633Z",
+  "updated_at": "2026-10-17T06:54:17.78742562Z",
+  "closed_at": "2026-10-17T06:54:17.78742562Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/06-calls.md ParticipantState, 07-compliance.md ComplianceDisclosureNotice, 09-interop.md §9.3 SystemEvent examples no longer carry sender/issuedBy/addedBy (addedBy at 09:112 is in Space-state GatewayDescriptor, outside MLS)",
   "labels": [
     "review",
     "exa"

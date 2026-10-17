@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.48",
   "title": "[IMP-7] MLS credential format and the leaf-to-DID binding are undefined",
   "description": "Review finding IMP-7: MLS credential format and the leaf-to-DID binding are undefined (lens IMP). Location: spec/05-messaging.md:55, :79-80; spec/02-identity.md:80; spec/12-security.md:258-260; spec/09-interop.md:28-36. Fix: Part of this is already stated: 02:80 says \"Each device signs with its own Ed25519 device key: its MLS leaf signatures\", so `signature_key` = a device `authentication` key. Still undefined: the credential type and the bytes of `identity` (no grep hit for BasicCredential or credential type), how key bytes are matched, and the P-256 conflict (12:258 allows P-256 authentication keys, while 05:46 mandates the Ed25519-only suite 0x0001). Forbid P-256 for MLS leaves. The MIMI credential at 09:32 has no MLS encoding. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:43.2702517Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:43.2702517Z",
+  "updated_at": "2026-10-17T07:01:50.343249534Z",
+  "closed_at": "2026-10-17T07:01:50.343249534Z",
+  "close_reason": "Fixed in remaining-items pass 2026-10-17",
   "labels": [
     "review",
     "imp"

@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.79",
   "title": "[EXA-6] SpaceState example omits fields its own text makes mandatory",
   "description": "Review finding EXA-6: SpaceState example omits fields its own text makes mandatory (lens EXA). Location: spec/03-spaces.md:63-97, 124 (rule at 03:137; spec/05-messaging.md:127). Fix: As the reviewer proposed. Also add `mlsGroupID` to `voice/lounge` (03:93-96). Voice channels have an MLS group (06:44, \"encrypted to the channel group\"). Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:45.001124126Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:45.001124126Z",
+  "updated_at": "2026-10-17T06:54:18.025594794Z",
+  "closed_at": "2026-10-17T06:54:18.025594794Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/03-spaces.md §3.3 SpaceState example: every channel incl. announcements/community/engineering children/voice/lounge has mlsGroupID; announcements has broadcasterRoles + matching broadcaster role; empty vtcCompliance removed",
   "labels": [
     "review",
     "exa"

@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.51",
   "title": "[IMP-10] HTTP representation of signed objects is undefined (CBOR envelope vs JSON)",
   "description": "Review finding IMP-10: HTTP representation of signed objects is undefined (CBOR envelope vs JSON) (lens IMP). Location: spec/03-spaces.md:157-158, :166-167; spec/10-relays.md:49, :102, :315, :359; spec/13-encoding.md:27. Fix: 13:27 already gives the rule a careful implementer follows: an object verified outside MLS \"is stored, served and forwarded as its encoded envelope with `sig` present\". A detached JWS cannot sit inside a bare JSON file, so the manifest and directories must be envelopes. \"signed JSON document\" (10:49) and \"static JSON file\" (10:315) contradict that rule and need fixing. Still undefined: media type, the `/head` response format, the BroadcastKey response, and status codes. Divergence in these is recoverable, so P2. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:43.435413503Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:43.435413503Z",
+  "updated_at": "2026-10-17T06:54:16.563917291Z",
+  "closed_at": "2026-10-17T06:54:16.563917291Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/10-relays.md §10.2.1 manifest is a CBOR envelope (application/cbor); §10.3.4 directories are encoded envelopes (no \"static JSON file\"); spec/03-spaces.md §3.4 \"Responses\" defines /head (text/plain CID), BroadcastKey/ChannelAdmissionKey responses as CBOR envelopes, status codes; 10 §10.5.3 statu",
   "labels": [
     "review",
     "imp"

@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.25",
   "title": "[GAP-13] No statement of time and clock assumptions",
   "description": "Review finding GAP-13: No statement of time and clock assumptions (lens GAP). Location: spec/05-messaging.md:131; spec/04-access-control.md:107; spec/10-relays.md:181; spec/12-security.md:14; spec/14-jmap.md:101, 319. Fix: As proposed. Grep finds no skew, NTP or Roughtime. The only clock rules are the relay-to-relay 300 s window (10:181) and the sender-clock caveat for last-writer-wins (14:319). The broadcast-removal example holds: a removal-driven key cut-over depends on the poster's clock. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:41.975206489Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:41.975206489Z",
+  "updated_at": "2026-10-17T06:54:14.943994108Z",
+  "closed_at": "2026-10-17T06:54:14.943994108Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/12-security.md §12.9 Time and Clocks (UTC/RFC 3339, NTP SHOULD, 300 s skew rule, clock-dependency table incl. BroadcastKey notBefore cut-over guidance)",
   "labels": [
     "review",
     "gap"

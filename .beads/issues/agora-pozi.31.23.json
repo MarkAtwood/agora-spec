@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.23",
   "title": "[GAP-11] Required disclosures have no accessibility or language requirements",
   "description": "Review finding GAP-11: Required disclosures have no accessibility or language requirements (lens GAP). Location: spec/06-calls.md:293-308; spec/07-compliance.md:120-126, 227-229; spec/05-messaging.md:163. Fix: Confirmed: there is no hit for accessibility, audible or localize. The \"accessible\" at 07:126 means reachable from the info panel. Lowered to P3. The disclosures are already required as text system messages (06:293), which assistive technology reads, and the CO writes the disclosure strings in whatever language it chooses. The real residual gaps are audio-only and headless devices in calls, and icon-only indicators (05:163). Fix: require a programmatic text equivalent for every mandated indicator, an audible notice before media for recording disclosures on devices without a display, and optional BCP 47 language maps for the disclosure strings. This does not touch the recording-consent decision. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:41.869517952Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:41.869517952Z",
+  "updated_at": "2026-10-17T06:54:14.879079847Z",
+  "closed_at": "2026-10-17T06:54:14.879079847Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/12-security.md §12.10 Required Disclosures: Accessibility and Language (text equivalent via accessibility API, audible recording announcement on display-less devices or no media, RFC 5646 language maps with `und`)",
   "labels": [
     "review",
     "gap"

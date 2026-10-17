@@ -202,7 +202,7 @@ For any DM group involving a regulated employee, the archive contains:
 
 **Gap: non-Agora applications.** DM compliance applies to conversations conducted via Agora (including bridged conversations where the counterparty uses Slack, Teams, or a MIMI-compatible platform). If the regulated employee conducts the same conversation via WhatsApp, iMessage, or another non-Agora application, Agora does not capture it.
 
-**Gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request and sends nothing to it until the employee accepts (spec §4.6.3). The logger is therefore admitted no earlier than acceptance, and its archive begins at the epoch of its admission (spec §7.8.2). Ask the firm how it captures messages sent into a group before the employee accepted the request.
+**Not a gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request (spec §4.6.3). A regulated employee's client still processes the Welcome, admits the logger and captures while the request is pending (spec §7.8.2); the request state suppresses only notifications, read receipts and typing indicators. Messages sent into the group while the employee has not yet accepted are therefore in the archive.
 
 **Gap: tampered clients.** A modified client can join or create a DM group without the logger. Such a group is invisible to the logger. The firm's controls here are managed devices and reconciliation of audit records against the groups the logger actually holds (spec §7.8.9).
 

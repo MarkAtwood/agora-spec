@@ -1,3 +1,4 @@
 {"id":"01a14868-bb2c-7a9c-a2f5-2190790dbd9e","issue_id":"agora-pozi.31.90","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:49:45.644696229Z"}
 {"id":"01a14868-bb2e-7d5e-a6b0-36d6625b6d13","issue_id":"agora-pozi.31.90","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:49:45.646876587Z"}
 {"id":"01a14868-bb30-7ef9-b4c8-d9d5c439678b","issue_id":"agora-pozi.31.90","event_type":"label_added","actor":"agent","comment":"Added label: exa","created_at":"2026-10-17T05:49:45.648981783Z"}
+{"id":"01a148a3-d3be-7bbb-8bb7-28eadc44fad5","issue_id":"agora-pozi.31.90","event_type":"closed","actor":"agent","old_value":"","new_value":"FIXED per notes/review/reconciliation.md: spec/10-relays.md §10.5.1 RelayAd example has no @type and includes jmapSync; l.722 lists client-facing endpoints explicitly","created_at":"2026-10-17T06:54:18.558769708Z"}

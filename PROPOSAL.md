@@ -20,15 +20,17 @@ cannot accept that, and most others should not.
 Two roles, held by distinct principals with distinct keys even when one company
 plays both:
 
-- **Infrastructure operators** run relays, SFUs, TURN and push proxies. They
+- **Infrastructure operators** run relays, SFUs, TURN, push proxies and
+  sequencers. They
   carry ciphertext, verify that traffic comes from some current member without
   learning which, enforce agreed quotas, and decide nothing else.
 - **Communications operators** run communities: identity, membership, roles,
   moderation, retention, compliance logging and archives, all exercised with
   their own keys.
 
-The only binding between them is a `RelayServiceAgreement` signed by the
-communications operator's billing key, which names no community. A
+The only binding between them is a `ServiceAgreement` that names no
+community, signed by the communications operator's billing DID, which appears
+in no community's state. A
 communications operator can replace any infrastructure operator without
 changing a community's identity, membership or history, and without
 re-enrolling anyone.
@@ -39,12 +41,15 @@ specification must pass.
 
 ## What the protocol guarantees
 
-- A relay does not know who is in any group, who sent any message, or which
-  channel or Space a routing token belongs to. It learns which customer's
-  service a network address used.
+- A relay does not know who is in any group or who sent any message, and the
+  protocol does not tell it which channel or Space a routing token belongs to.
+  It learns which customer's service a network address used. A customer with
+  one Space gets no cover, and timing and address clustering can link tokens
+  (`ARCHITECTURE.md` §9).
 - Community state is signed only by the community's operator. Clients reject
   state signed by infrastructure keys.
-- Bans are MLS removals. Policy that needs identity is enforced at the
+- Bans are MLS removals followed by rotation of the channel's admission key.
+  Policy that needs identity is enforced at the
   communications operator's own endpoints: managed devices, the compliance
   logger, the archive.
 - Relays store only ciphertext or records the communications operator chose to
@@ -58,11 +63,11 @@ tampered client. Both are stated as accepted costs.
 | Part | Content |
 |---|---|
 | `spec/01`–`04` | Overview, identity (DIDs, recovery, employer provisioning), Spaces and state distribution, access control |
-| `spec/05`–`06` | MLS messaging, epoch access proof, encrypted broadcast, voice and video |
+| `spec/05`–`06` | MLS messaging, channel admission, encrypted broadcast, voice and video |
 | `spec/07`–`09` | Compliance logging, cross-Space channels, MIMI and gateways |
 | `spec/10`–`13` | Relays and federation, transport, security considerations, encoding and signing |
 | `spec/14` | JMAP-family data on Agora: replicated stores, the blind sequencer, the Agora profile of each JMAP draft |
-| `profiles/` | Non-normative deployment designs: Entra, Google Workspace, generic IdP, Purview, Discord onboarding |
+| `profiles/` | Non-normative deployment designs: Entra, Google Workspace, generic IdP, Purview, Discord onboarding, compliance chain witnessing, CORUNDUM, Parlance, radio mesh gateway |
 | `guides/` | Relay operator, regulator and counsel guides (pending revision) |
 
 Built on MLS (RFC 9420), HPKE (RFC 9180), SFrame (RFC 9605), JMAP (RFC 8620),
@@ -75,11 +80,15 @@ payments or cryptocurrency in the first release.
 
 Design decisions made in this revision:
 
-- **Epoch access proof** (`spec/05` §5.2.2). Members derive a shared signing
-  key per epoch from the MLS exporter, so a relay can admit current members
-  without identifying them. Each new epoch key is countersigned by the
-  communications operator, so a member being removed cannot hijack the chain.
-  This is new design and the one item still awaiting external review.
+- **Channel admission** (`spec/05` §5.2.2). The communications operator
+  issues each channel a random admission key, registers its public half with
+  the relays it has agreements with, and serves the private half only to
+  current members. Relays admit envelopes signed with it without learning
+  which member signed. The operator rotates the key when it removes a member,
+  so a removed member's envelopes stop being admitted once the new key is
+  registered. For a DM group, the initiator's identity host plays the
+  operator's part. This is new design and the one item still awaiting
+  external review.
 - **No identity at relays.** Relays rate-limit connections by network address
   and routing token, with proof of work under load. There is no login.
 - **KeyPackages live with whoever runs the user's identity**, never on relays.
@@ -87,15 +96,18 @@ Design decisions made in this revision:
   a Bluesky identity; `did:key` for people who hold their own keys and accept
   that their backup is their only recovery. Communities may restrict which
   methods they accept.
-- **Push** is on by default with content-free, jittered wake-ups.
+- **Push** is on by default. Wake-ups carry no content and no urgency, and
+  relays jitter them. A relay serving push learns which routing tokens wake
+  the same device; users who do not accept that turn push off.
 - **Discovery** records are signed only by the party they describe.
 
 ## What we are asking for
 
-1. **Cryptographic review of the epoch access proof**, against MLS's security
-   properties: exporter use, removal races, commit ordering across relays. This
-   is the mechanism the separation rests on; nothing should be implemented
-   before it is reviewed.
+1. **Cryptographic review of channel admission**: admission key issuance and
+   rotation, the routing token derivation, the admission signature over the
+   envelope, the canonical-Commit rule, and cost per envelope. This is the
+   mechanism the separation rests on; nothing should be implemented before it
+   is reviewed.
 2. **Compliance review** of capture, retention and disclosure (`spec/07`,
    `profiles/purview-bridge.md`) by counsel and an auditor familiar with SEC
    17a-4, FINRA and MiFID II.

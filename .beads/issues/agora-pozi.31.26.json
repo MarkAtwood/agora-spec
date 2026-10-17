@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.26",
   "title": "[GAP-14] No IANA / registry considerations",
   "description": "Review finding GAP-14: No IANA / registry considerations (lens GAP). Location: spec/10-relays.md:46, 176-178, 208-214; spec/11-transport.md:303; spec/13-encoding.md:64; spec/09-interop.md:30-36; spec/03-spaces.md:33. Fix: As proposed. There is no hit for \"IANA\". 13:100 says \"No registry is needed\", but that covers type URIs only. One strengthening: RFC 9420 §17 defines IANA registries for MLS Credential Types and MLS Exporter Labels, so `AgoraMIMICredential` and the exporter labels (\"agora access\", \"agora channel token\", \"agora sealed envelope\", \"agora blob\", \"agora-dm-token\", and others) each need a registry entry, not only a central list. `urn:agora:` stays excluded per decision. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:42.027559488Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:42.027559488Z",
+  "updated_at": "2026-10-17T06:54:15.008151047Z",
+  "closed_at": "2026-10-17T06:54:15.008151047Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/99-appendices.md Appendix D Registries and Identifiers (IANA MLS Exporter Labels via §13.3, MLS Credential Types for AgoraMIMICredential, well-known URI, service names, DNS node names, HTTP field, URI scheme, DID service types; urn:agora: Agora-internal); spec/13-encoding.md §13.3 Derivation La",
   "labels": [
     "review",
     "gap"

@@ -22,6 +22,8 @@ The routing envelope that Relays carry is not a typed payload envelope and is de
 
 **Encoding.** An envelope is encoded as a CBOR map (RFC 8949) with the text-string keys `type`, `contentType`, `body`, `sig` and, inside MLS only, `seq`. `type`, `contentType` and `sig` are CBOR text strings; `body` is a CBOR byte string holding the object bytes verbatim, never a nested CBOR or JSON value. Receivers MUST ignore map keys they do not recognize. The map itself is not signed, so its key order and integer widths carry no meaning.
 
+**Common value encodings.** Unless a section says otherwise, objects in this specification use these encodings. Timestamps are RFC 3339 strings in UTC with a `Z` suffix and at most millisecond precision. Integers are unsigned and fit in 64 bits; counters that can wrap (sequence numbers, key epochs) do not wrap within the lifetime of their key. Binary values inside JSON objects are base64url without padding (RFC 4648 §5); inside CBOR they are byte strings. Keys and identifiers that are multibase use the `z` (base58btc) prefix. JSON text is UTF-8 (RFC 8259) and carries no byte order mark.
+
 **Inside an MLS application message.** The `application_data` of every MLS application message (§5.2.3) is exactly one encoded envelope. The MLS sender signature authenticates the sender and the envelope, so `sig` is absent unless the object is one that is also verified outside the group (below), in which case it is carried with its `sig` so that it can be forwarded or archived byte-for-byte.
 
 **Inside a broadcast payload.** The `plaintext` sealed into a routing envelope's `broadcastPayload` (§5.2.1.4) is exactly one encoded envelope. No MLS sender signature covers it, so its `sig` MUST be present and recipients MUST verify it per §13.1.1 before acting on the payload. The binding of the signer to the channel, key epoch and broadcaster roles is defined in §5.2.1.4.
@@ -109,7 +111,7 @@ The protocol is designed to be extended without breaking existing clients:
 - New channel types MAY be introduced by defining new values of the channel `type` field.
 - The live client-relay protocol is versioned and negotiated in the hello exchange (§11.6).
 
-**Version surface registry.** The following table lists every versioned protocol surface, its current version, and the mechanism by which it is negotiated or detected. URL-versioned surfaces answer a request under an unknown version prefix with HTTP 404.
+**Version surface registry.** The following table lists every versioned protocol surface, its current version, and the mechanism by which it is negotiated or detected. A protocol surface is an interface whose requests or messages this specification defines; a URL that appears only as a DID service endpoint, with no request format defined here (for example the `AgoraComplianceLogger` endpoint, §7.3), is not one. URL-versioned surfaces answer a request under an unknown version prefix with HTTP 404.
 
 | Surface | Current Version | Location | Negotiation Mechanism |
 |---|---|---|---|
@@ -131,6 +133,7 @@ The protocol is designed to be extended without breaking existing clients:
 | Sequencer API | v1 | Sequencer `endpoint`, conventionally `/v1/agora/seq` (§14.4) | HTTP 404 on unknown version |
 | SFU signaling | v1 | `SFUDescriptor.endpoint`, conventionally `/v1/agora/sfu` (§6.6) | HTTP 404 on unknown version |
 | TURN credential service | v1 | `TURNDescriptor.credentialEndpoint`, conventionally `/v1/agora/turn` (§6.11) | HTTP 404 on unknown version |
+| Admission key registration | v1 | `ServiceAgreement.endpoint`, conventionally `/v1/agora/admission-keys`; Relay Manifest `endpoints.admissionKeys` (§10.2.1, §10.5.3) | HTTP 404 on unknown version |
 
 ## 13.3 Derivation Label Registry
 
@@ -138,7 +141,7 @@ The protocol is designed to be extended without breaking existing clients:
 
 Every MLS exporter label, KDF and HPKE `info` string, AEAD associated-data prefix, signature context string and hash-input prefix that this specification defines is listed below. A new label MUST NOT equal a label in this table, and a section that defines a new label MUST add it here. The labels are opaque byte strings (UTF-8, no terminator); their spelling style carries no meaning. Every Agora MLS exporter call other than the SFrame ones (RFC 9605 §5.2) uses the group's MLS `group_id` as its context, for channels and DM groups alike. Every channel and DM group, broadcast channels included, derives its `channelToken` from its admission key with `agora channel token`; no other token label exists.
 
-The test-vector set of §13.1.1 MUST also cover each derivation in this table, the `admissionSig` input, and CID computation.
+The test-vector set of §13.1.1 MUST also cover each derivation in this table, the `admissionSig` input, CID computation, and each AEAD layout (sealed envelope §5.2.2, broadcast payload §5.2.1.4, group-encrypted blob §3.4, content-key blob §14.3.4), giving key, nonce, associated data, plaintext and expected ciphertext in hex.
 
 | Label | Kind | Context or input | Defined in |
 |---|---|---|---|
@@ -156,6 +159,7 @@ The test-vector set of §13.1.1 MUST also cover each derivation in this table, t
 | `agora/broadcast/v1` | AEAD associated-data prefix | broadcast payload | §5.2.1.4 |
 | `agora/asset/v1` | AEAD associated data | Space icon and custom emoji under `assetKey` | §3.4 |
 | `agora/history/v1` | AEAD associated data | history transfer archive blob | §2.6 |
+| `agora/content-blob/v1` | AEAD associated data | content-key blob of an `Attachment`, `FileNode` or `SceneAsset` under its `contentKey` | §14.3.4 |
 | `agora/envelope/v1` | Signature context (`ctx` of the routing envelope's `signed` map) | `admissionSig` over routing envelopes | §5.2.2 |
 | `agora/v1/device-binding` | Ed25519 signed-message prefix, followed by the leaf `signature_key` | `did:key` device binding in the `agora_device_binding` leaf extension | §5.2.1, §2.1 |
 | `agora sfu admission` | Signature context (`ctx` of `sfu-admission`) | `admissionSig` in an SFU `join` | §6.6 |

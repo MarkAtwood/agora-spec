@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.7",
   "title": "[CLM-7] \"Interoperates natively with MIMI\" overstates",
   "description": "Review finding CLM-7: \"Interoperates natively with MIMI\" overstates (lens CLM). Location: PRFAQ.md:55 (FAQ); press-release line PRFAQ.md:21 excluded. Fix: The press release is written \"as if the product has already launched\" (PRFAQ footer, l.115), so its present tense is the genre and not an error. Also, spec 9.1 itself says \"E2EE is preserved end-to-end across the system boundary\". The real gap is the FAQ at l.55, which drops the caveat from 09:66: \"Members SHOULD be told that the peer MIMI provider also learns the room's participant list.\" Add that sentence there. The stalled delivery-layer drafts belong under \"top risks\" at most. Full text: notes/review/CLM-verified.md and notes/review/CLM.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:40.986652757Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:40.986652757Z",
+  "updated_at": "2026-10-17T07:01:49.970119919Z",
+  "closed_at": "2026-10-17T07:01:49.970119919Z",
+  "close_reason": "Fixed in remaining-items pass 2026-10-17",
   "labels": [
     "review",
     "clm"

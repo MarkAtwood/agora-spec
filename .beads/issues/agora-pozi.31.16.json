@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.16",
   "title": "[GAP-4] Space and channel lifecycle undefined beyond \"the owner may transfer or delete\"",
   "description": "Review finding GAP-4: Space and channel lifecycle undefined beyond \"the owner may transfer or delete\" (lens GAP). Location: spec/04-access-control.md:12; spec/03-spaces.md:49, 51-128, 131; spec/08-cross-space.md:22. Fix: As proposed. Grep confirms there is no deletion record, no archival state, no rename text and no genesis contents. Two additions. `channelCID` is used as the exporter context for the token, access key and sealing key (05:194, 202, 218), but no text defines what it hashes, so channel rename and move are undefined at the crypto layer too. Space state has no admin list or role-assignment field, though 03:131 makes \"an admin authorized under the prior state\" the S4 validation rule. The §3.5 fix must add both fields (`admins` and member-to-role assignments). Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:41.504249195Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:41.504249195Z",
+  "updated_at": "2026-10-17T07:01:50.133825613Z",
+  "closed_at": "2026-10-17T07:01:50.133825613Z",
+  "close_reason": "Fixed in remaining-items pass 2026-10-17",
   "labels": [
     "review",
     "gap"

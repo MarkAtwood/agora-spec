@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.18",
   "title": "[GAP-6] Abuse and spam handling stops at relay rate limits",
   "description": "Review finding GAP-6: Abuse and spam handling stops at relay rate limits (lens GAP). Location: spec/10-relays.md:59, 665-683; spec/12-security.md:54-64; spec/04-access-control.md:62, 147, 157-161; spec/99-appendices.md:38 (the original cited :315; the file has 44 lines). Fix: The core gap is confirmed: there is no report type, no invitee-side DM consent, no CO-to-IO chain deregistration and no takedown handling. Grep for report, takedown and frank finds nothing relevant. Correct one claim: KeyPackage draining is already addressed. \"The host rate-limits fetches to prevent a caller from draining a user's supply\" (05:73, also 02:381). Unsolicited DM adds remain open. On fix item (1): Agora has no message franking, so the claim that an MLS-signature-based `AbuseReport` would be third-party verifiable needs the same external crypto review as Q1. State it as such, or drop \"verifiable\". `ChainDeregistration` fits S7 and Q6. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:41.606640543Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:41.606640543Z",
+  "updated_at": "2026-10-17T06:54:14.619886673Z",
+  "closed_at": "2026-10-17T06:54:14.619886673Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: Decision reflected: spec/04-access-control.md §4.6.3 Message Requests (MUST request state, decline/block, block list in self-group; MAY host refusal of fetches/Welcome POSTs) and §4.7 Abuse Handling (AbuseReport, \"no message franking ... not verifiable by a third party\", AdmissionKeyDeregistration, ",
   "labels": [
     "review",
     "gap"

@@ -185,7 +185,7 @@ PushRegister = {
 
 **Error.** An `Error` without `id` reports a problem with the connection as a whole; the Relay MAY close the connection after sending it. The exception is `token-withdrawn`.
 
-**Withdrawn tokens.** `unknown-token` means that no admission key is registered for the token. `token-withdrawn` means that the token's key was registered and is no longer admitted: the CO deregistered it (§10.5.3) or the agreement under which it was registered has ended (§10.5.1, §10.5.3). When a key stops being admitted, the Relay sends each connection subscribed to its token an `Error` without `id`, with code `token-withdrawn` and `token` set to that token, and ends those subscriptions without closing the connection. It answers a later `Subscribe`, `Publish` or `PinInstruction` naming that token with `token-withdrawn` for as long as it still holds envelopes under the token, and with `unknown-token` after that. On either code the client fetches the current `ChannelAdmissionKey` (§5.2.2).
+**Withdrawn tokens.** `unknown-token` means that no admission key is registered for the token. `token-withdrawn` means that the token's key was registered and is no longer admitted: the CO deregistered it (§10.5.3), the agreement under which it was registered has ended (§10.5.1, §10.5.3), or the Relay suspended the token (§10.4.7). When a key stops being admitted, the Relay sends each connection subscribed to its token an `Error` without `id`, with code `token-withdrawn` and `token` set to that token, and ends those subscriptions without closing the connection. It answers a later `Subscribe`, `Publish` or `PinInstruction` naming that token with `token-withdrawn` for as long as it still holds envelopes under the token, and with `unknown-token` after that. On either code the client fetches the current `ChannelAdmissionKey` (§5.2.2). If its token is the one refused, the client uses another Relay in the key's relay list (§10.3.5).
 
 **PinInstruction.** A pin instruction asks the Relay to keep, or stop keeping, envelopes and blobs past retention (§5.2.6). The Relay MUST reject an instruction, with code `bad-message`, whose `signed` value does not decode to a `pin-op`. A routing envelope's `signed` map (§5.2.2) has no `op` member, so a signature made for one is never accepted as the other. The Relay then looks up the key registered for `channelToken` and verifies `admissionSig` over the exact bytes of `signed`, answering as for `Publish`. It answers `expired` if `expires` has passed or is more than 600 seconds ahead of its clock, and `replayed` if it has already accepted the same `nonce` for that token. For `pin`, it exempts each listed CID that it holds under that token from retention expiry and charges the storage to the agreement under which the key is registered, answering `quota-exceeded` if the agreement's quota would be exceeded and `unknown-cid` if it holds none of the CIDs. For `unpin`, it removes the exemption. The role check that decides whether a member may pin is made by clients against Space state (ARCHITECTURE §6.2), never by the Relay.
 
@@ -240,7 +240,7 @@ The client chooses a `powNonce` of 8 to 32 bytes such that SHA-256(`challenge` |
 ```
 {"v": 1, "t": "AdmissionProof",
  "challenge": h'46f278133a8d5d68b78eb0d70022fc0a9222974859f7a05f73d6571bf7770aec',
- "powNonce": h'd09f8a231893e384'}
+ "powNonce": h'00000000001704a6'}
 ```
 
 On a valid proof the Relay sends the `RelayHello`; otherwise it closes the connection. A Relay MUST accept each `challenge` at most once. A proof-of-work challenge lets a client whose address has hit its per-address limit still connect, so clients behind shared addresses are not locked out. This connection-level proof is separate from the per-envelope `powProof` of §10.5.2, which a Relay with a nonzero `minPowDifficulty` requires on every routing envelope whatever happened at connection time.
@@ -297,13 +297,15 @@ On first launch on a mobile device, a client wishing to receive push notificatio
 ```
 POST /v1/agora/push/register
 {
-  "pushHandle":  "base64url(32 random bytes)",
-  "deviceToken": "hex or base64 APNs/FCM token",
-  "platform":    "apns" | "fcm",
+  "pushHandle":  "_8eP_Gb8wAi_Qlsoi2d0YT_nKN3GY0sy5sgel3C1u-A",
+  "deviceToken": "740f4707bebcf74f9b7c25d48e3358945f6aa01da5ddb387462c7eaf61bb78ad",
+  "platform":    "apns",
   "appBundleID": "com.example.agora"
 }
 Response: 200 { "registered": true, "ttl": 2592000 }
 ```
+
+`pushHandle` is the 32-byte handle in base64url without padding (RFC 4648 §5). `deviceToken` is the device token as the platform's API supplies it: for APNs the token bytes in lower-case hexadecimal, for FCM the registration token string. `platform` is `"apns"` or `"fcm"`.
 
 4. Sends a `PushRegister` (§11.4) on its live stream connection to each Relay it uses, with the `pushHandle`, the proxy's `endpoint` (§11.7.2) and the `channelToken`s it wants wake-ups for. The registration carries no identity and is rate-limited per address and per `channelToken` (§11.6). The Relay keys it by `pushHandle` only and answers with `Ack`:
 
@@ -318,7 +320,7 @@ Response: 200 { "registered": true, "ttl": 2592000 }
 
 A `PushRegister` replaces the whole token set registered for its `pushHandle`; an empty `tokens` array deletes the registration. A Relay MUST drop a registration when its `ttl` expires and MUST NOT keep one longer than 30 days (2,592,000 seconds), whatever `ttl` asks for.
 
-**Token rotation.** A `channelToken` changes whenever the channel's admission key rotates (§5.2.2). When the client obtains a new `ChannelAdmissionKey`, it sends a new `PushRegister` with the updated token set. When a Relay processes an `AdmissionKeyDeregistration` (§10.5.1), it removes that key's token from every push registration.
+**Token rotation.** A `channelToken` changes whenever the channel's admission key rotates (§5.2.2). When the client obtains a new `ChannelAdmissionKey`, it sends a new `PushRegister` with the updated token set. When a Relay processes an `AdmissionKeyDeregistration` (§10.5.3), it removes that key's token from every push registration.
 
 **Registration renewal:** Push registrations have a TTL (default 30 days). Clients MUST renew with the proxy and with each Relay before expiry. APNs/FCM device tokens may also change; clients MUST re-register with the proxy when they receive a new device token.
 
@@ -333,8 +335,10 @@ When a Relay accepts an envelope on a `channelToken` that is registered to a `pu
 POST https://push.example.com/v1/agora/push/wake
 Content-Type: application/json
 
-{"pushHandle": "base64url..."}
+{"pushHandle": "_8eP_Gb8wAi_Qlsoi2d0YT_nKN3GY0sy5sgel3C1u-A"}
 ```
+
+`pushHandle` is in base64url without padding, as at registration (§11.7.3).
 
 3. The proxy maps `pushHandle → deviceToken` and sends a push notification with no content to APNs or FCM.
 
@@ -436,8 +440,8 @@ A single routing envelope (§5.2.2) as stored by the Relay. The name `Envelope` 
 
 ```
 id              String     The envelope id (§5.2.2): the CID of the complete encoded envelope, in CID text form (§13.1)
-channelToken    String     Routing token under which the envelope was published
-envelope        String     base64url: the exact bytes of the routing envelope as received
+channelToken    String     Routing token under which the envelope was published, base64url without padding (RFC 4648 §5)
+envelope        String     base64url without padding: the exact bytes of the routing envelope as received
 receivedAt      UTCDate    Relay's clock; authoritative for stable sort order
 expiresAt       UTCDate|null  Time the Relay will drop the envelope; null = no configured expiry
 ```

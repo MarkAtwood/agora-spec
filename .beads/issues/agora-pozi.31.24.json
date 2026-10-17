@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.24",
   "title": "[GAP-12] Internationalization unaddressed for human-visible identifiers",
   "description": "Review finding GAP-12: Internationalization unaddressed for human-visible identifiers (lens GAP). Location: spec/03-spaces.md:30-45; spec/04-access-control.md:41; spec/05-messaging.md:529; spec/10-relays.md:380. Fix: As proposed. Grep finds no NFC, PRECIS, confusable or bidi text. The only normalization statement covers type URIs (13:29). Path-glob matching for `channelAccess` depends on normalization, so that part is a correctness issue, not cosmetic. Full text: notes/review/GAP-verified.md and notes/review/GAP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:41.921572334Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:41.921572334Z",
+  "updated_at": "2026-10-17T07:01:50.28589117Z",
+  "closed_at": "2026-10-17T07:01:50.28589117Z",
+  "close_reason": "Fixed in remaining-items pass 2026-10-17",
   "labels": [
     "review",
     "gap"

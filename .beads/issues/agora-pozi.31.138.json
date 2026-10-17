@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.138",
   "title": "[CRY-5] Hardware-key requirements cannot be met for Ed25519/X25519 on major platforms, and the ES2",
   "description": "Review finding CRY-5: Hardware-key requirements cannot be met for Ed25519/X25519 on major platforms, and the ES256 escape hatch contradicts the fixed algorithms (lens CRY). Location: spec/12-security.md:89, spec/12-security.md:91, spec/02-identity.md:255, spec/02-identity.md:316, spec/12-security.md:122, spec/12-security.md:147; vs spec/13-encoding.md:59, spec/05-messaging.md:46. Fix: The contradiction is real. 12:89 says \"P-256 (`ES256`) MAY be used as the authentication key algorithm\", but 13:59 fixes `alg` to `\"EdDSA\"` and 05:46 fixes ciphersuite 0x0001 (Ed25519). An ES256 device can produce neither a JWS nor an MLS leaf signature. 02:255 (\"generated inside the device's secure hardware boundary (Secure Enclave, StrongBox, TPM) and never leave it\") is unconditional. 12:122 and 12:147 rest on it. Note that 12:80 already defines a non-extractable WebCrypto key as \"the secure boundary\" for browsers, so the 12:91 MUST can be read loosely. 02:255 and 12:122 cannot. Adjustment: decision D6 (\"Ed25519 (RFC 8037)\") already excludes option B, so the fix follows from existing rules. Delete the ES256 MAY. Reword 02:255, 12:91 and 12:122 to \"hardware-backed where the platform supports Ed25519/X25519, otherwise an OS-protected non-extractable key\". Weaken 12:147 to match. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:25.280832741Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:25.280832741Z",
+  "updated_at": "2026-10-17T06:54:20.970169034Z",
+  "closed_at": "2026-10-17T06:54:20.970169034Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: ES256/P-256 MAY removed (no ES256 in spec/); spec/02-identity.md §2.2 (l85) software-wrapped-by-hardware fallback, §2.5 l267 reworded; spec/12-security.md §12.6 l96 \"Ed25519 only ... otherwise best-protected software store\", §12.7.2 l129 and §12.7.4 l154 weakened to match",
   "labels": [
     "review",
     "cry"

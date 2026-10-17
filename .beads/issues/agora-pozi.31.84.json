@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.84",
   "title": "[EXA-11] Compliance VTC examples contradict their own rules",
   "description": "Review finding EXA-11: Compliance VTC examples contradict their own rules (lens EXA). Location: spec/06-calls.md:257 (vs 06:306); 06:335-336 (vs 06:343). Fix: As the reviewer proposed. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:45.287440831Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:45.287440831Z",
+  "updated_at": "2026-10-17T06:54:18.289207981Z",
+  "closed_at": "2026-10-17T06:54:18.289207981Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/06-calls.md §6.12 grant participantDisclosure includes recorder label and \"retained for 2555 days\"; record mediaFormat video/webm;codecs=\"vp9,opus\" for audio-video",
   "labels": [
     "review",
     "exa"

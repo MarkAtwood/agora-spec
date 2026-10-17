@@ -45,16 +45,20 @@ This table collects the protocol's numeric limits in one place. The defining sec
 
 | Limit | Value | Strength | Defined in |
 |---|---|---|---|
+| Leaves in any MLS group, including DM groups | 4096 | MUST NOT exceed | §5.2.1 |
 | Members of an `interactive` channel group | 200 | Fixed | §3.2, §5.2.1 |
 | Community speaker group (`speakerCap`) | default 200, maximum 500 | Default; maximum MUST NOT be exceeded | §5.2.1.2 |
 | Idle speaker eviction (`idleEvictDays`) | default 7 days | Default | §5.2.1.2 |
 | Pinned items per channel (`pinLimit`) | default 50 | Default | §5.2.6 |
 | Registered devices per employee | default 10 | Org-configured default | §2.5.4 |
 | Last-resort KeyPackages | 1 per device | SHOULD | §5.2.1.1 |
+| KeyPackage `lifetime` | 90 days maximum | MUST | §5.2.1 |
+| Envelopes sealed per sending leaf per epoch | 2^20 | MUST NOT exceed | §5.2.2 |
 | DM member-addition consent | unanimous for 2 to 4 members, majority for 5 or more | Default | §4.6.1 |
 | Invite code entropy | at least 128 bits | MUST | §4.3 |
 | Custom emoji `name` | 32 characters | MUST | §5.2.8.4 |
-| Envelope size (`maxEnvelopeBytes`) | 65536 bytes | Example only | §11.8.3 |
+| Routing envelope size, live stream and gossip | 65536 bytes | MUST NOT exceed | §11.4, §10.3.1 |
+| Sequencer submission `op` size | 65536 bytes | MUST NOT exceed | §14.4.3 |
 | Attachment size (`maxAttachmentBytes`) | 100 MiB | Example only | §11.8.3 |
 | Pkarr record | 1000 bytes | MUST | §10.3.4.6 |
 | Directory `includes` depth | 3 | MUST | §10.3.4.1 |
@@ -76,12 +80,19 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | `SpaceAd` TTL; re-advertise | 60 s; 45 s | Default | §10.3.2 |
 | Directory refresh | 1 h | Default | §10.3.4 |
 | Relay envelope cache | lesser of `expiryHint` and the retention window (default 30 days) | MUST | §10.4.3 |
-| Push registration TTL | default 30 days | Default; renewal MUST | §11.7.3 |
+| Push registration TTL | default 30 days, maximum 30 days | Default; MUST NOT keep longer; renewal MUST | §11.7.3 |
+| `PinInstruction` and upload `expires` | at most 600 s ahead of the Relay's clock | MUST | §11.4, §11.8.2 |
+| Admission key registration request | 1 to 1000 keys or tokens; `ts` within 300 s | MUST | §10.5.3 |
+| Full re-registration of current keys | at least every 24 h | MUST | §10.5.3 |
+| Grace before deregistering the previous admission key after rotation | 300 s | RECOMMENDED | §10.5.3 |
+| Registrations under a superseded agreement | admitted for 1 h | MUST | §10.5.1 |
+| Relay retirement notice (`retiresAt`) | at least 30 days | MUST, unless agreed otherwise out of band | §10.4.7 |
+| Proof-of-work difficulty in a challenge | at most 64 bits | Format limit | §11.4, §10.5.2 |
 | Push wake-ups per handle | 1 per 5 s, burst 3 | SHOULD (example values) | §11.7.5 |
 | Second `RecoveryAssertion` for one DID | not within 24 h without admin review | MUST NOT | §2.4.4 |
-| Per-`channelToken` publication rate | Relay local policy, no floor | MUST enforce | §11.6, §12.5 |
+| Per-`channelToken` publication rate | Relay local policy, but at least 20 envelopes per second and 256 KiB per second sustained | MUST enforce; MUST admit at least the floor | §11.6, §12.5 |
 
-This version defines no limit for: DM group size, Space state document size, envelope size on the live stream and gossip, KeyPackage batch size, message body length, channel count per Space, TURN credential lifetime, or a minimum rate that a Relay must admit per `channelToken`.
+A DM group is bounded only by the 4096-leaf limit, and a message body only by the routing envelope size. This version defines no limit for: Space state document size, the number of KeyPackages in one upload, channel count per Space, or TURN credential lifetime.
 
 ---
 
@@ -91,7 +102,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 
 **Derivation labels.** §13.3 lists every MLS exporter label, KDF `info` string and AEAD associated-data prefix. The entries of kind "MLS exporter" are MLS exporter labels and need entries in the IANA "MLS Exporter Labels" registry (RFC 9420 §17). The other entries are Agora-internal.
 
-**MLS credential types.** `AgoraMIMICredential` (§9.1) has no MLS credential type codepoint yet. Interoperating with MIMI providers requires one from the IANA "MLS Credential Types" registry, or use of a credential type MIMI defines.
+**MLS credential types.** `AgoraMIMICredential` (§9.1) uses credential type 0xF0A2 from the RFC 9420 private-use range until it is registered. Interoperating with MIMI providers outside Agora requires a codepoint from the IANA "MLS Credential Types" registry (RFC 9420 §17.5), or use of a credential type MIMI defines. Outside MIMI interop, Agora leaves use the registered `basic` credential type (§5.2.1).
 
 **MLS extension types.** `agora_admission_host` (0xF0A0, GroupContext, §4.6) and `agora_device_binding` (0xF0A1, LeafNode, §5.2.1) use the RFC 9420 private-use range and need no IANA registration.
 
@@ -132,6 +143,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | Service name `agora-relay` (`_agora-relay._udp`, `_agora-relay._tcp`) | §10.2.5, §10.3.3 | IANA "Service Name and Transport Protocol Port Number" (RFC 6335) |
 | `_agora` and its children `_kp._agora`, `_profile._agora` | §2.1, §10.3.4.6 | IANA "Underscored and Globally Scoped DNS Node Names" (RFC 8552), for `_agora` |
 | HTTP field `Agora-Storage-Auth` | §11.8.2 | IANA "HTTP Field Name" (RFC 9110 §16.3) |
+| HTTP fields `Agora-PoW-Challenge`, `Agora-PoW` | §10.5.2 | IANA "HTTP Field Name" (RFC 9110 §16.3) |
 | JWS header parameter `agoraType` | §13.1.1 | IANA "JSON Web Signature and Encryption Header Parameters" (RFC 7515 §4.3) |
 | URI scheme `agora` | §3.2 | IANA "Uniform Resource Identifier (URI) Schemes" (RFC 7595) |
 | HTTP path prefix `/v1/agora/`, gossip topics `v1/agora/...`, IPNS name `/ipns/agora.protocol/relays/v1` | §1.1, §10.3.1, §10.2.5 | Agora-internal |

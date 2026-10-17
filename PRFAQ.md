@@ -14,7 +14,7 @@ Every major platform today fuses those two roles. When Slack or Microsoft runs t
 
 **For the organization**, Agora means hosting without surrender. A managed provider can run your relays under a service agreement while your identity provider, your membership, your compliance archive and your policy stay with you. If the provider disappoints you, you replace it: your Spaces, members and history do not change and nobody re-enrolls.
 
-**For the relay operator**, Agora means less liability. A relay routes envelopes by rotating tokens it cannot reverse. It does not know who your members are, who sent a message, or which of a customer's Spaces a message belongs to. Served with legal process, it can produce connection metadata and which customer's service an address used, and nothing about content, membership or senders.
+**For the relay operator**, Agora means less liability. A relay routes envelopes by rotating tokens it cannot reverse. It does not know who your members are or who sent a message, and the protocol does not tell it which of a customer's Spaces a message belongs to. Served with legal process, it can produce connection metadata and which customer's service an address used, and nothing about content, membership or senders.
 
 **For regulated firms**, Agora captures communications without breaking encryption. A compliance logger, run by the firm, is a disclosed member of each regulated conversation, and the capture obligation follows a regulated employee into direct messages. Records flow into the firm's own archive and, through a gateway, into Microsoft Purview, where legal hold and e-discovery work as they do today.
 
@@ -28,19 +28,19 @@ Agora is built on MLS (RFC 9420), the IETF standard for group end-to-end encrypt
 
 **Q: What does the relay operator see?**
 
-Network connection metadata (addresses, timing, volume), encrypted envelopes keyed by rotating tokens, and which customer agreement those tokens fall under. It does not see message content, senders, membership, channel names, or which of a customer's Spaces a message belongs to. The full list is closed and normative: anything not on it is a protocol violation, and any extension to it must be opt-in, declared, and visible to members. Agora is not anonymous at the network layer; members who need that use Tor.
+Network connection metadata (addresses, timing, volume), encrypted envelopes keyed by rotating tokens, and which customer agreement those tokens fall under. It does not see message content, senders, membership or channel names, and the protocol does not tell it which of a customer's Spaces a message belongs to. It can still infer some of that: a customer with one Space has no cover, registration timing can match a newly advertised public Space, and it can cluster routing tokens used from the same network address. A relay that serves push also learns which routing tokens wake the same device, though not whose device it is; users who do not accept that turn push off. The full list is closed and normative: anything not on it is a protocol violation, and any extension to it must be opt-in, declared, and visible to members. Agora is not anonymous at the network layer; members who need that use Tor.
 
 **Q: What can our hosting provider do to us?**
 
-Stop serving you, and nothing more. It cannot read your messages, change your membership, sign your Space's state, enforce your policies, or hold your history hostage. Your history is content-addressed, so another provider can serve the same records. Your service agreement is signed with a billing key that appears nowhere in your Spaces, so the provider cannot link your traffic to a particular Space.
+Stop serving you, and nothing more. It cannot read your messages, change your membership, sign your Space's state, enforce your policies, or hold your history hostage. Your history is content-addressed, so another provider can serve the same records. Your service agreement is signed with a billing key that appears nowhere in your Spaces, so the protocol gives the provider no way to link your traffic to a particular Space. It can still guess from timing and network addresses, and if you run only one Space there is nothing to tell apart.
 
 **Q: We run many communities. Does that matter?**
 
-It helps. A relay learns which customer's service an address used, never which Space. The more Spaces you run through the same provider, the less the provider can infer about any one of them.
+It helps. The protocol tells a relay which customer's service an address used, not which Space. The more Spaces you run through the same provider, the less the provider can infer about any one of them.
 
 **Q: How does IT provision accounts?**
 
-Through your identity provider. Your organization's provisioning service issues each employee a stable DID under your own domain, driven by joiner/mover/leaver events from Okta, Entra, Google Workspace, SCIM or Active Directory. Device keys are generated on the device. Names, email addresses and UPNs can change without changing anyone's identity, so archives and audit trails stay keyed to one identifier for a person's whole tenure.
+Through your identity provider. Your organization's provisioning service issues each employee a stable DID under your own domain, driven by joiner/mover/leaver events from Okta, Entra, Google Workspace, SCIM or Active Directory. Device keys are generated on the device. Every change to an employee's DID record carries a proof from a witness your organization does not control, so the organization cannot add a key to someone's identity without it being visible. Names, email addresses and UPNs can change without changing anyone's identity, so archives and audit trails stay keyed to one identifier for a person's whole tenure.
 
 **Q: Can we send confidential announcements to the whole company?**
 
@@ -52,7 +52,7 @@ The firm designates which employees are regulated. The firm's compliance logger 
 
 **Q: How do our people talk to counterparties on Teams or Slack?**
 
-Through a gateway your organization runs. E2EE does not survive the gateway, and every member of a bridged channel sees a persistent indicator saying so. With MIMI-compatible platforms, a single MLS group spans both systems and E2EE is preserved end to end.
+Through a gateway your organization runs. E2EE does not survive the gateway, and every member of a bridged channel sees a persistent indicator saying so. With MIMI-compatible platforms, a single MLS group spans both systems and E2EE is preserved end to end. The peer MIMI provider learns the room's participant list, and members should be told so.
 
 **Q: What can Agora carry besides chat?**
 
@@ -96,11 +96,11 @@ Payments and cryptocurrency of any kind; commercial terms between customers and 
 
 **Q: What is still undecided?**
 
-One thing: whether the epoch access proof, which lets relays admit only current members without learning which member, holds up under external cryptographic review. The design already closes one flaw found in internal review (a member being removed could have hijacked the relay's key chain). The other open protocol questions were decided in October 2026.
+Mainly whether channel admission holds up under external cryptographic review. Each channel has an admission key that the communications operator issues to current members, registers with its relays, and rotates when it removes someone, so relays admit only current members without learning which member. It replaced an earlier design, in which members derived the key from MLS and the operator countersigned it, after internal review found that any member could lock a channel out of its relays. Separately, whether to add an optional format for carrying reputation across Spaces is open (spec Appendix B). The other protocol questions were decided in October 2026.
 
 **Q: What are the top risks?**
 
-First, the epoch access proof is new cryptographic design and has had no expert review. If it fails, relays lose their way to admit members blindly, and the separation needs another mechanism. It must be reviewed before anyone implements it.
+First, channel admission is new cryptographic design and has had no expert review. If it fails, relays lose their way to admit members blindly, and the separation needs another mechanism. It must be reviewed before anyone implements it.
 
 Second, auditor certification. The compliance design is intended to satisfy SEC 17a-4, FINRA and MiFID II retention, but no auditor has certified it, and regulated firms will not deploy without that. Certification is a launch-parallel workstream.
 

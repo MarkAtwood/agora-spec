@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.67",
   "title": "[IMP-26] PoW input and placement are ambiguous",
   "description": "Review finding IMP-26: PoW input and placement are ambiguous (lens IMP). Location: spec/10-relays.md:673-683; spec/11-transport.md:125. Fix: As proposed. Depends on the IMP-2 byte definition. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:44.311235907Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:44.311235907Z",
+  "updated_at": "2026-10-17T06:54:17.420106813Z",
+  "closed_at": "2026-10-17T06:54:17.420106813Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/10-relays.md §10.5.2: SHA256(signed \\|\\| nonce) over exact signed bytes, PowProof CDDL in powProof outside signed, covered by envelope id; spec/11-transport.md §11.6 connection-level PoW defined separately (SHA-256(challenge \\|\\| powNonce), bit order stated)",
   "labels": [
     "review",
     "imp"

@@ -1,3 +1,4 @@
 {"id":"01a14868-a931-7463-92c0-f0a950ecaa9d","issue_id":"agora-pozi.31.8","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:49:41.041288179Z"}
 {"id":"01a14868-a933-7ac3-ba1c-71992a35fbae","issue_id":"agora-pozi.31.8","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:49:41.043705862Z"}
 {"id":"01a14868-a935-7ca4-bb11-9ef1876f133b","issue_id":"agora-pozi.31.8","event_type":"label_added","actor":"agent","comment":"Added label: clm","created_at":"2026-10-17T05:49:41.045828919Z"}
+{"id":"01a148a3-c2dd-7d0a-8755-328ebbd67373","issue_id":"agora-pozi.31.8","event_type":"closed","actor":"agent","old_value":"","new_value":"FIXED per notes/review/reconciliation.md: spec/09-interop.md l.24 \"(did:webvh, did:plc or did:key, §2.1)\"; 99-appendices.md App.A Identity row \"user DID methods in the rows below\"","created_at":"2026-10-17T06:54:14.237855397Z"}

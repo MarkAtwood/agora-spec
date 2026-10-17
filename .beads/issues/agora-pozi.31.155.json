@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.155",
   "title": "[CRY-22] Underspecified parameters in several primitives",
   "description": "Review finding CRY-22: Underspecified parameters in several primitives (lens CRY). Location: spec/02-identity.md:211-212, spec/02-identity.md:231, spec/02-identity.md:171, spec/12-security.md:82-83, spec/06-calls.md:215. Fix: All four gaps are present as described. The backup has no salt length or nonce, and its self-describing header (02:231) is not bound as AAD. Share encryption (02:171) names no scheme. The PRF wrap (12:82) gives no salt, HKDF info or IV. The TURN `HMAC(secret, username)` (06:215) names no hash. Fix as proposed. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:26.289833321Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:26.289833321Z",
+  "updated_at": "2026-10-17T06:54:21.817915214Z",
+  "closed_at": "2026-10-17T06:54:21.817915214Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/02-identity.md §2.4.3 l218-229 backup: 16-byte salt, 12-byte nonce, CBOR header bound as AAD; §2.4.2 l177 shares HPKE base mode DHKEM(X25519)/HKDF-SHA256/AES-128-GCM with info; spec/12-security.md §12.6 l91 PRF wrap HKDF salt/info/iv; spec/06-calls.md §6.11 l283 HMAC-SHA1 named",
   "labels": [
     "review",
     "cry"

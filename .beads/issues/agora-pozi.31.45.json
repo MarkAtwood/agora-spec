@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.45",
   "title": "[IMP-4] Broadcast key rotation cannot be countersigned under the one-per-epoch rule",
   "description": "Review finding IMP-4: Broadcast key rotation cannot be countersigned under the one-per-epoch rule (lens IMP). Location: spec/05-messaging.md:133-136, :204. Fix: The contradiction is real. The proposed fix is partly wrong: \"have the registration service ... issue the rotation announcement itself\" fails because the announcement must be signed with the current epoch access private key (05:136, 05:203), which the CO does not hold. The CO is not a publisher-group member and holds no MLS secrets (05:129). Correct fix: make the countersignature uniqueness key (chain, `epoch`, `channelToken`) or (chain, `epoch`, `keyEpoch`), and carry `keyEpoch` in the announcement. A poster still signs. The service countersigns the first request for a given key and returns that same countersigned announcement to later requesters, which settles the race among posters. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:43.116297977Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:43.116297977Z",
+  "updated_at": "2026-10-17T06:54:16.25082906Z",
+  "closed_at": "2026-10-17T06:54:16.25082906Z",
+  "close_reason": "MOOT per notes/review/reconciliation.md: Countersigned per-epoch accessKeyAnnouncement removed by door-key decision B; broadcast rotation now CO-issued ChannelAdmissionKey+BroadcastKey with shared keyEpoch: spec/05-messaging.md §5.2.1.4 Keys / Rotation and removal; spec/03-spaces.md §3.4",
   "labels": [
     "review",
     "imp"

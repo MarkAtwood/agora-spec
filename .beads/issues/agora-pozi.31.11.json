@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.11",
   "title": "[CLM-11] ARCHITECTURE reference and citation errors",
   "description": "Review finding CLM-11: ARCHITECTURE reference and citation errors (lens CLM). Location: ARCHITECTURE.md:264; spec/11-transport.md:260. Fix: Keep (a): ARCHITECTURE.md:264 \"Open question Q2\" becomes \"Resolved: §8 Q2\". Keep (d): spec/11-transport.md:260 \"§5.3 item 4\" becomes \"§7 item 4\" (ARCHITECTURE has no §5.3; §7 item 4 is the channelToken→channelCid/JMAP erratum). Reject (b): the quoted sentence exists verbatim (import/agora-privacy-whitepaper-clean.md:267, \"Agora is not anonymous\"), and ARCHITECTURE cites it only for the narrow network-layer point, which is still accurate. Reject (c): §2.1 lists IO kinds, and spec 10.4.4 permits mirroring CO-published records to public IPFS (10-relays.md:574), so an IPFS pinning service is a valid IO and nothing contradicts it. Full text: notes/review/CLM-verified.md and notes/review/CLM.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:41.200581718Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:41.200581718Z",
+  "updated_at": "2026-10-17T06:54:14.353589917Z",
+  "closed_at": "2026-10-17T06:54:14.353589917Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: ARCHITECTURE.md §7 l.331 \"Resolved: §8 Q2\"; spec/11-transport.md §11.8 l.364 cites \"ARCHITECTURE S1, §7 item 4\"",
   "labels": [
     "review",
     "clm"

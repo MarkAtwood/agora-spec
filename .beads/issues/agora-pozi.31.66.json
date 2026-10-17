@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.66",
   "title": "[IMP-25] Push registration endpoint at the relay is ambiguous",
   "description": "Review finding IMP-25: Push registration endpoint at the relay is ambiguous (lens IMP). Location: spec/11-transport.md:184, :194-203, :253-254, :407. Fix: The \"same path\" point is not itself ambiguous, because the proxy and the relay are different origins, and an absolute path on the relay origin is resolvable as with `/v1/agora/blob/` (10:570). The real conflicts: the §11.8.8 table says registration happens on the live stream only, while §11.7.3 step 4 uses HTTP. Also missing: the relay TTL field, the relay-side DELETE, and how the old `pushHandle` is carried (11:253). Pick one transport (a Control message per IMP-1 is consistent with the table) and give a body with `replaces`. Full text: notes/review/IMP-verified.md and notes/review/IMP.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:44.255371783Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:44.255371783Z",
+  "updated_at": "2026-10-17T06:54:17.369072437Z",
+  "closed_at": "2026-10-17T06:54:17.369072437Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/11-transport.md §11.4 PushRegister CDDL (live stream only, ttl, replaces, empty tokens = delete) and §11.7.3 step 4, §11.7.6 replaces; consistent with §11.8.8 table",
   "labels": [
     "review",
     "imp"

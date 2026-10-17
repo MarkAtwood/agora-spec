@@ -125,7 +125,7 @@ None of these changes have been made in CORUNDUM. Each is a proposal, mapped to 
 - [ ] Ch 9: the RootManifest is reached from the DID document, not an IPNS name.
 - [ ] Ch 11, Ch 25, Ch 26: `attributedTo`, following lists and notifications name DIDs, not `ipns://` names.
 - [ ] Ch 15, Ch 41, Ch 43, Ch 46: remove IPNS keypair generation, Kubo IPNS publishing and the DID-to-IPNS cache. Kubo stays for pinning.
-- [ ] Define the `did:key` pointer in the Pkarr record (see open question 2).
+- [x] Define the `did:key` pointer in the Pkarr record: `_corundum._agora` (spec §10.3.4.6).
 
 **Key custody and the delegated posting key (C4)**
 - [ ] Ch 3 (Earl), Ch 7: replace key handover and the cooperative and hostile migration flows with swapping posting keys in the DID log. `MigrationNotification` names the old and new posting keys and operators, not IPNS names.
@@ -146,12 +146,8 @@ None of these changes have been made in CORUNDUM. Each is a proposal, mapped to 
 
 ## 9. Open questions
 
-1. **Pointer update cadence.** The RootManifest changes on every post (Ch 9), but C2 makes each pointer update a DID log entry, and C4 lets only user update keys sign those entries. Per-post log entries would grow the log, add witness load, and depend on the user's device being online. Candidate fix:
-   - The DID pointer anchors a RootManifest that the user's devices update occasionally.
-   - The operator's HTTP API (already the fast path, Ch 5) serves newer RootManifests signed by a posting key in the current DID document, each with a higher sequence number.
-   - Readers take the newest one that verifies.
-   Should C2 be read this way?
-2. **`did:key` users.** The document cannot be updated, so there is nowhere to list a posting key. Spec §2.1 says the Pkarr record "carries only these TXT records". Options: a new record name defined in spec §2.1, or no delegated posting for `did:key` users, so their own devices sign every RootManifest.
+1. **Pointer update cadence.** Resolved (Mark, 2026-10-16, C2a): the DID document carries a stable service entry naming the operator's content endpoint and the posting key. The operator serves each new RootManifest signed by the posting key, with a sequence number and the CID of the previous manifest. Readers check the key against the DID document, the signature, the rising sequence and the chain, and remember the highest sequence seen. The DID log changes only when the operator or posting key changes.
+2. **`did:key` users.** Resolved (Mark, 2026-10-16, C2b): the Pkarr record carries an optional `_corundum._agora` service record with the operator's content endpoint and the posting key (spec §10.3.4.6). The user's device updates it only when switching operators; the operator re-publishes the unchanged signed record to keep it alive.
 3. **The posting key relationship.** Is `assertionMethod` right, or should CORUNDUM define its own relationship so generic DID tooling does not treat the key as able to assert claims for the identity?
 4. **JWS header members.** CORUNDUM needs its own protected-header member in place of Agora's `agoraType` (spec §13.1.1). Should both protocols share one header profile, so that one test-vector set (agora-pozi.31.69) covers both?
 5. **Follow list encryption.** Which construction (for example HPKE to the user's `keyAgreement` key and an operator key), and how re-encryption works when the user switches operators.

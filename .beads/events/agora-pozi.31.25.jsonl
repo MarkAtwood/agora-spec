@@ -1,3 +1,4 @@
 {"id":"01a14868-acd9-78df-ac0d-3f6fc9e53041","issue_id":"agora-pozi.31.25","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T05:49:41.977581899Z"}
 {"id":"01a14868-acdb-7c57-ac3d-91ab6ed96502","issue_id":"agora-pozi.31.25","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T05:49:41.979809256Z"}
 {"id":"01a14868-acdd-7e60-9c85-43d1aa5d9c16","issue_id":"agora-pozi.31.25","event_type":"label_added","actor":"agent","comment":"Added label: gap","created_at":"2026-10-17T05:49:41.981942604Z"}
+{"id":"01a148a3-c5a4-7971-9863-86e1ab360fbe","issue_id":"agora-pozi.31.25","event_type":"closed","actor":"agent","old_value":"","new_value":"FIXED per notes/review/reconciliation.md: spec/12-security.md §12.9 Time and Clocks (UTC/RFC 3339, NTP SHOULD, 300 s skew rule, clock-dependency table incl. BroadcastKey notBefore cut-over guidance)","created_at":"2026-10-17T06:54:14.948619439Z"}

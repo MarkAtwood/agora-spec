@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.91",
   "title": "[EXA-18] Agora types sent as MLS application messages without a listed type URI",
   "description": "Review finding EXA-18: Agora types sent as MLS application messages without a listed type URI (lens EXA). Location: spec/05-messaging.md:287-299; spec/07-compliance.md:227; spec/04-access-control.md:145. Fix: As the reviewer proposed. Severity is raised because 07:227 says clients \"MUST render it as a visible system notification\". A client built from the table ignores the type as unknown (13.2), so the regulatory disclosure fails between conformant implementations. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:45.697614275Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:45.697614275Z",
+  "updated_at": "2026-10-17T06:54:18.608026574Z",
+  "closed_at": "2026-10-17T06:54:18.608026574Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/05-messaging.md §5.2.3 Agora protocol types table lists urn:agora:type:ComplianceDisclosureNotice and DMGroupDescriptor; 07-compliance.md §7.8.4 uses full URN",
   "labels": [
     "review",
     "exa"

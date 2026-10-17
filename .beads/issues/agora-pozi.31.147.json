@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.147",
   "title": "[CRY-14] The sequencer receives raw MLSMessage bytes, which expose `group_id` and `epoch`",
   "description": "Review finding CRY-14: The sequencer receives raw MLSMessage bytes, which expose `group_id` and `epoch` (lens CRY). Location: spec/14-jmap.md:158-159, spec/14-jmap.md:193. Fix: 14:158 says \"The resulting MLS message bytes are the **operation**\", and 14:159 POSTs them raw. An RFC 9420 PrivateMessage carries `group_id`, `epoch` and `content_type` in clear. 05:216 says those are what the wrapper hides from IOs, and 14:193 (\"learns no member identity, membership or content\") does not disclose the constant `group_id`, which links streams across epochs. Wrap the operation in the §5.2.2 sealed envelope bound to `stream`. Adjustment: 14:166 already says \"copies are deduplicated by `opHash`\". The missing part is only that deduplication MUST happen before MLS decryption, because the RFC 9420 §9.2 deletion schedule makes a second decryption of the same PrivateMessage fail. Full text: notes/review/CRY-verified.md and notes/review/CRY.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:52:25.804727556Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:52:25.804727556Z",
+  "updated_at": "2026-10-17T06:54:21.448193199Z",
+  "closed_at": "2026-10-17T06:54:21.448193199Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/14-jmap.md §14.4.3 l170 operation is the exact bytes of a sealedEnvelope (§5.2.2) for the channel's channelToken; l210 and l220 dedupe by opHash before decryption citing RFC 9420 §9.2; l241 learned-set restated",
   "labels": [
     "review",
     "cry"

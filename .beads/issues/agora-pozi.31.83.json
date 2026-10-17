@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.83",
   "title": "[EXA-10] Relay sync `Envelope` object does not match the routing envelope",
   "description": "Review finding EXA-10: Relay sync `Envelope` object does not match the routing envelope (lens EXA). Location: spec/11-transport.md:331-339. Fix: Use the reviewer's second form, `{id, channelToken, receivedAt, envelope: \u003cbase64url exact bytes\u003e}`. It composes with the EXA-1 fix. Drop `seqNo`, `encryptedPayload` and the ULID `id`. Full text: notes/review/EXA-verified.md and notes/review/EXA.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:45.229620046Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:45.229620046Z",
+  "updated_at": "2026-10-17T06:54:18.237807244Z",
+  "closed_at": "2026-10-17T06:54:18.237807244Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: spec/11-transport.md §11.8 Envelope object is {id (envelope CID), channelToken, envelope (base64url exact bytes), receivedAt, expiresAt}; seqNo/encryptedPayload gone from spec",
   "labels": [
     "review",
     "exa"

@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.131",
   "title": "[DOC-13] Relay guide drift from §10.2.1/§10.2.5 (DNS TXT owner, minPowDifficulty)",
   "description": "Review finding DOC-13: Relay guide drift from §10.2.1/§10.2.5 (DNS TXT owner, minPowDifficulty) (lens DOC). Location: guides/relay-operator.md:1772-1773, :544-548; spec/10-relays.md:213-217, :106, :683. Fix: As proposed. spec/10-relays.md:213-214 puts TXT at `_agora-relay._udp` and `_agora-relay._tcp`. The guide puts it at `_agora.relay.example.com.`. Map `envelope_pow_min_difficulty` to manifest `minPowDifficulty` (spec :106, :683). Full text: notes/review/DOC-verified.md and notes/review/DOC.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T05:49:48.028673067Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T05:49:48.028673067Z",
+  "updated_at": "2026-10-17T06:54:20.605922097Z",
+  "closed_at": "2026-10-17T06:54:20.605922097Z",
+  "close_reason": "FIXED per notes/review/reconciliation.md: guides/relay-operator.md:1860-1863 TXT at `_agora-relay._udp`/`_agora-relay._tcp`; :586-587 `envelope_pow_min_difficulty` mapped to manifest `minPowDifficulty` (spec §10.2.1)",
   "labels": [
     "review",
     "doc"
