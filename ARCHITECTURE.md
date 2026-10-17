@@ -147,8 +147,9 @@ An IO MAY observe the following and nothing else:
    reveal which member produced them.
 4. Content identifiers (CIDs) it stores or pins, and pin/unpin instructions
    authorized under §6.
-5. Quota and payment state under a `RelayServiceAgreement`, keyed to the
-   agreement and never to member identity.
+5. Quota state under a `RelayServiceAgreement`, keyed to the agreement and
+   never to member identity. Commercial terms between CO and IO are outside the
+   protocol.
 6. For push proxies only: opaque device push handles and wake-up timing.
 7. Its own peering relationships with other IOs.
 
