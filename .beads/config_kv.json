@@ -1,5 +1,6 @@
 {
   "issue_prefix": "agora",
   "kv.memory.agora-historical": "~/GIT/Agora (nie fork, prototype code) renamed to ~/GIT/Agora-historical on 2026-10-16. Frozen; Agora revival is spec-only in ~/PROJECT/agora. GitHub remote MarkAtwood/Agora unchanged.",
-  "kv.memory.agora-no-payments": "Agora first ship: NO money or cryptocurrency handling (Mark, 2026-10-16) — distracting. Payment material lives in attic/relay-economics.md. RelayServiceAgreement stays (separation contract) minus price/fee fields. PoW spam deterrence kept as non-monetary."
+  "kv.memory.agora-no-payments": "Agora first ship: NO money or cryptocurrency handling (Mark, 2026-10-16) — distracting. Payment material lives in attic/relay-economics.md. RelayServiceAgreement stays (separation contract) minus price/fee fields. PoW spam deterrence kept as non-monetary.",
+  "kv.memory.agora-q6-billing-did": "Agora Q6 decided 2026-10-16 (Mark chose option b): RelayServiceAgreement is signed by a CO billing DID that never appears in Space records; names no Space/channel; private, not gossiped; coverage = AccessChainRegistration of first-epoch access keys via CO registration service (SHOULD batch + delay). Mark intends COs to run many Spaces, which is what gives each Space its anonymity set at the relay."
 }

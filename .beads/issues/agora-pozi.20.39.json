@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.20.39",
+  "title": "Passive members reuse last-resort KeyPackages",
+  "description": "04 §6.1.3 exception to single-use rule (agora-pozi.18). Justify or remove.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:45:00.545924657Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:45:00.545924657Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.39",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:45:00.551572884Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

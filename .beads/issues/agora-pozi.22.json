@@ -1,0 +1,24 @@
+{
+  "id": "agora-pozi.22",
+  "title": "Q6: may an IO know which Spaces it serves?",
+  "description": "RelayServiceAgreement names space CID + channel path globs and is gossiped in plaintext; messaging §6.2 has CO hand relay first-epoch access keys under the RSA. Result: relay can map token chains -\u003e Space (not -\u003e channel). ARCHITECTURE §5 budget doesn't list this. Options: (a) add 'identity of COs/Spaces it holds agreements with' to §5 as unavoidable business fact, forbid token-\u003echannel; (b) RSA references only opaque access-key chains, no space/channel identifiers, not gossiped. Raised in phase B review 2026-10-16.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:38:26.79297032Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:45:00.277377473Z",
+  "closed_at": "2026-10-17T03:45:00.277377473Z",
+  "close_reason": "Option (b), Mark 2026-10-16: agreements signed by CO billing DID, name no Space/channel, private (not gossiped); coverage via AccessChainRegistration; IO learns CO not Space. ARCHITECTURE §5 item 6, §6.1, §9.",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.22",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:38:26.801320456Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
