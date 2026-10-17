@@ -159,7 +159,8 @@ const credential = await navigator.credentials.create({
       residentKey: "preferred",
       userVerification: "required"
     },
-    extensions: { prf: { eval: { first: prfSalt } } }
+    // PRF input fixed by spec §12.6
+    extensions: { prf: { eval: { first: sha256("agora/v1/webauthn-prf") } } }
   }
 });
 ```
@@ -174,7 +175,7 @@ const rawPublicKey = await crypto.subtle.exportKey("raw", deviceKey.publicKey);
 const publicKeyMultibase = multibaseEncode('ed25519-pub', new Uint8Array(rawPublicKey));
 ```
 
-On the PRF path the app wraps the device key under a key derived from the PRF output, stores only the wrapped key with the credential ID and `prfSalt`, and drops the original `CryptoKey` (spec §12.6). In later sessions the Agora web client unwraps the key once per session as non-extractable. On the no-PRF path the app stores the non-extractable `CryptoKey` itself, as spec §12.6 allows, and warns that the stored key is not protected by the passkey. The genesis log entry or genesis operation, the KeyPackages and the registration proof are signed after this step, with the key in its final form.
+On the PRF path the app wraps the device key exactly as spec §12.6 step 1 specifies (HKDF-SHA256 wrapping key, AES-GCM `wrapKey` with a fresh 12-byte `iv`), stores only the wrapped key, `iv` and the credential ID, and drops the original `CryptoKey` (spec §12.6). In later sessions the Agora web client unwraps the key once per session as non-extractable. On the no-PRF path the app stores the non-extractable `CryptoKey` itself, as spec §12.6 allows, and warns that the stored key is not protected by the passkey. The genesis log entry or genesis operation, the KeyPackages and the registration proof are signed after this step, with the key in its final form.
 
 The passkey is not a device key and does not appear in the DID document (spec §2.2). Its assertions never leave the browser; the Enrollment Service does not parse WebAuthn. The DID itself is not derived from the device key: a `did:webvh` DID embeds the SCID of its genesis log entry, and a `did:plc` DID comes from its genesis operation (§3.1). The browser path does not offer `did:key` (§3.1).
 
@@ -415,17 +416,17 @@ On receipt of a registration request, the Enrollment Service MUST:
 
 The Enrollment Service holds the space enrollment agent's MLS credentials, specifically the ability to issue Add commits. This is either the space owner's signing key (if delegated) or a dedicated enrollment agent key added to the space's MLS group at setup time. The service:
 
-1. Fetches one KeyPackage from the user's `KeyPackageEndpoint`; the fetch consumes it (spec §5.2.1.1). It validates the KeyPackage as in spec §5.2.1.1 (signature and leaf credential match the DID, not expired, ciphersuite matches the group).
-2. Constructs the commit:
+1. Fetches the user's KeyPackages from the user's `KeyPackageEndpoint`, one per device; the fetch consumes them (spec §5.2.1.1). It validates each KeyPackage as in spec §5.2.1.1 (signature and leaf credential match the DID, not expired, ciphersuite matches the group).
+2. Constructs the commit, with one Add per KeyPackage:
 
    ```
    MLSMessage {
-     Add { KeyPackage: <fetched from the user's KeyPackageEndpoint> }
+     Add { KeyPackage: <each KeyPackage fetched from the user's KeyPackageEndpoint> }
    }
    ```
 
-3. Publishes the commit to the channel like any member's handshake message, signed with the channel admission key (`admissionSig`, spec §5.2.2), which the enrollment agent holds as a channel member. The relay checks only that signature and carries ciphertext; it neither processes the commit nor learns who was added.
-4. POSTs the Welcome, with the `ratchet_tree` extension, to the same `KeyPackageEndpoint` (spec §4.6, §5.2.1).
+3. Follows the canonical-Commit rule of spec §5.1.1, including submission to the Space's sequencer when it names one, and then publishes the commit to the channel like any member's handshake message, signed with the channel admission key (`admissionSig`, spec §5.2.2), which the enrollment agent holds as a channel member. The relay checks only that signature and carries ciphertext; it neither processes the commit nor learns who was added.
+4. Once the Commit has won (spec §5.1.1), POSTs the Welcome, with the `ratchet_tree` extension, to the same `KeyPackageEndpoint` (spec §4.6, §5.2.1).
 5. Updates the Space membership in Space state through the CO's Space endpoint (spec §3.4).
 
 The client retrieves the Welcome from its identity host and initializes its local MLS state. It then fetches each channel's `ChannelAdmissionKey` from the Space endpoint (spec §5.2.2), so that it can subscribe and publish. It can decrypt space messages from the Add epoch forward.
@@ -528,7 +529,7 @@ challenge_ttl_seconds = 300
 
 **Enrollment Service privilege.** The Enrollment Service holds the enrollment agent key, which grants the ability to add members to the space MLS group. Compromise of the Enrollment Service allows an attacker to add arbitrary DIDs to the space. The service MUST be hardened accordingly: minimal attack surface, no public write endpoints beyond the registration flow, rate-limited per Discord user ID. The enrollment agent key SHOULD be rotated after the initial enrollment wave completes, or the agent SHOULD be removed from the MLS group entirely if no further enrollments are expected.
 
-**Identity host.** The host the user picks observes KeyPackage fetches and Welcome deliveries for that user (spec §4.6). As admission host of the DM groups the user starts or moves to it, it also learns that the user asked for keys for those group IDs, and when, and it chooses their relay lists; it does not learn the groups' other members (spec §4.6). It registers the tokens of those groups and of the user's self-group under its own billing DID, so a relay can group them as one host's traffic; a host serving only this user gives that user no anonymity at the relay (ARCHITECTURE §9). A `did:webvh` host cannot add a key without producing an invalid log (spec §2.1), so a dishonest host can deny service but cannot impersonate the user. The user can move to a different host.
+**Identity host.** The host the user picks observes KeyPackage fetches and Welcome deliveries for that user (spec §4.6). As admission host of the DM groups the user starts or moves to it, it also learns that the user asked for keys for those group IDs, and when, and it chooses their relay lists; it does not learn the groups' other members, except its own users whose clients also request keys for them (spec §4.6). It registers the tokens of those groups and of the user's self-group under its own billing DID, so a relay can group them as one host's traffic; a host serving only this user gives that user no anonymity at the relay (ARCHITECTURE §9). A `did:webvh` host cannot add a key without producing an invalid log (spec §2.1), so a dishonest host can deny service but cannot impersonate the user. The user can move to a different host.
 
 **Direct messages.** Enrollment admits the user to the Space's channels only. This tool imports no Discord friendships as accepted senders, so a DM from another migrated member starts in the message request state until the user accepts it (spec §4.6.3).
 

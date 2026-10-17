@@ -185,7 +185,7 @@ Agora addresses this in the client software. A regulated employee is one the fir
 
 The client will not send any message into the group until both steps are complete (spec §7.8.1). The compliance logger then receives and archives every subsequent message in that DM group to the same tamper-evident archive as Space channel messages.
 
-**This is an endpoint control.** On a managed device, the regulated employee cannot disable it. The DM counterparty cannot prevent it, though they can leave the group after receiving the disclosure. No member may remove the logger during the retention period: if another participant removes it, the regulated employee's client re-adds it and notifies the firm's Space administrator, and the removal is recorded in the `DMComplianceAuditEntry` (spec §7.8.3). The messages sent between removal and re-add are not captured; the logger records the missing epochs (spec §7.8.9).
+**This is an endpoint control.** On a managed device, the regulated employee cannot disable it. The DM counterparty cannot prevent it, though they can leave the group after receiving the disclosure. No member may remove the logger: if another participant removes it, the regulated employee's client re-adds it, and the removal is recorded in the `DMComplianceAuditEntry` (spec §7.8.3, §7.8.8). The messages sent between removal and re-add are not captured; the logger records the missing epochs (spec §7.8.9).
 
 The control depends on the regulated employee's client being conformant. Relays play no part and cannot detect a group that lacks the logger.
 
@@ -200,7 +200,7 @@ For any DM group involving a regulated employee, the archive contains:
 
 **Gap: pre-join messages.** The compliance logger is added when the regulated employee joins the DM group. Messages sent in that group before then are not captured. This is inherent to MLS group encryption: the logger cannot decrypt messages from before it was a group member.
 
-**Gap: non-Agora applications.** DM compliance applies to conversations conducted via Agora (including bridged conversations where the counterparty uses Slack, Teams, or a MIMI-compatible platform). If the regulated employee conducts the same conversation via WhatsApp, iMessage, or another non-Agora application, Agora does not capture it.
+**Gap: non-Agora applications.** DM compliance applies to conversations conducted via Agora (including conversations in Space channels bridged by a disclosed gateway to Slack or Teams). If the regulated employee conducts the same conversation via WhatsApp, iMessage, or another non-Agora application, Agora does not capture it.
 
 **Not a gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request (spec §4.6.3). A regulated employee's client still processes the Welcome, admits the logger and captures while the request is pending (spec §4.6.3, §7.8.7); the request state suppresses only notifications, read receipts and typing indicators. Messages sent into the group while the employee has not yet accepted are therefore in the archive.
 
@@ -329,7 +329,7 @@ These checkpoints correspond to the configuration items in the firm's compliance
 ### DM Compliance
 
 - Verify `DMComplianceAuditEntry` records are present for regulated employees
-- Review removal attempt records. Each removal attempt is a compliance event and should have been reported to the firm's administrator at the time.
+- Review removal attempt records. Each removal attempt is a compliance event; confirm the firm alerts on these records.
 - Sample DM groups and verify disclosure notices precede any message content
 
 ### Logger Infrastructure

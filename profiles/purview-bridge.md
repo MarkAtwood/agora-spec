@@ -132,7 +132,7 @@ The bridge creates subfolders lazily on first item for each Space and channel. S
 
 The bridge maintains a mapping table `{ agoraDID → m365UPN }`. The mapping is private CO data: it MUST be held only in the CO's directory, the DID provisioning service's database and the bridge's own store, and MUST NOT be written into any DID document, profile, Space state or other published record (spec §2.5.2). The table is populated by one of the following methods:
 
-1. **Provisioning-service record** (preferred for enterprise deployments): at onboarding (spec §2.5.3) the DID provisioning service validates the IdP token, whose SAML attribute (`urn:oid:1.2.840.113549.1.9.1` / email) or OIDC claim (`upn` or `email`) carries the M365 UPN. The provisioning service records `{ agoraDID → m365UPN }` in its private store, and the bridge reads it over an authenticated internal interface. The Agora client takes no part in the mapping.
+1. **Provisioning-service record** (preferred for enterprise deployments): at onboarding and device registration (spec §2.5.3, §2.5.4 Step 4) the DID provisioning service validates the IdP token, whose SAML attribute (`urn:oid:1.2.840.113549.1.9.1` / email) or OIDC claim (`upn` or `email`) carries the M365 UPN. The provisioning service records `{ agoraDID → m365UPN }` in its private store, and the bridge reads it over an authenticated internal interface. The Agora client takes no part in the mapping.
 
 2. **Manual provisioning**: an admin-supplied CSV mapping `agoraDID,m365UPN` loaded at bridge startup. This is the fallback for environments without SAML/OIDC integration.
 
@@ -405,7 +405,7 @@ When an eDiscovery investigator needs the recording:
 2. Request the media from the CO's recording archive operator. The media objects are sealed to the recorder's key and only the CO can unseal them (spec §6.12.4); a copy held on IO storage is ciphertext only.
 3. Verify the JWS on the attached `VTCComplianceRecord` envelopes against the recorder's DID (spec §13.1.1), and confirm that each sealed object matches its `mediaCID`, before treating the media as authentic. If the archive key was rotated, the object now held has a different CID: follow the `ArchiveResealEntry` whose `oldCID` is the `mediaCID` to its `newCID` (repeating for each later re-seal), verify each entry's signature, and match the sealed object against the last `newCID` (spec §7.9).
 
-**Epoch gap handling:** If `x-agora-vtc-epochs-gapped` is present, the recording has gaps (spec §6.12.6). The investigator SHOULD check the compliance audit chain for a matching gap record. A gap the recorder documented (for example, the recorder was offline) is distinct from an undocumented gap, which may indicate a removal attempt; for DM voice groups the `DMComplianceAuditEntry` `removalAttempts` field (spec §7.8.8) records those.
+**Epoch gap handling:** If `x-agora-vtc-epochs-gapped` is present, the recording has gaps (spec §6.12.6). The investigator SHOULD check the compliance audit chain for a matching gap record. A gap the recorder documented (for example, the recorder was offline) is distinct from an undocumented gap, which may indicate a removal attempt; no audit field records recorder removals; `removalAttempts` (spec §7.8.8) covers only the logger.
 
 ---
 

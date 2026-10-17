@@ -370,7 +370,7 @@ In either case, clients MUST NOT transmit a participant's media automatically on
 
 The grant governs CO recording only. Any member can capture media it receives by other means; the protocol cannot prevent this.
 
-For compliance grants (`"purpose": "compliance"`), the disclosure a client presents MUST identify the `recorderLabel` from the Space's `vtcCompliance` block (§6.12.5) and the grant's `retentionDays`, with wording equivalent to:
+For compliance grants (`"purpose": "compliance"`), the issuer MUST write a `participantDisclosure` that identifies the `recorderLabel` from the Space's `vtcCompliance` block (§6.12.5) and the grant's `retentionDays`, in every value if it is a language map (§12.10), with wording equivalent to:
 
 > **This call is being recorded for regulatory compliance by [recorderLabel] and retained for [retentionDays] days.**
 
@@ -454,7 +454,8 @@ The space's IPLD compliance audit chain receives a `VTCComplianceAuditEntry` for
   "epochsRecorded": [17, 18, 19],
   "epochsGapped": [],
   "participantCount": 4,
-  "vtcRecordCIDs": ["bafkrei...", "bafkrei..."]
+  "vtcRecordCIDs": ["bafkrei...", "bafkrei..."],
+  "prevEntryCID": "bafkrei..."
 }
 ```
 
@@ -462,7 +463,7 @@ The entry is signed per §13.1.1 by `recorderDID`. `epochsGapped` is an array of
 
 ### 6.12.7 VTC Compliance in DM Voice Groups
 
-A DM group (§4.6) may include a voice channel component. The obligation from §7.8 extends to voice: a regulated Space member participating in a DM voice group MUST add the space's `recorderDID` to the DM group's MLS group, with a `recorder` entry in the group's `agora_compliance` extension in the same Commit (§7.8.2), and issue a `RecordingGrant` for the recorder before any voice media is transmitted, following the same admission mechanics as §6.12.2. The recorder's Welcome carries the group's admission key in its GroupContext (§4.6). A recorder, like a text logger, is re-added by the regulated member's client if another member removes it (§7.8.3).
+A DM group (§4.6) may include a voice channel component. The obligation from §7.8 extends to voice: a regulated Space member participating in a DM voice group MUST add, for each Space whose `regulatedMembers` lists the user, that Space's `recorderDID` to the DM group's MLS group, with a `recorder` entry in the group's `agora_compliance` extension in the same Commit (§7.8.2), and issue a `RecordingGrant` for the recorder before any voice media is transmitted, following the same admission mechanics as §6.12.2. The recorder's Welcome carries the group's admission key in its GroupContext (§4.6). A recorder, like a text logger, is re-added by the regulated member's client if another member removes it (§7.8.3).
 
 Participant disclosure (§6.12.3) applies in DM voice groups identically to space voice channels. Non-regulated DM participants receive the disclosure notice and MAY leave before transmitting media.
 
@@ -509,7 +510,7 @@ A member rings others with a `CallRing`:
 }
 ```
 
-`targets` lists the DIDs being rung; an empty array rings every member of the group. The caller then joins the call (§6.3). Each device of a target is a separate MLS leaf (§2.2) and receives the `CallRing`; a device woken by push (§11.7) learns of the ring only after it fetches and decrypts the message. A device rings until `ringUntil`, until it receives a `CallResponse` for the `callID` from any device of the same DID, or until it receives a `CallEnd` for the `callID`. Clients MUST NOT ring for more than 120 seconds after receipt, whatever `ringUntil` says.
+`targets` lists the DIDs being rung; an empty array rings every member of the group. The caller then joins the call (§6.3). Each device of a target is a separate MLS leaf (§2.2) and receives the `CallRing`; a device woken by push (§11.7) learns of the ring only after it fetches and decrypts the message. A device rings until `ringUntil`, until it receives a `CallResponse` for the `callID` from any device of the same DID, or until it receives a `CallEnd` for the `callID`. Clients SHOULD NOT ring for more than 120 seconds after receipt, whatever `ringUntil` says.
 
 A device answers or declines with a `CallResponse`, and on acceptance joins the call (§6.3):
 

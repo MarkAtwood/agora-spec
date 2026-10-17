@@ -76,7 +76,7 @@ An implementation claims conformance to one or more of the classes below. A conf
 
 | Class | Role | MUST implement |
 |---|---|---|
-| Client | Member endpoint | §2.1, §2.2 (DID resolution, device keys); §2.6, §2.7, §2.8 (multi-device, identity change notice, account deletion); §3.3 to §3.5 (Space state validation and retrieval, member authentication); §4 (authority checks, invites, moderation, DMs); §5.1, §5.2.1 to §5.2.8, §5.3 (MLS groups in every channel mode, envelopes, message types, expiry, history, pins, text, reactions, presence); §7.2, §7.5, §7.7 (adding the logger, expiry under logging, member disclosure); §8.4, §8.8 (guest admission and retention notice); §9.3 (gateway indicators); §11.1 or §11.2, §11.4, §11.6 (transport and hello); §10.4.4 (blob upload, fetch, CID verification and exchange limits); §11.8.2 (upload authorization); §12.6 (key storage); §12.10 (disclosure accessibility); §14.2 to §14.4 (consistency models and validation) |
+| Client | Member endpoint | §2.1, §2.2 (DID resolution, device keys); §2.6, §2.7, §2.8 (multi-device, identity change notice, account deletion); §3.3 to §3.5 (Space state validation and retrieval, member authentication); §4 (authority checks, invites, moderation, DMs); §5.1, §5.2.1 to §5.2.8, §5.3 (MLS groups in every channel mode, envelopes, message types, expiry, history, pins, text, reactions, presence); §7.2, §7.5, §7.7 (adding the logger, expiry under logging, member disclosure); §7.8.2 (`agora_compliance` checks), §7.8.4 (presenting disclosure notices); §8.4, §8.8 (guest admission and retention notice); §9.3 (send-gate for an Admin adding a gateway, indicators); §11.1 or §11.2, §11.4, §11.6 (transport and hello); §10.4.4 (blob upload, fetch, CID verification and exchange limits); §11.8.2 (upload authorization); §12.6 (key storage); §12.10 (disclosure accessibility); §14.2 to §14.4 (consistency models and validation) |
 | Calls profile | Member endpoint | Client, plus §6 except the recorder-side formats of §6.12.4 and §6.12.6 |
 | Regulated-member profile | Member endpoint, CO enforcement point | Client, plus every row of the §7.8 Conformance Summary that applies to the regulated member's client or the committing client; with the Calls profile, also §6.12.5 and §6.12.7 |
 | Relay | IO | §10.4.3 and the sections it cites, §10.4.4 |
@@ -86,7 +86,8 @@ An implementation claims conformance to one or more of the classes below. A conf
 | KeyPackage host | CO | §2.1 (endpoint publication), §4.6 (Welcome intake; DM and self-group admission keys, which also makes it a registration service), §4.6.3, §5.2.1.1, §12.8 |
 | Provisioning service | CO | §2.5, the KeyPackage host class for the identities it runs (§5.2.1.1), §12.8 |
 | Compliance logger | CO | §5.2.1.3, §7.3, §7.4, §7.5, §7.8.2, §7.8.8, §7.8.9, the KeyPackage host class for its own DID, §12.8 |
-| Compliance recorder | CO | §6.12.1 to §6.12.6, §12.8 |
+| Compliance recorder | CO | §5.2.1.3, §6.12.1 to §6.12.7, the KeyPackage host class for its own DID, §7.8.2 (KeyPackage availability), §12.8 |
+| Gateway | CO | Client (as a member of each channel it serves), plus §9.1 and §9.3 (gateway duties), §12.8 |
 | TURN credential service | CO | §6.11 (TURN Credentials), §3.5, §12.8 |
 | Sequencer | IO | §14.4 and the sections it cites, §10.5.1, §10.5.3 (registration intake and agreements) |
 | SFU | IO | §6.6, §6.9, §6.10 and the sections they cite, §10.5.1, §10.5.3 (registration intake and agreements) |

@@ -232,7 +232,7 @@ websocket_addr = "0.0.0.0:443"
 # Peer API and libp2p (gossipsub) listen address.
 # This port must be reachable from peer relays. On 443 the relay
 # shares one QUIC listener with HTTP/3 and tells connections apart
-# by ALPN ("h3" vs "libp2p"), per spec §10.1. An operator who cannot
+# by ALPN ("h3" vs "libp2p"), per spec §10.2. An operator who cannot
 # share 443 may pick another port; the manifest endpoints, multiaddrs
 # and SRV records then carry that port.
 # default: "0.0.0.0:443"
@@ -1245,7 +1245,7 @@ agora_relay_connections_active{transport="websocket"} 144
 
 #### Admission Metrics
 
-The relay cannot see MLS framing inside the sealed envelope (spec §5.2.2), so it cannot count Commits, Proposals or application messages separately. It counts what it verifies: `admissionSig` on each envelope, pin instruction and upload authorization against the registered admission public key (spec §10.5.4), and the CO's registration requests (spec §10.5.3).
+The relay cannot see MLS framing inside the sealed envelope (spec §5.2.2), so it cannot count Commits, Proposals or application messages separately, except that an envelope in a sequenced channel that carries a `commitStamp` is a Commit (spec §12.3). It counts what it verifies: `admissionSig` on each envelope, pin instruction and upload authorization against the registered admission public key (spec §10.5.4), and the CO's registration requests (spec §10.5.3).
 
 | Metric name | Type | Labels | Description |
 |---|---|---|---|
@@ -2381,7 +2381,7 @@ Before shutdown, prepare a signed tombstone that retires the relay DID. The tomb
 }
 ```
 
-`RelayTombstone` is an operational practice, not part of the protocol spec. Do not gossip it: spec §10.3.2 forbids relays to forward anything on `v1/agora/discovery` other than SpaceAds and RelayAds, so peers would drop it. Instead, serve the encoded envelope at `https://<hostname>/.well-known/agora-relay-tombstone` for as long as you control the hostname, and send it to Level 3 peer operators out of band. Peers that do not know the practice remove the relay after the heartbeat expiry in spec §10.2.6.
+`RelayTombstone` is an operational practice, not part of the protocol spec. Do not gossip it: spec §10.3.2 forbids relays to forward anything on `v1/agora/discovery` other than SpaceAds and RelayAds, so peers would drop it. Instead, serve the encoded envelope at a URL on that hostname that you publish in your operator documentation for as long as you control the hostname, and send it to Level 3 peer operators out of band. Peers that do not know the practice remove the relay after the heartbeat expiry in spec §10.2.6.
 
 ### 16.7 Final Shutdown
 
@@ -2426,7 +2426,7 @@ Publish a working `abuseContact` in the manifest (spec §10.2.1). Ask reporters 
 - network addresses and times, for connection floods;
 - for a public Space, its SpaceAd, which names the CO (`advertisedBy`) and the CO's Space endpoint (spec §10.3.2).
 
-A report that names only a Space, a channel or a user cannot be mapped to anything the relay holds. Forward it to the CO named in the SpaceAd, if there is one; otherwise tell the reporter the relay cannot identify the community.
+A report that names only a Space, a channel or a user cannot be mapped to anything the relay holds. Forward it to the CO named in the SpaceAd, if there is one; otherwise tell the reporter the relay cannot identify the community. The one exception is a `keyAccess: public` broadcast channel, whose token the CO publishes with its public Space (spec §10.4.1).
 
 ### 17.2 What an Operator Can Do
 
@@ -2453,7 +2453,7 @@ Admitting a token is the CO's decision, made by registering or deregistering its
 - Identify the sender of a message, or any member of a group. The relay has no identities (spec §10.4.1).
 - Read content, judge it, or delete a single message by content. Envelopes are MLS ciphertext.
 - Ban or time out a user. Bans are MLS Removes followed by an admission key rotation by the CO; timeouts are enforced by members' clients (ARCHITECTURE §6.2).
-- Map a Space or channel to its routing tokens or to the CIDs its members store, even for a public Space.
+- Map a Space or channel to its routing tokens or to the CIDs its members store, even for a public Space. The one exception is a `keyAccess: public` broadcast channel, whose token the CO publishes with its public Space (spec §10.4.1).
 - Remove copies held by other relays or by the CO.
 
 ### 17.4 Legal Demands

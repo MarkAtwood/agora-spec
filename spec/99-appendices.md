@@ -46,7 +46,7 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Limit | Value | Strength | Defined in |
 |---|---|---|---|
 | Leaves in any MLS group, including DM groups | 4096 | MUST NOT exceed | §5.2.1 |
-| Members of an `interactive` channel group | 200 | Fixed | §3.2, §5.2.1 |
+| Members of an `interactive` channel group | 200 | Descriptive; the enforced cap is the 4096-leaf limit (§5.2.1) | §3.2, §5.2.1 |
 | Community speaker group (`speakerCap`) | default 200, maximum 500 | Default; maximum MUST NOT be exceeded | §5.2.1.2 |
 | Idle speaker eviction (`idleEvictDays`) | default 7 days | Default | §5.2.1.2 |
 | Pinned items per channel (`pinLimit`) | default 50 | Default | §5.2.6 |
@@ -70,7 +70,7 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Presence re-send; offline after silence | 30 s; 60 s | MUST; descriptive | §5.3.1 |
 | Typing events; indicator clear | at most 1 per 3 s; 10 s | Descriptive; SHOULD | §5.3.2 |
 | `ParticipantState` republish | every `ttl / 2` | MUST | §6.2 |
-| Ring duration | 120 s after receipt | MUST NOT exceed | §6.14.1 |
+| Ring duration | 120 s after receipt | SHOULD NOT exceed | §6.14.1 |
 | `RecordingGrant` grace after call end | default 5 min | Default | §6.12.5 |
 | Data channel message rate | 10 to 60 per second | See section | §6.13 |
 | Mesh call size before SFU | 4 participants | Recommended | §6.5 |
@@ -84,7 +84,7 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Relay envelope cache | lesser of `expiryHint` and the agreement's `retentionDays` | MUST | §10.4.3, §10.4.6 |
 | Publish `ts` ahead of the Relay's clock before `expired` | 300 s | MUST | §11.4 |
 | Push registration TTL | default 30 days, maximum 30 days | Default; MUST NOT keep longer; renewal MUST | §11.7.3 |
-| `PinInstruction` and upload `expires` | at most 600 s ahead of the Relay's clock | MUST | §11.4, §11.8.2 |
+| `PinInstruction`, upload and sequencer submission `expires` | at most 600 s ahead of the Relay's clock | MUST | §11.4, §11.8.2, §14.4.3 |
 | Admission key registration request | 1 to 1000 keys or tokens; `ts` within 300 s | MUST | §10.5.3 |
 | Full re-registration of current keys | at least every 24 h | MUST | §10.5.3 |
 | Grace before deregistering the previous admission key after rotation | 300 s, for application messages and operations only; no Commit is stamped on the previous key's commit stream once the new key is registered | RECOMMENDED; MUST for the sequencer rule | §10.5.3 |
@@ -95,9 +95,20 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
 | `agora_credentials` entries per leaf; extension data size | 8; 8192 bytes | Over the limit, the extension is ignored | §5.2.1.5 |
 | Hold of a Welcome whose authorization cannot yet be decided | 7 days | See section | §4.3 |
-| DM admission host handover fallback | any remaining member after 24 h without a handover Commit | See section | §4.6.4 |
+| Guardian transfer proposal `ts` window; objection period | 300 s; default 259200 s | MUST; Default | §4.1, §3.3 |
+| KeyPackage upload `ts` window | 300 s | MUST | §5.2.1.1 |
+| BEP-5 re-announce | 30 min | SHOULD | §10.3.4.6 |
+| Pkarr re-publish | 2 h | SHOULD | §10.3.4.6 |
+| Peer manifest cache; retry on fetch failure | 1 h; once after 5 s | Descriptive | §10.2.3 |
+| Peer block after a violation; permanent blocklisting | 24 h; 3 incidents in 7 days | Descriptive | §10.2.4 |
+| Unreachable peer kept in `knownPeers` | 7 days | Descriptive | §10.2.6 |
+| Directory fetch backoff; unreachable flag | 30 s to 1 h; 7 days | Descriptive | §10.3.4.4 |
+| DM admission host handover fallback | any remaining member that may move the group (§4.6.4) after 24 h without a handover Commit | See section | §4.6.4 |
 | DM admission key rotation fallback | every host's user's client rotates 24 h after a Commit that removed a leaf, if no Commit has changed `agora_admission` | MUST | §4.6 |
-| DM admission host deregisters a group's key | on its issuee's request; 7 days after the issuee of a later key for the group confirms that key's Commit; or 30 days after the issuee is offboarded | See section | §4.6 |
+| DM admission host deregisters a group's key | on its issuee's request; 7 days after the issuee of a later key for the group confirms that key's Commit; or 30 days after the issuee is offboarded; never sooner than 300 s after the new key's Commit has won and a Relay in its `relays` has accepted a Subscribe (§4.6) | See section | §4.6 |
+| DM admission key periodic rotation | a host's user's client rotates 7 days after it processed the Commit that put the current key in `agora_admission` | See section | §4.6 |
+| DM admission host engages a replacement Relay | at least 14 days before the departing Relay's `retiresAt` | See section | §10.3.5 |
+| DM member resolves each other member's DID | at least once every 7 days | See section | §4.6, §2.5.6 |
 | Client deletes a DM admission key that a host move replaced | 30 days after the move Commit, and not before a Relay admitted the new key | See section | §4.6.4 |
 | Client deletes its user's DM admission keys after the user's last leaf is removed | 30 days after that Commit | See section | §4.6.4 |
 | Non-member view refetch on a post from an unlisted `senderDID` | at most once a minute per Space | See section | §5.2.1.4 |
@@ -116,11 +127,11 @@ A DM group is bounded only by the 4096-leaf limit, and a message body only by th
 
 ## Appendix D: Registries and Identifiers
 
-This appendix lists the identifiers this specification allocates. "IANA" names the registry in which an entry is required for interoperability outside Agora; "Agora-internal" means this specification is the only allocation authority and no external registration is needed. The `urn:agora:` URN namespace is treated as registered.
+This appendix lists the identifiers this specification allocates. "IANA" names the registry in which an entry is required for interoperability outside Agora; "Agora-internal" means this specification is the only allocation authority and no external registration is needed. The `urn:agora:` URN namespace is treated as registered. The prefix `urn:agora:practice:` is reserved for names used by the non-normative guides and profiles in this repository; those names carry no protocol meaning.
 
 **Derivation labels.** §13.3 lists every MLS exporter label, KDF `info` string and AEAD associated-data prefix. The entries of kind "MLS exporter" are MLS exporter labels and need entries in the IANA "MLS Exporter Labels" registry (RFC 9420 §17). The other entries are Agora-internal.
 
-**MLS extension types.** `agora_admission` (0xF0A0, GroupContext of DM groups and self-groups, §4.6), `agora_device_binding` (0xF0A1, LeafNode, §5.2.1), `agora_space_membership` (0xF0A3, GroupContext of self-groups, §2.6) `agora_compliance` (0xF0A4, GroupContext of DM groups, §7.8.2) and `agora_credentials` (0xF0A5, LeafNode, optional, §5.2.1.5) use the RFC 9420 private-use range and need no IANA registration.
+**MLS extension types.** `agora_admission` (0xF0A0, GroupContext of DM groups and self-groups, §4.6), `agora_device_binding` (0xF0A1, LeafNode, §5.2.1), `agora_space_membership` (0xF0A3, GroupContext of self-groups, §2.6), `agora_compliance` (0xF0A4, GroupContext of DM groups, §7.8.2) and `agora_credentials` (0xF0A5, LeafNode, optional, §5.2.1.5) use the RFC 9420 private-use range and need no IANA registration.
 
 **URN namespaces.**
 
@@ -141,8 +152,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `broadcasters` | Non-member view member, array of `{channelID, keyEpoch, dids}` | §3.3, §3.4, §5.2.1.4 |
 | `chunkCount`, `thumbnailChunkCount`, `contentKey`, `thumbnailContentKey` | JMAP object extension properties | §14.3.4 |
 | `seed` | `pin-op` operation | §11.4, §10.4.4 |
-| `stream-closed` | Error code (sequencer commit stream) | §11.4, §14.4.3 |
-| `token-rotated` | Error code (live protocol, rotated token) | §11.4, §10.5.3 |
+| Error codes of the live protocol and of admission key registration | Error codes | §11.4, §10.5.3, §14.4.3 |
 | `token` | Query parameter of the blob fetch and Peer API blob paths | §10.4.4, §10.2.2 |
 
 **Capability and model strings** (Agora-internal).
@@ -164,6 +174,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `AgoraProfile` | §2.3 |
 | `AgoraSpaceEndpoint` | §3.4 |
 | `AgoraComplianceLogger` | §7.3 |
+| `AgoraProvisioning` | §2.5.3 |
 | `AgoraMatrixGateway` | `profiles/gateways.md` (non-normative) |
 | `AgoraTextFormatCapabilities` | §5.2.7.4 |
 
@@ -179,7 +190,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | JWS header parameter `agoraType` | §13.1.1 | IANA "JSON Web Signature and Encryption Header Parameters" (RFC 7515 §4.3) |
 | WebSocket subprotocol `agora-sfu.v1` | §6.6 | IANA "WebSocket Subprotocol Name Registry" (RFC 6455 §11.5) |
 | URI scheme `agora` | §3.2 | IANA "Uniform Resource Identifier (URI) Schemes" (RFC 7595) |
-| HTTP path prefix `/v1/agora/`, gossip topics `v1/agora/...`, IPNS name `/ipns/agora.protocol/relays/v1` | §1.1, §10.3.1, §10.2.5 | Agora-internal |
+| HTTP path prefix `/v1/agora/`, gossip topics `v1/agora/...` | §1.1, §10.3.1 | Agora-internal |
 
 ---
 

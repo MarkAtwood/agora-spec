@@ -35,7 +35,7 @@ What follows in practice:
 
 - IO keys (`relayDID`, `operatorDID`) MUST differ from every CO key, including the operator's manifest key and any posting key it holds (ARCHITECTURE §2.4).
 - Relay service is bought under a `ServiceAgreement` like any other (spec §10.5.1). Sharing an operator gives no shortcut.
-- **Disclosed cost.** A party that runs both a social or identity service and relays can link its own users to the COs whose traffic passes through its relays. For Spaces it cannot learn content, channel or Space. DMs differ: as the DM admission host of a DM group its user started or moved to it, the identity host learns that its user asked for keys for that group ID and chooses the group's relay list (spec §4.6), so if those are its own relays it can tie that DM's traffic at them to its user. It does not learn the group's other members. It still cannot read content. As identity host acting as CO for its users' DM groups and self-groups, it also registers their tokens under its own billing DID (spec §10.5.3), so their anonymity at a relay is only as large as its user base, and a single-user host gives none. Users and communities can avoid the relay linkage by choosing other relays, and a DM admission host should list relays it does not operate. ARCHITECTURE §9 lists the combined-operator cost as accepted.
+- **Disclosed cost.** A party that runs both a social or identity service and relays can link its own users to the COs whose traffic passes through its relays. For Spaces it cannot learn content, channel or Space. DMs differ: as the DM admission host of a DM group its user started or moved to it, the identity host learns that its user asked for keys for that group ID and chooses the group's relay list (spec §4.6), so if those are its own relays it can tie that DM's traffic at them to its user. It does not learn the group's other members, except its own users whose clients also request keys for the group. It still cannot read content. As identity host acting as CO for its users' DM groups and self-groups, it also registers their tokens under its own billing DID (spec §10.5.3), so their anonymity at a relay is only as large as its user base, and a single-user host gives none. Users and communities can avoid the relay linkage by choosing other relays, and a DM admission host should list relays it does not operate. ARCHITECTURE §9 lists the combined-operator cost as accepted.
 
 ## 3. Shared identity (C2, C3, C4)
 
@@ -48,8 +48,8 @@ What follows in practice:
 
 **Content pointer is the DID, not IPNS (C2).** CORUNDUM drops IPNS. Today IPNS names the operational key and points at the RootManifest (Ch 5, Ch 9). Instead:
 
-- **`did:webvh` and `did:plc`.** The DID document carries a `service` entry whose `serviceEndpoint` is `ipfs://<RootManifest CID>`. This is the same pattern as Agora's `AgoraProfile` entry (spec §2.3). Updating the pointer is a DID log entry for `did:webvh`, witnessed where the log's parameters require it (spec §2.1), or a PLC operation.
-- **`did:key`.** The pointer goes in the Pkarr record (spec §2.1, §10.3.4.6). One identity and one pointer mechanism serve both systems.
+- **`did:webvh` and `did:plc`.** The DID document carries a stable CORUNDUM `service` entry naming the operator's content endpoint and the posting key, the same pattern as Agora's `AgoraProfile` entry (spec §2.3). The operator serves each new RootManifest from that endpoint, signed by the posting key (section 9, question 1). The DID log changes only when the operator or posting key changes: a DID log entry for `did:webvh`, witnessed where the log's parameters require it (spec §2.1), or a PLC operation.
+- **`did:key`.** The `_corundum._agora` Pkarr record carries `url` (the operator's content endpoint) and `key` (the posting key) (spec §2.1, §10.3.4.6). One identity and one pointer mechanism serve both systems.
 - **Why drop IPNS.** It has sequence numbers but no verifiable history, and DHT resolution takes 30-60 s (Ch 5). Agora already dropped IPNS except as a relay's last-resort bootstrap (spec §10.2.5).
 
 **Key custody (C4).** Users hold their own identity keys. The operator never receives them.
@@ -64,7 +64,7 @@ What follows in practice:
 |---|---|---|
 | `authentication` Ed25519 device keys, `keyAgreement` X25519 (spec §2.1) | Agora | User devices |
 | `AgoraKeyPackageEndpoint`, `AgoraProfile` services (spec §2.1, §2.3) | Agora | Not applicable |
-| CORUNDUM identity service with the RootManifest CID and the operator endpoint | CORUNDUM | Not applicable |
+| CORUNDUM identity service with the operator's content endpoint | CORUNDUM | Not applicable |
 | Posting key (CORUNDUM service entry) | CORUNDUM | Operator, delegated |
 | Update or rotation keys, recovery keys | Both | User only |
 
@@ -121,7 +121,7 @@ None of these changes have been made in CORUNDUM. Each is a proposal, mapped to 
 
 **Identity and IPNS removal (C2)**
 - [ ] Ch 5: two layers instead of three (DID and handles). The verification chain becomes Handle, DID, RootManifest, Handle.
-- [ ] Ch 6: the CORUNDUM identity service drops `ipnsName` and carries the RootManifest CID. Add the posting key (section 3).
+- [ ] Ch 6: the CORUNDUM identity service drops `ipnsName` and carries the operator's content endpoint and the posting key (section 3, section 9 question 1).
 - [ ] Ch 9: the RootManifest is reached from the DID document, not an IPNS name.
 - [ ] Ch 11, Ch 25, Ch 26: `attributedTo`, following lists and notifications name DIDs, not `ipns://` names.
 - [ ] Ch 15, Ch 41, Ch 43, Ch 46: remove IPNS keypair generation, Kubo IPNS publishing and the DID-to-IPNS cache. Kubo stays for pinning.

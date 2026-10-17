@@ -189,7 +189,7 @@ The genesis log entry, created at Joiner time (spec §2.5.3). One line of `did.j
 }
 ```
 
-`portable: true` MUST be set in the genesis entry, because `did:webvh` allows portability only when enabled at creation; it is what lets the identity survive a domain change (§6.4, spec §2.5.2). The `KeyPackageEndpoint` and `AgoraProvisioning` entries are present before the first device enrolls, as spec §2.5.3 requires; the `AgoraProvisioning` value is the base URL `{prov}` under which the sidecar serves `POST {prov}/devices` and `POST {prov}/revocations` (spec §2.5.4, §2.5.5). The `witness` parameter is required for a CO-provisioned DID (spec §2.1, §6.6). The document names no relay or other IO.
+`portable: true` MUST be set in the genesis entry, because `did:webvh` allows portability only when enabled at creation; it is what lets the identity survive a domain change (§6.4, spec §2.5.2). The `KeyPackageEndpoint` and `AgoraProvisioning` entries are present before the first device enrolls, as spec §2.5.3 requires; the `AgoraProvisioning` value is the base URL `{prov}` under which the sidecar serves `POST {prov}/devices` and `POST {prov}/revocations` (spec §2.5.4, §2.5.5). The `witness` parameter is required for a CO-provisioned DID (spec §2.1, §6.6 below). The document names no relay or other IO.
 
 The document has no `controller` property naming the organization. With `did:webvh`, authority to change the document comes from the `updateKeys` parameter of the log, not from the DID Core `controller` property. Listing the org's DID as `controller` would add nothing for updates and, under DID Core, could let verification methods in the org's own DID document be accepted as acting for the user, a power spec §2.5.1 does not grant. Each `verificationMethod` names the user's DID as its `controller`.
 
@@ -544,7 +544,7 @@ The sidecar (spec §2.5.5):
 
 Other device keys (the user's phone, recovery key) are unaffected. The user retains access via remaining enrolled devices and can re-enroll the lost device after obtaining a replacement.
 
-If the revoked key was the user's only device key, the document returns to `STUB` state and the user must re-enroll. The user's DID is preserved: space membership is retained, but the user cannot send or receive messages until re-enrollment completes.
+If the revoked key was the user's only device key, the document returns to `STUB` state and the user must re-enroll. The user's DID is preserved: the user's leaves were removed from every group, so after re-enrollment the user must be re-added to each group.
 
 ### 5.6 MFA Step-Up for Device Key Registration
 
@@ -554,13 +554,12 @@ The DID Sidecar enforces this with a Conditional Access authentication context. 
 
 ```http
 POST /v1/devices
-Authorization: Bearer <step-up-token>
 Content-Type: application/cbor
 
 <encoded typed payload envelope (spec §13.1)>
 ```
 
-This is `POST {prov}/devices` of spec §2.5.4 Step 3, with `{prov}` the `AgoraProvisioning` base URL (§3.2). The envelope has `type` `urn:agora:type:DeviceKeyRegistrationRequest`, `contentType` `application/json`, and a `body` that is the spec §2.5.4 Step 3 request without `idpToken`:
+This is `POST {prov}/devices` of spec §2.5.4 Step 3, with `{prov}` the `AgoraProvisioning` base URL (§3.2). The envelope has `type` `urn:agora:type:DeviceKeyRegistrationRequest`, `contentType` `application/json`, and a `body` that is the spec §2.5.4 Step 3 request, with the step-up access token as `idpToken`:
 
 ```json
 {
@@ -571,22 +570,23 @@ This is `POST {prov}/devices` of spec §2.5.4 Step 3, with `{prov}` the `AgoraPr
   "deviceX25519PublicKey": "base64url(X25519 pubkey)",
   "platform": "macOS",
   "secureEnclaveAttested": true,
-  "ts": "2026-03-12T12:00:00.000Z"
+  "ts": "2026-03-12T12:00:00.000Z",
+  "idpToken": "<step-up access token>"
 }
 ```
 
-This profile carries the step-up token in the `Authorization` header instead of the body's `idpToken` member; the header token takes the place of `idpToken` for the checks of spec §2.5.4 Step 4.
+The step-up access token travels in `idpToken`, so the device-key signature covers it (spec §2.5.4 Step 3).
 
 The envelope `sig` (spec §13.1.1) carries the signatures. For the first device it holds one entry, by the new `deviceEd25519PublicKey`, as proof of possession. This is a device-key signature, not a WebAuthn assertion: a passkey or FIDO2 key that the user presents to Entra during step-up never becomes a device key (spec §2.2). For every later device it also holds an entry by a currently registered device key (spec §2.5.4 Step 3).
 
 The sidecar MUST validate all of the following before writing the key:
 
-1. Token is a valid Entra access token for the sidecar's audience
+1. `idpToken` is a valid Entra access token for the sidecar's audience
 2. Token `acrs` contains the configured authentication context ID (password-only MFA cannot satisfy the policy behind it)
 3. Token `oid` maps, in the sidecar's private store, to the `did` in the request body
 4. First device: the DID is in `STUB` state and `sig` has no entry from a registered key. Later devices: `sig` has an entry that verifies against a device key in the current verified log
 5. `sig` has an entry that verifies against `deviceEd25519PublicKey` over the exact `body` bytes
-6. The remaining checks of spec §2.5.4 Step 4 (account active, device limit)
+6. The remaining checks of spec §2.5.4 Step 4 (account active, device limit, and rejecting a key already present in any DID the service serves)
 
 No VC is required for the first device (§4.2). If org policy requires a VC for later devices, the request also carries a `vcPresentation`, validated as in §4.3.
 
@@ -610,7 +610,7 @@ GET    /v1/agora/kp/{localIdentifier}?leaf=    Existing device fetches a KeyPack
 POST   /v1/agora/kp/{localIdentifier}/welcome  Committer delivers an MLS Welcome
 POST   /v1/agora/kp/{localIdentifier}/auth     Caller authentication, if fetches are gated by sender (spec §3.5, §4.6.3)
 
-# Admission keys for DM groups and self-groups (spec §4.6, §6.7)
+# Admission keys for DM groups and self-groups (spec §4.6, §6.7 below)
 POST   /v1/agora/admission-key/{groupID}                       Issue a new ChannelAdmissionKey to the calling employee (spec §3.5)
 POST   /v1/agora/admission-key/{groupID}/{keyEpoch}/committed  Confirm that the key's Commit won (its issuee only)
 DELETE /v1/agora/admission-key/{groupID}/{keyEpoch}            Deregister that key (its issuee only)
@@ -687,7 +687,7 @@ The organization chooses its witnesses. What matters is that the organization do
 
 ### 6.7 Admission Keys for DM Groups and Self-Groups
 
-The sidecar hosts each employee's `KeyPackageEndpoint`, so it is the employee's identity host in the sense of spec §4.6 and plays the CO's part for admission of every DM group an employee initiates or moves to it (spec §4.6.4) and of each employee's self-group (spec §2.6). For each such group it generates the admission key, registers it by `AdmissionKeyRegistration` with every IO (relay, SFU, sequencer) that holds a `ServiceAgreement` with the organization whose `serviceType` receives registrations (spec §10.5.3), and deregisters a key when its issuee asks, 7 days after the issuee of a later key for the same group confirms that key's Commit, or 30 days after that employee is offboarded (spec §4.6, §10.5.3). Rotation and handover are client actions: an employee's client POSTs for a new key and commits it to the group's `agora_admission` GroupContext extension (spec §4.6, §4.6.4). Registrations are signed by the organization's billing DID (spec §10.5.1), so the sidecar needs a signing path to that key, for example through the CO's registration service; it never signs them with its own DID. Its `<host>`, which the employee's client puts in the group's `agora_admission` extension (spec §4.6), is `https://did.example.com`, the origin of the employees' `KeyPackageEndpoint`s; it serves the §6.1 admission-key endpoints under `/v1/agora/admission-key/` and the spec §3.5 exchange at `POST /auth`. It issues keys only to its own employees after the spec §3.5 exchange and keeps no member list; it learns that an employee asked for keys for a group ID, and when, but not the group's other members (spec §4.6). Relays learn neither the group nor the members, only that the token is covered by the organization's agreement, so a DM's anonymity at a relay is as large as the organization's set of users (ARCHITECTURE §9).
+The sidecar hosts each employee's `KeyPackageEndpoint`, so it is the employee's identity host in the sense of spec §4.6 and plays the CO's part for admission of every DM group an employee initiates or moves to it (spec §4.6.4) and of each employee's self-group (spec §2.6). For each such group it generates the admission key, registers it by `AdmissionKeyRegistration` with every relay that holds a `relay` `ServiceAgreement` with the organization (spec §10.5.3), and deregisters a key when its issuee asks, 7 days after the issuee of a later key for the same group confirms that key's Commit, or 30 days after that employee is offboarded (spec §4.6, §10.5.3). Rotation and handover are client actions: an employee's client POSTs for a new key and commits it to the group's `agora_admission` GroupContext extension (spec §4.6, §4.6.4). Registrations are signed by the organization's billing DID (spec §10.5.1), so the sidecar needs a signing path to that key, for example through the CO's registration service; it never signs them with its own DID. Its `<host>`, which the employee's client puts in the group's `agora_admission` extension (spec §4.6), is `https://did.example.com`, the origin of the employees' `KeyPackageEndpoint`s; it serves the §6.1 admission-key endpoints under `/v1/agora/admission-key/` and the spec §3.5 exchange at `POST /auth`. It issues keys only to its own employees after the spec §3.5 exchange and keeps no member list; it learns that an employee asked for keys for a group ID, and when, but not the group's other members (spec §4.6). Relays learn neither the group nor the members, only that the token is covered by the organization's agreement, so a DM's anonymity at a relay is as large as the organization's set of users (ARCHITECTURE §9).
 
 ---
 

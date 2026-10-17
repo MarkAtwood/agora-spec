@@ -66,7 +66,7 @@ Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `
 **The site gateway bridges.** The Substrate federation gateway (SPEC-Substrate §19.3) subscribes to site MQTT topics and is admitted to Agora channels as a gateway (§9.1):
 
 - It is a CO component (ARCHITECTURE §2.3, S8). It holds plaintext on the site side and runs under the site owner's control, with its own DID and keys.
-- It is disclosed: a `GatewayDescriptor` in channel state with `protocol` `"substrate"`, a `gateway-added` `SystemEvent`, and the persistent client badge (§9.3). Its `e2eeNote` should say that readings are plaintext on the source site's own fabric. That data never left the owner's control, so the badge flags no loss of confidentiality to a third party, unlike a Matrix bridge.
+- It is disclosed: a `GatewayDescriptor` in channel state with `protocol` `"substrate"`, a `gateway-added` `SystemEvent`, and the persistent client badge (§9.3). Its `e2eeNote` should say that readings are plaintext on the source site's own fabric. That data never left the owner's control, so the badge flags no loss of confidentiality to a third party, unlike a Matrix bridge. The Admin sets `unencryptedRemote: true` (spec §9.2).
 - It publishes only what the federation export view allows (SPEC-Substrate §7.12): no device identity keys, audit logs or configuration.
 
 **Group size.** Interactive MLS groups cap at 200 members (spec/05-messaging.md, interactive mode). A building can have thousands of devices. Groups therefore contain gateways, Arbiter front ends, logic engines and people, never devices.
@@ -93,7 +93,7 @@ Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `
 ## 5. Paths
 
 - **Slow path (default).** Readings, derived values, intents and configuration go as MLS application messages through relays (§14.5). Substrate state changes arrive at well under the few-per-second line, so the slow path fits.
-- **Fast path (rare).** A WebRTC data channel in a scene session with no media (§6.13) suits live 10-60 Hz views: vibration, waveform, joystick (3336) streaming to an operator console. Data channel messages authenticate only "some current member", not a particular one (§6.13). An Arbiter acts on sender identity, so intents MUST travel as MLS messages and never on a data channel. The one exception is a two-member group of one operator and the Arbiter front end, where membership identifies the sender. Persistent state never depends on a data channel.
+- **Fast path (rare).** A WebRTC data channel in a scene session with no media (§6.13) suits live 10-60 Hz views: vibration, waveform, joystick (3336) streaming to an operator console. Data channel messages authenticate only "some current member", not a particular one (§6.13). An Arbiter acts on sender identity, so intents MUST travel as MLS messages and never on a data channel. Persistent state never depends on a data channel.
 
 ## 6. Separation and leakage
 
@@ -108,7 +108,7 @@ Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `
 
 ## 8. Open questions
 
-1. Versioning of `urn:parlance:` names: per §13.1 a breaking change defines a new name; confirm the Parlance editors accept that rule.
+1. Versioning of `urn:parlance:` names: following the Agora convention for `urn:agora:type:` names (§13.1), a breaking change defines a new name; confirm the Parlance editors accept that rule.
 2. Cross-org gateways. §9.1 requires a gateway to run under the CO that operates the channel. In an installer's fleet Space, the customer's gateway is run by a different CO. Does a disclosed gateway of another CO need a distinct descriptor field?
 3. Topic-prefix authorship. Where is the mapping from topic prefix to authoring gateway DID recorded so that receivers can enforce single-author? A channel state field signed by the CO is the obvious place.
 4. Intent rejection. A rejected intent produces no state change. Should the Arbiter send an explicit decision message, or is silence plus TTL enough?

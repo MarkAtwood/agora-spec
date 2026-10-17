@@ -27,7 +27,7 @@ The gateway is a CO component under §9.1-§9.3 and ARCHITECTURE S8:
 
 - It runs under the control of the CO operating the channel, with its own DID and keys, and never in or as part of a relay.
 - It is an MLS member of each bridged channel, admitted by a normal Add Commit.
-- It is disclosed: a `GatewayDescriptor` in channel state with `protocol` `"ironweed"` or `"lichen"` and `target` naming the radio net, a `gateway-added` `SystemEvent`, and the persistent client badge (§9.3).
+- It is disclosed: a `GatewayDescriptor` in channel state with `protocol` `"ironweed"` or `"lichen"` and `target` naming the radio net, a `gateway-added` `SystemEvent`, and the persistent client badge (§9.3); on a public broadcast channel (this profile's §8) the disclosure is the `GatewayDescriptor` and the `broadcasters` list, with no `SystemEvent` (spec §9.3).
 - It holds plaintext from both sides. On the radio side it holds the net's Group OSCORE context or pairwise OSCORE contexts. On the Agora side it holds MLS group state.
 
 On the radio side the gateway is a member of each net it bridges. For IRONWEED it is the backhaul gateway node (SPEC §11.9); for LICHEN it is an application proxy on a border router, which appendix-border-router.md names as the route for conventional Internet integration. The trust shape matches IRONWEED's federation border node: a command-designated relay that holds both security contexts so it can enforce policy (SPEC §11.5).
@@ -122,7 +122,7 @@ IRONWEED BROADCAST (SPEC §5.5.3) maps to an Agora `broadcast` channel with `key
 
 1. Spec §5.2.1 recommends padding MLS content to a multiple of 256 bytes. Is that enough to hide beacon counts, or should this profile name larger buckets?
 2. Group OSCORE citations in both radio specs look wrong. IRONWEED SPEC §6.4 and §7.2 cite RFC 9594, which covers ACE key provisioning for groups. LICHEN 12-apps §18.8 and §18.8.5 cite RFC 9203, the ACE OSCORE profile. Group OSCORE itself is draft-ietf-core-oscore-groupcomm. Flag for the radio authors.
-3. Versioning of `urn:ironweed:` and `urn:lichen:` names: per §13.1 a breaking change defines a new name. Confirm both projects accept that rule.
+3. Versioning of `urn:ironweed:` and `urn:lichen:` names: following the Agora convention for `urn:agora:type:` names (§13.1), a breaking change defines a new name. Confirm both projects accept that rule.
 4. Redundant gateways on one net will deliver duplicates. Dedupe by (`src`, hash of `p`), or allow only one active gateway per channel?
 5. Agora-to-radio BROADCAST would require the gateway to sign as the mesh CA or command node (SPEC §5.5.3). Out of scope here; needs a decision by the radio operators.
 6. Should an Agora dispatcher be able to answer a HAIL through the gateway acting as the responding radio node, or must a radio operator always answer?
@@ -159,7 +159,7 @@ Overlays are edited by the radio command node. Agora members who want a change a
 
 **Link budget.** Default SF10, 125 kHz, CR 4/5, about 980 bps (02-physical-link; appendix-design-rationale). Frames are at most 255 B, and a signed frame carries a 48 B Schnorr-48 signature. Per-node duty budgets run from 0.5% (dense, EU) to 5% (sparse, US) (02a §2a.9.1). Agora-to-radio traffic spends the gateway node's duty budget; the filter should allow little beyond short text.
 
-**Security model.** No link-layer encryption: the frame's Encrypted flag is unsupported and receivers reject it (02-physical-link frame flags). Confidentiality comes only from OSCORE (pairwise, EDHOC) or an optional Group OSCORE key per group, distributed out of band or by secure unicast (12-apps §18.8.5). No forward secrecy and link headers are visible (06 §15.4). Addresses are stable and key-derived (06 §15.5). Suggested `e2eeNote`: "Bridged to LICHEN group <name>. Radio traffic may be readable over the air if the group has no OSCORE key, and radio metadata is visible; the gateway holds plaintext." The gateway should refuse to bridge a group without a Group OSCORE key into a channel whose members expect confidentiality, or at least state it in the channel description.
+**Security model.** No link-layer encryption: the frame's Encrypted flag is unsupported and receivers reject it (02-physical-link frame flags). Confidentiality comes only from OSCORE (pairwise, EDHOC) or an optional Group OSCORE key per group, distributed out of band or by secure unicast (12-apps §18.8.5). No forward secrecy and link headers are visible (06 §15.4). Addresses are stable and key-derived (06 §15.5). Suggested `e2eeNote`: "Bridged to LICHEN group <name>. Radio traffic may be readable over the air if the group has no OSCORE key, and radio metadata is visible; the gateway holds plaintext." The gateway should refuse to bridge a group without a Group OSCORE key into a channel whose members expect confidentiality, or at least state it in the channel description. The Admin sets `unencryptedRemote: true` (spec §9.2) for a group without a Group OSCORE key, and for any broadcast or pairwise traffic not protected by OSCORE.
 
 | Data | `type` | `ct` of `p` | Model | Path |
 |---|---|---|---|---|

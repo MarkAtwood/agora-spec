@@ -218,6 +218,15 @@ and it fixes retention, quotas and observation-budget declarations in the same
 way for every service type. Commercial terms are out of band. Enforcement is by
 selection: a CO that is unhappy with an IO replaces it (S5).
 
+A push proxy is an IO like any other. A CO that designates its own push proxy
+names it in Space state (`pushProxy`, protocol spec §3.3) and engages it by a
+`push-proxy` agreement. A push proxy that a Relay designates in its manifest
+(protocol spec §11.7.2) MUST also hold a `push-proxy` agreement with each CO
+that holds a `relay` agreement with that Relay, which fixes its retention and
+observation-budget declarations. A client registers a separate `pushHandle`
+with each proxy it uses, and gives a CO-designated proxy only that CO's
+routing tokens (protocol spec §11.7.3).
+
 An agreement identifies the CO only by a **billing DID**: a key dedicated to
 agreements that MUST NOT appear in Space state or any other Space-identifying
 record. An agreement names no Space and no channel. Coverage is expressed by
@@ -247,7 +256,7 @@ decrypt. Write admission at an IO uses a **channel admission key** that the CO
 issues to current members. An IO verifies that an envelope comes from a holder
 of the current key without learning which member sent it.
 
-*Mechanism (protocol spec §5.2.2, §10.5.1), pending external cryptographic
+*Mechanism (protocol spec §5.2.2, §10.5.3), pending external cryptographic
 review (§8 Q1):*
 
 - The CO registration service generates a random Ed25519 admission key pair
@@ -267,7 +276,7 @@ review (§8 Q1):*
   to its own user, whose client puts it in the group's MLS GroupContext.
   Members read it there, so the host keeps no member list (S9). After a Commit
   that removes a member or device, the host's user's client requests a new key
-  and commits it. When that host's user is no longer a member, a remaining
+  and commits it. When no host's user remains a member, a remaining
   member's client moves the role to its own identity host (protocol spec
   §4.6). For a shared
   channel, the home Space's CO issues and registers it. Broadcast channels use
@@ -393,7 +402,7 @@ All resolved 2026-10-16 except the external review in Q1.
   access key from the MLS exporter, announced each epoch's key on the Commit,
   and the CO registration service countersigned each announcement. Commit
   conflicts are resolved by the sequencer stamp or, without a sequencer, by
-  lowest hash (§6.2; protocol spec §5.1.1). Still open: external cryptographic review, which targets
+  the no-sequencer rule (§6.2; protocol spec §5.1.1). Still open: external cryptographic review, which targets
   the new design: the admission key's issuance and rotation, the
   `channelToken` derivation, `admissionSig` over the `signed` bytes, the
   canonical-Commit rule (protocol spec §5.1.1), and cost per envelope.
@@ -452,6 +461,12 @@ All resolved 2026-10-16 except the external review in Q1.
   successive admission keys of one channel through the token a registration
   replaces, and can cluster routing tokens that the same network address
   subscribes to. It cannot name such a cluster without outside information.
+  A CO that uses different sequencers for different Spaces lets its Relays
+  group its tokens by the sequencer DID in each Commit's stamp. A sequencer
+  replacement shows every Space member the closing commit-stream head of
+  every channel (protocol spec §3.3), so a member who also runs or colludes
+  with a Relay or the sequencer can recognize the traffic of channels it
+  cannot read. It cannot read that traffic. This is an accepted cost.
 - **An IO can infer removals.** After a rotation, an IO can see which
   subscribers do not move to the new key's token, and so can infer that a
   removal occurred and which connection or push handle it affected. It does
@@ -495,7 +510,8 @@ All resolved 2026-10-16 except the external review in Q1.
   its own users to the COs whose traffic they use.** For Spaces it never
   learns content, channel or Space. For a DM group whose admission host it
   runs (protocol spec §4.6), it knows its own user's DID and the group's ID,
-  not the other members, and if the group's relays are its own, it also sees
+  not the other members, except those of its own users whose clients also
+  request keys for the group, and if the group's relays are its own, it also sees
   that group's traffic: it then knows which token is its user's DM and when it
   is used, though never its content. A DM
   admission host SHOULD list relays it does not operate. Users and

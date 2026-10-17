@@ -80,7 +80,7 @@ When a regulated employee's Agora client creates or joins a DM group:
 
 The client will not send any message into the group until the logger is a member and the client has sent the disclosure notice (spec §7.8.1). Adding the logger needs no other member's consent (spec §4.6.1, §7.7).
 
-The disclosure notice is a visible system message that participants cannot suppress. It reads:
+The disclosure notice is a system message, normally shown as a system notification. It reads:
 
 > **[Employee name]'s messages in this conversation are subject to regulatory retention by [your organization's compliance archive] for [retention period] days.**
 
@@ -98,10 +98,10 @@ Relays do not know who is in a DM group or who is regulated, and they do not ins
 
 ### Logger Removal Protection
 
-Once admitted to a DM group, the compliance logger may not be removed for the duration of the retention period (spec §7.8.3):
+Once admitted to a DM group, the compliance logger may not be removed (spec §7.8.3):
 
 - The regulated employee's client refuses to commit any removal of the logger.
-- If another DM group member removes the logger, the regulated employee's client detects this, re-adds the logger, and **notifies your Space administrator** of the removal attempt. Messages in the interval between removal and re-add are not captured; the logger records the missing epochs.
+- If another DM group member removes the logger, the regulated employee's client detects this, re-adds the logger. The attempt is recorded in your compliance audit chain (below). Messages in the interval between removal and re-add are not captured; the logger records the missing epochs.
 
 Each removal attempt is recorded in the `removalAttempts` list of the group's `DMComplianceAuditEntry` in your compliance audit chain, with the timestamp and the identity of the user who attempted it (spec §7.8.8).
 
@@ -180,11 +180,11 @@ When a legal hold is triggered:
 
 ### Employee Disclosure
 
-Employees in a compliance-logging-enabled Space receive a mandatory disclosure at first join, from the `retentionNotice` in Space state (spec §7.5):
+Employees in a compliance-logging-enabled Space receive a mandatory disclosure before they first send, from the `retentionNotice` in Space state (spec §7.5):
 
 > "This space is subject to regulatory message retention. Messages are archived for [N] days regardless of expiry settings."
 
-The client displays this notice on first join and keeps it available from the Space's information panel, together with the logger's label, retention period, and regulatory frameworks (spec §7.7).
+The client displays this notice before the user first sends and keeps it available from the Space's information panel, together with the logger's label, retention period, and regulatory frameworks (spec §7.7).
 
 When a regulated employee's client adds the compliance logger to a DM group, it sends a `ComplianceDisclosureNotice` to all DM participants as a visible system message before any application message (spec §7.8.4). The notice identifies the logger by label (e.g., "Acme Corp Compliance Archive"), states the retention period, and lists the regulatory frameworks under which the logger operates.
 
@@ -233,7 +233,7 @@ Before deploying Agora in a regulated environment, verify the following.
 
 **Audit and monitoring**
 - [ ] `DMComplianceAuditEntry` records and logger gap records are being produced and are accessible to your compliance team
-- [ ] Alerts are configured for logger removal attempts (the spec requires notification to the Space administrator; confirm it is routed to compliance staff)
+- [ ] Alerts are configured for logger removal attempts (alert on non-empty `removalAttempts` in `DMComplianceAuditEntry` records and on logger `ComplianceGapEntry` records; confirm alerts reach compliance staff)
 - [ ] Archive integrity verification (chain hash and signature checks) runs on a schedule
 - [ ] Chain heads are recorded at regular intervals with an independent witness (suggested practice: `profiles/compliance-chain-witness.md`)
 - [ ] A process exists to map DID to employee name for eDiscovery production

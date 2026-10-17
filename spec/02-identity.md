@@ -347,7 +347,7 @@ Neither private key leaves the device's key store. The client transmits only the
 }
 ```
 
-Public keys are the raw 32-byte keys as unpadded base64url (RFC 4648 §5). `idpToken` is the OIDC ID token in compact serialization, or the unpadded base64url of the SAML assertion XML.
+Public keys are the raw 32-byte keys as unpadded base64url (RFC 4648 §5). `idpToken` is the OIDC ID token in compact serialization, an access token the IdP issued for the provisioning service's audience in compact serialization, or the unpadded base64url of the SAML assertion XML; the provisioning service states which it accepts.
 
 The request is signed per §13.1.1 by the new device key, with `kid` the `did:key` form of `deviceEd25519PublicKey`; this signature proves possession of the key being registered, and because it covers `idpToken` it binds the key to that token. For a subsequent device the envelope also carries a second signature by an existing registered device key of `did` (a multi-signer envelope, §13.1.1): the IdP token alone authorizes adding a device only on first enrollment; subsequent enrollment requires proof of an existing authorized device.
 
@@ -451,7 +451,7 @@ When an employee leaves, the organization performs a full account suspension:
 1. IdP account is disabled (blocks new IdP token issuance)
 2. Admin issues `revokeAll: true` revocation via the provisioning service
 3. The DID document is updated to remove all device keys
-4. Admins of the organization's Spaces Remove the user's leaves from their groups (§2.5.5); members of groups outside the organization's control Remove them when they next resolve the DID
+4. Admins of the organization's Spaces Remove the user's leaves from their groups (§2.5.5); members of groups outside the organization's control Remove them when they next resolve the DID, which a member's client does for each other member of each DM group it holds at least once every 7 days (§4.6)
 5. The organization retains the DID document (does not delete it) for the regulatory retention period
 6. After the retention period, the document MAY be blanked (empty `verificationMethod`) but MUST NOT be removed; the URL must remain resolvable to avoid dangling references in archived compliance records
 
