@@ -5,13 +5,13 @@
 
 *Binds: both.*
 
-Agora supports real-time group voice and video conferencing as a first-class channel type. The design uses WebRTC for media transport, MLS-encrypted signaling for all control messages, and an optional SFU (Selective Forwarding Unit) for scalable multi-party sessions. Media never transits Relays.
+Agora supports real-time group voice and video conferencing as a channel type. The design uses WebRTC for media transport, MLS-encrypted signaling for all control messages, and an optional SFU (Selective Forwarding Unit) for scalable multi-party sessions. Media never transits Relays.
 
 ## 6.1 Voice Channel Type
 
-A channel with `"type": "voice"` is a VTC room. It has all the properties of a text channel (MLS group, channel CID, history) plus a persistent **call state** — a real-time record of who is currently in the call and their media states.
+A channel with `"type": "voice"` is a VTC room. It has all the properties of a text channel (MLS group, channel CID, history) plus a persistent **call state**: a real-time record of who is currently in the call and their media states.
 
-A voice channel is always "open" — there is no concept of starting or ending a call. Participants join and leave; the room exists as long as the channel exists.
+A voice channel is always "open"; there is no concept of starting or ending a call. Participants join and leave; the room exists as long as the channel exists.
 
 **Transport constraints.** VTC requires UDP for ICE and media:
 
@@ -46,9 +46,9 @@ Call state events are delivered as MLS `PrivateMessage` application data, authen
 
 ## 6.3 Join and Leave
 
-**Join** — a client sends a `ParticipantState` with `status: "joined"` to the channel gossip topic, then initiates WebRTC negotiation with existing participants or the SFU.
+**Join**: a client sends a `ParticipantState` with `status: "joined"` to the channel gossip topic, then initiates WebRTC negotiation with existing participants or the SFU.
 
-**Leave** — a client sends `ParticipantState` with `status: "left"` and closes its WebRTC connections. Clients that disconnect without sending a leave message (crash, network drop) are timed out by other participants after `ttl` seconds.
+**Leave**: a client sends `ParticipantState` with `status: "left"` and closes its WebRTC connections. Clients that disconnect without sending a leave message (crash, network drop) are timed out by other participants after `ttl` seconds.
 
 Join and leave operations do NOT change MLS group membership. Being in the call means having an active `ParticipantState` with `status: "joined"` and live WebRTC connections.
 
@@ -71,15 +71,15 @@ All WebRTC signaling (SDP offer/answer, ICE candidates) is delivered as `VoiceSi
 `signalType` values: `offer`, `answer`, `candidate`, `candidate-end`. `targetDID` is the intended recipient. All signals are broadcast to the channel MLS group; non-target recipients MUST ignore signals not addressed to them. `VoiceSignal` is used between participants only; signaling with an SFU, which is not an MLS member, uses the SFU endpoint (§6.6).
 
 The consequences of MLS-encrypted signaling:
-- **E2EE signaling** — Relays cannot read SDP or ICE candidates.
-- **Authenticated signaling** — the MLS sender credential binds each signal to a verified DID.
-- **Authenticated DTLS fingerprint** — the DTLS-SRTP fingerprint in the SDP is authenticated by the MLS signature, closing the identity binding loop: a participant's media stream is cryptographically bound to their DID (see §6.10).
+- **E2EE signaling**: Relays cannot read SDP or ICE candidates.
+- **Authenticated signaling**: the MLS sender credential binds each signal to a verified DID.
+- **Authenticated DTLS fingerprint**: the DTLS-SRTP fingerprint in the SDP is authenticated by the MLS signature, closing the identity binding loop: a participant's media stream is cryptographically bound to their DID (see §6.10).
 
 ## 6.5 Topology: Mesh vs SFU
 
-**Mesh (≤4 participants, recommended)** — each participant establishes a direct WebRTC PeerConnection to every other participant. No SFU is required. Signaling is peer-to-peer via the MLS channel. Latency is minimized; bandwidth scales as O(n²).
+**Mesh (≤4 participants, recommended)**: each participant establishes a direct WebRTC PeerConnection to every other participant. No SFU is required. Signaling is peer-to-peer via the MLS channel. Latency is minimized; bandwidth scales as O(n²).
 
-**SFU (>4 participants, recommended)** — participants connect to a Selective Forwarding Unit which receives each participant's streams and forwards them selectively. Bandwidth scales as O(n). The SFU does not decode or re-encode media — it forwards RTP packets based on subscriber requests.
+**SFU (>4 participants, recommended)**: participants connect to a Selective Forwarding Unit which receives each participant's streams and forwards them selectively. Bandwidth scales as O(n). The SFU does not decode or re-encode media; it forwards RTP packets based on subscriber requests.
 
 The threshold of 4 is a recommendation. Clients MAY negotiate mesh topology for larger groups if all participants have sufficient bandwidth and consent.
 

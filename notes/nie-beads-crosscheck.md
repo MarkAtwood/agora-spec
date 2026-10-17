@@ -14,9 +14,8 @@ decisions.
 
 **The trackers almost never review the spec.** Of 3116 issues, exactly one
 (nie-xm4w) is about an Agora spec document. Everything else is implementation
-work or code-review findings on the nie/Agora Rust code. So most of our
-findings come out NOT FOUND. That is not because they disagree with us. They
-never looked.
+work or code-review findings on the nie/Agora Rust code. Most of our
+findings come out NOT FOUND because the trackers never looked at the spec.
 
 - **agoraold-\*** (924): created 2026-04-16..2026-04-23. 920 closed, 3
   deferred, 1 open. 889 of them are prefix-renamed copies of `nie-*` issues

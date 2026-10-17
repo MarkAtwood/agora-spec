@@ -1,0 +1,24 @@
+{
+  "id": "agora-pozi.27",
+  "title": "Scrub AI tells from all human-readable text",
+  "description": "Mark 2026-10-16: remove AI tells/slop/em dashes from README, ARCHITECTURE, PROPOSAL, PRFAQ, spec/, profiles/, guides/, attic/, notes/. import/ excluded (frozen, checksummed). Normative meaning, BCP14 keyword counts, code blocks, heading numbers and § refs must be unchanged; verified mechanically.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T04:13:56.456161934Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T04:17:00.211170221Z",
+  "closed_at": "2026-10-17T04:17:00.211170221Z",
+  "close_reason": "All prose scrubbed; verifier: 0 em dashes, BCP14 counts/heads/refs/beads/code blocks unchanged across 32 files",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.27",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T04:13:56.464046185Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

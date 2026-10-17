@@ -12,8 +12,8 @@
 
 Two delivery targets are supported:
 
-- **Browser app** (`enroll.agora.example.com` or self-hosted) — zero install, WebAuthn-primary, covers the majority of users.
-- **CLI binary** (`agora-enroll`) — for operators, power users, and users who require explicit keystore control.
+- **Browser app** (`enroll.agora.example.com` or self-hosted): zero install, WebAuthn-primary, covers the majority of users.
+- **CLI binary** (`agora-enroll`): for operators, power users, and users who require explicit keystore control.
 
 Both targets share the same backend protocol; the browser and CLI are different frontends to the same enrollment flow.
 
@@ -58,13 +58,13 @@ The Enrollment Service is stateless beyond the provisional member list. It MUST 
 
 Both browser and CLI follow the same logical sequence:
 
-1. **Discord OAuth2** — user authenticates with Discord; the tool obtains their Discord user ID.
-2. **Lookup** — the tool queries the Enrollment Service to confirm the Discord user ID is in the provisional member list.
-3. **Key operation** — the tool generates a new DID and device keypair (create path) or loads an existing one (update path), and accepts the public half of a recovery key the user generated offline (§5.2).
-4. **Registration** — the tool POSTs the DID and a signed proof-of-possession to the Enrollment Service.
-5. **MLS Add** — the Enrollment Service submits an MLS Add commit to the Relay for the new member.
-6. **Keyfile export** — the tool produces the encrypted device-key and state backup file for the user to save. It never contains the recovery private key.
-7. **Confirmation** — the tool displays the space URI and the user's DID.
+1. **Discord OAuth2**: user authenticates with Discord; the tool obtains their Discord user ID.
+2. **Lookup**: the tool queries the Enrollment Service to confirm the Discord user ID is in the provisional member list.
+3. **Key operation**: the tool generates a new DID and device keypair (create path) or loads an existing one (update path), and accepts the public half of a recovery key the user generated offline (§5.2).
+4. **Registration**: the tool POSTs the DID and a signed proof-of-possession to the Enrollment Service.
+5. **MLS Add**: the Enrollment Service submits an MLS Add commit to the Relay for the new member.
+6. **Keyfile export**: the tool produces the encrypted device-key and state backup file for the user to save. It never contains the recovery private key.
+7. **Confirmation**: the tool displays the space URI and the user's DID.
 
 ---
 
@@ -98,14 +98,14 @@ Standard OAuth2 loopback redirect (RFC 8252 §7.3):
 1. The CLI binds a listener on `http://127.0.0.1:<random-port>/callback`.
 2. The CLI opens the system browser to Discord's authorization endpoint with `redirect_uri=http://127.0.0.1:<port>/callback`.
 3. Discord redirects to the loopback listener with `code`.
-4. The CLI exchanges `code` for an access token directly (client ID only, no client secret — the CLI is a public client).
+4. The CLI exchanges `code` for an access token directly (client ID only, no client secret; the CLI is a public client).
 5. The CLI calls `/users/@me`, extracts Discord user ID and username, and discards the token.
 
 Discord explicitly permits loopback redirect URIs for installed applications. The port is OS-assigned (random) to avoid conflicts. The operator MUST register the loopback URI in Discord's developer portal either with a wildcard port or a fixed registered port.
 
 ---
 
-## 5. Key Generation — Browser Path (WebAuthn-Primary)
+## 5. Key Generation: Browser Path (WebAuthn-Primary)
 
 ### 5.1 Authenticator-Bound Key
 
@@ -197,7 +197,7 @@ The challenge is used as the WebAuthn `challenge` field, binding the credential 
 
 ---
 
-## 6. Key Generation — CLI Path
+## 6. Key Generation: CLI Path
 
 ### 6.1 Keystore Selection
 
@@ -269,7 +269,7 @@ The CLI MUST NOT generate the recovery key during enrollment; it accepts the rec
 
 ## 7. Keyfile Format
 
-Both browser and CLI produce a single downloadable keyfile — the user's backup artifact. It holds the recovery public key only (absent if the user skipped §5.2); the recovery private key never enters it. It uses a JSON envelope (chosen over binary for human-inspectability and cross-tool compatibility):
+Both browser and CLI produce a single downloadable keyfile, the user's backup artifact. It holds the recovery public key only (absent if the user skipped §5.2); the recovery private key never enters it. It uses a JSON envelope (chosen over binary for human-inspectability and cross-tool compatibility):
 
 ```json
 {
@@ -294,7 +294,7 @@ Both browser and CLI produce a single downloadable keyfile — the user's backup
     "publicKeyMultibase": "zABC..."
   },
   "stateBackup": {
-    "description": "MLS group state — restores space membership continuity",
+    "description": "MLS group state; restores space membership continuity",
     "backupType": "stateOnly",
     "encryptedState": "<base64url-AES256GCM-ciphertext>"
   },
@@ -319,7 +319,7 @@ For PKCS#11, `primaryKeyType` is `"pkcs11"` and `primaryKeypair` is omitted (non
 
 **Passphrase derivation:** A single Argon2id invocation produces a 96-byte output. The first 32 bytes encrypt `keyAgreementKeypair.encryptedPrivateKey`; the second 32 bytes encrypt `stateBackup`. When a `primaryKeypair` is present, the third 32-byte block encrypts it. This avoids key reuse without requiring multiple passphrase entries.
 
-**Filename:** `agora-<displayName>-<YYYY-MM-DD>.keyfile.json`. The `.keyfile.json` double extension is intentional — systems that hide extensions will display `.keyfile`, which is less likely to be opened naively than `.json` alone.
+**Filename:** `agora-<displayName>-<YYYY-MM-DD>.keyfile.json`. The `.keyfile.json` double extension is intentional: systems that hide extensions will display `.keyfile`, which is less likely to be opened naively than `.json` alone.
 
 ---
 
@@ -376,7 +376,7 @@ On receipt of a registration request, the Enrollment Service MUST:
 
 ### 8.2 MLS Add Commit
 
-The Enrollment Service holds the space enrollment agent's MLS credentials — specifically, the ability to issue Add commits. This is either the space owner's signing key (if delegated) or a dedicated enrollment agent key added to the space's MLS group at setup time. The service constructs:
+The Enrollment Service holds the space enrollment agent's MLS credentials, specifically the ability to issue Add commits. This is either the space owner's signing key (if delegated) or a dedicated enrollment agent key added to the space's MLS group at setup time. The service constructs:
 
 ```
 MLSMessage {
@@ -394,7 +394,7 @@ The Welcome message generated by the Add commit is returned to the enrolling cli
 
 A user who already has a DID (from a prior enrollment or manual setup) can update their record. The flow is identical to the create path except:
 
-- At step 4 of §8.1: if the provisional record already has a DID, the service MUST verify that the new registration's DID matches the existing one. A DID change is not permitted through this flow — it requires a `RecoveryAssertion` (Agora spec §2.4.1).
+- At step 4 of §8.1: if the provisional record already has a DID, the service MUST verify that the new registration's DID matches the existing one. A DID change is not permitted through this flow; it requires a `RecoveryAssertion` (Agora spec §2.4.1).
 - Adding a new device (second hardware key, new phone) uses the standard Agora multi-device enrollment flow from the existing device, not this tool.
 
 The update path's primary use case is a user who enrolled but lost their keyfile and needs to re-download it. The tool re-generates the keyfile from the existing registered keypair if it is still accessible via the user's authenticator or CLI keystore.
@@ -447,9 +447,9 @@ challenge_ttl_seconds = 300
 
 ---
 
-## 12. Browser App — Implementation Notes
+## 12. Browser App: Implementation Notes
 
-**Framework:** Vanilla JS or Svelte. React MUST NOT be used — the key generation logic is security-sensitive, and a heavyweight component framework adds unnecessary attack surface and bundle complexity.
+**Framework:** Vanilla JS or Svelte. React MUST NOT be used: the key generation logic is security-sensitive, and a heavyweight component framework adds unnecessary attack surface and bundle complexity.
 
 **WebCrypto availability:** Required. The app MUST check `window.crypto.subtle` on load and MUST display a hard error if absent (this only occurs on non-HTTPS origins, which MUST NOT occur in production).
 
@@ -461,9 +461,9 @@ challenge_ttl_seconds = 300
 
 ---
 
-## 13. CLI — Implementation Notes
+## 13. CLI: Implementation Notes
 
-**Language:** Go. Same rationale as `discord2agora` — consistent toolchain, mature keychain libraries.
+**Language:** Go. Same rationale as `discord2agora`: consistent toolchain, mature keychain libraries.
 
 **Key dependencies:**
 
@@ -498,7 +498,7 @@ challenge_ttl_seconds = 300
 
 1. **Multi-space enrollment.** This spec handles enrollment into a single space per deployment. An operator running multiple spaces requires multiple Enrollment Service instances. A multi-space enrollment service that presents a list of spaces to the user after Discord auth is a useful extension.
 
-2. **Provisional list sync.** The Enrollment Service loads the provisional member list from a static file. Users added to Discord after the initial `discord2agora` run will not be in the list. A `POST /v1/enroll/sync` endpoint is specified (§11), but the sync source — whether incremental re-execution of `discord2agora` or direct Discord API access — is not yet defined.
+2. **Provisional list sync.** The Enrollment Service loads the provisional member list from a static file. Users added to Discord after the initial `discord2agora` run will not be in the list. A `POST /v1/enroll/sync` endpoint is specified (§11), but the sync source (incremental re-execution of `discord2agora` or direct Discord API access) is not yet defined.
 
 3. **Passphrase recovery.** If a user loses their keyfile passphrase, the keyfile contents are inaccessible; the offline recovery key (§5.2) is unaffected. There is no protocol-level remedy for the keyfile itself. Operators SHOULD communicate this clearly during enrollment. A Shamir-based guardian recovery scheme (Agora spec §2.4.2) is a natural extension but is out of scope for this tool.
 

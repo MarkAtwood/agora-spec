@@ -8,7 +8,7 @@
 
 ## 1. Architecture Overview
 
-This specification defines how an organization using Microsoft 365 / Entra ID manages Agora `did:web` identities for its employees — provisioning them automatically at hire, updating claims on role changes, and revoking them at termination — without the organization ever holding or touching employee private keys.
+This specification defines how an organization using Microsoft 365 / Entra ID manages Agora `did:web` identities for its employees (provisioning them automatically at hire, updating claims on role changes, and revoking them at termination) without the organization ever holding or touching employee private keys.
 
 Two components perform this work.
 
@@ -22,7 +22,7 @@ These two components are intentionally independent and address different concern
 | ----------------------------------------------------- | ---------------------------------------------------------------- |
 | Org controls identity namespace and can revoke        | DID Sidecar (tombstones DID document)                            |
 | Org attests employee status with auditable trail      | Entra Verified ID (EmployeeCredential)                           |
-| Employee controls private key — org cannot impersonate | DID Sidecar (device key registered by client, never by org)     |
+| Employee controls private key; org cannot impersonate | DID Sidecar (device key registered by client, never by org)     |
 | Immediate access revocation without DID tombstone     | Entra Verified ID (VC revocation)                                |
 | Specific device revocation (lost device)              | DID Sidecar (tombstone one `verificationMethod` entry)           |
 
@@ -215,7 +215,7 @@ The `controller` field is the org's root DID (`did:web:did.example.com`), not th
 }
 ```
 
-The `meta` fields on device keys are non-standard extensions for operator tooling — they allow IT to identify which key belongs to which device when issuing targeted revocations. They are informational only and carry no cryptographic weight. Agora clients MUST ignore unknown fields in `verificationMethod` entries.
+The `meta` fields on device keys are non-standard extensions for operator tooling; they allow IT to identify which key belongs to which device when issuing targeted revocations. They are informational only and carry no cryptographic weight. Agora clients MUST ignore unknown fields in `verificationMethod` entries.
 
 ---
 
@@ -294,7 +294,7 @@ Content-Type: application/json
 
 Verified ID returns a deep link or QR code that the enrollment app presents to the user. The user taps it in Microsoft Authenticator to add the credential to their wallet. Verified ID calls back to the enrollment service when issuance completes.
 
-Issuance occurs after device key registration — the VC is the product of completing enrollment, not a precondition for it. The precondition is a valid Entra OIDC token (proving the user can authenticate against the org's IdP), which is already required by the `agora-enroll` Teams auth adapter.
+Issuance occurs after device key registration: the VC is the product of completing enrollment, not a precondition for it. The precondition is a valid Entra OIDC token (proving the user can authenticate against the org's IdP), which is already required by the `agora-enroll` Teams auth adapter.
 
 ### 4.3 VC as Space Admission Precondition (Optional Enforcement)
 
@@ -378,14 +378,14 @@ The `enrollmentURL` is included in the welcome email sent by the subsequent buil
 
 ### 5.3 Mover Workflow
 
-**Trigger:** User attribute change — `department`, `jobTitle`, `userPrincipalName`, or membership in role-mapped security groups. A `userPrincipalName` change does not change the DID (§2); the sidecar updates its private mapping (§6.3), and a name change that alters `displayName` re-issues the `EmployeeCredential`.
+**Trigger:** User attribute change: `department`, `jobTitle`, `userPrincipalName`, or membership in role-mapped security groups. A `userPrincipalName` change does not change the DID (§2); the sidecar updates its private mapping (§6.3), and a name change that alters `displayName` re-issues the `EmployeeCredential`.
 **Mode:** Launch and continue.
 
 The Mover event independently updates two things:
 
-1. **DID document claims** — the sidecar updates the `status` service entry with new department and role attributes. These are informational only; cryptographic keys are unchanged.
+1. **DID document claims**: the sidecar updates the `status` service entry with new department and role attributes. These are informational only; cryptographic keys are unchanged.
 
-2. **EmployeeCredential** — the sidecar calls the Verified ID API to revoke the existing VC and issue a new one with updated `agoraRoles`. The new VC is delivered to the user's wallet automatically if Authenticator is configured for auto-accept from trusted issuers; otherwise the user receives a notification.
+2. **EmployeeCredential**: the sidecar calls the Verified ID API to revoke the existing VC and issue a new one with updated `agoraRoles`. The new VC is delivered to the user's wallet automatically if Authenticator is configured for auto-accept from trusted issuers; otherwise the user receives a notification.
 
 Logic App payload:
 
@@ -413,9 +413,9 @@ On-demand workflow execution handles urgent terminations without waiting for the
 
 Two actions execute in parallel:
 
-**Action A — VC Revocation (immediate):** The sidecar calls the Verified ID revocation API for the user's current `EmployeeCredential`. Revocation takes effect within seconds. Any space configured to require VC validation MUST reject the user's next message or MLS epoch participation check. This is the fast path — VC revocation is effective before the DID tombstone completes.
+**Action A: VC Revocation (immediate):** The sidecar calls the Verified ID revocation API for the user's current `EmployeeCredential`. Revocation takes effect within seconds. Any space configured to require VC validation MUST reject the user's next message or MLS epoch participation check. This is the fast path: VC revocation is effective before the DID tombstone completes.
 
-**Action B — DID Tombstone (within minutes):** The sidecar transitions the DID document to `TOMBSTONED` state, replacing it with a signed tombstone:
+**Action B: DID Tombstone (within minutes):** The sidecar transitions the DID document to `TOMBSTONED` state, replacing it with a signed tombstone:
 
 ```json
 {
@@ -440,7 +440,7 @@ Two actions execute in parallel:
 
 The endpoint returns `410 Gone` with this document as the body. Agora clients that receive a 410 on DID resolution MUST treat the identity as permanently invalid and issue MLS Remove commits for all groups that identity belongs to.
 
-**Action C — MLS Removal (async, via Enrollment Service):** The sidecar notifies the Enrollment Service, which issues MLS Remove commits for the user from all spaces they belong to. After these commits propagate, the user's device keys cannot decrypt new messages even if the private key is retained.
+**Action C: MLS Removal (async, via Enrollment Service):** The sidecar notifies the Enrollment Service, which issues MLS Remove commits for the user from all spaces they belong to. After these commits propagate, the user's device keys cannot decrypt new messages even if the private key is retained.
 
 Logic App payload:
 
@@ -484,11 +484,11 @@ The sidecar:
 
 Other device keys (the user's phone, recovery key) are unaffected. The user retains access via remaining enrolled devices and can re-enroll the lost device after obtaining a replacement.
 
-If the revoked key was the user's only device key, the document transitions to `STUB` state and the user must re-enroll. The user's DID is preserved — space membership is retained, but the user cannot send or receive messages until re-enrollment completes.
+If the revoked key was the user's only device key, the document transitions to `STUB` state and the user must re-enroll. The user's DID is preserved: space membership is retained, but the user cannot send or receive messages until re-enrollment completes.
 
 ### 5.6 MFA Step-Up for Device Key Registration
 
-Device key registration — the moment a new device public key is written to the DID document — is the highest-stakes operation in the system: a successful registration grants a new device full access to all the user's spaces. Step-up MFA is REQUIRED regardless of the user's current session MFA state.
+Device key registration (the moment a new device public key is written to the DID document) is the highest-stakes operation in the system: a successful registration grants a new device full access to all the user's spaces. Step-up MFA is REQUIRED regardless of the user's current session MFA state.
 
 The DID Sidecar enforces this by requiring a step-up token: a short-lived Entra ID token with the `acr` claim set to `"mfa"` and the `amr` array including a phishing-resistant method (`"hwk"` for Windows Hello, `"fido"` for FIDO2/WebAuthn).
 
@@ -547,11 +547,11 @@ POST   /v1/internal/mls-remove-ack       Acknowledgment of MLS Remove commit
 
 | Endpoint group              | Auth mechanism                    | Required claims                                                     |
 | --------------------------- | --------------------------------- | ------------------------------------------------------------------- |
-| Public DID documents        | None                              | —                                                                   |
+| Public DID documents        | None                              | None                                                                |
 | Device key registration     | Entra OIDC bearer token           | `acr: mfa`, `amr: [hwk\|fido]`, `oid` maps to the DID              |
 | Admin operations            | Entra bearer token                | `Authentication Policy Administrator` role or `AgoraDIDAdmin` app role |
 | Logic App bridge            | Entra managed identity token      | `AgoraDIDProvisioner` app role                                      |
-| Enrollment Service webhook  | mTLS with pre-shared cert         | —                                                                   |
+| Enrollment Service webhook  | mTLS with pre-shared cert         | None                                                                |
 
 ### 6.3 Storage
 
@@ -563,7 +563,7 @@ One blob per user at `did-documents/{localIdentifier}/current.json`. Historical 
 **PostgreSQL:**
 Table `did_documents(local_id TEXT PK, aad_object_id TEXT UNIQUE, upn TEXT, state TEXT, document JSONB, seq INT, updated_at TIMESTAMPTZ)`. Table `did_audit(id BIGSERIAL, local_id TEXT, event TEXT, actor TEXT, payload JSONB, ts TIMESTAMPTZ)`. The `aad_object_id` and `upn` columns are the private mapping (spec §2.5.2) and are never served.
 
-The sidecar's data store is the authoritative source. DID documents are derived directly from this store with no caching layer — serving a tombstoned identity as active would allow a terminated employee to continue sending messages. All DID document endpoints MUST return `Cache-Control: no-store, no-cache`.
+The sidecar's data store is the authoritative source. DID documents are derived directly from this store with no caching layer, because serving a tombstoned identity as active would allow a terminated employee to continue sending messages. All DID document endpoints MUST return `Cache-Control: no-store, no-cache`.
 
 ### 6.4 UPN Change and Domain Migration
 
@@ -595,8 +595,8 @@ Scope: AgoraDIDProvisioner  (for Logic App managed identity)
 **App roles:**
 
 ```
-AgoraDIDAdmin        — assigned to helpdesk/IT security groups
-AgoraDIDProvisioner  — assigned to Logic App managed identity
+AgoraDIDAdmin        : assigned to helpdesk/IT security groups
+AgoraDIDProvisioner  : assigned to Logic App managed identity
 ```
 
 **API permissions (outbound calls from the sidecar):**
@@ -611,7 +611,7 @@ Verified ID Service Admin:
   VerifiableCredential.Credential.Revoke     (revoke individual credentials)
 ```
 
-All permissions are application permissions (not delegated) — the sidecar runs as a service with no user context.
+All permissions are application permissions (not delegated); the sidecar runs as a service with no user context.
 
 ---
 
@@ -653,7 +653,7 @@ The JML Logic App is a Consumption-tier Logic App with:
 - "Launch and wait" response sent back to Lifecycle Workflows on Joiner events
 - "Launch and continue" on Leaver events (no response required)
 
-The Logic App contains no business logic — it is a thin authenticated bridge. All logic resides in the sidecar.
+The Logic App contains no business logic; it is a thin authenticated bridge. All logic resides in the sidecar.
 
 ---
 
@@ -667,4 +667,4 @@ The Logic App contains no business logic — it is a thin authenticated bridge. 
 
 4. **On-premises AD hybrid identity.** Organizations with on-premises AD synced to Entra via Entra Connect have UPNs controlled by on-premises AD. UPN changes on-premises propagate to Entra via sync, which can trigger the Mover workflow; they do not change the DID (§2). The default sync interval (30 minutes) introduces lag between an on-premises change and the sidecar update. For terminations, this lag is a risk: the specification calls for immediate on-demand workflow execution to bypass the sync cycle, but this requires the termination to be processed in Entra ID directly, or for the HR system to trigger both on-premises AD and Entra simultaneously.
 
-5. **Intune integration for device key registration.** Device key registration requires phishing-resistant MFA (`hwk` or `fido`). On Intune-managed devices, Windows Hello for Business satisfies this requirement automatically. On unmanaged or BYOD devices, a FIDO2 security key is the only option. The organization MUST decide whether to allow BYOD enrollment or require managed devices — this policy decision significantly affects the enrollment UX.
+5. **Intune integration for device key registration.** Device key registration requires phishing-resistant MFA (`hwk` or `fido`). On Intune-managed devices, Windows Hello for Business satisfies this requirement automatically. On unmanaged or BYOD devices, a FIDO2 security key is the only option. The organization MUST decide whether to allow BYOD enrollment or require managed devices; this policy decision significantly affects the enrollment UX.

@@ -1,9 +1,9 @@
-# Agora Protocol — Microsoft Purview Bridge
+# Agora Protocol: Microsoft Purview Bridge
 ## Implementation Specification v0.1
 
 **Status:** Draft
 
-**Scope:** This document specifies the Agora Purview Bridge — a compliance gateway that ingests Agora `ComplianceRecord` objects (§17.4) and VTC compliance archives (§10.12) into Microsoft Exchange Online mailboxes for processing by Microsoft Purview Communication Compliance, eDiscovery, retention policies, and litigation hold.
+**Scope:** This document specifies the Agora Purview Bridge, a compliance gateway that ingests Agora `ComplianceRecord` objects (§17.4) and VTC compliance archives (§10.12) into Microsoft Exchange Online mailboxes for processing by Microsoft Purview Communication Compliance, eDiscovery, retention policies, and litigation hold.
 
 **Dependencies:** Agora Protocol Specification v0.1, §17 (Compliance Logging), §10.12 (VTC Recording), §9.6 (DM Groups).
 
@@ -13,7 +13,7 @@
 
 ### 1.1 Architecture
 
-The Purview Bridge is a sidecar service that runs alongside the Agora `ComplianceLogger` principal (§17.3). It does not replace the logger — the Agora IPLD compliance archive (§17.4) remains the authoritative tamper-evident record. The bridge is a one-way export pipeline:
+The Purview Bridge is a sidecar service that runs alongside the Agora `ComplianceLogger` principal (§17.3). It does not replace the logger; the Agora IPLD compliance archive (§17.4) remains the authoritative tamper-evident record. The bridge is a one-way export pipeline:
 
 ```
 Agora MLS groups
@@ -44,7 +44,7 @@ The bridge performs the following functions:
 - Translates `ComplianceRecord` payloads into RFC 822 MIME format with Purview-indexed `x-` headers.
 - Deposits items into the designated Exchange Online compliance mailbox for each Agora user mapped to an M365 identity.
 - Handles text messages, edit events, delete events (tombstones), reactions, file attachments, and DM group messages.
-- Exports VTC compliance metadata and recording references (not raw media — see §5).
+- Exports VTC compliance metadata and recording references (not raw media; see §5).
 - Maintains delivery ordering and idempotency; no duplicate items are created on retry.
 - Propagates expiry and deletion tombstones to deposited items via Graph delete.
 - Tracks bridge delivery state separately from the Agora IPLD chain.
@@ -53,8 +53,8 @@ The bridge does not perform the following:
 
 - Replace the Agora IPLD chain as the tamper-evident compliance record.
 - Store or re-encrypt MLS keys.
-- Relay live message traffic — it processes from the logger's archive, not from the gossipsub mesh directly.
-- Break E2EE for non-bridged channels — only channels with `complianceLogging.enabled: true` are processed.
+- Relay live message traffic. It processes from the logger's archive, not from the gossipsub mesh directly.
+- Break E2EE for non-bridged channels. Only channels with `complianceLogging.enabled: true` are processed.
 
 ### 1.3 Deployment Model
 
@@ -75,9 +75,9 @@ The bridge MUST NOT run on the relay. It is a compliance infrastructure componen
 
 The bridge authenticates to Microsoft Graph using the OAuth 2.0 client credentials flow (application permissions, no user context). The app registration requires the following application permissions (not delegated):
 
-- `Mail.ReadWrite` — create and delete messages in any user's mailbox.
-- `MailboxItem.ImportExport` — import MIME items preserving original timestamps.
-- `User.Read.All` — resolve UPNs for DID-to-M365 identity mapping lookups.
+- `Mail.ReadWrite`: create and delete messages in any user's mailbox.
+- `MailboxItem.ImportExport`: import MIME items preserving original timestamps.
+- `User.Read.All`: resolve UPNs for DID-to-M365 identity mapping lookups.
 
 The bridge MUST authenticate using a certificate credential, not a client secret. Certificate rotation SHOULD be automated via Azure Key Vault or an equivalent HSM-backed credential store.
 
@@ -150,7 +150,7 @@ Content-Type: text/plain
 {base64-encoded RFC 822 MIME message}
 ```
 
-The entire RFC 822 message MUST be base64-encoded (standard base64, no line wrapping). The `Content-Type` header on the HTTP request MUST be `text/plain` — this is the Graph API MIME import path. Using `application/json` triggers JSON message creation, which does not support custom `x-` headers or original timestamps.
+The entire RFC 822 message MUST be base64-encoded (standard base64, no line wrapping). The `Content-Type` header on the HTTP request MUST be `text/plain`; this is the Graph API MIME import path. Using `application/json` triggers JSON message creation, which does not support custom `x-` headers or original timestamps.
 
 After creation, the message is in Draft state. The bridge MUST immediately call:
 
@@ -311,7 +311,7 @@ IPFS fetch timeout is 10 seconds. On fetch failure, the bridge MUST log the fail
 
 ### 4.1 Channel Messages (Space Channels)
 
-Space channel messages are deposited into the regulated member's personal compliance archive folder, not a shared or system mailbox. This is the architecture Purview requires — compliance policies apply per-user, and the authoritative record lives in the user's mailbox under litigation hold.
+Space channel messages are deposited into the regulated member's personal compliance archive folder, not a shared or system mailbox. This is the architecture Purview requires: compliance policies apply per-user, and the authoritative record lives in the user's mailbox under litigation hold.
 
 If a channel has 40 members and 3 of them are regulated (i.e., their M365 identities are under Purview policy), the bridge deposits each channel message into all 3 regulated members' compliance archive folders. The message appears in each regulated member's archive as an independent Exchange item with identical content, carrying the same `x-agora-envelope-id` for deduplication.
 
@@ -336,7 +336,7 @@ Subject: [Agora DM] {regulatedMemberDisplayName} ↔ {counterpartyDisplayName}
 
 For a DM group with multiple participants:
 ```
-Subject: [Agora DM] {p1}, {p2}, {p3} — Group DM
+Subject: [Agora DM] {p1}, {p2}, {p3} (Group DM)
 ```
 
 The `x-agora-dm-group-id` header carries the stable DM group CID for grouping related messages in eDiscovery searches.
@@ -358,7 +358,7 @@ The bridge deposits items; Purview's own retention machinery governs their lifec
 
 ## 5. VTC Compliance Records (§10.12)
 
-The bridge handles VTC compliance records differently from text records. Media files are not deposited into Exchange — they exceed practical size limits and are already archived in IPFS per §10.12.4. Instead, the bridge deposits a VTC compliance notification item: a lightweight MIME record that indexes the session in Purview and carries the link to the IPFS recording archive.
+The bridge handles VTC compliance records differently from text records. Media files are not deposited into Exchange; they exceed practical size limits and are already archived in IPFS per §10.12.4. Instead, the bridge deposits a VTC compliance notification item: a lightweight MIME record that indexes the session in Purview and carries the link to the IPFS recording archive.
 
 ### 5.1 VTC Notification Item
 
@@ -370,7 +370,7 @@ Date: {session start time, RFC 2822}
 Message-ID: <vtc-{vtcRecordCID}@agora.compliance>
 From: Agora VTC Compliance <compliance@agora.noreply>
 To: {regulatedMemberUPN}
-Subject: [Agora VTC] {spaceName} / {channelName} — {durationMinutes}min call
+Subject: [Agora VTC] {spaceName} / {channelName} ({durationMinutes}min call)
 Content-Type: multipart/mixed; boundary="{boundary}"
 
 x-agora-record-version: 1
@@ -441,7 +441,7 @@ Purview eDiscovery returns both the original item and the edit item when searchi
 When the bridge processes a `DeleteEvent` `ComplianceRecord`:
 
 1. Deposit a new MIME item with `x-agora-message-type: DeleteEvent` and `x-agora-delete-target-id: {originalEnvelopeID}`.
-2. Do NOT delete the original item from Exchange. Litigation hold prevents deletion regardless; items under hold cannot be deleted by application code. For items not under hold, the bridge MUST NOT delete — the original is part of the tamper-evident chain.
+2. Do NOT delete the original item from Exchange. Litigation hold prevents deletion regardless; items under hold cannot be deleted by application code. For items not under hold, the bridge MUST NOT delete, because the original is part of the tamper-evident chain.
 3. The text body of the delete item is: `Message deleted by sender at {ts}.`
 
 The investigator view is: original item followed by the delete notification item. This matches how Exchange handles Teams message deletions natively.
@@ -507,7 +507,7 @@ Graph API rate limits (Exchange Online: 10,000 requests per 10 minutes per app p
 
 ### 7.3 IPLD Chain Cursor
 
-The bridge tracks its read position in the IPLD compliance chain per channel as a cursor — the CID of the last-processed `ComplianceRecord`. On restart, the bridge resumes from the cursor.
+The bridge tracks its read position in the IPLD compliance chain per channel as a cursor: the CID of the last-processed `ComplianceRecord`. On restart, the bridge resumes from the cursor.
 
 Gap detection: if a `ComplianceRecord`'s `prevRecordCID` does not match the bridge's last-deposited CID for that channel, a chain gap exists. The bridge MUST alert on this condition and MUST attempt to backfill by walking the chain backwards from the current head to the last-known cursor position.
 
@@ -541,7 +541,7 @@ Tokens are valid for 1 hour. The bridge caches the token and refreshes 5 minutes
 
 ### 8.3 ComplianceLogger Payload Access
 
-The bridge accesses decrypted `ComplianceRecord` payloads from the logger via a local Unix domain socket (preferred) or shared memory queue. The bridge MUST NOT have access to MLS epoch secrets or the logger's key material — it receives only already-decrypted and signed `ComplianceRecord` objects.
+The bridge accesses decrypted `ComplianceRecord` payloads from the logger via a local Unix domain socket (preferred) or shared memory queue. The bridge MUST NOT have access to MLS epoch secrets or the logger's key material; it receives only already-decrypted and signed `ComplianceRecord` objects.
 
 The interface is:
 
@@ -637,10 +637,10 @@ x-agora-edit-target-id:{envelopeID} OR x-agora-delete-target-id:{envelopeID}
 
 ## 11. Open Issues
 
-1. **`MailboxItem.ImportExport` availability:** This permission preserves original message timestamps during import. It is available in M365 E3/E5 tenants with explicit admin enablement. Environments without it fall back to deposit-time timestamps. The regulatory impact of the timestamp discrepancy (bridge lag vs. actual message time) is mitigated by the `Date:` header in the MIME body and the `ts` field in `x-agora-*` headers — both reflect the original message timestamp regardless of when the Graph API deposit occurs.
+1. **`MailboxItem.ImportExport` availability:** This permission preserves original message timestamps during import. It is available in M365 E3/E5 tenants with explicit admin enablement. Environments without it fall back to deposit-time timestamps. The regulatory impact of the timestamp discrepancy (bridge lag vs. actual message time) is mitigated by the `Date:` header in the MIME body and the `ts` field in `x-agora-*` headers; both reflect the original message timestamp regardless of when the Graph API deposit occurs.
 
 2. **Graph API MIME import draft behavior:** The `POST /messages` MIME path creates items as drafts requiring a subsequent `send` call. The `import` path (`POST /messages/import`) avoids this but requires the `MailboxItem.ImportExport` permission. Until this permission is universally available, the bridge uses the draft-then-send path. Items between draft and sent states are not subject to litigation hold. The bridge MUST minimize this window (target: less than 1 second between create and send calls).
 
 3. **Exchange attachment size limit:** The 25 MB file attachment limit means large Agora file messages are deposited with CID-only references rather than binary content. Regulators (particularly FINRA) have accepted CID-based references to immutable content stores in analogous contexts (IPFS, content-addressed storage), but this SHOULD be confirmed with the organization's compliance counsel before production deployment.
 
-4. **Catch-all mailbox governance:** Records deposited to the catch-all mailbox due to unmapped DIDs may represent regulated member communications. The compliance officer MUST review and resolve DID mapping gaps promptly. A backlog in the catch-all mailbox is a compliance gap, not merely an operational issue.
+4. **Catch-all mailbox governance:** Records deposited to the catch-all mailbox due to unmapped DIDs may represent regulated member communications. The compliance officer MUST review and resolve DID mapping gaps promptly. A backlog in the catch-all mailbox is a compliance gap as well as an operational issue.

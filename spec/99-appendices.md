@@ -20,7 +20,7 @@
 | Relay-to-relay auth | RFC 9421 HTTP Message Signatures | `httpsig` (Go), `httpbis-message-signatures` (JS) |
 | Ed25519 / X25519 | RFC 8032 / RFC 7748 | Native in all major crypto libraries |
 | Argon2id KDF | RFC 9106 | `golang.org/x/crypto/argon2`, `argon2` crate |
-| Shamir Secret Sharing | — | `hashicorp/vault` shamir (Go), `sharks` (Rust) |
+| Shamir Secret Sharing | None | `hashicorp/vault` shamir (Go), `sharks` (Rust) |
 | Spam deterrence (proof-of-work) | Hashcash-style PoW | SHA-256 (standard library) |
 | Native cross-system interop | MIMI (drafts; delivery layer stalled as of 2026-04) | TBD (spec in progress) |
 | Matrix gateway | Matrix Application Service API | `mautrix-go`, `mautrix-python` |
@@ -31,9 +31,9 @@
 
 ## Appendix B: Open Questions
 
-1. **Cross-space identity and reputation** — there is currently no mechanism for carrying moderation history or reputation across Space boundaries. A user banned from one Space can freely join another. Whether this is a feature (clean-slate by design, prevents monoculture moderation) or a gap (enables bad actors to evade consequences) depends on use case. A voluntary cross-space reputation attestation format is worth considering as an optional extension.
+1. **Cross-space identity and reputation**: there is currently no mechanism for carrying moderation history or reputation across Space boundaries. A user banned from one Space can freely join another. Whether this is a feature (clean-slate by design, prevents monoculture moderation) or a gap (enables bad actors to evade consequences) depends on use case. A voluntary cross-space reputation attestation format is worth considering as an optional extension.
 
-2. **Push notification proxy conformance** — see agora-pozi.11 (push proxy observation budget, ARCHITECTURE.md §8 Q4).
+2. **Push notification proxy conformance**: see agora-pozi.11 (push proxy observation budget, ARCHITECTURE.md §8 Q4).
 
 ---
 

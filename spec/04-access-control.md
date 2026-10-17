@@ -7,13 +7,13 @@
 
 ## 4.1 Keyholders
 
-Agora uses a three-tier authority model. Each tier's permissions are enforced cryptographically — an operation not signed by a key with the required authority MUST be rejected by conformant clients. Relays do not evaluate Space authority; their only access control is the MLS-membership proof (ARCHITECTURE §6.2).
+Agora uses a three-tier authority model. Each tier's permissions are enforced cryptographically: an operation not signed by a key with the required authority MUST be rejected by conformant clients. Relays do not evaluate Space authority; their only access control is the MLS-membership proof (ARCHITECTURE §6.2).
 
-**Space Owner** — holds the signing key for the Space state document. The Space Owner has sole authority to transfer or delete the space, grant or revoke the Admin role, and sign Space state mutations affecting top-level structure. There is exactly one Space Owner at any time. Ownership transfer is executed via a signed `SpaceState` mutation that replaces the `owner` DID, signed by the current owner.
+**Space Owner:** holds the signing key for the Space state document. The Space Owner has sole authority to transfer or delete the space, grant or revoke the Admin role, and sign Space state mutations affecting top-level structure. There is exactly one Space Owner at any time. Ownership transfer is executed via a signed `SpaceState` mutation that replaces the `owner` DID, signed by the current owner.
 
-**Channel/Space Admin** — a role granted by the owner and recorded in the Space state document. Admins can sign Space state mutations within their granted scope, issue invites, execute moderation operations within channels they administer, and add or remove members from channel MLS groups within their scope.
+**Channel/Space Admin:** a role granted by the owner and recorded in the Space state document. Admins can sign Space state mutations within their granted scope, issue invites, execute moderation operations within channels they administer, and add or remove members from channel MLS groups within their scope.
 
-**MLS Group Committer** — by default, any current MLS group member may issue Commit messages (RFC 9420 default). Space operators MAY restrict Commit authority to a designated keyholder set via a `commitPolicy` field in the channel state. Restricting commits to a smaller set is recommended for large public channels to prevent epoch racing and Commit conflicts.
+**MLS Group Committer:** by default, any current MLS group member may issue Commit messages (RFC 9420 default). Space operators MAY restrict Commit authority to a designated keyholder set via a `commitPolicy` field in the channel state. Restricting commits to a smaller set is recommended for large public channels to prevent epoch racing and Commit conflicts.
 
 ## 4.2 Space Roles
 
@@ -67,15 +67,15 @@ Link-based invites (no `issuedTo` field) are supported for public spaces. These 
 
 ## 4.4 Private Channels
 
-A channel is private if its MLS group membership is a strict subset of the Space's member list. The channel's existence MAY be hidden from non-members — the channel path is omitted from the view of Space state that the CO's Space endpoint (§3.4) serves to non-members, and that access-controlled view is signed by the space owner or a delegated admin. Only the Space endpoint serves Space state to non-members; no Relay does. Non-members have no way to enumerate private channels they are not members of.
+A channel is private if its MLS group membership is a strict subset of the Space's member list. The channel's existence MAY be hidden from non-members: the channel path is omitted from the view of Space state that the CO's Space endpoint (§3.4) serves to non-members, and that access-controlled view is signed by the space owner or a delegated admin. Only the Space endpoint serves Space state to non-members; no Relay does. Non-members have no way to enumerate private channels they are not members of.
 
 ## 4.5 Moderation Operations
 
 All moderation records are signed by a CO key (the Space owner or an admin) and distributed like Space state (§3.4): referenced from the Space state chain, served by the Space endpoint, and announced to members in-band. Clients validate each record against current Space state, checking that the signer holds the required role and scope, and MUST ignore records that fail validation. Relays do not enforce moderation records (ARCHITECTURE §6.2).
 
-**Kick** — removes a member from one or more channel MLS groups without a space-level ban. The Admin issues MLS Remove commits for the target DID across the relevant channel groups. The member retains space membership and may be re-added to channels by an Admin.
+**Kick:** removes a member from one or more channel MLS groups without a space-level ban. The Admin issues MLS Remove commits for the target DID across the relevant channel groups. The member retains space membership and may be re-added to channels by an Admin.
 
-**Ban** — removes a member from all space channel MLS groups and records a signed `BanRecord` in the space's moderation log:
+**Ban:** removes a member from all space channel MLS groups and records a signed `BanRecord` in the space's moderation log:
 
 ```json
 {
@@ -94,7 +94,7 @@ The ban takes effect through the MLS Removes: the banned member does not hold th
 
 > **Open (agora-pozi.8):** The epoch access proof that lets Relays reject a removed member's envelopes is not yet specified.
 
-**Timeout** — a time-bounded moderation action with an `expiresAt` field. Timeouts are client-enforced: members' clients MUST discard application messages from the target DID in that space until expiry. Relays do not enforce timeouts (ARCHITECTURE §6.2). MLS group membership is not affected; the user remains a group member and can receive messages, and can still send ciphertext that other members' clients discard.
+**Timeout:** a time-bounded moderation action with an `expiresAt` field. Timeouts are client-enforced: members' clients MUST discard application messages from the target DID in that space until expiry. Relays do not enforce timeouts (ARCHITECTURE §6.2). MLS group membership is not affected; the user remains a group member and can receive messages, and can still send ciphertext that other members' clients discard.
 
 ```json
 {
@@ -108,13 +108,13 @@ The ban takes effect through the MLS Removes: the banned member does not hold th
 }
 ```
 
-**Message Delete** — a signed `DeleteEvent` inner payload from a keyholder with Admin authority over the channel, or from the original author retracting their own message. Clients validate the signer against the referenced message's sender or against Admin authority under current Space state, and MUST ignore a `DeleteEvent` that fails validation. Relays cannot read `DeleteEvent` payloads, which travel inside ciphertext, and do not enforce them (ARCHITECTURE §7 item 2). The message CID remains in the IPLD history DAG as a tombstone entry.
+**Message Delete:** a signed `DeleteEvent` inner payload from a keyholder with Admin authority over the channel, or from the original author retracting their own message. Clients validate the signer against the referenced message's sender or against Admin authority under current Space state, and MUST ignore a `DeleteEvent` that fails validation. Relays cannot read `DeleteEvent` payloads, which travel inside ciphertext, and do not enforce them (ARCHITECTURE §7 item 2). The message CID remains in the IPLD history DAG as a tombstone entry.
 
-**Moderation Log** — all moderation actions are appended to a signed IPLD linked list. The tail CID is referenced in the Space state document. The log names members, so it is served to space members only by the Space endpoint and MUST NOT be stored on IO infrastructure except as group-encrypted blobs (§3.4). This log is readable by space members and provides an auditable record of who moderated whom and when, with no ability to retroactively delete entries.
+**Moderation Log:** all moderation actions are appended to a signed IPLD linked list. The tail CID is referenced in the Space state document. The log names members, so it is served to space members only by the Space endpoint and MUST NOT be stored on IO infrastructure except as group-encrypted blobs (§3.4). This log is readable by space members and provides an auditable record of who moderated whom and when, with no ability to retroactively delete entries.
 
 ## 4.6 Direct Message Channels
 
-A **Direct Message (DM) channel** is an MLS group established between two or more users outside of any Space's channel hierarchy. DM groups are not owned by any Space and do not appear in any Space state document. They are identified by a `DMGroupCID` — the IPFS CID of the `DMGroupDescriptor` document — and are routed like any channel, on `v1/agora/channel/<dmGroupToken>`, so relays cannot distinguish DM traffic from channel traffic;  `dmGroupToken` is derived each epoch from the MLS exporter as `MLS-Exporter("agora-dm-token", "", 32)` and rotates on every epoch exactly as a channel token does. It MUST NOT be derived from the MLS group ID or any other value that is constant across epochs.
+A **Direct Message (DM) channel** is an MLS group established between two or more users outside of any Space's channel hierarchy. DM groups are not owned by any Space and do not appear in any Space state document. They are identified by a `DMGroupCID` (the IPFS CID of the `DMGroupDescriptor` document) and are routed like any channel, on `v1/agora/channel/<dmGroupToken>`, so relays cannot distinguish DM traffic from channel traffic;  `dmGroupToken` is derived each epoch from the MLS exporter as `MLS-Exporter("agora-dm-token", "", 32)` and rotates on every epoch exactly as a channel token does. It MUST NOT be derived from the MLS group ID or any other value that is constant across epochs.
 
 **DMGroupDescriptor schema:**
 
@@ -137,13 +137,13 @@ A **Direct Message (DM) channel** is an MLS group established between two or mor
 
 `members` is the initial member DID list. `complianceLoggers` is the list of `ComplianceLogger` DIDs that have been admitted to the group under §7.8. The `DMGroupDescriptor` is updated (new CID, new `sig`) on every membership or logger change. Because it lists member DIDs, it travels only inside the group: the committer of each change sends the updated descriptor to the group as an MLS application message in the new epoch, and members keep it locally. It MUST NOT be stored on IO infrastructure except as a group-encrypted blob (§3.4).
 
-**MLS group initialization:** The DM group creator generates a fresh MLS group, adds KeyPackages for each invited member, and delivers each Welcome by POST to the `KeyPackageEndpoint` in the invitee's DID document (§7.8.2), the endpoint the KeyPackage was fetched from, so delivery reveals nothing to that endpoint beyond what the KeyPackage fetch already did. A Welcome is not sent on any gossipsub topic. There is no Space admin in the invite path — any DM group member may add new members via standard MLS Add + Commit, subject to the consent mechanism in §4.6.1. A client MUST accept a DM Welcome only from an adder authenticated from the group's ratchet tree as a member of the group, MUST NOT accept an anonymous Welcome, and MUST reject a Welcome for a group ID for which it already holds group state.
+**MLS group initialization:** The DM group creator generates a fresh MLS group, adds KeyPackages for each invited member, and delivers each Welcome by POST to the `KeyPackageEndpoint` in the invitee's DID document (§7.8.2), the endpoint the KeyPackage was fetched from, so delivery reveals nothing to that endpoint beyond what the KeyPackage fetch already did. A Welcome is not sent on any gossipsub topic. There is no Space admin in the invite path; any DM group member may add new members via standard MLS Add + Commit, subject to the consent mechanism in §4.6.1. A client MUST accept a DM Welcome only from an adder authenticated from the group's ratchet tree as a member of the group, MUST NOT accept an anonymous Welcome, and MUST reject a Welcome for a group ID for which it already holds group state.
 
 > **Open (agora-pozi.10):** Who hosts a user's `KeyPackageEndpoint`, and so who observes KeyPackage fetches and Welcome deliveries (ARCHITECTURE §8 Q3).
 
 **Relay routing:** Because DM groups have no Space affiliation, Relays route DM traffic by `dmGroupToken` alone, identically to channel traffic. A Relay that does not know the `dmGroupToken` will not route DM traffic; the sending client SHOULD use the Relays known to be serving the recipient's DID (discoverable from the recipient's DID document relay hints).
 
-**Cross-topology reachability.** DM reachability is determined by the recipient's relay hints, not by their DID method or the topology of either party's relay. A user with a `did:web:agency.gov` identity can initiate a DM with a user whose only relay hint is a `.onion` address; the initiating client connects to that `.onion` relay via Tor (if available) or routes through an intermediary relay that has Tor reachability. Neither relay learns the other party's identity — relay blindness (§10.4.1) holds across topology boundaries. The only requirement is that the initiating client, or a relay it controls, can reach at least one of the recipient's advertised relay hints. DID method, DNS anchoring, and relay topology are orthogonal to whether two users can exchange messages.
+**Cross-topology reachability.** DM reachability is determined by the recipient's relay hints, not by their DID method or the topology of either party's relay. A user with a `did:web:agency.gov` identity can initiate a DM with a user whose only relay hint is a `.onion` address; the initiating client connects to that `.onion` relay via Tor (if available) or routes through an intermediary relay that has Tor reachability. Neither relay learns the other party's identity; relay blindness (§10.4.1) holds across topology boundaries. The only requirement is that the initiating client, or a relay it controls, can reach at least one of the recipient's advertised relay hints. DID method, DNS anchoring, and relay topology are orthogonal to whether two users can exchange messages.
 
 **History and storage:** DM message history is stored in IPFS/IPLD identically to channel history. The `DMGroupDescriptor` CID is the root; history stored on IO infrastructure references the descriptor by CID without containing it in the clear. Members are responsible for pinning their own DM history; there is no Space-level pinning obligation.
 
@@ -155,7 +155,7 @@ Compliance logger additions are not subject to this consent threshold. They foll
 
 ### 4.6.2 DM Group vs. Private Channel
 
-A DM group and a private Space channel (§4.4) are structurally similar — both are MLS groups with a restricted membership set. The distinction is:
+A DM group and a private Space channel (§4.4) are structurally similar: both are MLS groups with a restricted membership set. The distinction is:
 
 - A private channel is owned by a Space, appears in that Space's state document (for authorized members), and is subject to the Space's compliance logging configuration.
 - A DM group is owned by its members collectively, has no Space parent, and is subject to compliance logging only through the per-member obligation in §7.8.

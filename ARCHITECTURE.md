@@ -13,7 +13,7 @@ all capitals.
 The party that runs relays and other infrastructure services decides nothing
 about any community, and it MUST be replaceable without changing that
 community's identity, membership, history or policy. Every authority over a
-community — who is in it, what it permits, what it retains, who may see it — is
+community (who is in it, what it permits, what it retains, who may see it) is
 held by the community's own operator and exercised with that operator's keys.
 
 This is Agora's first design principle. Where any other part of this
@@ -181,8 +181,8 @@ registration service, so that members can create groups without holding the
 billing key. Agreements are private between the two parties and are not
 gossiped or published.
 
-The effect is that an IO learns which CO a chain belongs to, never which of
-that CO's Spaces. A CO that operates many Spaces through the same IO gives each
+An IO therefore learns which CO a chain belongs to, never which of that CO's
+Spaces. A CO that operates many Spaces through the same IO gives each
 of them a correspondingly large anonymity set.
 
 ### 6.2 Access control by MLS membership
@@ -229,8 +229,7 @@ existing group.
 Each item below is an erratum against the imported documents
 (`import/`, see `notes/research-2026-10-16.md` for line references). Section
 and line numbers in this list are those of the imported documents, not of
-`spec/`. The
-restructured specification resolves each as stated.
+`spec/`. The restructured specification resolves each as stated.
 
 1. **Relay ban and timeout enforcement** (protocol spec §9.5, §11.3, l.2439–2441).
    Removed. Replaced by §6.2: bans are MLS Removes, timeouts are client-enforced.

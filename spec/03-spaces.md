@@ -9,9 +9,9 @@
 
 Agora separates the Infrastructure Operator (IO), which runs Relays and other infrastructure, from the Communications Operator (CO), which runs a community; for a Space the CO is the Space owner and its delegated admins (ARCHITECTURE §2). A Relay is an IO component.
 
-- **Client** — a user agent (web browser, desktop application, mobile app). Connects to one or more Relays. Has access to the user's cryptographic keys and MLS state, either directly (software keystore) or via a co-located secure boundary (OS Secure Enclave, hardware security key, HSM). Responsible for all encryption and decryption operations; those operations SHOULD be performed inside the secure boundary wherever the platform supports it.
-- **Relay** — an always-on server that participates in gossipsub, caches recent messages within a configured retention window, serves WebTransport and WebSocket endpoints for clients, and optionally pins IPFS content. Anyone may operate a Relay; no permission is required.
-- **Peer** — any participant in the gossipsub mesh, including both Relays and clients with persistent connections.
+- **Client:** a user agent (web browser, desktop application, mobile app). Connects to one or more Relays. Has access to the user's cryptographic keys and MLS state, either directly (software keystore) or via a co-located secure boundary (OS Secure Enclave, hardware security key, HSM). Responsible for all encryption and decryption operations; those operations SHOULD be performed inside the secure boundary wherever the platform supports it.
+- **Relay:** an always-on server that participates in gossipsub, caches recent messages within a configured retention window, serves WebTransport and WebSocket endpoints for clients, and optionally pins IPFS content. Anyone may operate a Relay; no permission is required.
+- **Peer:** any participant in the gossipsub mesh, including both Relays and clients with persistent connections.
 
 ## 3.2 Space and Channel Hierarchy
 
@@ -21,9 +21,9 @@ Every channel has a **mode** that determines its encryption and membership model
 
 | Mode | MLS group | Who can post | Encrypted | Use case |
 |---|---|---|---|---|
-| `interactive` | All members (≤ 200) | All members | Yes — full MLS E2EE | Team channels, DMs, small communities |
-| `community` | Active speakers only (≤ `speakerCap`) | Space members in speaker group | Yes — full MLS E2EE for speakers | Large community channels |
-| `broadcast` | Publisher group (posters only, §5.2.1.4) | Space admins / designated posters | Yes — CO-distributed content key (§5.2.1.4) | Announcements, release notes |
+| `interactive` | All members (≤ 200) | All members | Yes: full MLS E2EE | Team channels, DMs, small communities |
+| `community` | Active speakers only (≤ `speakerCap`) | Space members in speaker group | Yes: full MLS E2EE for speakers | Large community channels |
+| `broadcast` | Publisher group (posters only, §5.2.1.4) | Space admins / designated posters | Yes: CO-distributed content key (§5.2.1.4) | Announcements, release notes |
 
 Space membership does not imply channel membership in any mode. A space may have thousands of members while a channel's active MLS group remains small.
 
@@ -42,7 +42,7 @@ agora://bafyrei.../engineering/backend/incidents
 agora://bafyrei.../voice/lounge
 ```
 
-Channel nesting is structural only — a parent channel (such as `engineering`) can itself be a message channel, a category header, or both. The namespace is a tree; there is no enforced depth limit.
+Channel nesting is structural only: a parent channel (such as `engineering`) can itself be a message channel, a category header, or both. The namespace is a tree; there is no enforced depth limit.
 
 ## 3.3 Space State Document
 

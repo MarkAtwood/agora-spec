@@ -16,7 +16,7 @@ It maps all Agora message types and properties to globally unique IRIs and decla
 
 All Agora messages MUST include `"@context": "https://agora.protocol/ns/v1"` or an equivalent inline context. Processors that do not perform full JSON-LD expansion MAY treat the context URL as a version tag, but MUST NOT reject messages that include additional `@context` entries for extension vocabularies.
 
-The context URL is versioned: `/ns/v1` is the v1 schema. A breaking change to the type system produces `/ns/v2`. The context URL is frozen once published — `/ns/v1` will always describe the v1 schema without modification.
+The context URL is versioned: `/ns/v1` is the v1 schema. A breaking change to the type system produces `/ns/v2`. The context URL is frozen once published: `/ns/v1` will always describe the v1 schema without modification.
 
 ### 13.1.1 Canonicalization and Signing Pipeline
 
@@ -32,10 +32,10 @@ The pipeline is:
 
 The resulting signature is encoded as **base64url** (no padding) and placed in the document's `proof.signatureValue` field (W3C Data Integrity Proofs format), or carried out-of-band in the enclosing envelope depending on context.
 
-This pipeline is identical to **W3C Data Integrity Proofs** with the `eddsa-rdna-2022` cryptosuite, which is the signing layer used by the W3C Verifiable Credentials ecosystem. Implementations SHOULD use an existing conformant library rather than implementing the pipeline from scratch.
+This pipeline is identical to **W3C Data Integrity Proofs** with the `eddsa-rdna-2022` cryptosuite, which is the signing layer used by W3C Verifiable Credentials. Implementations SHOULD use an existing conformant library rather than implementing the pipeline from scratch.
 
 **Reference implementations:**
-- TypeScript/JS: [`jsonld`](https://github.com/digitalbazaar/jsonld.js) + [`rdf-canonize`](https://github.com/digitalbazaar/rdf-canonize) (Digital Bazaar — the W3C reference implementations)
+- TypeScript/JS: [`jsonld`](https://github.com/digitalbazaar/jsonld.js) + [`rdf-canonize`](https://github.com/digitalbazaar/rdf-canonize) (Digital Bazaar, the W3C reference implementations)
 - Go: [`go-jsonld-signatures`](https://github.com/go-jsonld-signatures) or FFI binding to the above for correctness during initial development
 - Rust: [`json-ld` crate](https://crates.io/crates/json-ld) + [`rdf-types`](https://crates.io/crates/rdf-types) + [`ssi` crate (Spruce Systems)](https://github.com/spruceid/ssi)
 
@@ -51,7 +51,7 @@ Implementations MUST cache the context document locally. The canonical context d
 
 > **Open (agora-pozi.20.16):** The v1 context document has not been published and its pinned SHA-256 hash is not yet specified.
 
-Implementations MUST NOT fetch the context document from the network during signature verification of an untrusted message — this is a denial-of-service vector (an adversary could stall verification by making the context URL slow or unreachable). The context document MUST be loaded from the local cache only.
+Implementations MUST NOT fetch the context document from the network during signature verification of an untrusted message; this is a denial-of-service vector (an adversary could stall verification by making the context URL slow or unreachable). The context document MUST be loaded from the local cache only.
 
 ---
 

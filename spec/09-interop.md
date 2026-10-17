@@ -5,11 +5,11 @@
 
 *Binds: CO.*
 
-Every interop component in this section — MIMI provider endpoints, gateways and bridges — is a CO component (ARCHITECTURE.md §2.3, S8). None of them runs in, or as part of, a relay or any other IO component. Relays carry interop traffic only as ordinary ciphertext envelopes keyed by `channelToken`.
+Every interop component in this section (MIMI provider endpoints, gateways and bridges) is a CO component (ARCHITECTURE.md §2.3, S8). None of them runs in, or as part of, a relay or any other IO component. Relays carry interop traffic only as ordinary ciphertext envelopes keyed by `channelToken`.
 
 ## 9.1 MIMI Native Interop
 
-MIMI (More Instant Messaging Interoperability) is an IETF working group producing a standard for cross-system E2EE messaging using MLS as the shared key agreement layer. Agora and MIMI share RFC 9420 as their cryptographic foundation, which means interop between the two is not a gateway problem requiring re-encryption — it is a content format and delivery protocol bridging problem. E2EE is preserved end-to-end across the system boundary.
+MIMI (More Instant Messaging Interoperability) is an IETF working group producing a standard for cross-system E2EE messaging using MLS as the shared key agreement layer. Agora and MIMI share RFC 9420 as their cryptographic foundation, which means interop between the two is a content format and delivery protocol bridging problem rather than a gateway problem requiring re-encryption. E2EE is preserved end-to-end across the system boundary.
 
 **Reference specifications:** `draft-ietf-mimi-arch-02` (MIMI architecture, expired), `draft-ietf-mimi-content-08` (content format, active), `draft-ietf-mimi-protocol-05` (delivery service protocol, expired).
 
@@ -21,7 +21,7 @@ This requires that both systems use compatible MLS ciphersuites. Agora MUST supp
 
 ### Identity Mapping
 
-Agora users are identified by DID (`did:key` or `did:web`). MIMI defines its own identifier scheme: MIMI URIs of the form `mimi://provider/user-id`. This is a bespoke URI scheme minted by the MIMI WG rather than an adoption of any existing identity standard. It is functionally equivalent to `did:web` — a domain-scoped opaque user identifier with no standardized resolution mechanism beyond DNS — but is a distinct namespace with no interoperability with DID resolvers or any other identity infrastructure.
+Agora users are identified by DID (`did:key` or `did:web`). MIMI defines its own identifier scheme: MIMI URIs of the form `mimi://provider/user-id`. This is a bespoke URI scheme minted by the MIMI WG rather than an adoption of any existing identity standard. It is functionally equivalent to `did:web` (a domain-scoped opaque user identifier with no standardized resolution mechanism beyond DNS) but is a distinct namespace with no interoperability with DID resolvers or any other identity infrastructure.
 
 The consequence for Agora is that MIMI interop requires carrying two parallel identifiers for every user in a cross-system MLS group: the Agora DID (which has a resolution spec, a key material binding, and is used for all Agora-internal operations) and the MIMI URI (which the MIMI delivery service requires to route messages and manage room membership). There is no way to derive one from the other or collapse them into a single identifier without either Agora abandoning DIDs or MIMI adopting them.
 
@@ -36,17 +36,17 @@ Each leaf node's credential in a MIMI-interop MLS group therefore carries both:
 }
 ```
 
-The credential is signed by the Agora authentication key. Agora clients verify the DID and signature. MIMI clients verify the MIMI URI portion and MUST treat the `did` field as an unknown extension — the `draft-ietf-mimi-content` spec does not explicitly specify that unknown credential fields are to be ignored rather than rejected, which is a known interoperability risk. Agora implementations SHOULD monitor MIMI client behavior for strict credential validation that rejects unknown fields; if this occurs in practice, the fallback is to strip the `did` field from credentials presented to MIMI clients and maintain a side-channel mapping from MIMI URI to Agora DID in the CO's MIMI provider endpoint (see Delivery Service Bridging). This mapping MUST NOT be held by a relay.
+The credential is signed by the Agora authentication key. Agora clients verify the DID and signature. MIMI clients verify the MIMI URI portion and MUST treat the `did` field as an unknown extension. The `draft-ietf-mimi-content` spec does not explicitly specify that unknown credential fields are to be ignored rather than rejected, which is a known interoperability risk. Agora implementations SHOULD monitor MIMI client behavior for strict credential validation that rejects unknown fields; if this occurs in practice, the fallback is to strip the `did` field from credentials presented to MIMI clients and maintain a side-channel mapping from MIMI URI to Agora DID in the CO's MIMI provider endpoint (see Delivery Service Bridging). This mapping MUST NOT be held by a relay.
 
-For display purposes, neither side needs to parse the other's identifier format — MIMI URIs are rendered as opaque display strings in Agora clients, and Agora DIDs are rendered as opaque display strings in MIMI clients.
+For display purposes, neither side needs to parse the other's identifier format: MIMI URIs are rendered as opaque display strings in Agora clients, and Agora DIDs are rendered as opaque display strings in MIMI clients.
 
 ### Content Format
 
 Agora inner payloads use JSON-LD (`@type: ChatMessage` etc.). MIMI defines its own content format (`draft-ietf-mimi-content-08`). A channel in MIMI interop mode MUST negotiate a shared content format. Two modes are supported:
 
-**MIMI content format mode** — the channel uses the MIMI content format as the canonical inner payload. Agora clients serialize outgoing messages to MIMI content format and deserialize incoming MIMI content to their local display model. Agora-specific features not representable in MIMI content format are carried as MIMI content extensions using the MIMI extension mechanism.
+**MIMI content format mode**: the channel uses the MIMI content format as the canonical inner payload. Agora clients serialize outgoing messages to MIMI content format and deserialize incoming MIMI content to their local display model. Agora-specific features not representable in MIMI content format are carried as MIMI content extensions using the MIMI extension mechanism.
 
-**Agora content format mode** — the channel uses Agora JSON-LD as the canonical inner payload. MIMI clients that support Agora content format (via a registered MIMI content type) can participate natively. MIMI clients that do not support Agora content format receive a fallback plain-text rendering negotiated at join time.
+**Agora content format mode**: the channel uses Agora JSON-LD as the canonical inner payload. MIMI clients that support Agora content format (via a registered MIMI content type) can participate natively. MIMI clients that do not support Agora content format receive a fallback plain-text rendering negotiated at join time.
 
 The content format in use is declared in the channel state document:
 
@@ -77,7 +77,7 @@ MIMI interop does not currently specify voice/video interop. VTC channels cannot
 
 ## 9.2 Matrix Gateway
 
-Matrix interop is a **gateway**, not native interop. A Matrix gateway is a CO component (ARCHITECTURE.md §2.3, S8): it MUST run under the control of the CO operating the channel and MUST NOT run in or as part of a relay. Co-location on IO hardware is permitted only as S8 allows, with the gateway remaining a CO principal with its own DID and keys. A Matrix gateway holds an Agora DID, is admitted to the relevant channel MLS groups as a member, decrypts Agora messages, re-encrypts them using Matrix's Megolm E2EE for delivery to Matrix users, and performs the reverse for Matrix→Agora direction. **E2EE is broken at the gateway — the gateway holds plaintext.** This MUST be made visible to all participants (§9.3).
+Matrix interop is a **gateway**, not native interop. A Matrix gateway is a CO component (ARCHITECTURE.md §2.3, S8): it MUST run under the control of the CO operating the channel and MUST NOT run in or as part of a relay. Co-location on IO hardware is permitted only as S8 allows, with the gateway remaining a CO principal with its own DID and keys. A Matrix gateway holds an Agora DID, is admitted to the relevant channel MLS groups as a member, decrypts Agora messages, re-encrypts them using Matrix's Megolm E2EE for delivery to Matrix users, and performs the reverse for Matrix→Agora direction. **E2EE is broken at the gateway: the gateway holds plaintext.** This MUST be made visible to all participants (§9.3).
 
 ### Gateway Identity and Admission
 
@@ -158,11 +158,11 @@ Category channels (`type: category`) with no messages of their own map to Matrix
 
 ### E2EE Mismatch Handling
 
-When the Matrix room has Megolm E2EE enabled, the gateway holds both MLS session state (for Agora) and Megolm session state (for Matrix). The gateway is the trust boundary — it decrypts on one side and re-encrypts on the other. This is unavoidable; it is the structural nature of bridging two incompatible E2EE systems.
+When the Matrix room has Megolm E2EE enabled, the gateway holds both MLS session state (for Agora) and Megolm session state (for Matrix). The gateway is the trust boundary: it decrypts on one side and re-encrypts on the other. This is unavoidable; it is the structural nature of bridging two incompatible E2EE systems.
 
 The gateway MUST NOT cache decrypted message content beyond the time needed for translation and re-encryption. It SHOULD operate in a memory-only mode with no persistent plaintext storage. Gateway operators SHOULD publish a transparency policy describing their plaintext handling.
 
-When the Matrix room does not have Megolm E2EE enabled, the gateway sends plaintext to the Matrix server. This is a further trust degradation — the Matrix homeserver operator can read bridged messages. This MUST be disclosed to Agora channel members (§9.3).
+When the Matrix room does not have Megolm E2EE enabled, the gateway sends plaintext to the Matrix server. This is a further trust degradation: the Matrix homeserver operator can read bridged messages. This MUST be disclosed to Agora channel members (§9.3).
 
 ### Implementation Approach
 
@@ -174,7 +174,7 @@ The recommended implementation uses the **Matrix Application Service API** rathe
 
 ## 9.3 Gateway Transparency
 
-Any gateway admitted to an Agora channel — Matrix, or any future gateway type — is a CO component subject to the same placement rule as §9.2 and MUST be disclosed to all channel members. This is enforced at the protocol level, not by policy.
+Any gateway admitted to an Agora channel (Matrix, or any future gateway type) is a CO component subject to the same placement rule as §9.2 and MUST be disclosed to all channel members. This is enforced at the protocol level, not by policy.
 
 **Channel state disclosure.** The `gateways` array in the channel state document (§9.2) is visible to all MLS group members. Clients MUST display a visible indicator when a channel has active gateways. The indicator MUST identify the gateway protocol and target system. A channel with an active gateway is not E2EE-private for bridged traffic; members must be able to determine this without reading protocol documentation.
 
@@ -192,7 +192,7 @@ Any gateway admitted to an Agora channel — Matrix, or any future gateway type 
 }
 ```
 
-This event is stored in the channel's IPLD history — it is a permanent record that a gateway was added and when.
+This event is stored in the channel's IPLD history, a permanent record that a gateway was added and when.
 
 **Client rendering.** Clients MUST render a persistent banner or channel badge indicating gateway presence. The banner MUST NOT be dismissible per-session without re-appearing on reconnect. Members who joined after a gateway was added receive the `SystemEvent` from history and see the indicator immediately on first load.
 

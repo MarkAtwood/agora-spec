@@ -239,7 +239,7 @@ This link expires in 7 days. If you need a new link, contact IT.
 
 Triggered by a push notification for an existing user with changed attributes (`orgUnitPath`, `primaryEmail`, custom schema attributes, or group membership changes). A `primaryEmail` change updates only the sidecar's private record and, if a credential claim changed, the `EmployeeCredential`; the DID is unchanged (§3.1).
 
-Group membership changes do not trigger a user-level push notification — the Directory API push fires only on user object changes. The sidecar MUST therefore poll `groups.list` on a configurable schedule (default: 1 hour) for users with active DID documents, comparing group membership against stored state. This is the primary limitation relative to the O365 Mover workflow, which triggers declaratively on group membership changes.
+Group membership changes do not trigger a user-level push notification; the Directory API push fires only on user object changes. The sidecar MUST therefore poll `groups.list` on a configurable schedule (default: 1 hour) for users with active DID documents, comparing group membership against stored state. This is the primary limitation relative to the O365 Mover workflow, which triggers declaratively on group membership changes.
 
 Actions:
 
@@ -255,13 +255,13 @@ Triggered by a push notification for a user with `suspended: true` (soft leaver)
 
 Google has no real-time termination trigger equivalent to Entra Lifecycle Workflows' on-demand execution, and the push notification channel has delivery lag. The fast enforcement path is VC revocation, which the sidecar MUST execute immediately on receiving a suspension or deletion notification, before the DID is tombstoned.
 
-**Phase 1 — Immediate** (on notification receipt; target latency: <30 seconds):
+**Phase 1: Immediate** (on notification receipt; target latency: <30 seconds):
 
 - Mark the `EmployeeCredential` status entry as revoked in the status list.
 - Transition the DID document to `SUSPENDED` (soft leaver) or `TOMBSTONED` (hard leaver).
 - Notify the Enrollment Service to initiate MLS Remove commits.
 
-**Phase 2 — Confirmed** (after the reconciliation poller next runs, or on explicit IT action):
+**Phase 2: Confirmed** (after the reconciliation poller next runs, or on explicit IT action):
 
 - Verify deletion or suspension state against the live Directory API.
 - Confirm MLS Remove commits have propagated (via Enrollment Service ACK).
@@ -300,9 +300,9 @@ Google Workspace supports custom schema attributes on user objects. The sidecar 
 ```
 Schema name: AgoraIdentity
 Fields:
-  - agoraRoles (string, multi-value)     — explicit role override
-  - agoraDIDState (string)               — admin override for DID state
-  - agoraEnrollmentExpiry (string, date) — enrollment link expiry date
+  - agoraRoles (string, multi-value)     : explicit role override
+  - agoraDIDState (string)               : admin override for DID state
+  - agoraEnrollmentExpiry (string, date) : enrollment link expiry date
 ```
 
 Custom schemas are optional. When absent, roles are derived entirely from group membership (§4.7). The `agoraDIDState` field allows an admin to force-suspend or force-tombstone a DID from the Google Admin console without API access.
@@ -371,17 +371,17 @@ GET https://did.example.com/v1/status/2026
 
 One status list is maintained per year (configurable), with a maximum of 131,072 entries. Status list indices are assigned at VC issuance and MUST NOT be reused. The status list MUST be regenerated and re-signed whenever a VC is revoked.
 
-**Privacy note:** A public status list is observable — an external party can infer employee terminations by monitoring newly flipped bits. For orgs with privacy requirements, the Bitstring Status List spec (the StatusList2021 successor) supports encrypted status entries. Migration is a matter of changing the served format and updating the `type` field; the `statusListCredential` pointer in the credential schema is unchanged.
+**Privacy note:** A public status list is observable: an external party can infer employee terminations by monitoring newly flipped bits. For orgs with privacy requirements, the Bitstring Status List spec (the StatusList2021 successor) supports encrypted status entries. Migration is a matter of changing the served format and updating the `type` field; the `statusListCredential` pointer in the credential schema is unchanged.
 
 ### 5.3 VC Delivery
 
 The sidecar has no push wallet to deliver VCs to. Three delivery options are supported:
 
-**Option A — Deep link in enrollment email:** The enrollment invitation includes a second link for VC acceptance. When clicked, the browser calls the sidecar's issuance endpoint, which returns the signed VC as a JSON file download for import into a W3C VC-compatible wallet.
+**Option A, deep link in enrollment email:** The enrollment invitation includes a second link for VC acceptance. When clicked, the browser calls the sidecar's issuance endpoint, which returns the signed VC as a JSON file download for import into a W3C VC-compatible wallet.
 
-**Option B — Agora client built-in wallet:** The Agora client (web or CLI) stores the `EmployeeCredential` in its local keystore alongside device keys and presents the VC automatically during space enrollment. This option requires no external wallet app and keeps the credential collocated with the keys it attests.
+**Option B, Agora client built-in wallet:** The Agora client (web or CLI) stores the `EmployeeCredential` in its local keystore alongside device keys and presents the VC automatically during space enrollment. This option requires no external wallet app and keeps the credential collocated with the keys it attests.
 
-**Option C — OID4VCI:** The sidecar implements the OpenID for Verifiable Credential Issuance protocol, allowing any OID4VCI-compatible wallet to pull the VC via a standard issuance flow. This is the most interoperable option and the correct long-term path as wallet support matures.
+**Option C, OID4VCI:** The sidecar implements the OpenID for Verifiable Credential Issuance protocol, allowing any OID4VCI-compatible wallet to pull the VC via a standard issuance flow. This is the most interoperable option and the correct long-term path as wallet support matures.
 
 For initial deployment, Option B is the recommended choice. Options A and C are extensions for orgs with existing wallet infrastructure.
 
@@ -500,9 +500,9 @@ spec:
 | JML reliability | Push + Logic App retry + Entra audit log | Push + polling fallback (24h worst-case lag) |
 | Immediate termination | On-demand Lifecycle Workflow execution (seconds) | IT calls `/v1/tombstone` directly (manual step) |
 | VC issuance | Entra Verified ID (managed service, Authenticator wallet) | Sidecar self-issued VC, Agora client wallet |
-| VC revocation speed | StatusList2021 via Verified ID (seconds) | StatusList2021 served by sidecar (seconds — same) |
+| VC revocation speed | StatusList2021 via Verified ID (seconds) | StatusList2021 served by sidecar (seconds, same) |
 | MFA step-up enforcement | Entra Conditional Access (`acr`/`amr` claims, all tiers) | CAA (Enterprise Plus only) or WebAuthn PoP (all tiers) |
-| Org signing key | Azure Key Vault (managed) | Google Cloud KMS (managed — equivalent) |
+| Org signing key | Azure Key Vault (managed) | Google Cloud KMS (managed, equivalent) |
 | Hosting | Azure Container Apps / App Service | Cloud Run / GKE |
 | License cost | Entra ID P1 + Entra ID Governance | Workspace Enterprise Plus for CAA; otherwise no extra license |
 | Group membership change detection | Declarative (Mover workflow triggers on group change) | Polling (1-hour default lag for role updates) |
@@ -543,10 +543,10 @@ type CredentialSigner interface {
 
 Implementations:
 
-- `EntraIdentityProvider` — uses Microsoft Graph
-- `WorkspaceIdentityProvider` — uses Admin SDK Directory API
-- `AzureKeyVaultSigner` — uses Azure Key Vault
-- `CloudKMSSigner` — uses Google Cloud KMS
+- `EntraIdentityProvider`: uses Microsoft Graph
+- `WorkspaceIdentityProvider`: uses Admin SDK Directory API
+- `AzureKeyVaultSigner`: uses Azure Key Vault
+- `CloudKMSSigner`: uses Google Cloud KMS
 
 ### 10.2 Key Dependencies (Google Workspace)
 
@@ -571,4 +571,4 @@ Implementations:
 
 4. **Restricted Workspace editions.** The Admin SDK Directory API is available on all Workspace editions, but domain-wide delegation requires a Super Admin to configure it. The service account JSON key approach (§7) works on all editions. The Cloud KMS dependency requires a linked GCP project, which is standard for Workspace Business/Enterprise but may require additional setup for legacy G Suite Basic accounts.
 
-5. **HR system integration.** Both this spec and the O365 spec treat the directory as the system of record, but most orgs use an HRIS (Workday, BambooHR, etc.) as the upstream source of truth, synced into the directory. Sync lag between the HRIS and the directory adds latency on top of the push notification lag. For regulated environments where termination must be effective within minutes of an HRIS update, a direct HRIS webhook to the sidecar — bypassing the directory — is a candidate extension.
+5. **HR system integration.** Both this spec and the O365 spec treat the directory as the system of record, but most orgs use an HRIS (Workday, BambooHR, etc.) as the upstream source of truth, synced into the directory. Sync lag between the HRIS and the directory adds latency on top of the push notification lag. For regulated environments where termination must be effective within minutes of an HRIS update, a direct HRIS webhook to the sidecar that bypasses the directory is a candidate extension.

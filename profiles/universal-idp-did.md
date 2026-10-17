@@ -1,4 +1,4 @@
-# Specification: Employer-Managed DIDs — Universal Identity Provider Support
+# Specification: Employer-Managed DIDs, Universal Identity Provider Support
 
 **Version:** 0.1 Draft
 **Depends On:** Agora Protocol Spec v0.1, O365 DID Spec v0.1, Google Workspace DID Spec v0.1
@@ -12,10 +12,10 @@ This specification extends the DID Sidecar's `IdentityProvider` interface to cov
 
 | Category | Examples | Change Detection |
 |---|---|---|
-| **Cat 1** — Webhook-capable IdPs | Okta, JumpCloud, Ping Identity, OneLogin | Native event webhook / push |
-| **Cat 2** — SCIM-only providers | Any SCIM 2.0 directory without push | Polling only |
-| **Cat 3** — SAML-only / legacy IdPs | AD FS, Shibboleth, legacy Ping Federate | HR system, AD-LDAP, or manual IT |
-| **Cat 4** — On-premises Active Directory | Any Windows AD forest without Entra sync | LDAP DirSync control or USNChanged polling |
+| **Cat 1**: Webhook-capable IdPs | Okta, JumpCloud, Ping Identity, OneLogin | Native event webhook / push |
+| **Cat 2**: SCIM-only providers | Any SCIM 2.0 directory without push | Polling only |
+| **Cat 3**: SAML-only / legacy IdPs | AD FS, Shibboleth, legacy Ping Federate | HR system, AD-LDAP, or manual IT |
+| **Cat 4**: On-premises Active Directory | Any Windows AD forest without Entra sync | LDAP DirSync control or USNChanged polling |
 
 All four categories produce the same output: a populated DID document for `did:web:did.example.com:users:{localIdentifier}` (served at `https://did.example.com/users/{localIdentifier}/did.json`), triggered by the same sidecar event handler introduced in the Google Workspace spec. The categories differ only in which `IdentityProvider` implementation feeds that handler and which JML source drives user lifecycle events.
 
@@ -51,7 +51,7 @@ One sidecar instance maps to one identity provider and one JML source. An org us
 
 ---
 
-## 3. Category 1 — Webhook-Capable IdPs
+## 3. Category 1: Webhook-Capable IdPs
 
 ### 3.1 Covered Providers
 
@@ -140,9 +140,9 @@ type OktaEventHookPayload struct {
 
 The target with `type: "User"` carries the Okta user ID (`id`) and email (`alternateId`). The sidecar keys on the Okta user ID, which is stable through email changes, and fetches the full user profile via the Okta Users API on each event before acting.
 
-**Reconciliation:** The sidecar's reconciliation poller queries the Okta System Log API (`GET /api/v1/logs?filter=eventType eq "user.lifecycle.*"`) daily for any lifecycle events that were missed, using a stored cursor on the `published` timestamp. This approach is more reliable than a full directory scan because it fetches only actual change events.
+**Reconciliation:** The sidecar's reconciliation poller queries the Okta System Log API (`GET /api/v1/logs?filter=eventType eq "user.lifecycle.*"`) daily for any lifecycle events that were missed, using a stored cursor on the `published` timestamp. This approach is more reliable than a full directory scan because it fetches only change events.
 
-**Limitations:** Okta event hooks are asynchronous with up to a one-minute delivery delay and do not guarantee delivery — failed deliveries are retried but may be dropped after repeated failures. The System Log reconciliation poller is the reliability backstop.
+**Limitations:** Okta event hooks are asynchronous with up to a one-minute delivery delay and do not guarantee delivery; failed deliveries are retried but may be dropped after repeated failures. The System Log reconciliation poller is the reliability backstop.
 
 ### 3.3 JumpCloud
 
@@ -196,14 +196,14 @@ Relevant `event_type_id` values: 1 (user created), 2 (user updated), 13 (user de
 
 ---
 
-## 4. Category 2 — SCIM-Only Providers
+## 4. Category 2: SCIM-Only Providers
 
 ### 4.1 Overview
 
 SCIM 2.0 (RFC 7644) is a request/response provisioning protocol with no push notification model. The sidecar cannot register a webhook with a SCIM provider. Two modes are supported:
 
-1. **SCIM server mode** — the sidecar exposes a SCIM 2.0 endpoint; the upstream provisioner pushes to it.
-2. **SCIM client mode** — the sidecar polls the upstream SCIM server for changes.
+1. **SCIM server mode**: the sidecar exposes a SCIM 2.0 endpoint; the upstream provisioner pushes to it.
+2. **SCIM client mode**: the sidecar polls the upstream SCIM server for changes.
 
 The operator configures which mode is in use.
 
@@ -234,9 +234,9 @@ DELETE /scim/v2/Groups/{id}        Delete group
 | `PUT/PATCH /Users` | `false` | Suspend DID + revoke VC |
 | `PUT/PATCH /Users` | `true` (was `false`) | Reactivate DID + re-issue VC |
 | `PUT/PATCH /Users` (attribute changes) | `true` | Update claims, re-issue VC |
-| `DELETE /Users` | — | Tombstone DID |
-| `PATCH /Groups` (membership add) | — | Re-derive roles, re-issue VC |
-| `PATCH /Groups` (membership remove) | — | Re-derive roles, re-issue VC |
+| `DELETE /Users` | (any) | Tombstone DID |
+| `PATCH /Groups` (membership add) | (any) | Re-derive roles, re-issue VC |
+| `PATCH /Groups` (membership remove) | (any) | Re-derive roles, re-issue VC |
 
 Authentication to the SCIM endpoint uses Bearer token auth. The token is a pre-shared secret configured in the upstream provisioner and stored in the sidecar config. For Azure AD and Okta as upstream provisioners, this is the standard "provisioning secret token" in their SCIM connector configuration.
 
@@ -253,7 +253,7 @@ Authorization: Bearer {scim-token}
 
 Cursoring on `meta.lastModified` is SCIM-standard for change detection. Not all SCIM servers implement this filter reliably. If a filtered query returns no results when changes are expected, the sidecar MUST fall back to a full diff (fetch all users, compare against stored state).
 
-Deletion detection in SCIM client mode is unreliable — deleted users disappear from the user list without emitting a delete event. The sidecar detects deletions by computing the set difference between the last full sync and the current sync on each reconciliation pass and transitions those DIDs to `TOMBSTONED`.
+Deletion detection in SCIM client mode is unreliable: deleted users disappear from the user list without emitting a delete event. The sidecar detects deletions by computing the set difference between the last full sync and the current sync on each reconciliation pass and transitions those DIDs to `TOMBSTONED`.
 
 ```toml
 [identity_provider]
@@ -272,7 +272,7 @@ If a provider rotates user IDs on attribute changes, the sidecar treats the rota
 
 ---
 
-## 5. Category 3 — SAML-Only / Legacy IdPs
+## 5. Category 3: SAML-Only / Legacy IdPs
 
 ### 5.1 Overview
 
@@ -379,7 +379,7 @@ type HREvent struct {
 }
 ```
 
-BambooHR does not emit discrete event types — it reports field changes. The sidecar infers the event type from field values: `status == "Inactive"` with `terminationDate` set → `TERMINATE`; `status == "Active"` with no prior record → `HIRE`; department or job title change → `TRANSFER`.
+BambooHR does not emit discrete event types; it reports field changes. The sidecar infers the event type from field values: `status == "Inactive"` with `terminationDate` set → `TERMINATE`; `status == "Active"` with no prior record → `HIRE`; department or job title change → `TRANSFER`.
 
 ### 5.4 HR System: Generic SFTP Batch
 
@@ -429,7 +429,7 @@ The admin API is documented with an OpenAPI spec. A minimal web UI SHOULD be pro
 
 ---
 
-## 6. Category 4 — On-Premises Active Directory (LDAP)
+## 6. Category 4: On-Premises Active Directory (LDAP)
 
 ### 6.1 Change Detection Strategy
 
@@ -515,7 +515,7 @@ func (p *LDAPProvider) PollChanges(ctx context.Context) ([]*UserRecord, error) {
 
 ### 6.3 DirSync Implementation
 
-DirSync is simpler to implement correctly — the cookie manages cursor state automatically — but requires `DS-Replication-Get-Changes`. The `go-ldap/ldap/v3` library provides native `DirSync()` support:
+DirSync is simpler to implement correctly (the cookie manages cursor state automatically) but requires `DS-Replication-Get-Changes`. The `go-ldap/ldap/v3` library provides native `DirSync()` support:
 
 ```go
 func (p *LDAPProvider) PollDirSync(ctx context.Context) ([]*UserRecord, error) {
@@ -530,14 +530,14 @@ func (p *LDAPProvider) PollDirSync(ctx context.Context) ([]*UserRecord, error) {
         return nil, err
     }
     p.cookie = res.Controls[0].(*ldap.ControlDirSync).Cookie
-    p.storeCookie()  // persist to DB — loss of cookie requires full resync
+    p.storeCookie()  // persist to DB; loss of cookie requires full resync
     return mapEntries(res.Entries), nil
 }
 ```
 
 DirSync includes deleted objects (tombstones) automatically when the filter matches them. Tombstones retain only `objectGUID`, `isDeleted: TRUE`, and a few system attributes. The sidecar MUST map `isDeleted: TRUE` to a tombstone action.
 
-**Cookie persistence:** The DirSync cookie MUST be persisted to durable storage (the same database as DID documents). Loss of the cookie — for example, after a crash — requires a full resync: the sidecar fetches all objects and diffs against stored state.
+**Cookie persistence:** The DirSync cookie MUST be persisted to durable storage (the same database as DID documents). Loss of the cookie (for example, after a crash) requires a full resync: the sidecar fetches all objects and diffs against stored state.
 
 ### 6.4 Service Account Requirements
 
@@ -585,7 +585,7 @@ When `jml_source.type` is not `none`, the sidecar runs both the identity provide
 HR system (Workday/BambooHR) > LDAP > SCIM > webhook IdP > manual
 ```
 
-A Workday `TERMINATE` event always overrides a concurrent LDAP reactivation signal, which may reflect DC replication lag. Manual IT operations bypass the trust hierarchy — they are applied immediately and logged with a `manual-override` flag.
+A Workday `TERMINATE` event always overrides a concurrent LDAP reactivation signal, which may reflect DC replication lag. Manual IT operations bypass the trust hierarchy; they are applied immediately and logged with a `manual-override` flag.
 
 ---
 
@@ -595,7 +595,7 @@ The enrollment auth adapter maps to the DID sidecar's `IdentityProvider` as foll
 
 | `agora-enroll` Auth Adapter | DID Sidecar `IdentityProvider` | Notes |
 |---|---|---|
-| `okta` | `OktaProvider` | Same Okta org — OAuth2 OIDC on enrollment, event hooks for JML |
+| `okta` | `OktaProvider` | Same Okta org: OAuth2 OIDC on enrollment, event hooks for JML |
 | `teams` (Entra OIDC) | `EntraProvider` (O365 spec) | Same tenant |
 | `slack` | None | Slack auth only for enrollment; no org-managed DID for Slack-primary orgs |
 | `oidc` (generic) | `SCIMProvider` or `SAMLProvider` | Depends on which directory the OIDC issuer fronts |
@@ -664,7 +664,7 @@ type OneLoginProvider  struct { ... }
 type SCIMServerProvider struct { ... }   // sidecar acts as SCIM endpoint
 type SCIMClientProvider struct { ... }   // sidecar polls upstream SCIM
 
-// Cat 3 — no IdentityProvider; the existing SAML enrollment adapter handles auth.
+// Cat 3: no IdentityProvider; the existing SAML enrollment adapter handles auth.
 
 // Cat 4
 type LDAPProvider struct {

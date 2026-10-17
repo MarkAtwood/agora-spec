@@ -8,17 +8,17 @@
 
 Agora is transport-agnostic at the application layer. The following deployment topologies are explicitly supported:
 
-**Public internet (default)** — Relays are clearnet HTTPS/WSS servers with public IPv4 and/or IPv6 addresses. Clients connect over the public internet. This is the baseline configuration assumed throughout this specification unless otherwise noted.
+**Public internet (default)**: Relays are clearnet HTTPS/WSS servers with public IPv4 and/or IPv6 addresses. Clients connect over the public internet. This is the baseline configuration assumed throughout this specification unless otherwise noted.
 
-**Tor hidden service** — A Relay MAY operate as a Tor v3 hidden service, publishing a `.onion` address in its `RelayAd` alongside or instead of a clearnet endpoint. Clients connecting via Tor MUST use the WebSocket transport (§11.2); WebTransport requires QUIC over UDP and is unavailable over Tor.
+**Tor hidden service**: A Relay MAY operate as a Tor v3 hidden service, publishing a `.onion` address in its `RelayAd` alongside or instead of a clearnet endpoint. Clients connecting via Tor MUST use the WebSocket transport (§11.2); WebTransport requires QUIC over UDP and is unavailable over Tor.
 
-**Private overlay (Tailscale / WireGuard / Headscale)** — A Relay MAY operate exclusively on a WireGuard-based overlay network. The Relay's `RelayAd` lists overlay-internal hostnames or `100.x.x.x` addresses; these are only resolvable inside the overlay. This is the recommended topology for private organizational deployments where all members are already on a common overlay. A fully self-contained deployment — Relay + SFU + TURN + Headscale, all on-premise — has zero dependency on any external infrastructure.
+**Private overlay (Tailscale / WireGuard / Headscale)**: A Relay MAY operate exclusively on a WireGuard-based overlay network. The Relay's `RelayAd` lists overlay-internal hostnames or `100.x.x.x` addresses; these are only resolvable inside the overlay. This is the recommended topology for private organizational deployments where all members are already on a common overlay. A fully self-contained deployment (Relay + SFU + TURN + Headscale, all on-premise) has zero dependency on any external infrastructure.
 
-**Dual-stack (clearnet + overlay)** — A Relay MAY publish both clearnet and overlay endpoints. Clients on the overlay prefer the overlay path; external clients use the clearnet path. Both sets of clients share the same space state and message history.
+**Dual-stack (clearnet + overlay)**: A Relay MAY publish both clearnet and overlay endpoints. Clients on the overlay prefer the overlay path; external clients use the clearnet path. Both sets of clients share the same space state and message history.
 
-**Managed / SaaS** — A relay operator (the "managed provider") provisions and operates a dedicated Agora relay fleet on behalf of a customer. Each customer receives their own isolated deployment — separate relay processes, separate database, separate blob store — not a shared multi-tenant instance. The customer controls, or delegates control of, the DNS name that roots their deployment; the managed provider's infrastructure hosts it (typically via CNAME or DNS delegation). The managed provider's identity appears as `operatorDID` in each relay manifest (§10.2.1), but `relayDID` is anchored to the customer's DNS domain, not the provider's. This preserves namespace ownership: if the customer migrates to self-hosted, their DNS name and all derived identities (`did:web:<customer-domain>:users:...`) are portable without re-enrollment. `operatorDID` and `relayDID` are IO keys and are distinct principals from every CO key, even where one entity holds both roles (ARCHITECTURE §2.4).
+**Managed / SaaS**: A relay operator (the "managed provider") provisions and operates a dedicated Agora relay fleet on behalf of a customer. Each customer receives their own isolated deployment (separate relay processes, separate database, separate blob store), not a shared multi-tenant instance. The customer controls, or delegates control of, the DNS name that roots their deployment; the managed provider's infrastructure hosts it (typically via CNAME or DNS delegation). The managed provider's identity appears as `operatorDID` in each relay manifest (§10.2.1), but `relayDID` is anchored to the customer's DNS domain, not the provider's. This preserves namespace ownership: if the customer migrates to self-hosted, their DNS name and all derived identities (`did:web:<customer-domain>:users:...`) are portable without re-enrollment. `operatorDID` and `relayDID` are IO keys and are distinct principals from every CO key, even where one entity holds both roles (ARCHITECTURE §2.4).
 
-**IPv6** — All Relay endpoints SHOULD support IPv6. Relay URIs MUST use bracket notation for IPv6 address literals (`wss://[2001:db8::1]/v1/agora/ws`). ICE gathers both IPv4 and IPv6 host candidates; dual-stack clients race both address families.
+**IPv6**: All Relay endpoints SHOULD support IPv6. Relay URIs MUST use bracket notation for IPv6 address literals (`wss://[2001:db8::1]/v1/agora/ws`). ICE gathers both IPv4 and IPv6 host candidates; dual-stack clients race both address families.
 
 ### 10.1.1 Discoverability and DNS Namespace Root
 
@@ -26,7 +26,7 @@ A deployment's ability to participate in the public Agora mesh depends on whethe
 
 **Discoverable deployments** (public internet, managed/SaaS, dual-stack) SHOULD be anchored to a DNS name. That name is the root of the deployment's identity namespace: relay DIDs are `did:web:<domain>`, organizational user DIDs are `did:web:<domain>:users:...`, and the relay manifest is served at `https://<domain>/.well-known/agora-relay`. Any two deployments with distinct DNS names have non-overlapping identity namespaces by construction; no registry or authority is required to prevent conflicts.
 
-**Non-discoverable deployments** (private overlay, air-gapped, Tor-only) have no DNS root requirement. Relay DIDs are `did:key:...`; user DIDs are `did:key:...` or `did:web` anchored to an internal-only domain. These deployments cannot join the public gossipsub mesh or federate with external organizations. This is an explicit architectural trade-off, not a misconfiguration.
+**Non-discoverable deployments** (private overlay, air-gapped, Tor-only) have no DNS root requirement. Relay DIDs are `did:key:...`; user DIDs are `did:key:...` or `did:web` anchored to an internal-only domain. These deployments cannot join the public gossipsub mesh or federate with external organizations. This is an explicit architectural trade-off.
 
 No registry, whitelist, or certificate authority governs which DNS names may root an Agora deployment. DNS ownership is the sole claim to a namespace.
 
@@ -117,7 +117,7 @@ The manifest is a signed JSON-LD document that serves as the Relay's authoritati
 
 The relay MUST serve a conformant DID document at `https://relay.example.com/.well-known/did.json`. This creates a verifiable binding: the manifest at `/.well-known/agora-relay` is signed by the key declared in the DID document, and the DID document SHOULD include a `service` entry pointing back to the manifest URL. Any peer that resolves `did:web:relay.example.com` can verify that the key material and the DNS domain are controlled by the same entity.
 
-For relays operating exclusively on a private overlay, Tor hidden service, or air-gapped network — where no public DNS name exists or is desired — `relayDID` MAY be `did:key:...`. These relays do not participate in the public mesh and do not require DNS binding.
+For relays operating exclusively on a private overlay, Tor hidden service, or air-gapped network, where no public DNS name exists or is desired, `relayDID` MAY be `did:key:...`. These relays do not participate in the public mesh and do not require DNS binding.
 
 **Operator vs. customer identity.** The `operatorDID` field records the identity of the party that operates the relay infrastructure. For self-hosted deployments, `operatorDID` and the relay's controlling entity are the same. For managed/SaaS deployments (§10.1), they differ: `relayDID` is anchored to the customer's DNS domain; `operatorDID` is the managed provider's DID. This distinction is relevant to legal exposure (§12.3) and compliance logging (§7).
 
@@ -191,7 +191,7 @@ All relay-to-relay requests (except unauthenticated endpoints) use **RFC 9421 HT
 
 ### 10.2.4 Trust Levels
 
-Relay-to-relay trust is graduated. Trust level determines which Peer API operations a Relay is permitted to invoke and what gossip rate limits apply. Trust level is local state — each Relay maintains its own assessments independently. It is never gossiped or shared. Level 3 is set via local operator configuration and is appropriate for Relays operated by the same organization or well-known partner organizations.
+Relay-to-relay trust is graduated. Trust level determines which Peer API operations a Relay is permitted to invoke and what gossip rate limits apply. Trust level is local state; each Relay maintains its own assessments independently. It is never gossiped or shared. Level 3 is set via local operator configuration and is appropriate for Relays operated by the same organization or well-known partner organizations.
 
 | Level | Name | Criteria | Permissions |
 |---|---|---|---|
@@ -206,11 +206,11 @@ Relay-to-relay trust is graduated. Trust level determines which Peer API operati
 
 A new Relay with no existing peers joins the gossipsub mesh using any of the following methods, attempted in parallel:
 
-**Method 1 — Known peer URL.** The operator provides one or more peer Relay URLs in the startup configuration. The new Relay fetches `/.well-known/agora-relay` from each, verifies the manifest signature, sends `POST /v1/agora/peer/announce` with its own manifest, and on acceptance fetches `GET /v1/agora/peer/peers` to discover further Relays.
+**Method 1: Known peer URL.** The operator provides one or more peer Relay URLs in the startup configuration. The new Relay fetches `/.well-known/agora-relay` from each, verifies the manifest signature, sends `POST /v1/agora/peer/announce` with its own manifest, and on acceptance fetches `GET /v1/agora/peer/peers` to discover further Relays.
 
-**Method 2 — Directory document.** The Relay fetches any Agora Relay directory document (§10.3.4.1) and contacts each listed Relay using Method 1.
+**Method 2: Directory document.** The Relay fetches any Agora Relay directory document (§10.3.4.1) and contacts each listed Relay using Method 1.
 
-**Method 3 — DNS-SD.** The Relay queries both `_agora-relay._udp.<domain>` (QUIC, preferred) and `_agora-relay._tcp.<domain>` (TCP fallback) SRV records:
+**Method 3: DNS-SD.** The Relay queries both `_agora-relay._udp.<domain>` (QUIC, preferred) and `_agora-relay._tcp.<domain>` (TCP fallback) SRV records:
 
 ```
 _agora-relay._udp.example.com. SRV 10 0 9001 relay.example.com.
@@ -220,7 +220,7 @@ _agora.relay.example.com.      TXT "did=did:key:z6MkRelay... manifest=https://re
 
 Lower SRV priority value means higher preference; QUIC (UDP) is preferred. Relays SHOULD publish both records. Relays that cannot expose UDP MUST publish only the TCP record.
 
-**Method 4 — IPNS fallback.** The Relay resolves `/ipns/agora.protocol/relays/v1` for a community-maintained signed bootstrap list. This is the last resort.
+**Method 4: IPNS fallback.** The Relay resolves `/ipns/agora.protocol/relays/v1` for a community-maintained signed bootstrap list. This is the last resort.
 
 A Relay is considered mesh-joined when it has Level 1 or higher trust with at least 3 peers and is participating in gossipsub fanout. It SHOULD continue discovering peers until it has at least 6 active connections (gossipsub's default mesh degree `D`).
 
@@ -297,7 +297,7 @@ A **SpaceAd** or **UserAd** message is gossiped periodically (default TTL: 60 se
 }
 ```
 
-`spaceEndpoint` lists the CO's Space endpoint URLs (§3.4). `relayHints` are connection hints only — clients are not required to use them and SHOULD attempt direct peer connections first. `relayHints` MAY include `.onion` addresses, clearnet HTTPS/WSS URIs, overlay-internal hostnames, and IPv6 address literals.
+`spaceEndpoint` lists the CO's Space endpoint URLs (§3.4). `relayHints` are connection hints only; clients are not required to use them and SHOULD attempt direct peer connections first. `relayHints` MAY include `.onion` addresses, clearnet HTTPS/WSS URIs, overlay-internal hostnames, and IPv6 address literals.
 
 A SpaceAd is a voluntary CO publication; Relays forward it on `v1/agora/discovery` like any other gossip message.
 
@@ -307,10 +307,10 @@ A SpaceAd is a voluntary CO publication; Relays forward it on `v1/agora/discover
 
 To bootstrap into the gossip network, a client needs at least one known peer. Agora supports the following bootstrap mechanisms, attempted in order:
 
-1. **Directory sources** — user-configured URLs serving `RelayDirectory` or `SpaceDirectory` documents (§10.3.4); the primary bootstrap mechanism in practice.
-2. **Previously cached relay list** — Relays successfully contacted in a prior session, stored locally with a staleness TTL of 7 days.
-3. **Mainline DHT** — Relays announce themselves on the BitTorrent Mainline DHT (BEP-5) under a well-known infohash (§10.3.4.6); clients perform a `get_peers` lookup to find announcing relays (§10.3.4.6).
-4. **DNS-SD** — `_agora-relay._udp` and `_agora-relay._tcp` mDNS for LAN or overlay discovery (§10.2.5).
+1. **Directory sources**: user-configured URLs serving `RelayDirectory` or `SpaceDirectory` documents (§10.3.4); the primary bootstrap mechanism in practice.
+2. **Previously cached relay list**: Relays successfully contacted in a prior session, stored locally with a staleness TTL of 7 days.
+3. **Mainline DHT**: Relays announce themselves on the BitTorrent Mainline DHT (BEP-5) under a well-known infohash (§10.3.4.6); clients perform a `get_peers` lookup to find announcing relays (§10.3.4.6).
+4. **DNS-SD**: `_agora-relay._udp` and `_agora-relay._tcp` mDNS for LAN or overlay discovery (§10.2.5).
 
 ### 10.3.4 Directory Documents
 
@@ -402,7 +402,7 @@ A `SpaceDirectory` lists Spaces available for browsing or joining:
 }
 ```
 
-`inviteURL` is a human-readable join link; the join flow itself is handled by the Space's invite mechanism (§4.3). `spaceCID` is the authoritative space identity — clients verify this against the space's genesis state document when connecting.
+`inviteURL` is a human-readable join link; the join flow itself is handled by the Space's invite mechanism (§4.3). `spaceCID` is the authoritative space identity; clients verify this against the space's genesis state document when connecting.
 
 #### 10.3.4.3 Combined Directory
 
@@ -438,7 +438,7 @@ Clients resolve `ipfs://` URIs by fetching the blob from any relay's CAS endpoin
 
 #### 10.3.4.6 Mainline DHT Discovery
 
-Agora uses the BitTorrent Mainline DHT (BEP-5, BEP-44) for two complementary purposes: relay bootstrapping and user endpoint discovery. Both are opportunistic — clients MUST degrade gracefully when UDP is unavailable (corporate firewalls, restrictive NAT) and fall back to other discovery mechanisms.
+Agora uses the BitTorrent Mainline DHT (BEP-5, BEP-44) for two complementary purposes: relay bootstrapping and user endpoint discovery. Both are opportunistic: clients MUST degrade gracefully when UDP is unavailable (corporate firewalls, restrictive NAT) and fall back to other discovery mechanisms.
 
 ##### Relay Bootstrapping (BEP-5)
 
@@ -489,7 +489,7 @@ The total DNS packet MUST fit within 1000 bytes (BEP-44 value limit). In practic
 3. Verify the returned signature against the key.
 4. Parse TXT records and use relay endpoints, profile CID, or KeyPackage supply CID as needed.
 
-**Publication and refresh.** Clients SHOULD publish their record on first login and re-publish every 2 hours. BEP-44 mutable items have no explicit TTL but decay from the DHT within approximately 2 hours without re-announcement. Stale or absent records are not an error — clients fall back to other discovery mechanisms.
+**Publication and refresh.** Clients SHOULD publish their record on first login and re-publish every 2 hours. BEP-44 mutable items have no explicit TTL but decay from the DHT within approximately 2 hours without re-announcement. Stale or absent records are not an error; clients fall back to other discovery mechanisms.
 
 **Scope.** This mechanism applies only to `did:key` users. `did:web` users have a domain-anchored DID document served over HTTPS; their relay endpoints are discoverable via standard DID resolution and do not require Mainline publication.
 
@@ -507,7 +507,7 @@ Directory maintainers are identified by their `maintainer` DID and signature. Th
 
 ### 10.4.1 Relay Knowledge Constraints
 
-A conformant Relay is explicitly designed to know as little as possible about the traffic it routes. The following is both a design target and a compliance requirement: a Relay operator responding to a legal demand or subpoena MUST be able to honestly testify to all of the following:
+A conformant Relay is designed to know as little as possible about the traffic it routes. The following is both a design target and a compliance requirement: a Relay operator responding to a legal demand or subpoena MUST be able to testify truthfully to all of the following:
 
 - I do not know who my users are (no identity registration, no account system, no persistent user records).
 
@@ -515,7 +515,7 @@ A conformant Relay is explicitly designed to know as little as possible about th
 
 - I do not know who is in any group (channel membership is not visible at the relay layer; `channelToken` is epoch-rotating and non-reversible without the epoch secret).
 - I do not know who sent any message (sealed sender design; sender DID is inside the MLS ciphertext).
-- I store nothing after delivery beyond the configured retention window, and nothing with a message expiry past that expiry — except CIDs pinned under an instruction authorized by the epoch access proof (ARCHITECTURE §6.2), which are retained until unpinned the same way.
+- I store nothing after delivery beyond the configured retention window, and nothing with a message expiry past that expiry, except CIDs pinned under an instruction authorized by the epoch access proof (ARCHITECTURE §6.2), which are retained until unpinned the same way.
 - The encrypted blobs I forward and cache are opaque to me.
 
 These statements are the IO side of ARCHITECTURE §4: what a legal demand on a Relay operator yields is bounded by the observation budget in ARCHITECTURE §5.
@@ -695,5 +695,5 @@ Channels that want spam deterrence MAY require proof-of-work:
 }
 ```
 
-The Relay verifies the PoW before forwarding against its own minimum difficulty. The Relay cannot map a `channelToken` to a channel's `MessageFeePolicy` (§10.4.2), so member clients enforce the channel's difficulty and drop envelopes that do not meet it. Difficulty 18 requires ~262,000 SHA-256 hash operations — roughly 10–50ms on a modern CPU, imperceptible to a human sender, but economically prohibitive for bulk message flooding.
+The Relay verifies the PoW before forwarding against its own minimum difficulty. The Relay cannot map a `channelToken` to a channel's `MessageFeePolicy` (§10.4.2), so member clients enforce the channel's difficulty and drop envelopes that do not meet it. Difficulty 18 requires ~262,000 SHA-256 hash operations, roughly 10–50ms on a modern CPU, imperceptible to a human sender, but economically prohibitive for bulk message flooding.
 

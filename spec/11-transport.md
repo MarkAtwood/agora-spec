@@ -7,9 +7,9 @@
 
 Agora uses two complementary transport surfaces that serve different access patterns:
 
-**Live stream** (§11.1–§11.7) — WebTransport (QUIC) or WebSocket. Optimized for real-time delivery: new message events, MLS handshake messages (Commits, Proposals, Welcomes), presence, and typing indicators. Required for any client that needs low-latency delivery.
+**Live stream** (§11.1–§11.7): WebTransport (QUIC) or WebSocket. Optimized for real-time delivery: new message events, MLS handshake messages (Commits, Proposals, Welcomes), presence, and typing indicators. Required for any client that needs low-latency delivery.
 
-**JMAP Sync API** (§11.8) — Standard HTTPS request/response with EventSource push, served by Relays. Optimized for token-keyed envelope history retrieval and state sync. Clients that need only history (bots, compliance tools, search indexers) can use JMAP without opening a live stream connection. The Space, membership, role and invite management API is not served by Relays; it runs in the client or on CO infrastructure (§11.8.9).
+**JMAP Sync API** (§11.8): Standard HTTPS request/response with EventSource push, served by Relays. Optimized for token-keyed envelope history retrieval and state sync. Clients that need only history (bots, compliance tools, search indexers) can use JMAP without opening a live stream connection. The Space, membership, role and invite management API is not served by Relays; it runs in the client or on CO infrastructure (§11.8.9).
 
 A full-featured client uses both. The live stream delivers new events; JMAP fills history on startup and provides a clean sync model for catching up after a disconnect.
 
@@ -23,7 +23,7 @@ Clients connect to Relays via **WebTransport** (IETF RFC 9000 / HTTP/3 over QUIC
 
 Endpoint: `https://<relay-host>/v1/agora/wt`
 
-WebTransport requires QUIC, which runs over UDP. It is unavailable in any environment that proxies only TCP — including Tor (see §11.3).
+WebTransport requires QUIC, which runs over UDP. It is unavailable in any environment that proxies only TCP, including Tor (see §11.3).
 
 **Reference implementations for WebTransport:** Native browser support in Chromium-based browsers and Firefox 114+. Server-side: [`webtransport-go`](https://github.com/marten-seemann/webtransport-go), [`wtransport`](https://github.com/BiagioFesta/wtransport) (Rust).
 
@@ -47,7 +47,7 @@ Tor proxies TCP only. This has the following protocol-level consequences:
 
 **Rate limiting.** A Relay receiving connections from Tor exit nodes sees the exit node's IP address, not the client's IP. Relays MUST use per-`channelToken` rate limits and PoW requirements as the primary spam control mechanism. Per-IP limits MUST NOT be the sole mechanism.
 
-**Hidden service Relays.** A Relay operating as a Tor v3 hidden service publishes its `.onion` address in its `RelayAd.relayHints`. Clients with Tor available SHOULD prefer `.onion` endpoints when available — they provide end-to-end Tor routing without depending on an exit node.
+**Hidden service Relays.** A Relay operating as a Tor v3 hidden service publishes its `.onion` address in its `RelayAd.relayHints`. Clients with Tor available SHOULD prefer `.onion` endpoints when available; they provide end-to-end Tor routing without depending on an exit node.
 
 ## 11.4 Frame Format
 
@@ -85,7 +85,7 @@ DID challenge-response (Steps 3–4 below) is used only for KeyPackage Store own
 
 Authentication is initiated by the client immediately after transport connection. It uses a `0x04` Control frame.
 
-**Step 1 — Client Hello**
+**Step 1: Client Hello**
 
 The client sends a `ClientHello` control frame requesting a challenge, optionally declaring its DID for KeyPackage Store access:
 
@@ -106,7 +106,7 @@ The client sends a `ClientHello` control frame requesting a challenge, optionall
 
 Text format capabilities (§5.2.7) are not declared to the Relay. A Relay that cached them per DID and served them to other clients would learn identity, contrary to ARCHITECTURE S1.
 
-**Step 2 — Relay Challenge**
+**Step 2: Relay Challenge**
 
 The Relay responds with a `RelayChallenge`:
 
@@ -128,7 +128,7 @@ The Relay responds with a `RelayChallenge`:
 
 `relaySig` is the Relay's Ed25519 signature over `nonce || relayDID || ts`. This simultaneously authenticates the Relay to the client. `expiresIn` is in seconds; the client must respond within this window.
 
-**Step 3 — Client Response** (KeyPackage Store access only)
+**Step 3: Client Response** (KeyPackage Store access only)
 
 ```json
 {
@@ -145,7 +145,7 @@ The Relay responds with a `RelayChallenge`:
 2. `deviceKey` is listed as an active verification method in the DID document for `did`
 3. `nonce` matches the issued challenge and has not expired
 
-**Step 4 — Session Token** (KeyPackage Store access only)
+**Step 4: Session Token** (KeyPackage Store access only)
 
 On successful verification, the Relay issues a `SessionToken`:
 
@@ -288,7 +288,7 @@ Both payloads are content-free silent pushes. The OS wakes the app; the app reco
 "pushUrgency": "high" | "normal"
 ```
 
-This field is unauthenticated and advisory — Relays use it as-is.
+This field is unauthenticated and advisory; Relays use it as-is.
 
 ### 11.7.5 Proxy Authentication and Rate Limiting
 
@@ -309,7 +309,7 @@ A client MAY rotate its `pushHandle` at any time for privacy or after suspected 
 
 JMAP ([RFC 8620](https://jmap.io)) is used at two layers that run on different operators:
 
-- **Relay sync API (IO).** Agora Relays expose a JMAP API limited to blind objects: ciphertext envelopes keyed by `channelToken`, KeyPackages, and blobs (§11.8.1–§11.8.8). It provides history retrieval and state synchronization — state tokens, `/changes` deltas, batched method calls, ResultReferences, and EventSource push — without requiring a persistent connection. A Relay holds no `channelToken`→`channelCID` mapping and serves no Space, Channel, membership, role or invite objects (ARCHITECTURE S1, §5.3 item 4).
+- **Relay sync API (IO).** Agora Relays expose a JMAP API limited to blind objects: ciphertext envelopes keyed by `channelToken`, KeyPackages, and blobs (§11.8.1–§11.8.8). It provides history retrieval and state synchronization (state tokens, `/changes` deltas, batched method calls, ResultReferences, and EventSource push) without requiring a persistent connection. A Relay holds no `channelToken`→`channelCID` mapping and serves no Space, Channel, membership, role or invite objects (ARCHITECTURE S1, §5.3 item 4).
 - **Management API (client / CO).** The Space, channel, membership, role and invite API runs in the client (a local daemon) or on CO infrastructure, never on a Relay (§11.8.9).
 
 ### 11.8.1 Endpoints
@@ -381,15 +381,15 @@ The Session object returned by `GET /.well-known/jmap`:
 
 #### Message
 
-A single MLS-encrypted message blob as stored by the Relay. **The `encryptedPayload` field is always MLS ciphertext — the Relay cannot read it.** Clients decrypt using their local MLS group state.
+A single MLS-encrypted message blob as stored by the Relay. **The `encryptedPayload` field is always MLS ciphertext; the Relay cannot read it.** Clients decrypt using their local MLS group state.
 
 ```
 id              String     ULID (time-sortable, server-assigned)
 channelToken    String     Routing token under which the envelope was published
-encryptedPayload String    base64url — MLS ciphertext (ApplicationMessage or Proposal/Commit)
+encryptedPayload String    base64url: MLS ciphertext (ApplicationMessage or Proposal/Commit)
 mlsEpoch        UInt       MLS epoch in which the message was encrypted
 seqNo           UInt       Sequence number within the epoch (for client-side ordering)
-receivedAt      UTCDate    Relay's clock — authoritative for stable sort order
+receivedAt      UTCDate    Relay's clock; authoritative for stable sort order
 expiresAt       UTCDate|null  null = no configured expiry
 ```
 
@@ -400,7 +400,7 @@ An MLS KeyPackage held in the Relay's KeyPackage Store (§5.2.1.1). Exposed here
 ```
 id              String     Server-assigned opaque id
 ownerDID        String     DID of the user who uploaded this package
-packageData     String     base64url — raw MLS KeyPackage bytes
+packageData     String     base64url: raw MLS KeyPackage bytes
 createdAt       UTCDate
 expiresAt       UTCDate|null
 ```
@@ -421,7 +421,7 @@ All methods follow RFC 8620 conventions. `/get`, `/set`, `/changes`, and `/query
 
 **Batching and ResultReferences.** Standard RFC 8620 §4 batching applies. Multiple method calls in a single request execute in order; `#`-prefixed argument keys reference results of prior calls via RFC 6901 JSON Pointers.
 
-Example — query a channel token's envelopes then fetch them in one round-trip:
+Example: query a channel token's envelopes then fetch them in one round-trip:
 
 ```json
 {
@@ -454,7 +454,7 @@ The Relay's blindness properties (§10.4.1) are fully preserved under the JMAP A
 
 ### 11.8.7 EventSource Push
 
-The Relay emits `StateChange` events on the EventSource stream when any tracked object type's state advances. Clients use these as a trigger to call the corresponding `/changes` method — they do not carry content.
+The Relay emits `StateChange` events on the EventSource stream when any tracked object type's state advances. Clients use these as a trigger to call the corresponding `/changes` method; they do not carry content.
 
 ```
 event: state
@@ -467,15 +467,15 @@ Only object types whose state has changed are included in a given event. The liv
 
 | Operation | JMAP (§11.8) | Live Stream (§11.1–§11.7) |
 |---|---|---|
-| History retrieval and sync | ✓ | — |
-| Space / channel / membership / role / invite management | — (client / CO only, §11.8.9) | — |
+| History retrieval and sync | ✓ | ✗ |
+| Space / channel / membership / role / invite management | ✗ (client / CO only, §11.8.9) | ✗ |
 | KeyPackage CRUD | ✓ | ✓ (also REST endpoint) |
-| Programmatic / bot access | ✓ | — |
-| Blob upload / download | ✓ | — |
-| New message delivery | — | ✓ |
-| MLS handshake (Commit / Proposal / Welcome) | — | ✓ |
-| Presence and typing indicators | — | ✓ |
-| Push notification registration | — | ✓ |
+| Programmatic / bot access | ✓ | ✗ |
+| Blob upload / download | ✓ | ✗ |
+| New message delivery | ✗ | ✓ |
+| MLS handshake (Commit / Proposal / Welcome) | ✗ | ✓ |
+| Presence and typing indicators | ✗ | ✓ |
+| Push notification registration | ✗ | ✓ |
 | DID auth handshake (KeyPackage Store only) | See §11.8.2 | ✓ (control frame) |
 
 ### 11.8.9 Management API (Client / CO)
