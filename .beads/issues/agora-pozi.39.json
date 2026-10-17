@@ -2,13 +2,15 @@
   "id": "agora-pozi.39",
   "title": "Full spec review 4 (2026-10-17)",
   "description": "Top-to-bottom review after MLS-SoT, UX-MUST, credentials and gateway changes. Scope frozen until it converges (no P1/P2).",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T16:53:31.839077375Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T16:53:31.839077375Z",
+  "updated_at": "2026-10-17T17:52:54.204741965Z",
+  "closed_at": "2026-10-17T17:52:54.204741965Z",
+  "close_reason": "Review 4 converged: all findings fixed; final narrow check P2s resolved by decisions",
   "dependencies": [
     {
       "issue_id": "agora-pozi.39",
