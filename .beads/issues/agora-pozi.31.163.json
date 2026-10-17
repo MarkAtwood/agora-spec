@@ -2,13 +2,15 @@
   "id": "agora-pozi.31.163",
   "title": "Large batched Commit can exceed 64 KiB envelope limit",
   "description": "Appendix C sets a firm 65536-byte envelope limit (§11.4, §10.3.1), but a Commit with many Add proposals (or a Welcome-heavy batch) can exceed it. Define: committers MUST split membership changes across Commits so each envelope fits, or define an external-blob mechanism for oversized handshake messages. Found in cleanup 2026-10-17.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:01:29.261941946Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:01:29.261941946Z",
+  "updated_at": "2026-10-17T07:02:04.864691252Z",
+  "closed_at": "2026-10-17T07:02:04.864691252Z",
+  "close_reason": "Rule added to spec §5.2.1 (split Commits to fit the envelope limit)",
   "dependencies": [
     {
       "issue_id": "agora-pozi.31.163",
