@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.78",
+  "title": "[IMP2-15] A message request accepted after relay retention cannot catch up",
+  "description": "Review finding IMP2-15: A message request accepted after relay retention cannot catch up (lens IMP2). Location: spec/04-access-control.md:211; spec/05-messaging.md:28, :420. Fix: Real, but the fix follows from existing text. 04:211 makes \"MUST NOT authenticate ... or fetch\" an explicit privacy rule with only the regulated-member exception (04:213, 07:285), so option (a) would reverse it. 05:28 already uses \"must be removed and re-added\" for a member that cannot follow. Generalize: a client that finds it cannot reach the group's current epoch because Commits have left relay retention (after a request, or after any long offline period) deletes the group state and tells the user that a member must re-add them. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:53.108010981Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:53.108010981Z",
+  "labels": [
+    "review",
+    "imp2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.78",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:53.12401114Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

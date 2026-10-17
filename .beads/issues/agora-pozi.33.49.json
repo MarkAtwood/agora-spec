@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.49",
+  "title": "[CON2-5] Client conformance class leaves out the new identity flows (§2.6 to §2.8)",
+  "description": "Review finding CON2-5: Client conformance class leaves out the new identity flows (§2.6 to §2.8) (lens CON2). Location: spec/01-overview.md:79. Fix: The Client row lists §2.1, §2.2 then jumps to §3.3. §2.6 holds \"Members MUST accept an own-device Add\" and the self-group MUST; §2.7 holds the `IdentityChanged` send/receive rules, the only re-resolve signal. §1.4 limits obligations to listed sections. Add \"§2.6, §2.7, §2.8 (multi-device, identity change notice, account deletion)\" to the Client row. Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:51.181422529Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:51.181422529Z",
+  "labels": [
+    "review",
+    "con2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.49",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:51.1978194Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

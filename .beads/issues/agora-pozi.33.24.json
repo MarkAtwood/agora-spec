@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.24",
+  "title": "[DOC2-19] Employer profiles leave out the `AgoraProvisioning` service entry",
+  "description": "Review finding DOC2-19: Employer profiles leave out the `AgoraProvisioning` service entry (lens DOC2). Location: profiles/o365-employer-did.md:247-258 (active-document example only); profiles/universal-idp-did.md:22, :40. Fix: The O365 genesis already includes the entry (:170, :190), so O365 is only internally inconsistent: the post-enrollment example drops it. Universal l.640 uses `{prov}`, but the stub text at :40 says \"one `KeyPackageEndpoint` service entry\". Add `AgoraProvisioning` to the O365 active-document example and to universal :22 and :40. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:49.482330989Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:49.482330989Z",
+  "labels": [
+    "review",
+    "doc2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.24",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:49.496878568Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

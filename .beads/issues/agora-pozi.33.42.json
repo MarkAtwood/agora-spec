@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.42",
+  "title": "[CRY2-7] Compliance third-party verification can't succeed for `did:key` senders",
+  "description": "Review finding CRY2-7: Compliance third-party verification can't succeed for `did:key` senders (lens CRY2). Location: spec/07-compliance.md:142; spec/12-security.md:154; spec/05-messaging.md:73. Fix: Confirmed. A `did:key` leaf `signature_key` \"MUST NOT be the identity key\" (05:73), and `did:key` has no DID log, so step 6 always fails for those senders. Fix at 07:142: \"For `did:key`, instead verify the `agora_device_binding` extension of `senderLeaf.leafNode` under the key the DID encodes (§5.2.1).\" At 12-security.md:154, add that a `did:key` binding cannot be revoked and that every device holds the copied identity key, so the proof shows only that some holder of the identity key vouched for the leaf key. This follows the did:key decision (\"no per-device revocation\"). Full text: notes/review2/CRY2-verified.md and notes/review2/CRY2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:50.696797065Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:50.696797065Z",
+  "labels": [
+    "review",
+    "cry2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.42",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:50.714634787Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

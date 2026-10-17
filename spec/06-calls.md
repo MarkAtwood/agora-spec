@@ -130,12 +130,11 @@ sfu-admission = {
   "ctx": "agora sfu admission",
   "sfu": tstr,                     ; the SFU's DID from its SFUDescriptor
   "nonce": bstr .size 32,          ; from the SFU's latest challenge
-  "channelToken": bstr .size 32,
-  "keyEpoch": uint
+  "channelToken": bstr .size 32
 }
 
 ; SFU to client
-sfu-admitted = { "type": "admitted", "keyEpoch": uint }
+sfu-admitted = { "type": "admitted" }
 
 ; client to SFU
 sfu-sdp-client = { "type": "sdp", "sdpType": "offer" / "answer", "sdp": tstr }
@@ -160,11 +159,11 @@ sfu-description = {
 }
 ```
 
-**Admission.** On connection the SFU sends a `challenge` with a fresh random `nonce`. The client replies with a `join` whose `signed` field holds the CBOR encoding of an `sfu-admission` for the channel's current `channelToken` and `keyEpoch` (§5.2.2), whose `admissionSig` is an Ed25519 signature (RFC 8032) with the channel admission private key over the exact bytes of `signed`, and whose `clientNonce` is fresh and random. The SFU MUST accept the `join` only if all of the following hold:
+**Admission.** On connection the SFU sends a `challenge` with a fresh random `nonce`. The client replies with a `join` whose `signed` field holds the CBOR encoding of an `sfu-admission` for the channel's current `channelToken` (§5.2.2), whose `admissionSig` is an Ed25519 signature (RFC 8032) with the channel admission private key over the exact bytes of `signed`, and whose `clientNonce` is fresh and random. The SFU MUST accept the `join` only if all of the following hold:
 
 1. `signed` decodes to an `sfu-admission` whose `ctx` is `agora sfu admission` and whose `sfu` is the SFU's own DID.
 2. `nonce` is that of the latest `challenge` on this connection, no earlier `join` used it, and the `challenge` was sent no more than 30 seconds earlier.
-3. `channelToken` and `keyEpoch` match an admission key registered with the SFU under a current `ServiceAgreement` and not deregistered (§10.5.3).
+3. `channelToken` matches an admission key registered with the SFU under a current `ServiceAgreement` and not deregistered (§10.5.3).
 4. `admissionSig` verifies under that key's public key.
 
 The SFU then replies `admitted` and places the connection in the room keyed by that `channelToken`. Before `admitted`, the SFU MUST ignore every message except `join`. The SFU learns that the connection belongs to a channel registered under the agreement. It never learns the channel's `channelID`, its Space, or any participant's DID. The `ctx` value keeps this signature distinct from routing envelope signatures made with the same key (§5.2.2).
@@ -173,7 +172,7 @@ The SFU then replies `admitted` and places the connection in the room keyed by t
 
 **Candidates.** ICE candidates are exchanged in `candidate` messages, each carrying one candidate in the SDP `candidate` attribute syntax (RFC 8839). Candidates are not signed: the fingerprint in the signed SDP authenticates the SFU whatever path ICE selects. After DTLS completes, SRTP media flows with SFrame-encrypted payloads (§6.9).
 
-**Key epoch change.** When the channel's admission key is rotated (§5.2.2), a client in a call sends `challenge-request`, receives a new `challenge`, and sends a `join` for the new `channelToken` and `keyEpoch` on the same connection. The SFU then moves the connection to the new room. An SFU that receives an `AdmissionKeyDeregistration` (§10.5.3) for a key MUST close every connection whose latest accepted `join` used that key. Re-admission on one connection lets the SFU link the old and new `channelToken` of a room. A Relay links them in the same way through the CO's registrations (§12.3), and the link is within the IO observation budget (ARCHITECTURE §5).
+**Key epoch change.** When the channel's admission key is rotated (§5.2.2), a client in a call sends `challenge-request`, receives a new `challenge`, and sends a `join` for the new `channelToken` on the same connection. The SFU then moves the connection to the new room. An SFU that receives an `AdmissionKeyDeregistration` (§10.5.3) for a key MUST close every connection whose latest accepted `join` used that key. Re-admission on one connection lets the SFU link the old and new `channelToken` of a room. A Relay links them in the same way through the CO's registrations (§12.3), and the link is within the IO observation budget (ARCHITECTURE §5).
 
 **Leaving and errors.** A client leaves by sending `leave` or closing the WebSocket, and the SFU then stops forwarding to and from that connection. Before it closes a connection for a protocol violation, the SFU sends `error`. `code` values are local to the SFU, and clients MUST NOT display `reason` as trusted text.
 
@@ -183,12 +182,12 @@ Participants map SFU-forwarded streams to DIDs using information exchanged among
 
 The SFU terminates each client's DTLS-SRTP hop, so SRTP alone does not hide media from it. Media payloads sent through an SFU are therefore always SFrame-encrypted with keys the SFU does not hold (§6.9), and the SFU cannot read audio or video content. It CAN observe:
 - Which connections are sending media (RTP SSRC → connection mapping, not → DID)
-- The SFrame KID, which holds an MLS leaf index, low epoch bits and a context ID, and no DID
+- The SFrame KID, which holds an MLS leaf index, low epoch bits and a context ID, and no DID. The leaf index gives the SFU a pseudonym for each sender that stays the same across calls in the group, and the epoch bits show when the group's MLS epoch changes
 - The `channelToken` of each room, and which tokens of successive key epochs belong to the same room
 - Packet timing and sizes (traffic analysis)
 - Whether a stream is active or silent
 
-These fall within the IO observation budget (ARCHITECTURE §5, items 1–2).
+These fall within the IO observation budget (ARCHITECTURE §5): connection metadata (item 1), the tokens registered with the SFU (item 6), and the SFrame KID, which ARCHITECTURE §5 lists for SFUs; ARCHITECTURE §9 states the linkage the KID allows.
 
 ### SFU Recording
 
@@ -219,7 +218,7 @@ Screen share tracks use a separate simulcast configuration from camera video: ty
 Because an SFU terminates DTLS-SRTP, it would see plaintext media without a second encryption layer, which would make it a CO component (ARCHITECTURE §2.3). E2EE media is therefore REQUIRED whenever media transits an SFU: clients MUST encrypt media payloads with SFrame (RFC 9605) via **WebRTC Insertable Streams** (W3C Encoded Transform) using participant-held keys, and MUST NOT send media to an SFU without it. In mesh topology, DTLS-SRTP is already end-to-end between participants and E2EE media is OPTIONAL.
 
 In this mode:
-- Keys follow the MLS-based key management of RFC 9605 Section 5.2, with the exporter label `"agora-media-key"` in place of the label given there. In each MLS epoch every member computes one `base_key = MLS-Exporter("agora-media-key", "", AEAD.Nk)`, and the SFrame key and salt for each KID are derived from `base_key` and the KID as RFC 9605 Section 4.4.2 specifies. The KID is `(context << (S + E)) + (sender_index << E) + (epoch % (1 << E))` as in RFC 9605 Section 5.2, where `sender_index` is the sender's MLS leaf index, E = 4 epoch bits (16 concurrent epochs), S is the number of bits RFC 9605 Section 5.2 derives from the group's size, and `context` is a context ID chosen by the sender under the rules below. The KID carries no DID.
+- Keys follow the MLS-based key management of RFC 9605 Section 5.2, with the exporter label `"agora-media-key"` in place of the label given there. In each MLS epoch every member computes one `base_key = MLS-Exporter("agora-media-key", "", AEAD.Nk)`, and the SFrame key and salt for each KID are derived from `base_key` and the KID as RFC 9605 Section 4.4.2 specifies. The KID is `(context << (S + E)) + (sender_index << E) + (epoch % (1 << E))` as in RFC 9605 Section 5.2, where `sender_index` is the sender's MLS leaf index, E = 4 epoch bits (16 concurrent epochs), S is the depth of the epoch's ratchet tree, that is, the smallest value with (number of leaves, including blank leaves, RFC 9420 §4.1) <= (1 << S), which is how this specification reads the group size of RFC 9605 Section 5.2 (counting only occupied leaves would let two senders share a KID), and `context` is a context ID chosen by the sender under the rules below. The KID carries no DID. The published SFrame test vectors MUST include a KID computation for a tree with blank leaves.
 - The SFrame cipher suite is `AES_128_GCM_SHA256_128`, which uses the AEAD and hash of the group's MLS ciphersuite (§5.2.1).
 - Outgoing media is encrypted by the sender's Insertable Streams transform before entering the RTP stack.
 - The SFU forwards encrypted RTP packets opaquely.
@@ -463,7 +462,7 @@ The entry is signed per §13.1.1 by `recorderDID`. `epochsGapped` is an array of
 
 ### 6.12.7 VTC Compliance in DM Voice Groups
 
-A DM group (§4.6) may include a voice channel component. The obligation from §7.8 extends to voice: a regulated Space member participating in a DM voice group MUST add the space's `recorderDID` to the DM group's MLS group and issue a `RecordingGrant` for the recorder before any voice media is transmitted, following the same admission mechanics as §6.12.2. The `DMGroupDescriptor` `complianceLoggers` array records both text logger DIDs and VTC recorder DIDs.
+A DM group (§4.6) may include a voice channel component. The obligation from §7.8 extends to voice: a regulated Space member participating in a DM voice group MUST add the space's `recorderDID` to the DM group's MLS group and issue a `RecordingGrant` for the recorder before any voice media is transmitted, following the same admission mechanics as §6.12.2. The `DMGroupDescriptor` `complianceLoggers` array records both text logger DIDs and VTC recorder DIDs. The client that commits the recorder's Add MUST send the admission host the `DMMembers` update adding the recorder DID before it delivers the Welcome (§4.6). A recorder, like a text logger, can never be removed from the admission host's member list.
 
 Participant disclosure (§6.12.3) applies in DM voice groups identically to space voice channels. Non-regulated DM participants receive the disclosure notice and MAY leave before transmitting media.
 
@@ -480,7 +479,7 @@ Participants in a call MAY exchange application data over WebRTC data channels (
 
 Every member can derive every sender's data key, so a data message is authenticated as coming from a current member of the group, and not from a particular member. A payload whose receiver acts on the identity of its sender MUST be sent as an MLS application message instead.
 
-**SFU forwarding.** An SFU forwards data channel messages among the connections in a room (keyed by `channelToken`, §6.6) without decrypting them. It is not an MLS member and holds no data key. It can observe message sizes and timing, the connection each message arrives on, and the SFrame key identifier, which holds an MLS leaf index, low epoch bits and a context ID, and no DID. These fall within the IO observation budget (ARCHITECTURE §5, items 1–2), as for media (§6.6 SFU Media Opacity). Data channel labels and protocol strings are visible to the SFU and MUST NOT contain a DID, `channelID` or other persistent identifier.
+**SFU forwarding.** An SFU forwards data channel messages among the connections in a room (keyed by `channelToken`, §6.6) without decrypting them. It is not an MLS member and holds no data key. It can observe message sizes and timing, the connection each message arrives on, and the SFrame key identifier, which holds an MLS leaf index, low epoch bits and a context ID, and no DID. These fall within the IO observation budget (ARCHITECTURE §5), as for media (§6.6 SFU Media Opacity). Data channel labels and protocol strings are visible to the SFU and MUST NOT contain a DID, `channelID` or other persistent identifier.
 
 **Channel options.** Pose and input streams SHOULD use unordered, unreliable channels (`ordered: false` and `maxRetransmits: 0` in `RTCDataChannelInit`), so that a lost update is superseded by the next one instead of delaying it. A participant MAY open further channels with other reliability settings. Data channels are negotiated in the SDP carried by `VoiceSignal` (§6.4) or exchanged with the SFU (§6.6 SFU Signaling Protocol).
 

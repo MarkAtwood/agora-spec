@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.33",
+  "title": "[SEP2-7] Undelayed removal rotations let an IO see that a member was removed and which subscriber w",
+  "description": "Review finding SEP2-7: Undelayed removal rotations let an IO see that a member was removed and which subscriber was dropped (lens SEP2). Location: spec/10-relays.md:564, :837; spec/05-messaging.md:256; ARCHITECTURE.md:392-397; spec/12-security.md:26. Fix: The premise that \"periodic rotations [are] batched, delayed\" is wrong. 10:837 requires delay only for \"new channels and DM groups\", so periodic and removal rotations are not timing-distinguished by the spec. The real signal is the subscriber that stays on the old token (10:564 \"the same subscribers move across\"). That gives the IO pseudonymous removal events, which neither §9 nor 12.3 states. Fix: add the disclosure sentence to ARCHITECTURE §9 and spec §12.3/§12.4 (\"An IO can see which subscribers do not move to a rotated key's token, and so can infer that a removal occurred and which connection or push handle it affected\"). Drop the optional timing recommendation, since it addresses a difference the spec does not create. Full text: notes/review2/SEP2-verified.md and notes/review2/SEP2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:50.084229343Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:50.084229343Z",
+  "labels": [
+    "review",
+    "sep2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.33",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:50.099558042Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

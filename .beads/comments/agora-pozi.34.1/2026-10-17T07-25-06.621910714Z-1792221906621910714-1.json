@@ -1,0 +1,7 @@
+{
+  "id": "1792221906621910714-1",
+  "issue_id": "agora-pozi.34.1",
+  "author": "agent",
+  "text": "REVISED (Mark 2026-10-17, supersedes multi-upload): uploader uploads once to any one channel relay; relays carrying the channel replicate relay-to-relay, lazily by default (pull-through cache on first fetch, verified by CID) plus eager replication to a CO-set floor (ServiceAgreement replicationFloor, default 2); readers fetch from any relay, fallback CO archive; replacement relays pull on demand, CO MAY instruct seeding; Bitswap MAY be used between these relays; no new IO knowledge. Reason: avoid multiplying the uploader's uplink.",
+  "created_at": "2026-10-17T07:25:06.621910714Z"
+}

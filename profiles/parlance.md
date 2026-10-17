@@ -1,6 +1,6 @@
 # Profile: Parlance on Agora
 
-> Non-normative. Describes one way to carry Parlance device data (IPSO/LwM2M typed objects in canonical units) across Agora. Uses only mechanisms the Agora spec already defines; adds no protocol. Bead agora-pozi.28.8.
+> Non-normative. Describes one way to carry Parlance device data (IPSO/LwM2M typed objects in canonical units) across Agora. Uses only mechanisms the Agora spec already defines; adds no protocol. Bead agora-pozi.28.8. Capitalized BCP 14 key words here state what a deployment that follows this profile requires of its own components, not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source.
 
 **Status:** Draft, 2026-10-16
 **Depends on:** ARCHITECTURE.md; spec §6.13, §9.2-§9.3, §13.1, §14.2-§14.5

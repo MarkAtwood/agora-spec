@@ -125,7 +125,7 @@ Loss of all device private keys is permanent identity loss with no protocol-leve
 
 Applicability by DID method (§2.1):
 
-- **`did:webvh`:** all of §2.4 applies. The recovery key (§2.4.1) and the social recovery key (§2.4.2) MUST also be authorized update keys of the DID log, so that the device key named in a `RecoveryAssertion` is written into the document by a log entry signed with the same key.
+- **`did:webvh`:** all of §2.4 applies. For a self-hosted (individually held) `did:webvh`, the recovery key (§2.4.1) and the social recovery key (§2.4.2) MUST also be authorized update keys of the DID log, so that the device key named in a `RecoveryAssertion` is written into the document by a log entry signed with the same key. For a CO-provisioned `did:webvh`, they are `recoverableIdentity` keys only, and the provisioning service writes the log entry (§2.5.8).
 - **`did:plc`:** recovery uses did:plc rotation keys and the recovery window of the did:plc specification. The recovery key and the social recovery key are registered as did:plc rotation keys instead of `recoverableIdentity` verification methods, and a PLC operation signed with one of them takes the place of the `RecoveryAssertion`. Because did:plc gives earlier-listed rotation keys priority within the recovery window, the recovery key (§2.4.1) MUST be listed above the social recovery key (§2.4.2): a key kept offline outranks one reconstructed from guardians' shares. Encrypted backup (§2.4.3) applies unchanged.
 - **`did:key`:** only encrypted backup (§2.4.3) applies. There is no recovery once the identity key is lost.
 
@@ -498,15 +498,31 @@ Each of a user's devices is a separate leaf in every group the user belongs to (
 - the user's private `single-author` data (§14.3), such as `ReadPosition` and `ChatContact`, including the block list (§4.6.3);
 - the `SocialRecoveryConfig` (§2.4.2);
 - optional history transfers (below);
-- `IdentityChanged` notices (§2.7).
+- `IdentityChanged` notices (§2.7);
+- `SpaceMembership` records (below).
 
 **Adding a new device.** When a new device key appears in the user's DID document (for an employee, after §2.5.4), or, for `did:key`, when the user pairs a new device with an existing one and the existing device learns the new device's leaf signature key (for example from a QR code the new device shows), an existing device of the user:
 
 1. fetches a KeyPackage of the new device from the user's `KeyPackageEndpoint` with the `leaf` parameter set to the new device's leaf signature key (§5.2.1.1), and checks that the returned leaf carries that key;
 2. commits an Add of the new device to the self-group;
-3. commits an Add of a further KeyPackage of the new device to each other group the user belongs to.
+3. commits an Add of a further KeyPackage of the new device to each other group the user belongs to, after it has sent the current `SpaceMembership` record (below) in the self-group.
 
 An Add of a leaf whose credential names the committer's own DID is an **own-device Add**. Members MUST accept an own-device Add in any group in which that DID is already a member, provided the added leaf satisfies the credential binding of §5.2.1 (a current `authentication` key of that DID, or for `did:key` a valid device binding): it needs no Space admin authority (§4.3) and is exempt from DM member-addition consent (§4.6.1) and from the message request state (§4.6.3).
+
+**Space membership record.** A new device holds no Space state and no Space endpoint URLs, which it needs to validate own-device Welcomes to Space groups (§4.3) and to fetch channel keys (§3.4). The user's devices therefore keep a `SpaceMembership` record in the self-group: an MLS application message of type `urn:agora:type:SpaceMembership` whose body lists every Space the user is a member of:
+
+```json
+{
+  "spaces": [
+    {
+      "space": "agora://bafkrei...",
+      "spaceEndpoint": ["https://spaces.example.com/v1/agora/space/1f3a..."]
+    }
+  ]
+}
+```
+
+`space` is the Space identifier (§3.2) and `spaceEndpoint` the Space endpoint URLs the device last used (§3.4). Each record replaces the previous one. A device sends a new record whenever the user joins or leaves a Space or a Space's endpoints change. Because it names Spaces, the record travels only inside the self-group.
 
 **History transfer.** A new device cannot decrypt messages from epochs before it joined. An existing device MAY send it a history transfer: an MLS application message in the self-group of type `urn:agora:type:HistoryTransfer` with body:
 
@@ -538,7 +554,7 @@ The receiving device trusts the archive on the authority of the sending device, 
 
 User identity records are never gossiped over relay connections. A user's keys, profile and `KeyPackageEndpoint` are discovered only by resolving the DID document (with its verified log, §2.1) or, for `did:key`, the Pkarr pointer record. Profile updates, recoveries and device revocations take effect through those records (§2.3, §2.4.1, §2.5.5).
 
-To tell other members to re-resolve, a user's device sends an MLS application message of type `urn:agora:type:IdentityChanged` to each group the user belongs to, including the self-group, after any change to the user's DID document, DID log or profile. The body is the empty JSON object `{}` (content type `application/json`); the sender is the MLS sender (§13.1.1). On receipt, a client re-resolves the sender's DID and profile, verifies them per §2.1, and applies the result, including Removing leaves whose signature keys are no longer `authentication` keys of the DID (§2.2). The notice carries no authority: clients MUST act only on what the verified DID document, log or Pkarr record states. Clients MAY coalesce notices and MAY delay re-resolution.
+To tell other members to re-resolve, a user's device sends an MLS application message of type `urn:agora:type:IdentityChanged` to each group the user belongs to, including the self-group, after any change to the user's DID document, DID log or profile. The body is the empty JSON object `{}` (content type `application/json`); the sender is the MLS sender (§13.1.1). On receipt, a client re-resolves the sender's DID and profile, verifies them per §2.1, and applies the result, including Removing leaves that no longer satisfy the credential binding of §5.2.1 (a current `authentication` key of the DID, or for `did:key` a valid device binding) (§2.2). The notice carries no authority: clients MUST act only on what the verified DID document, log or Pkarr record states. Clients MAY coalesce notices and MAY delay re-resolution.
 
 ## 2.8 Account Deletion
 
@@ -547,7 +563,7 @@ A user deletes an account in two steps:
 1. The user's client leaves every Space and every other group the user belongs to by the procedures of §4.8. Each of the user's devices then deletes its self-group state.
 2. The user retires the DID. For `did:webvh`, the user writes a DID log entry that deactivates the DID, signed with an update key and carrying its witness proofs (§2.1). For `did:plc`, the user submits a tombstone operation. A `did:key` cannot be deactivated; the user destroys every copy of the identity key, including backups (§2.4.3).
 
-A deactivated DID has no `authentication` keys. A member that resolves it, for example after an `IdentityChanged` notice (§2.7) or on its own schedule, Removes any leaves of that DID that remain in its groups (§2.2). For a CO-provisioned identity, deletion is the organization's offboarding (§2.5.6), and the organization retains the DID document as that section requires. Deletion does not erase messages that other members, compliance loggers (§7) or relays already hold; relays drop envelopes when their retention expires (§5.2.5).
+A deactivated DID has no `authentication` keys. (A `did:key` cannot be deactivated, and its leaves keep a valid device binding, so members cannot detect its deletion.) A member that resolves a deactivated DID, for example after an `IdentityChanged` notice (§2.7) or on its own schedule, Removes any leaves of that DID that remain in its groups (§2.2). For a CO-provisioned identity, deletion is the organization's offboarding (§2.5.6), and the organization retains the DID document as that section requires. Deletion does not erase messages that other members, compliance loggers (§7) or relays already hold; relays drop envelopes when their retention expires (§5.2.5).
 
 
 ---

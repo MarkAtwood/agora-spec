@@ -277,6 +277,12 @@ tor_control_addr = "127.0.0.1:9051"
 # Path to the Tor hidden service key directory.
 tor_hidden_service_dir = "/var/lib/tor/agora-relay"
 
+# Plaintext WebSocket listener for onion traffic (used when
+# tor_enabled = true). Must be bound to loopback; Tor forwards onion
+# port 80 here, and the onion service provides the encryption (§11.5).
+# default: "127.0.0.1:8080"
+tor_ws_listen = "127.0.0.1:8080"
+
 # ─────────────────────────────────────────────
 # [identity]: relay DID and signing key
 # ─────────────────────────────────────────────
@@ -1055,9 +1061,39 @@ Lists the busiest `channelToken`s by traffic over a window, for capacity and abu
 }
 ```
 
-`agreement_id` is the agreement under which the token's admission key is registered. `key_status` is `registered`, or `withdrawn` for a token whose key was deregistered or whose agreement ended while the relay still holds envelopes under it (spec §11.4). A token changes only when the CO rotates the channel's admission key to a new `keyEpoch`, not on MLS epochs (spec §10.4.2). Counters are per token; the relay keeps no link between a token and the one that replaces it.
+`agreement_id` is the agreement under which the token's admission key is registered. `key_status` is `registered`; `suspended` for a token this relay has suspended (spec §10.4.7); or `withdrawn` for a token whose key was deregistered or whose agreement ended while the relay still holds envelopes under it (spec §11.4). A token changes only when the CO rotates the channel's admission key, not on MLS epochs (spec §10.4.2). Counters are per token; the relay keeps no link between a token and the one that replaces it.
 
-There is no admin operation that suspends or blocks a token. Admission is decided by the CO's registrations: to cut a token off, the CO deregisters its key (spec §10.5.3). An operator who sees abuse on a token raises it with the CO through the agreement's `contact` (§17.2).
+Admission is normally decided by the CO's registrations: to cut a token off, the CO deregisters its key (spec §10.5.3). The relay may also suspend one token under its own policy and law (spec §10.4.7); see the next two operations.
+
+#### `POST /admin/tokens/{token}/suspend`
+
+Stops admitting envelopes, pin instructions and blob uploads for one registered `channelToken`, for example when it carries abusive volume or under a legal demand (spec §10.4.7). This is a carriage decision, not a moderation decision (ARCHITECTURE S2). The relay treats the token as withdrawn: it sends `token-withdrawn` to the token's subscribers and answers later requests naming the token with `token-withdrawn` (spec §11.4). The suspension applies to the token itself: a re-registration of the same token does not lift it, and a new token the CO registers after rotating the key is admitted normally.
+
+Spec §10.4.7 requires a notice to the CO at the `contact` of the agreement under which the token is registered, naming the token, the time and the reason. The relay sends it when the suspension takes effect and records the delivery result in the audit log. Suspension tells the relay nothing about the channel or its members beyond what it already observes (spec §10.4.1).
+
+**Request body:**
+```json
+{
+  "confirm_token": "base64url...",
+  "reason": "sustained abusive volume"
+}
+```
+
+`confirm_token` must exactly match `{token}`, and the token must be registered; otherwise the request returns HTTP 400.
+
+**Response 200:**
+```json
+{
+  "channel_token": "base64url...",
+  "agreement_id": "bafkreigh2akiscaildcqabsyg3dfr6chu3fgpregiymsck7e7aqa4s52zy",
+  "suspended_at": "2026-10-16T14:00:00Z",
+  "contact_notified": true
+}
+```
+
+#### `DELETE /admin/tokens/{token}/suspend`
+
+Lifts a suspension, at the operator's discretion (spec §10.4.7). The relay admits the token again if its key is still registered. Returns HTTP 404 if the token is not suspended.
 
 #### `GET /admin/content/{cid}`
 
@@ -1192,7 +1228,7 @@ The relay cannot see MLS framing inside the sealed envelope (spec §5.2.2), so i
 | `agora_relay_admission_sig_verifications_total` | Counter | `source` (`publish`, `mesh`, `pin`, `upload`), `result` (`valid`, `bad_admission_sig`, `unknown_token`, `token_withdrawn`) | `admissionSig` checks over the exact `signed` bytes |
 | `agora_relay_admission_key_requests_total` | Counter | `type` (`registration`, `deregistration`), `result` (`accepted`, `malformed`, `bad-signature`, `agreement-invalid`, `stale`, `token-conflict`, `rate-limited`) | Requests to the `admissionKeys` endpoint, by spec §10.5.3 outcome |
 | `agora_relay_admission_keys_registered` | Gauge | `agreement` | Admission keys currently registered under each agreement |
-| `agora_relay_tokens_withdrawn_total` | Counter | `cause` (`deregistered`, `agreement_ended`, `superseded`) | Tokens whose key stopped being admitted (spec §11.4) |
+| `agora_relay_tokens_withdrawn_total` | Counter | `cause` (`deregistered`, `agreement_ended`, `superseded`, `suspended`) | Tokens whose key stopped being admitted (spec §11.4) |
 | `agora_relay_envelope_validation_failures_total` | Counter | `reason` (`cbor_decode`, `signed_decode`, `token_format`, `too_large`) | Routing envelope structure failures |
 | `agora_relay_pin_instructions_total` | Counter | `op` (`pin`, `unpin`), `result` (`accepted`, `expired`, `replayed`, `unknown-cid`, `quota-exceeded`, `rejected`) | `PinInstruction`s processed (spec §11.4) |
 
@@ -1475,8 +1511,8 @@ groups:
 
 | Item | Criticality | Notes |
 |---|---|---|
-| Relay signing key | **CRITICAL** | If lost, the relay DID is permanently lost. All peer relationships must be re-established from scratch with a new DID. |
-| Database | High | Held envelopes, peer table, registered admission keys and registration `ts` state, pin state, quota counters, push registrations. |
+| Relay signing key | **CRITICAL** | For a `did:key` relay, losing the key loses the relay DID permanently, and all peer relationships must be re-established with a new DID. For a `did:web` relay, the DID survives: publish a new key in `did.json` and the manifest (§10.1); the DID and its agreements are kept. |
+| Database | High | Held envelopes, peer table, pin state, quota counters, push registrations. It also holds registered admission keys and per-token registration `ts` state; these are backed up for audit only and never restored (§8.5, spec §10.4.7). |
 | Blob store | High | Opaque blobs and CO-published records. Content is content-addressed; deduplication is automatic. Back up the full blob store directory (local backend) or enable S3 bucket versioning (S3 backend, §8.4). |
 | Signed agreements | High | The `agreements.agreements_dir` files. Without them the relay cannot verify registration requests or enforce quotas. Store as securely as the database: they are private between the relay and each CO. |
 | Config file | Medium | Reconstructible, but restoring it avoids reconfiguring from scratch. |
@@ -1488,7 +1524,7 @@ The relay holds no secret admission material. It stores only admission public ke
 
 ### 8.2 Relay Signing Key Backup
 
-The relay signing key must be backed up before the relay is first deployed. There is no recovery path if it is lost. Procedure:
+The relay signing key must be backed up before the relay is first deployed. For a `did:key` relay there is no recovery path if it is lost, because the DID is the key. A `did:web` relay that loses its key keeps its DID and recovers by publishing a new key in `did.json` and the manifest (§10.1, spec §10.2.1). Procedure:
 
 1. Generate the key using the relay CLI:
    ```bash
@@ -1506,7 +1542,7 @@ The relay signing key must be backed up before the relay is first deployed. Ther
    - Primary: your secrets manager (AWS Secrets Manager, HashiCorp Vault) as a binary secret.
    - Secondary: offline, air-gapped storage (encrypted USB, HSM backup key, printed QR code in a physical safe).
 
-4. Record the relay DID in your CMDB. The DID is derived from the public key and cannot be reconstructed without it.
+4. Record the relay DID in your CMDB. A `did:key` DID is derived from the public key and cannot be reconstructed without it.
 
 5. Test the backup by decrypting the backup copy and verifying the DID:
    ```bash
@@ -1611,7 +1647,9 @@ aws s3api get-bucket-versioning --bucket agora-relay-blobs-prod
 
 6. Check that peer connections are re-established within 5 minutes. If not, check `GET /admin/peers` for peer reachability.
 
-7. Reconcile admission key registrations. A restored database holds the registrations of the backup time: keys the CO deregistered since then are admitted again, and keys it registered since then are missing. Tell each agreement's CO, through its `contact`, the time the restored state dates from, and ask it to re-send its current registrations and the deregistrations it made since then. Re-sending is safe: registering a key already registered and deregistering a token not registered both succeed without change (spec §10.5.3). The relay rejects a re-sent request whose `ts` is not later than the last one it accepted for a token, so the CO sends fresh requests rather than replaying old ones.
+7. Discard every admission key registration. Before the relay admits any traffic, delete every registered admission key and every per-token registration `ts` record from the restored database. The relay must not reinstate registrations from a backup, because a key the CO deregistered after the backup was taken would be admitted again (spec §10.4.7). It starts with no registrations and answers `unknown-token` for every token (spec §11.4); clients use another relay in the channel's relay list meanwhile (spec §10.3.5). Dropping the `ts` records is safe, because the CO re-registers with fresh requests.
+
+8. Notify every CO. Send each loaded agreement's `contact` a notice that this relay lost its registrations and the time of the restore. The CO's registration service then re-registers every current key under that agreement (spec §10.5.3). Without the notice, the CO's periodic re-registration restores them within 24 hours. Restored envelopes and blobs may be kept within their retention; the relay serves them again once their token is registered again.
 
 ---
 
@@ -1906,13 +1944,13 @@ To expose the relay as a Tor v3 hidden service:
    ```
    # /etc/tor/torrc additions
    HiddenServiceDir /var/lib/tor/agora-relay/
-   HiddenServicePort 80 127.0.0.1:443
+   HiddenServicePort 80 127.0.0.1:8080
    HiddenServiceVersion 3
    ```
 
 2. Start Tor. The `.onion` address is in `/var/lib/tor/agora-relay/hostname`.
 
-3. Configure the relay with `tor_enabled = true` and the control port address.
+3. Configure the relay with `tor_enabled = true`, the control port address, and `tor_ws_listen` set to the loopback address that `HiddenServicePort` forwards to. That listener speaks plaintext WebSocket, not TLS: forwarding onion port 80 to the TLS listener on 443 would break the advertised `ws://` endpoint.
 
 4. The relay will publish the `.onion` address in its manifest under `endpoints.onion` as `ws://examplerelay3xyz.onion/v1/agora/ws`.
 
@@ -2222,31 +2260,28 @@ Decommissioning a relay is a multi-step process designed to minimize disruption 
 
 ### 16.2 Pre-Decommissioning Notification
 
-1. At least 30 days before the planned shutdown date, update the relay manifest to include a retirement notice:
+1. At least 30 days before the planned shutdown time, set `retiresAt` in the relay manifest to that time, as an RFC 3339 UTC timestamp, and publish the re-signed manifest (spec §10.2.1, spec §10.4.7):
    ```json
-   "maintenance": {
-     "status": "retiring",
-     "retirementDate": "2026-05-22T00:00:00Z",
-     "message": "This relay will be decommissioned on 2026-05-22. Please migrate to relay.example-new.com.",
-     "migrationRelay": "https://relay-new.example.com/.well-known/agora-relay"
-   }
+   "retiresAt": "2026-05-22T00:00:00Z"
    ```
-   `maintenance` is an operational extension, not a field defined in spec §10.2.1; peers and clients that do not recognize it ignore it.
+   Spec §10.4.7 requires the 30 days unless the relay and a CO have agreed a different notice period out of band for that CO.
 
 2. Gossip a `RelayAd` update on `v1/agora/discovery`.
 
-3. Notify every loaded agreement's CO at the agreement's `contact`, as the agreement's notice terms require. The relay knows which COs it serves only through their agreements (ARCHITECTURE §5 item 6); it has no list of Spaces to notify.
+3. At the same time as step 1, notify every loaded agreement's CO at the agreement's `contact`, giving the `retiresAt` time (spec §10.4.7). The relay knows which COs it serves only through their agreements (ARCHITECTURE §5 item 6); it has no list of Spaces to notify. Each CO removes this relay from its relay lists and deregisters its keys here before `retiresAt` (spec §10.3.5).
 
 ### 16.3 Drain
 
-1. Stop accepting new client connections:
+Until `retiresAt` the relay keeps admitting every registered token and accepting connections (spec §10.4.7). Traffic falls off before then as each CO deregisters its keys here; the relay sends `token-withdrawn` to the remaining subscribers of those tokens (spec §11.4). Do not refuse connections early, except that tokens whose COs have already deregistered need no service.
+
+1. At `retiresAt`, stop accepting new client connections:
    ```toml
    [server]
    accepting_new_connections = false
    ```
    Reload the config via `POST /admin/reload`. Existing connections remain active; new connection attempts are refused.
 
-2. Wait for active client connections to drop. Clients reconnect to the other relays their CO lists in each `ChannelAdmissionKey` (spec §10.3.5). As each CO deregisters its keys here, the relay sends `token-withdrawn` to the remaining subscribers of those tokens (spec §11.4). Monitor:
+2. Wait for active client connections to drop. Clients reconnect to the other relays their CO lists in each `ChannelAdmissionKey` (spec §10.3.5). Monitor:
    ```bash
    watch -n 5 'curl -s -H "Authorization: Bearer $ADMIN_TOKEN" localhost:9099/admin/status | jq .active_connections'
    ```
@@ -2279,7 +2314,7 @@ Content stored under an agreement belongs to that agreement's CO. The relay cann
 
 ### 16.5 Peer Removal
 
-1. Notify all Level 2+ peers of the planned shutdown by re-announcing the updated manifest (with its `maintenance` notice) through the Peer API, whose body is the relay's `RelayManifest` (spec §10.2.2):
+1. Notify all Level 2+ peers of the planned shutdown by re-announcing the updated manifest (with its `retiresAt`) through the Peer API, whose body is the relay's `RelayManifest` (spec §10.2.2):
    ```bash
    # For each Level 2+ peer:
    curl -X POST https://peer.example.net/v1/agora/peer/announce \
@@ -2366,11 +2401,12 @@ A report that names only a Space, a channel or a user cannot be mapped to anythi
 |---|---|---|
 | Delete a CID | `DELETE /admin/content/{cid}` (§5.2) | Deletes the blob or envelope here and refuses re-upload of the same bytes. Copies on other relays are unaffected. |
 | Refer to the CO | The agreement's `contact`, or the CO named in a public SpaceAd | The CO can remove members (MLS Remove), rotate the channel's admission key and deregister the old one so that the relay stops admitting it, moderate content, and change policy (spec §4.7, ARCHITECTURE §6.2). |
+| Suspend a token | `POST /admin/tokens/{token}/suspend` (§5.2); lift with `DELETE` | Stops admitting envelopes, pin instructions and uploads for that one token; subscribers receive `token-withdrawn`. The relay notifies the CO at the agreement's `contact`, naming the token, time and reason (spec §10.4.7). A new token after the CO rotates the key is admitted. |
 | Throttle or block addresses | `[rate_limits]`, admission proof of work, or a firewall rule (§13.3) | Limits floods. Shared addresses (Tor exits, carrier NAT) affect many clients. |
 | Terminate an agreement | `POST /admin/agreements/{id}/terminate` (§5.2) | Ends service for every token the CO registered under it, under the agreement's notice terms. Clients receive `token-withdrawn`. |
 | Decline peering | `POST /admin/peers/{did}/trust` or `DELETE /admin/peers/{did}` (§5.2) | Stops gossip from an abusive peer relay (spec §10.2.4). |
 
-The relay has no control that blocks a single token; admitting or cutting off a token is the CO's decision, made by registering or deregistering its key (spec §10.5.3). Deleting a CID or terminating an agreement is the relay declining service. It is not a moderation decision about any member, and do not present it as one.
+Admitting a token is the CO's decision, made by registering or deregistering its key (spec §10.5.3). Suspending a token (§5.2), deleting a CID or terminating an agreement is the relay declining service. It is not a moderation decision about any member, and do not present it as one.
 
 ### 17.3 What an Operator Cannot Do
 

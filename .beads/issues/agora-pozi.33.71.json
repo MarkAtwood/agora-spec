@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.71",
+  "title": "[IMP2-8] No procedure to move a DM group's admission host",
+  "description": "Review finding IMP2-8: No procedure to move a DM group's admission host (lens IMP2). Location: spec/04-access-control.md:150, :158, :259. Fix: No grep hit covers a host change. The leave procedure at 04:259 does not mention it either, even when the initiator is the one leaving. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:52.651991972Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:52.651991972Z",
+  "labels": [
+    "review",
+    "imp2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.71",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:52.66984784Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

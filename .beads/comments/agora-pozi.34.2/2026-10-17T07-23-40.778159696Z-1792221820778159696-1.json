@@ -1,0 +1,7 @@
+{
+  "id": "1792221820778159696-1",
+  "issue_id": "agora-pozi.34.2",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-17), option A: chunk-then-encrypt. Plaintext split into 256 KiB chunks (UnixFS default); each chunk sealed with the object's random content key (AES-128-GCM), nonce = chunk index (safe because the key is unique per object), AAD = label || chunk index || total chunk count || final flag (detects reorder, drop, truncation); each encrypted chunk is a raw block with its own CID arranged as a standard IPFS DAG (CAR-movable); the ordered chunk-CID manifest is carried inside the encrypted Message attachment object; resumable, partial and multi-relay parallel fetch. No convergent encryption (no cross-user dedup).",
+  "created_at": "2026-10-17T07:23:40.778159696Z"
+}

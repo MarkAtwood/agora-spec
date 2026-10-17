@@ -1,5 +1,7 @@
 # Specification: Employer-Managed DIDs via Microsoft Entra ID
 
+> Non-normative. Capitalized BCP 14 key words (RFC 2119, RFC 8174) in this profile state what a deployment that follows it requires of its own components; they bind only implementations that claim conformance to this profile and are not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source. Where this profile conflicts with the spec or ARCHITECTURE.md, those govern.
+
 **Version:** 0.1 Draft
 **Depends On:** the Agora protocol specification (`spec/`, current draft)
 **Status:** Pre-implementation design
@@ -249,6 +251,11 @@ The `state` of the latest log entry after two devices and a recovery key are reg
       "id": "...#keypackages",
       "type": "AgoraKeyPackageEndpoint",
       "serviceEndpoint": "https://did.example.com/v1/agora/kp/k7f3qd2m"
+    },
+    {
+      "id": "...#provisioning",
+      "type": "AgoraProvisioning",
+      "serviceEndpoint": "https://did.example.com/v1"
     },
     {
       "id": "...#profile",
@@ -676,7 +683,7 @@ The organization chooses its witnesses. What matters is that the organization do
 
 ### 6.7 Admission Keys for DM Groups and Self-Groups
 
-The sidecar hosts each employee's `KeyPackageEndpoint`, so it is the employee's identity host in the sense of spec §4.6 and plays the CO's part for admission of every DM group an employee initiates and of each employee's self-group (spec §2.6). For each such group it generates the admission key, registers it by `AdmissionKeyRegistration` with every relay the organization holds a `ServiceAgreement` with, rotates it when a `DMMembers` replacement drops a DID, and deregisters old keys (spec §10.5.3). Registrations are signed by the organization's billing DID (spec §10.5.1), so the sidecar needs a signing path to that key, for example through the CO's registration service; it never signs them with its own DID. Its base URL `<host>`, which the initiating client puts in the group's `agora_admission_host` extension (spec §4.6), is `https://did.example.com/v1`, the same base under which it serves the §6.1 admission-key endpoints and `POST /v1/auth`. It serves the current key only to DIDs on the group's member list after the spec §3.5 exchange, and in doing so learns the member DIDs of DM groups its employees start (spec §4.6). Relays learn neither the group nor the members.
+The sidecar hosts each employee's `KeyPackageEndpoint`, so it is the employee's identity host in the sense of spec §4.6 and plays the CO's part for admission of every DM group an employee initiates and of each employee's self-group (spec §2.6). For each such group it generates the admission key, registers it by `AdmissionKeyRegistration` with every IO (relay, SFU, sequencer) that holds a `ServiceAgreement` with the organization whose `serviceType` receives registrations (spec §10.5.3), rotates it when a `DMMembers` replacement drops a DID, and deregisters old keys (spec §10.5.3). Registrations are signed by the organization's billing DID (spec §10.5.1), so the sidecar needs a signing path to that key, for example through the CO's registration service; it never signs them with its own DID. Its base URL `<host>`, which the initiating client puts in the group's `agora_admission_host` extension (spec §4.6), is `https://did.example.com/v1`, the same base under which it serves the §6.1 admission-key endpoints and `POST /v1/auth`. It serves the current key only to DIDs on the group's member list after the spec §3.5 exchange, and in doing so learns the member DIDs of DM groups its employees start (spec §4.6). Relays learn neither the group nor the members, only that the token is covered by the organization's agreement, so a DM's anonymity at a relay is as large as the organization's set of users (ARCHITECTURE §9).
 
 ---
 

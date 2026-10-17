@@ -151,7 +151,9 @@ GET  /v1/agora/peer/manifest
      Unauthenticated.
 
 POST /v1/agora/peer/announce
-     A peer relay announces itself. Body: the announcing relay's RelayManifest.
+     A peer relay announces itself, or introduces a third relay.
+     Body: the announcing relay's RelayManifest, or a
+     RelayPeerAnnouncement (Peer gossip, below).
      Response: 200 { "status": "accepted"|"known"|"rejected", "trustLevel": N }
 
 GET  /v1/agora/peer/peers
@@ -167,7 +169,21 @@ GET  /v1/agora/peer/health
      Returns relay health state.
      Response: { "status": "healthy"|"degraded"|"unhealthy"|"maintenance", "since": <RFC 3339 UTC> }
      Unauthenticated.
+
+GET  /v1/agora/peer/blob/{cid}?token=<channelToken>
+     Pull of one blob held under channelToken (§10.4.4).
+     Response: 200 with the blob bytes, or 404 if this relay does not hold
+     the CID under that token. Authenticated.
+
+POST /v1/agora/peer/blob?token=<channelToken>
+     Eager replication of one blob held under channelToken (§10.4.4).
+     Body: the blob bytes, Content-Type application/octet-stream.
+     Response: 201 stored or already held, 404 if channelToken is not
+     registered here, 507 if the agreement's storage quota would be exceeded.
+     Authenticated.
 ```
+
+`<channelToken>` in these paths is the token in base64url without padding (RFC 4648 §5).
 
 A `GossipBatch` carries messages exactly as they travel on the libp2p mesh (§10.3.1). The receiving Relay processes each entry as if it had arrived on that topic from the sender, subject to the same rules, including §10.5.4 for channel topics:
 
@@ -253,7 +269,7 @@ A Relay is considered mesh-joined when it has Level 1 or higher trust with at le
 
 **Key rotation overlap.** When rotating its signing key, a Relay MUST publish both the old and new keys in its manifest with a minimum 48-hour overlap, marking the old key with `"status": "deprecated"`. Peer Relays accept signatures from deprecated keys during this overlap window. A key whose private half is compromised is instead marked `"status": "revoked"`, with no overlap; peer Relays MUST reject every request signed with a key the manifest marks `revoked` (§12.12).
 
-**Peer gossip.** When a Relay discovers a new valid peer, it SHOULD share that peer's `{ relayDID, manifestURL }` with its Level 2+ peers as a `RelayPeerAnnouncement` gossip message:
+**Peer gossip.** When a Relay discovers a new valid peer, it SHOULD share that peer's `{ relayDID, manifestURL }` with its Level 2+ peers by sending each of them a `RelayPeerAnnouncement` in a `POST /v1/agora/peer/announce` request over the Peer API. It is not carried on any gossip topic (§10.3.1). Its body is:
 
 ```json
 {
@@ -265,7 +281,7 @@ A Relay is considered mesh-joined when it has Level 1 or higher trust with at le
 }
 ```
 
-The announcement is signed per §13.1.1 by `announcedBy`. Receiving Relays verify the signature, independently fetch the new Relay's manifest, and decide whether to initiate peering. The announcement is a hint, not an authorization.
+The announcement is a typed payload envelope (§13.1) signed per §13.1.1 by `announcedBy`, which is the Relay sending the request. Receiving Relays verify the signature, independently fetch the new Relay's manifest, and decide whether to initiate peering. The announcement is a hint, not an authorization.
 
 ---
 
@@ -453,7 +469,7 @@ A directory document MAY be addressed by CID instead of (or in addition to) an H
 ipfs://bafkrei.../relays.json
 ```
 
-Clients resolve `ipfs://` URIs by fetching the blob from the CAS endpoint (`GET /v1/agora/blob/{cid}`, §10.4.4) of a Relay that holds it. Relays do not exchange blobs, so a Relay holds a blob only if it was uploaded there (§10.4.4); a directory publisher stores the document at the Relays it names alongside the `ipfs://` URI, and a client tries those Relays in turn.
+Clients resolve `ipfs://` URIs by fetching the blob from the CAS endpoint (`GET /v1/agora/blob/{cid}`, §10.4.4) of a Relay that holds it. Relays replicate only blobs held under a channel token (§10.4.4), and a directory document is held under none; a directory publisher stores the document at the Relays it names alongside the `ipfs://` URI, and a client tries those Relays in turn.
 
 #### 10.3.4.6 Mainline DHT Discovery
 
@@ -522,14 +538,16 @@ Directory maintainers are identified by their `maintainer` DID and signature. Th
 
 A Relay carries a channel only if the channel's CO has registered the channel's admission key with it (§10.3.1, §10.5.3). A client therefore sends and subscribes to a channel's `channelToken` at one of the Relays its CO has engaged, and learns that list from the CO, never from an IO:
 
+Each entry of a `relays` list is the origin of a Relay; the client reads that Relay's endpoints from its manifest (§10.2.1).
+
 - **Channels of a private Space.** From the `relays` member of the channel's `ChannelAdmissionKey`, which the CO's Space endpoint serves only to authenticated members (§3.4). The list appears in no record an IO can read.
 - **Channels of a public Space.** From `relayHints` in the CO-signed SpaceAd (§10.3.2), and from the `ChannelAdmissionKey`.
 - **Shared channels.** From the `ChannelAdmissionKey` issued by the home Space's CO, which registers the channel's admission key (§8.6).
 - **DM groups.** From the `ChannelAdmissionKey` served by the identity host of the DM's initiator, which issues and registers the group's admission key (§4.6).
 
-A client needs a connection to only one listed Relay per channel for envelopes: the Relays holding a registration for a token exchange its envelopes on the channel topic (§10.3.1). Blobs are not exchanged: a blob is held only by the Relays it was uploaded to (§10.4.4). Clients SHOULD fall back to another listed Relay when one is unreachable or answers `unknown-token` or `token-withdrawn` for a token the client holds in a current `ChannelAdmissionKey` (§11.4).
+A client needs a connection to only one listed Relay per channel for envelopes: the Relays holding a registration for a token exchange its envelopes on the channel topic (§10.3.1). Blobs are uploaded to one listed Relay and replicated among the Relays carrying the token, and a client fetches a blob from any listed Relay, falling back to the channel's `archive` (§10.4.4). Clients SHOULD fall back to another listed Relay when one is unreachable or answers `unknown-token` or `token-withdrawn` for a token the client holds in a current `ChannelAdmissionKey` (§11.4).
 
-**Changing Relays.** To add a Relay, the CO registers every current admission key with it (§10.5.3), then adds it to `relays`. To remove a Relay, the CO removes it from `relays`, then deregisters the keys. Because members' MLS state, Space state and admission keys do not change, a CO adds, removes or replaces a Relay without touching Space identity or membership (ARCHITECTURE S5). Clients refresh the relay list whenever they fetch the `ChannelAdmissionKey` (§3.4).
+**Changing Relays.** To add a Relay, the CO registers every current admission key with it (§10.5.3), then adds it to `relays`; the new Relay obtains existing blobs by pull-through or CO seeding (§10.4.4). To remove a Relay, the CO removes it from `relays`, then deregisters the keys. Because members' MLS state, Space state and admission keys do not change, a CO adds, removes or replaces a Relay without touching Space identity or membership (ARCHITECTURE S5). Clients refresh the relay list whenever they fetch the `ChannelAdmissionKey` (§3.4).
 
 ---
 
@@ -542,8 +560,8 @@ A client needs a connection to only one listed Relay per channel for envelopes: 
 A conformant Relay is designed to know as little as possible about the traffic it routes. The following is both a design target and a compliance requirement: a Relay operator responding to a legal demand or subpoena MUST be able to testify truthfully to all of the following:
 
 - I do not know who my users are (no identity registration, no account system, no persistent user records).
-- I do not know who is in any group (channel membership is not visible at the relay layer; a `channelToken` is derived from an admission private key I never hold, and an admission signature does not identify its signer).
-- I do not know which Space or channel any token belongs to (registrations name only the CO's billing DID, §10.5.3).
+- I do not know who is in any group (channel membership is not visible at the relay layer; a `channelToken` is derived from an admission private key I never hold, and an admission signature does not identify its signer). The exception is a DM group or self-group whose admission key an identity host serving one user registers (§10.5.3): the agreement's billing DID then stands for that user's groups (ARCHITECTURE §9).
+- I do not know which Space or channel any token belongs to (registrations name only the CO's billing DID, §10.5.3), except the token of a `keyAccess: public` broadcast channel, which the CO publishes with its public Space (§3.4).
 - I do not know who sent any message (MLS encrypts the sender data, and the sealed envelope hides the MLS framing, §5.2.2).
 - I store nothing after delivery beyond the retention window of the agreement under which a token is registered, and nothing with a message expiry past that expiry, except CIDs pinned under an instruction carrying a valid admission signature (ARCHITECTURE §6.2), which are retained until unpinned the same way.
 - The encrypted blobs I forward and cache are opaque to me.
@@ -561,7 +579,7 @@ Relays route messages by `channelToken`, not by `channelID`, MLS group ID or mem
 - Log sender/recipient pairs for any message.
 - Retain message envelopes beyond the agreement's retention window or message expiry, whichever is sooner.
 
-A `channelToken` is fixed for one admission key and changes when the CO rotates the key (a new `keyEpoch`, §5.2.2); it does not change on MLS epochs. A Relay sees each token's traffic for as long as the key is registered, and it can usually link a new token to the one it replaces, because the CO registers the new key and deregisters the old one close together and the same subscribers move across. It cannot map a token to a channel or Space; the set of Spaces it cannot tell apart is every Space the CO serves through it (ARCHITECTURE §5 item 6).
+A `channelToken` is fixed for one admission key and changes when the CO rotates the key (a new `keyEpoch`, §5.2.2); it does not change on MLS epochs. A Relay sees each token's traffic for as long as the key is registered, and it can link a new token to the one it replaces, because the registration of the new key names the token it replaces (§10.5.3), the CO deregisters the old one shortly after, and the same subscribers move across. Subscribers that stay on the old token show the Relay that a removal probably occurred and which connections or push handles it affected (ARCHITECTURE §9). It cannot map a token to a channel or Space; the set of Spaces it cannot tell apart is every Space the CO serves through it (ARCHITECTURE §5 item 6).
 
 ### 10.4.3 Conformance Requirements
 
@@ -570,6 +588,7 @@ A conformant Relay MUST:
 - Implement WebSocket transport (§11.2); WebTransport is RECOMMENDED.
 - Implement the client hello and connection admission controls (§11.6), without authenticating client identity.
 - Implement the Peer API and relay-to-relay authentication (§10.2).
+- Implement the JMAP sync API (`jmap-sync-v1`, §11.8), which is the only path for envelope history and blob upload.
 - Accept `AdmissionKeyRegistration` and `AdmissionKeyDeregistration` requests at its `admissionKeys` endpoint (§10.5.3).
 - Carry only `channelToken`s registered with it under a current `ServiceAgreement`, on the live protocol and on the gossip mesh (§10.3.1).
 - Verify `admissionSig` on every envelope against the admission public key registered for its `channelToken` before caching or forwarding it, and drop envelopes that fail (§10.5.4, ARCHITECTURE §6.2).
@@ -579,6 +598,8 @@ A conformant Relay MUST:
 - Route messages by `channelToken` only; never attempt to resolve tokens to identities.
 - Hold recent envelopes for each registered `channelToken` up to the lesser of the agreement's `retentionDays` and the envelope's `expiryHint`, and serve them to clients (§10.4.6).
 - Retain and serve blobs stored under a `ServiceAgreement` within the agreement's retention window (§10.4.4).
+- Replicate each uploaded blob to the agreement's `replicationFloor` of Relays carrying its token, and accept replicated blobs and pull requests from them, only for tokens registered with it (§10.4.4).
+- Announce on or request from the public IPFS network only public content (§10.4.4).
 - Store only ciphertext envelopes, blobs addressed by CID that it cannot interpret (including group-encrypted blobs, §3.4), and records a CO explicitly publishes (such as SpaceAds, directory documents and public Space state).
 - Honor pin and unpin instructions (`PinInstruction`, §11.4) carrying a valid admission signature for a registered `channelToken`, retaining pinned CIDs regardless of retention window or `expiryHint` until unpinned (ARCHITECTURE §6.2).
 - Enforce the storage and bandwidth quotas set by each `ServiceAgreement` (§10.5.1), keyed to the agreement and never to member identity.
@@ -613,17 +634,32 @@ Relay federation is permissionless. Any Relay that speaks the protocol may join 
 
 ### 10.4.4 Blob Storage and Retrieval
 
-A Relay stores blobs in a content-addressed store keyed by CID (§13.1). "Pin" in this specification means retention in that store under a pin instruction (ARCHITECTURE §6.2); it does not mean pinning on the public IPFS network.
+A Relay stores blobs in a content-addressed store keyed by the multihash of each block's CID (§13.1), so it serves the same bytes under a `raw` or a `dag-pb` CID with that multihash. Each blob is held under the `channelToken` for which it was uploaded or replicated. "Pin" in this specification means retention in that store under a pin instruction (ARCHITECTURE §6.2); it does not mean pinning on the public IPFS network. A file is stored as several blocks (§14.3.4); each block is a blob for the purposes of this section.
 
-A conformant Relay MUST serve every blob it holds over HTTPS at `GET /v1/agora/blob/{cid}` on the origin of its manifest (§10.2.1). The endpoint is unauthenticated and rate-limited per network address (§11.6), and it MUST send `Access-Control-Allow-Origin: *` so that browser clients can fetch from it directly. A Relay that declares `jmap-sync-v1` also serves the same bytes through JMAP download (§11.8.1). These are the fetch paths for blobs, including `ipfs://` URIs (§10.3.4.5); a client needs no IPFS node or public IPFS gateway.
+A conformant Relay MUST serve every blob it holds over HTTPS at `GET /v1/agora/blob/{cid}` on the origin of its manifest (§10.2.1). The endpoint is unauthenticated and rate-limited per network address (§11.6), and it MUST send `Access-Control-Allow-Origin: *` so that browser clients can fetch from it directly. A request MAY carry the query parameter `token`, a `channelToken` in base64url without padding, which asks for pull-through (below). A Relay that declares `jmap-sync-v1` also serves the same bytes through JMAP download (§11.8.1). These are the fetch paths for blobs, including `ipfs://` URIs (§10.3.4.5); a client needs no IPFS node or public IPFS gateway.
 
-A client MUST verify that the bytes it receives hash to the requested CID and MUST discard them otherwise. Because every blob is either ciphertext the Relay cannot read or a record a CO chose to publish (§10.4.3), a Relay can serve blobs to any requester without learning anything beyond the ARCHITECTURE §5 observation budget.
-
-A Relay is not required to run an IPFS node, join the IPFS DHT or speak Bitswap. A Relay MAY mirror to the public IPFS network only records a CO has chosen to publish (§10.3.2); it MUST NOT publish other blobs there.
+A client MUST verify that the bytes it receives hash to the requested CID and MUST discard them otherwise, whatever the source: a Relay, a peer Relay, the CO archive, another of the user's devices or the IPFS network. Because every blob is either ciphertext the Relay cannot read or a record a CO chose to publish (§10.4.3), a Relay can serve blobs to any requester without learning anything beyond the ARCHITECTURE §5 observation budget.
 
 **Upload admission.** A Relay MUST accept a blob upload only when it carries an `Agora-Storage-Auth` authorization (§11.8.2) for a `channelToken` registered with it, signed with that token's registered admission key. It charges the stored bytes to the agreement under which the token is registered and keeps the blob for that agreement's retention window unless it is pinned. This gives blob writes the same member-only admission as envelopes, and the Relay learns no uploader identity.
 
-**Where blobs live.** Relays do not forward, gossip or replicate blobs to each other; a Relay holds only the blobs uploaded to it. A client uploading a blob for a channel SHOULD upload it to every Relay in the channel's relay list (§10.3.5) and MUST upload it to at least one. A client fetching a blob tries the Relays of the channel's relay list in turn. A pin instruction (§11.4) applies only at the Relay that receives it, so a client pinning a blob sends the instruction to each Relay it uploaded to.
+**Upload once.** A client uploads each blob of a channel once, to any one Relay in the channel's relay list (§10.3.5), and need not upload it elsewhere. If that Relay refuses or fails the upload, the client uploads to another listed Relay.
+
+**Replication among a channel's Relays.** The Relays that carry a channel's `channelToken` are the members of that token's channel topic mesh (§10.3.1), and they replicate the channel's blobs among themselves over the Peer API (§10.2.2):
+
+- *Eager replication.* A Relay that accepts an upload MUST copy the blob, with `POST /v1/agora/peer/blob`, to other Relays carrying the token until it is held by at least `replicationFloor` Relays including itself, where `replicationFloor` is taken from the agreement under which the token is registered with it (§10.5.1), or by every Relay carrying the token if fewer carry it.
+- *Pull-through.* A Relay that receives a fetch, with `token` set, for a CID it does not hold, for a token registered with it under a current agreement, SHOULD fetch the CID from another Relay carrying that token with `GET /v1/agora/peer/blob/{cid}`, verify it against the CID, store it under the token and serve it. Without `token`, or for a token not registered with it, it answers 404 and fetches nothing.
+- A Relay that receives a replicated blob accepts it only for a token registered with it under a current agreement, verifies it against its CID, charges it to that agreement's storage quota and keeps it for that agreement's retention window from receipt. A Relay MUST NOT pull, push or cache blobs for a token not registered with it.
+- Relays carrying the same token MAY exchange its blobs with Bitswap over the libp2p connections they hold for the channel topic, in place of the Peer API, under the same rules. They MUST NOT announce those CIDs to, or request them from, the public IPFS DHT.
+
+Replication adds nothing to what a Relay knows: a Relay that replicates or pulls a blob already carries the channel's token and its envelopes, the CIDs and sizes it learns are those it stores (ARCHITECTURE §5 item 4), and a peer learns only that the requesting Relay carries a token, which the channel topic mesh already shows it.
+
+**Fetching.** A client fetching a blob of a channel asks any Relay in the channel's relay list, with `token` set to the channel's current `channelToken`, then other listed Relays, then the `archive` named in the channel's `ChannelAdmissionKey` (§3.4), if any. The client MAY fetch the chunks of one file from several of these sources in parallel (§14.3.4).
+
+**Relay replacement.** A Relay newly added to a channel's relay list (§10.3.5) obtains the channel's existing blobs by pull-through as clients request them. The CO MAY also seed it with a `seed` pin instruction listing CIDs (§11.4), on which the Relay pulls each listed CID it lacks from other Relays carrying the token, or, if none holds it, the CO MAY upload it from its archive under an ordinary upload authorization (§11.8.2).
+
+**Pinning.** A pin instruction (§11.4) applies only at the Relay that receives it, so a client pinning a blob sends the instruction to each Relay in the channel's relay list. A Relay that receives a `pin` for a CID it does not hold under that token SHOULD first pull it as above. Pinning a `dag-pb` root block (§14.3.4) also pins every block it links to; unpinning it removes that exemption.
+
+**Public IPFS.** Agora is IPFS-compatible, not IPFS-dependent. A Relay or client MAY run an IPFS node, and none is required to. Relays, clients and the CO MUST NOT announce on, provide to or request from the public IPFS network (its DHT, public Bitswap peers or public gateways) any blob other than public content: records a CO publishes (§3.4, §10.3.2), and the envelopes and blobs of a broadcast channel whose `keyAccess` is `public` in a public Space (§5.2.1.4). Requesting a CID there discloses interest in it to unknown parties, so private ciphertext is neither announced nor requested. Bitswap MAY be used for private ciphertext only between known peers: Relays carrying the same token under the CO's agreements (above), the CO archive, and a user's own devices, which find each other through the self-group (§2.6). Public content MAY be published to the public IPFS network by the CO, a member or a Relay holding it (ARCHITECTURE §9).
 
 ### 10.4.5 Takedown Requests
 
@@ -633,7 +669,7 @@ The Relay looks up the `channelToken` under which the CID was stored or pinned a
 
 ### 10.4.6 Envelope History
 
-A Relay holds the recent envelopes of each `channelToken` registered with it, for the `retentionDays` of the agreement under which the token is registered (§10.5.1) or until each envelope's `expiryHint`, whichever is sooner, plus any envelopes pinned under §10.4.3. It serves them to clients through the live protocol and the JMAP sync API (§11.8), keyed by `channelToken` only. Deregistering a key (§10.5.3) stops the Relay from accepting new envelopes for its token; envelopes already held under that token remain readable until their retention ends.
+A Relay holds the recent envelopes of each `channelToken` registered with it, for the `retentionDays` of the agreement under which the token is registered (§10.5.1) or until each envelope's `expiryHint`, whichever is sooner, plus any envelopes pinned under §10.4.3. It indexes, deduplicates and pins each envelope by its envelope `id`, the CID of its `signed` bytes only (§5.2.2), and stores the complete envelope bytes under that `id`. It serves them to clients through the JMAP sync API (§11.8), keyed by `channelToken` only. Deregistering a key (§10.5.3) stops the Relay from accepting new envelopes for its token; envelopes already held under that token remain readable until their retention ends.
 
 Relay-held envelopes are the recent part of a channel's history (§5.2.5). Older history lives in members' stores and in the CO's archive (§7), not at any Relay. A Relay that drops envelopes early cannot forge or alter any: MLS signatures authenticate every message, and the inner per-sender `seq` (§5.1.1) lets members detect omissions.
 
@@ -669,6 +705,7 @@ A `ServiceAgreement` is a typed payload envelope (§13.1) of type `urn:agora:typ
   "retentionDays": 90,
   "bandwidthTierGbPerMonth": 100,
   "storageQuotaGb": 50,
+  "replicationFloor": 2,
   "observationBudget": {
     "connectionLogRetentionDays": 7,
     "extensions": []
@@ -691,9 +728,9 @@ A `ServiceAgreement` is a typed payload envelope (§13.1) of type `urn:agora:typ
 
 `provider` is the IO's DID; for a Relay it is the manifest's `relayDID`. `endpoint` is the URL at which the IO accepts admission key registrations (§10.5.3); for a Relay it equals the manifest's `endpoints.admissionKeys`. It is absent for service types that receive no registrations. `contact` is a `mailto:` or `https:` URI at which the IO reaches the CO about abuse and takedown requests (§10.4.5) and about token suspension, lost registrations and retirement (§10.4.7); it MUST NOT name a Space.
 
-`retentionDays` is how long the IO keeps envelopes and blobs (`relay`) or stamped log entries (`sequencer`) of the tokens registered under the agreement; it is absent for other service types. `storageQuotaGb` and `bandwidthTierGbPerMonth` are the quotas the IO enforces for this agreement (§10.4.3).
+`retentionDays` is how long the IO keeps envelopes and blobs (`relay`) or stamped log entries (`sequencer`) of the tokens registered under the agreement; it is absent for other service types. `storageQuotaGb` and `bandwidthTierGbPerMonth` are the quotas the IO enforces for this agreement (§10.4.3). `replicationFloor`, for `relay` only, is the minimum number of Relays carrying a token, including the receiving one, to which a Relay eagerly replicates each blob uploaded under that token (§10.4.4); it is an unsigned integer of at least 1, and is 2 when absent. Replicated copies count against the storage quota of each holding Relay's own agreement.
 
-`billing` is a DID the CO dedicates to agreements. It MUST NOT appear in Space state, SpaceAds, directory documents, or any other record that identifies a Space. A CO MAY use one billing DID for all of its Spaces; doing so is what gives each Space its anonymity set at the IO (ARCHITECTURE §5 item 6).
+`billing` is a DID the CO dedicates to agreements. It MUST NOT appear in Space state, SpaceAds, directory documents, or any other record that identifies a Space. For an identity host acting as the CO (§10.5.3), it also MUST NOT be the DID of a user the host serves and MUST NOT appear in any DID document, Pkarr record or other record that identifies a user. An identity host that serves one user still discloses, through its agreements, that their tokens belong to that one user's DM groups and self-group (ARCHITECTURE §9). A CO MAY use one billing DID for all of its Spaces; doing so is what gives each Space its anonymity set at the IO (ARCHITECTURE §5 item 6).
 
 The agreement is private between the CO and the IO. It MUST NOT be gossiped, stored in Space state, or published. Both parties keep the fully signed agreement; how they exchange it for signing is out of band. Multiple concurrent agreements (multiple Relays serving the same CO) are valid and encouraged for redundancy.
 
@@ -753,11 +790,11 @@ PowProof = {
 }
 ```
 
-`powProof` is not covered by `admissionSig` and need not be: it is bound to the `signed` bytes it was computed over, so it cannot be moved to another envelope. The client computes it after `signed` is fixed; the envelope `id`, the CID of the complete encoded envelope (§5.2.2), covers it. Connection-level proof-of-work (`AdmissionChallenge`, §11.6) is separate and uses its own challenge.
+`powProof` is not covered by `admissionSig` and need not be: it is bound to the `signed` bytes it was computed over, so it cannot be moved to another envelope. The client computes it after `signed` is fixed. The envelope `id` is the CID of the `signed` bytes only (§5.2.2), so it does not cover `powProof` or the outer encoding: a forwarder that adds, removes or changes a `powProof` cannot change an envelope's `id`. Connection-level proof-of-work (`AdmissionChallenge`, §11.6) is separate and uses its own challenge.
 
 A Relay declares its own minimum difficulty in the `minPowDifficulty` member of its manifest (§10.2.1). The Relay verifies the PoW before forwarding against that value and MUST NOT require more than it declares. The Relay cannot map a `channelToken` to a channel's `PowPolicy` (§10.4.2), so member clients enforce the channel's difficulty and drop envelopes that do not meet it. Difficulty 18 requires about 262,000 SHA-256 operations, roughly 10 to 50 ms on a modern CPU: imperceptible to a human sender, but economically prohibitive for bulk message flooding.
 
-**HTTP endpoints.** A CO HTTP endpoint that requires proof of work before serving a request, such as a `KeyPackageEndpoint` host (§4.6.3), an invite endpoint resolving open-link tokens (§4.7) or a sequencer (§14.4), uses the following challenge format. It answers the request with HTTP 429 and an `Agora-PoW-Challenge` response field, a Dictionary structured field (RFC 9651):
+**HTTP endpoints.** An HTTP endpoint, CO or IO, that requires proof of work before serving a request, such as a `KeyPackageEndpoint` host (§4.6.3), an invite endpoint resolving open-link tokens (§4.7) or a sequencer (§14.4), uses the following challenge format. It answers the request with HTTP 429 and an `Agora-PoW-Challenge` response field, a Dictionary structured field (RFC 9651):
 
 ```
 HTTP/1.1 429 Too Many Requests
@@ -774,7 +811,7 @@ The endpoint MUST accept each `challenge` at most once and only within `expires`
 
 ### 10.5.3 Admission Key Registration
 
-A registration service registers each channel admission public key (§5.2.2) with every IO that holds a `ServiceAgreement` with it whose `serviceType` receives registrations (§10.5.1), under that agreement. For channels of a Space the registration service is run by the Space's CO beside its Space endpoint (§3.4), under the CO's agreements; for a shared channel, by the home Space's CO (§8.6); for a DM group or a self-group (§2.6), by the initiator's identity host (§4.6). An identity host registers under the agreements of the party that runs it. An employer provisioning service (§2.5) registers under the employer CO's agreements and billing DID. An identity host that an individual chose holds its own `ServiceAgreement`s under its own billing DID and registers under those, acting as the CO for this purpose. The IOs holding the agreements a registration service uses are the relays it lists to members (§10.3.5). Registrations travel only over HTTPS from the registration service to the IO. They are never gossiped and no client or member sends them.
+A registration service registers each channel admission public key (§5.2.2) with every IO that holds a `ServiceAgreement` with it whose `serviceType` receives registrations (§10.5.1), under that agreement. For channels of a Space the registration service is run by the Space's CO beside its Space endpoint (§3.4), under the CO's agreements; for a shared channel, by the home Space's CO (§8.6); for a DM group or a self-group (§2.6), by the initiator's identity host (§4.6). An identity host registers under the agreements of the party that runs it. An employer provisioning service (§2.5) registers under the employer CO's agreements and billing DID. An identity host that an individual chose holds its own `ServiceAgreement`s under its own billing DID and registers under those, acting as the CO for this purpose. The IOs holding the `relay` agreements a registration service uses are the relays it lists to members (§10.3.5); its `sfu` and `sequencer` agreements are named in Space state (§6.6, §14.4.1). Registrations travel only over HTTPS from the registration service to the IO. They are never gossiped and no client or member sends them.
 
 **Request.** The registration service sends `POST <endpoint>`, where `<endpoint>` is the agreement's `endpoint`, with `Content-Type: application/cbor` and a body that is one encoded typed payload envelope (§13.1) signed per §13.1.1 by the agreement's `billing` DID. The envelope is of one of two types.
 
@@ -787,8 +824,8 @@ A registration service registers each channel admission public key (§5.2.2) wit
   "keys": [
     {
       "channelToken": "base64url...",
-      "keyEpoch": 3,
-      "admissionPublicKey": "base64url..."
+      "admissionPublicKey": "base64url...",
+      "replaces": "base64url..."
     }
   ]
 }
@@ -804,7 +841,7 @@ A registration service registers each channel admission public key (§5.2.2) wit
 }
 ```
 
-`agreement` is the CID of the `ServiceAgreement` (§10.5.1). `ts` is the sending time, RFC 3339 in UTC. `channelToken` is the 32-byte token (§5.2.2) and `admissionPublicKey` the 32-byte Ed25519 public key (RFC 8032), each in base64url without padding (RFC 4648 §5). `keyEpoch` is the key's rotation counter (§5.2.2); an IO whose signed admission messages carry `keyEpoch` (for example an SFU, §6.6) checks it against the registered value. A request lists 1 to 1000 keys or tokens. The bodies carry nothing that identifies a Space, channel, DM group or member.
+`agreement` is the CID of the `ServiceAgreement` (§10.5.1). `ts` is the sending time, RFC 3339 in UTC. `channelToken` is the 32-byte token (§5.2.2) and `admissionPublicKey` the 32-byte Ed25519 public key (RFC 8032), each in base64url without padding (RFC 4648 §5). `replaces` is present when the key is a rotation (§5.2.2) and holds the `channelToken` of the key it rotates, in the same encoding; the registration service MUST set it in the first registration of each rotated key with each IO, and MUST omit it for a new channel's or DM group's first key. An IO ignores a `replaces` that names a token not registered under the agreement. Registrations carry no `keyEpoch`: an IO identifies a key by its `channelToken` alone, and `keyEpoch` stays member-side. A request lists 1 to 1000 keys or tokens. The bodies carry nothing that identifies a Space, channel, DM group or member.
 
 **Processing.** The IO MUST, before applying a request:
 
@@ -812,7 +849,7 @@ A registration service registers each channel admission public key (§5.2.2) wit
 2. check that it holds the agreement, signed by itself and by `billing`, that the current time is within `validFrom` and `validUntil`, that the agreement is not superseded (§10.5.1), and that its `serviceType` receives registrations;
 3. check that `ts` is within 300 seconds of its clock and, for every listed token, later than the `ts` of the last request it accepted that listed the same token under the same agreement, so that a replayed request cannot restore a deregistered key.
 
-The IO applies a valid request entirely or not at all. Registering a token already registered under the same agreement with the same key, and deregistering a token not registered, succeed without change. A token is registered with at most one key; the IO MUST reject a registration that lists a token already registered with a different key.
+The IO applies a valid request entirely or not at all. An IO with a `sequencer` agreement that applies a registration whose key has `replaces` MUST, from that moment, stop stamping Commits on the commit stream of the replaced token (§14.4.3), answering a Commit submitted there with HTTP 409 and `stream-closed` (§11.4); it continues to stamp operations on the replaced token's operation stream until that token is deregistered. Other IOs ignore `replaces`. The field adds no linkage beyond what an IO already observes: an IO may link the key epochs of one channel (§12.3). Registering a token already registered under the same agreement with the same key, and deregistering a token not registered, succeed without change. A token is registered with at most one key; the IO MUST reject a registration that lists a token already registered with a different key.
 
 **Response.** On success the IO returns HTTP 204. On failure it returns the status below with a JSON body `{ "error": "<code>" }` and changes nothing:
 
@@ -828,7 +865,7 @@ The IO applies a valid request entirely or not at all. Registering a token alrea
 **When the CO registers.** The registration service registers:
 
 - a new channel's or DM group's first admission key before serving it to members;
-- each rotated key (a new `keyEpoch`, §5.2.2) with every IO, before serving it to members;
+- each rotated key (§5.2.2) with every IO, with `replaces` set, before serving it to members;
 - every current key with an IO that it engages, and under every renewed or superseding agreement (§10.5.1), before listing that IO to members (§10.3.5);
 - every current key with an IO that reports lost registrations (§10.4.7), without delay.
 
@@ -836,7 +873,7 @@ It MUST also re-send every current key to each IO at least once every 24 hours. 
 
 It SHOULD batch registrations for new channels and DM groups and add random delay, so that registration timing does not reveal when a particular Space, channel or DM group was created. It sends registrations for a rotation that follows a removal without added delay, since a delay would lengthen the removed member's window.
 
-**When the CO deregisters.** After a rotation, the registration service deregisters the previous key once members have had time to move to the new token, after a grace period RECOMMENDED to be 300 seconds. Until then a removed member that held the previous key can still post envelopes the IO admits, though it cannot read the channel (MLS). The registration service also deregisters every key of a channel or DM group that is deleted, and every key at an IO it stops using. If the registration service is unreachable, IOs keep admitting the keys last registered, and members keep using the last key they hold.
+**When the CO deregisters.** After a rotation, the registration service deregisters the previous key once members have had time to move to the new token, after a grace period RECOMMENDED to be 300 seconds. The grace period applies only to application messages and operations: a sequencer stamps no Commit on the previous key's commit stream once the new key is registered (above), so a member still holding the previous key fetches the new key before it commits. Until the previous key is deregistered, a removed member that held the previous key can still post envelopes the IO admits, though it cannot read the channel (MLS). The registration service also deregisters every key of a channel or DM group that is deleted, and every key at an IO it stops using. If the registration service is unreachable, IOs keep admitting the keys last registered, and members keep using the last key they hold.
 
 ### 10.5.4 Relay Admission
 
@@ -845,7 +882,8 @@ A Relay admits an envelope, whether it arrives in a live protocol `Publish` (§1
 1. the `channelToken` inside the envelope's `signed` bytes is registered with the Relay under a current `ServiceAgreement` (§10.5.3);
 2. `admissionSig` is a valid Ed25519 signature (RFC 8032) over the exact bytes of the envelope's `signed` field under the admission public key registered for that token; the Relay verifies these bytes as received and never re-encodes them;
 3. if the Relay's `minPowDifficulty` is greater than 0, `powProof` meets it (§10.5.2);
-4. the envelope is within the size and rate limits of §11.6.
+4. the envelope is within the size and rate limits of §11.6;
+5. the envelope is not expired as §11.4 defines for `Publish`.
 
 The Relay drops an envelope that fails any check; on the live protocol it answers with the `Error` code §11.4 assigns. It reads nothing else from the envelope beyond what routing and retention need (`channelToken` and `expiryHint`). The same registrations admit `PinInstruction`s (§11.4) and blob uploads (§10.4.4), each signed with the token's admission key. Subscribing needs no proof, but a Relay delivers nothing on, and sends no push wake-ups for, a token with no registered key (§11.4, §11.7).
 

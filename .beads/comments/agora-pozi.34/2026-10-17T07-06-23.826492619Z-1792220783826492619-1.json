@@ -1,0 +1,7 @@
+{
+  "id": "1792220783826492619-1",
+  "issue_id": "agora-pozi.34",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-17), option A: IPFS-compatible, not IPFS-dependent. Adopt IPFS formats/protocols where useful: UnixFS chunking and CAR archives for large files (.34.2); Bitswap only between known peers (agreement relays, own devices via self-group, CO archive), never announced on the public DHT (.34.1); public content (public Spaces, public broadcast, CORUNDUM posts) may be published to the public IPFS network (.34.3); relays and clients MAY run IPFS, nothing requires it; private ciphertext never on the public DHT; always verify by CID.",
+  "created_at": "2026-10-17T07:06:23.826492619Z"
+}

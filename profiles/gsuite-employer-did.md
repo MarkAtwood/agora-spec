@@ -1,5 +1,7 @@
 # Specification: Employer-Managed DIDs via Google Workspace
 
+> Non-normative. Capitalized BCP 14 key words (RFC 2119, RFC 8174) in this profile state what a deployment that follows it requires of its own components; they bind only implementations that claim conformance to this profile and are not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source. Where this profile conflicts with the spec or ARCHITECTURE.md, those govern.
+
 **Version:** 0.1 Draft
 **Depends On:** the Agora protocol specification (`spec/`, current draft) and `profiles/o365-employer-did.md`
 **Status:** Pre-implementation design
@@ -296,7 +298,7 @@ Content-Type: application/json
 }
 ```
 
-The admin token is a Google OAuth token with the `AgoraDIDAdmin` scope (§7), obtained via the standard Google OAuth device flow or browser-based consent for IT staff.
+The admin token is an ordinary Google OAuth token for the staff member, requesting only Google-defined scopes (`openid profile email`) and obtained via the standard Google OAuth device flow or browser-based consent. Google defines no custom scope for this. The sidecar authorizes an admin call by mapping the token `sub` (the Google user `id`) to its admin list, which it keeps in its private DB or derives from membership of a designated Google group. That mapping is the `AgoraDIDAdmin` role.
 
 ### 4.6 Custom Schema Attributes
 
@@ -407,7 +409,7 @@ Content-Type: application/json
 }
 ```
 
-Only the credential subject MAY fetch their own VC (the token `sub`, the Google user `id`, MUST map in the sidecar's private DB to the credential subject's DID). Admins with the `AgoraDIDAdmin` role MAY fetch any user's VC for audit purposes.
+Only the credential subject MAY fetch their own VC (the token `sub`, the Google user `id`, MUST map in the sidecar's private DB to the credential subject's DID). Admins holding the sidecar-side `AgoraDIDAdmin` role (§4.5, the `sub` mapping to the sidecar's admin list) MAY fetch any user's VC for audit purposes.
 
 ---
 

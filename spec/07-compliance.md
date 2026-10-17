@@ -132,6 +132,8 @@ All byte-valued fields are base64url without padding (RFC 4648 §5). The same en
 
 The logger MUST verify the MLS sender signature of a message (RFC 9420 §6.1) before writing its record. A `ComplianceRecord` is verified outside the MLS group, so it is signed per §13.1.1 by the logger DID: the JWS is carried in the record's envelope `sig`, not in the body. A gap in a sender's `seq` values within a channel shows a message the logger did not receive (§5.1.1).
 
+**Attachments.** When the logger archives a Message that carries attachments (§5.2.3), it MUST fetch each attachment's blob (§10.4.4), decrypt it with the attachment's `contentKey`, check the plaintext against the attachment's `sha256`, and store the plaintext in its archive under its archive key (§7.9) for the record's retention. The `sha256` in the archived Message, not the blob's CID, shows the file's integrity, because the CID names the ciphertext. If a blob cannot be fetched or fails the check, the logger records a capture gap: a `ComplianceGapEntry` (§7.8.9) that carries `recordCID`, the CID of the Message's `ComplianceRecord`, and `missingBlobId`, the attachment's `blobId`, in place of `removedAtEpoch` and `readmittedAtEpoch`.
+
 **Third-party verification.** A verifier who holds a `ComplianceRecord` and does not trust the logger checks that the message was signed by a device key of `senderDID` as follows, and MUST treat the record as unverified if any step fails:
 
 1. Verify the record's signature per §13.1.1 with the logger DID as the required signer, and the record's place in the chain (`prevRecordCID`).
@@ -139,7 +141,7 @@ The logger MUST verify the MLS sender signature of a message (RFC 9420 §6.1) be
 3. Decrypt its `encrypted_sender_data` with `senderDataKey` and `senderDataNonce` (RFC 9420 §6.3.2), and check that the resulting `leaf_index` equals `senderLeaf.leafIndex`.
 4. Decrypt its `ciphertext` with `contentKey` and `contentNonce` (RFC 9420 §6.3.1), and check that the `application_data` of the resulting `PrivateMessageContent` equals the bytes of `plaintextPayload`.
 5. Build the `FramedContent` from the `PrivateMessage` header and the decrypted content, with a sender of type `member` at `senderLeaf.leafIndex`, and the `FramedContentTBS` with wire format `mls_private_message` and `groupContext`. Verify the content's `signature` with the `signature_key` of `senderLeaf.leafNode` (RFC 9420 §6.1).
-6. Verify the `LeafNode` signature (RFC 9420 §7.2), check that its credential names `senderDID` (§5.2.1), and check that its `signature_key` was a device key of `senderDID` in the DID document version in effect at `ts`, using the DID log (§2.1).
+6. Verify the `LeafNode` signature (RFC 9420 §7.2), check that its credential names `senderDID` (§5.2.1), and check that its `signature_key` was a device key of `senderDID` in the DID document version in effect at `ts`, using the DID log (§2.1). For a `did:key` sender, which has no DID log and whose leaf `signature_key` is not the identity key, instead verify the `agora_device_binding` extension of `senderLeaf.leafNode` under the key the DID encodes (§5.2.1). A `did:key` binding cannot be revoked and every device holds a copy of the identity key, so for such a sender the check shows only that some holder of the identity key vouched for the leaf key.
 
 A record that passes shows that the holder of that device key signed `plaintextPayload` for that group and epoch. It does not show that the leaf was in the group's ratchet tree at that epoch, since the record does not carry the tree, nor that any recipient other than the logger received the message.
 
@@ -212,10 +214,11 @@ Logger addition in a DM group follows the standard MLS Add + Commit path:
 1. The regulated member's client fetches a fresh `KeyPackage` for the Space's `loggerDID` from the logger's `KeyPackageEndpoint` (below).
 2. The client issues an MLS Add Proposal for the logger DID.
 3. The client immediately commits the proposal. No consent threshold applies (§7.7).
-4. The client, as committer, delivers the MLS `Welcome` by POST to the logger's `KeyPackageEndpoint`, completing the logger's admission to the MLS group. The logger does not issue a `Welcome`; it only supplies the `KeyPackage`.
-5. The client updates the `DMGroupDescriptor` to add the logger DID to the `complianceLoggers` array and sends the updated descriptor to the group (§4.6).
+4. Unless the logger DID is already on the group's member list, the client, as committer, sends the group's admission host a `DMMembers` addition that adds the logger DID to `members` and `complianceLoggers`, and waits for a `204` (§4.6).
+5. The client delivers the MLS `Welcome` by POST to the logger's `KeyPackageEndpoint`, completing the logger's admission to the MLS group. The logger does not issue a `Welcome`; it only supplies the `KeyPackage`.
+6. The client updates the `DMGroupDescriptor` to add the logger DID to the `complianceLoggers` array and sends the updated descriptor to the group (§4.6).
 
-If the regulated member is joining an existing DM group (rather than creating one), steps 2–5 are performed at join time, before the member sends any application messages. Messages sent by other members before the regulated member joined are not retroactively accessible to the logger; the logger's archive begins at the MLS epoch of its admission.
+If the regulated member is joining an existing DM group (rather than creating one), steps 2–6 are performed at join time, before the member sends any application messages. Messages sent by other members before the regulated member joined are not retroactively accessible to the logger; the logger's archive begins at the MLS epoch of its admission.
 
 **KeyPackage availability:** The logger's DID document MUST publish a `KeyPackageEndpoint` service entry (§2.1) so that client user agents can fetch fresh KeyPackages programmatically:
 
@@ -238,7 +241,7 @@ A conformant client for a regulated Space member MUST:
 - Refuse to commit an MLS Remove proposal targeting the Space's `loggerDID`.
 - On receiving a committed Remove for the Space's `loggerDID` (issued by another DM group member), immediately re-add the logger via the §7.8.2 procedure and notify the regulated member's Space admin of the removal attempt. The re-add creates a new MLS epoch; messages in the epoch between removal and re-add are not captured by the logger. The Space admin MUST be notified so they can assess the compliance gap.
 
-This prohibition is enforced by the regulated member's client. It cannot be enforced protocol-wide: a non-regulated member's client can issue a Remove. The regulated member's client is responsible for detecting and remedying the gap.
+This prohibition is enforced by the regulated member's client. It cannot be enforced protocol-wide: a non-regulated member's client can issue a Remove. The DM admission host never takes a logger off the group's member list (§4.6), so a removed logger keeps relay access to the group and needs only the MLS re-add. The regulated member's client is responsible for detecting and remedying the gap.
 
 The gap between removal and re-add represents a period of non-capture; its duration depends on how quickly the regulated member's client detects the removal event. The logger records the gap (§7.8.9).
 
@@ -282,7 +285,7 @@ If a regulated member is offline when added to a DM group by another member, the
 
 Clients MUST queue the logger addition and disclosure as the first operations to perform on a pending DM group join, ahead of any queued outbound messages. If the client has queued outbound messages (e.g., drafted while offline), those messages MUST NOT be sent until the logger admission commit has been completed and acknowledged.
 
-**Message requests.** A DM group that a regulated member's client holds in the message request state (§4.6.3) is still subject to this section. When the client processes the Welcome, it MUST perform the logger admission of §7.8.2 and send the disclosure notice of §7.8.4 at once, without waiting for the user to accept the request. To do so it authenticates to the group's admission host, replaces the group's member list there so that it includes the logger (§4.6), obtains the admission key and fetches the group's handshake messages; for a regulated member these steps are part of capture and are not deferred until acceptance. The request state suppresses only what §4.6.3 lists for the user's own presentation and signals: notifications beyond the request list, read receipts, typing indicators and the user's own application messages. The adder can therefore see that the regulated member's client has processed the Welcome. Declining or blocking the request does not remove the logger (§7.8.3).
+**Message requests.** A DM group that a regulated member's client holds in the message request state (§4.6.3) is still subject to this section. When the client processes the Welcome, it MUST perform the logger admission of §7.8.2 and send the disclosure notice of §7.8.4 at once, without waiting for the user to accept the request. To do so it authenticates to the group's admission host, sends the `DMMembers` addition that adds the logger there (§4.6, §7.8.2 step 4), obtains the admission key and fetches the group's handshake messages; for a regulated member these steps are part of capture and are not deferred until acceptance. The request state suppresses only what §4.6.3 lists for the user's own presentation and signals: notifications beyond the request list, read receipts, typing indicators and the user's own application messages. The adder can therefore see that the regulated member's client has processed the Welcome. Declining or blocking the request does not remove the logger (§7.8.3).
 
 ### 7.8.8 Audit Trail
 
@@ -344,6 +347,7 @@ The following table summarizes the conformance requirements for DM group complia
 | Publish `KeyPackageEndpoint` in logger DID document | Compliance logger operator | MUST |
 | Provide fresh (non-reused) KeyPackage per request | Compliance logger operator | MUST |
 | Refuse to send in a DM group lacking the logger | Regulated member's client | MUST |
+| Send the `DMMembers` addition and receive `204` before delivering the Welcome of any Add | Committing client | MUST |
 | Send `Welcome` to the logger's `KeyPackageEndpoint` when committing its Add | Committing client | MUST |
 | Accept `Welcome` by POST at the `KeyPackageEndpoint` | Compliance logger operator | MUST |
 | Record detectable capture gaps in the compliance audit chain | Compliance logger | MUST |

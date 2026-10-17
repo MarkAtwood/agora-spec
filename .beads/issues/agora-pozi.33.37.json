@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.37",
+  "title": "[CRY2-2] A stamped but unpublished, or invalid, Commit wins the epoch, and nobody can make progress",
+  "description": "Review finding CRY2-2: A stamped but unpublished, or invalid, Commit wins the epoch, and nobody can make progress (lens CRY2). Location: spec/05-messaging.md:27, 30; spec/14-jmap.md:218-220. Fix: Half of the finding is wrong. The unpublished case is already partly covered: the 14-jmap.md:220 sentence \"If a submitter fails to publish step 4, any member holding the pair MAY publish it\" follows step 4, and step 4 covers commit streams too (\"For a commit stream, the client carries the stamp in the Commit's routing envelope instead\"). Any member holds the admission key, so it can build that routing envelope. The invalid-Commit case is real and not handled. 05:27 makes a committer lose to any earlier `op` that \"opens ... to a Commit\", and nothing says what happens when the winning Commit fails RFC 9420 §12.4.2 processing. Any member can therefore block every membership change indefinitely. The fix changes 05:27 in three ways. (1) An earlier op counts only if it opens to a Commit that is valid for epoch N under RFC 9420 §12.4.2. Members likewise apply the lowest *valid* stamped Commit. (2) A committer that finds a valid earlier Commit not received within 5 s MUST publish it itself, as the routing envelope that 14-jmap.md:220 allows. Change that MAY to MUST for commit streams. (3) The sender of an invalid Commit counts as misbehaving under the existing policy-violation handling. A  Full text: notes/review2/CRY2-verified.md and notes/review2/CRY2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:50.35533093Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:50.35533093Z",
+  "labels": [
+    "review",
+    "cry2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.37",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:50.373543223Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

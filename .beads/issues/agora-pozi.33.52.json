@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.52",
+  "title": "[CON2-8] Broadcast channels have no MLS group, but the example and the creation steps give them one",
+  "description": "Review finding CON2-8: Broadcast channels have no MLS group, but the example and the creation steps give them one (lens CON2). Location: spec/03-spaces.md:97, :351, :242. Fix: The broadcast entry of the §3.3 example (lines 90-98, `\"mode\": \"broadcast\"`) carries `\"mlsGroupID\"` at line 97, contradicting §3.2 (\"None (§5.2.1.4)\") and §5.2.1.4. §3.6 step 1 gives \"for each initial channel, a `channelID` and an MLS group\". Remove line 97's `mlsGroupID`; step 1: \"a `channelID` and, for a channel that has one (§3.2), an MLS group\"; field index line 242: add \"absent on `broadcast`\". (§3.6 Create at :359 already says \"for a channel that has one\".) Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:51.374974919Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:51.374974919Z",
+  "labels": [
+    "review",
+    "con2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.52",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:51.390058409Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

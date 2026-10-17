@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.67",
+  "title": "[IMP2-4] The Space endpoint cannot tell when a kick has ended",
+  "description": "Review finding IMP2-4: The Space endpoint cannot tell when a kick has ended (lens IMP2). Location: spec/03-spaces.md:311; spec/04-access-control.md:98. Fix: 03:311 withholds keys while a Kick is \"standing\", and 04:98 ends the kick only through an MLS re-Add, which the endpoint never sees. No grep hit defines an end record. Add an admin-signed record that ends a `KickRecord` for listed channels, distributed like other moderation records (04:96). The re-adding admin publishes it before the Add, and the endpoint checks it. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:52.386450106Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:52.386450106Z",
+  "labels": [
+    "review",
+    "imp2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.67",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:52.407279627Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

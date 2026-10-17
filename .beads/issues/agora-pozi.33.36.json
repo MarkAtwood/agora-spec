@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.36",
+  "title": "[CRY2-1] Commit streams are keyed to `channelToken`, so the sequencer rule forks the group across a",
+  "description": "Review finding CRY2-1: Commit streams are keyed to `channelToken`, so the sequencer rule forks the group across an admission-key rotation (lens CRY2). Location: spec/05-messaging.md:27, 256; spec/14-jmap.md:157-162, 207, 238; spec/10-relays.md:839. Fix: The cited text holds as described. The sequencer admits any registered, not yet deregistered `keyEpoch` (14-jmap.md:207: \"`channelToken` and `keyEpoch` MUST match a key registered under its agreement and not deregistered\"). Registrations carry nothing that links tokens (10-relays.md:807), so the sequencer cannot restrict Commits to the newest stream. The committer reads only \"that stream's log\" (05-messaging.md:27). One partial mitigation already exists: 14-jmap.md:162 says \"The total order of a channel's sequenced operations is by stream, in the order of the channel's tokens, then by position\". That gives members a defined cross-stream comparison if \"lower `n`\" in 05:27 is read as that order. It does not save the committer-side check, and the 5-second switch window does not cover a k-stream Commit stamped up to 300 s after a (k+1)-stream Commit was applied. The \"Closing a stream\" rule (14-jmap.md:238) depends on the `after` field of `JmapSet`, which Commits do not carry, so it does not extend to Commits by itself. Under (a), 05:27 and 14-jmap §14.4.2 change to name the commit stream by a CO-issued `commitStreamID` in `ChannelAdmissionKey`, kept across rotations. Linking key epochs Full text: notes/review2/CRY2-verified.md and notes/review2/CRY2.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:50.290652634Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:50.290652634Z",
+  "labels": [
+    "review",
+    "cry2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.36",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:50.305010096Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

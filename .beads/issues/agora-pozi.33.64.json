@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.64",
+  "title": "[IMP2-1] A stamped but unpublished Commit blocks every later Commit in the channel",
+  "description": "Review finding IMP2-1: A stamped but unpublished Commit blocks every later Commit in the channel (lens IMP2). Location: spec/05-messaging.md:27, :30; spec/14-jmap.md:218, :222. Fix: The losing test at 05:27 is \"an earlier position holds an `op` that opens under the same epoch's sealing key ... to a Commit\". It needs only the sealing layer and the clear `content_type` (05:280), not a valid Commit, and it does not need the winner to be published. The sealing key is a per-epoch MLS exporter output (09:79), so any epoch-N member can trigger this, including a member about to be Removed. The republish clause at 14:222 (\"any member holding the pair MAY publish it\") covers only operation streams, because 14:218 sends commit stamps in the routing envelope instead. Fix: (1) the earliest stamped Commit that fully validates (unseal, MLS-decrypt, RFC 9420 validation) wins, and receivers skip invalid ones; (2) extend 14:222 to commit streams: any member that sees a valid stamped Commit in the log but not on the channel within T publishes it in a routing envelope it signs with the admission key, carrying the existing `commitStamp`. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:52.184066352Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:52.184066352Z",
+  "labels": [
+    "review",
+    "imp2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.64",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:52.200467889Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

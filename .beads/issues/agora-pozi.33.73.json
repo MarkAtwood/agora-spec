@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.73",
+  "title": "[IMP2-10] Shared-channel guests cannot get the home state they need, and the home endpoint cannot au",
+  "description": "Review finding IMP2-10: Shared-channel guests cannot get the home state they need, and the home endpoint cannot authenticate to the guest endpoint (lens IMP2). Location: spec/08-cross-space.md:85-92, :98; spec/03-spaces.md:343; spec/04-access-control.md:88. Fix: Both gaps are real. 03:343 limits guests to \"that channel's records only\", and 03:343 has no clause for `homeAdminDID` at the guest endpoint, although 08:98 requires the guest endpoint to serve it. Drop the claim that this puts a person's device key on a server: §4.1 recommends a service DID for organizational CO keys, so the claim is speculative. The fix follows from existing rules. The non-member view of §4.4 already exists and carries channels and admins without `members`, and option (b), guest-side re-signing, would violate S4 (only the home CO signs home authority). Fix: the home endpoint serves eligible guests the §4.4 non-member view, and guest clients validate the Welcome adder and `ChannelAdmissionKey` against it; add to 03:343 that a Space endpoint accepts §3.5 auth from the counterparty admin DID of an in-force `ChannelShareAgreement` naming it, for state reads only. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:52.779409919Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:52.779409919Z",
+  "labels": [
+    "review",
+    "imp2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.73",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:52.796660654Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

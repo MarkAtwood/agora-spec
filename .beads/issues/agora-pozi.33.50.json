@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.50",
+  "title": "[CON2-6] Who receives admission key registrations: \"every IO\", \"relays\", or the agreement types mar",
+  "description": "Review finding CON2-6: Who receives admission key registrations: \"every IO\", \"relays\", or the agreement types marked Yes? (lens CON2). Location: ARCHITECTURE.md:199-203, :221-225; spec/05-messaging.md:254; spec/10-relays.md:777; spec/03-spaces.md:354. Fix: §10.5.1 table marks `turn` and `push-proxy` \"No\"; ARCHITECTURE §6.1 (\"every IO, of any service type\"), §6.2 (\"every IO that holds a `ServiceAgreement`\") and 05 §5.2.2 (\"every relay and other IO\") contradict it; §10.5.3 (\"The IOs holding the agreements a registration service uses are the relays it lists to members\") and 03 §3.6 step 4 (\"with its relays\") omit SFUs and sequencers, which §6.6 and §14.4.1 say receive registrations. Use the §10.5.3 opening wording everywhere (\"every IO holding a `ServiceAgreement` whose `serviceType` receives registrations (§10.5.1)\"); restrict the \"relays it lists\" sentence to `relay` agreements. Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:51.247638842Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:51.247638842Z",
+  "labels": [
+    "review",
+    "con2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.50",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:51.265013835Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

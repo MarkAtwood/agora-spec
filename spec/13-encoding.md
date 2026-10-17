@@ -58,6 +58,8 @@ This is the single normative object-signing procedure of this specification. Whe
 
 **Required signers.** The section defining each object states its required signer or signers. An object with one required signer has one entry; a multi-signer object (for example `ServiceAgreement` or `ChannelShareAgreement`) has one entry per required signer. Signing order is irrelevant: each signer computes its entry independently over the same `body`, and entries MAY appear in any order.
 
+**Threshold signers.** A section MAY instead define a threshold requirement: a candidate set of DIDs and a number k (for example, at least `threshold` of `guardian.dids`, §4.1). Such an object has one entry per signing DID. A verifier MUST require valid entries from at least k distinct DIDs in the candidate set, MUST reject an object with two entries whose `kid`s name the same DID, and MUST reject an entry whose DID is not in the candidate set. In the checks below, every DID in the candidate set counts as a required signer, but entries are required from only k of them.
+
 **Protected header.** Each entry's JWS Protected Header MUST be a JSON object containing exactly these members:
 
 | Member | Value |
@@ -75,7 +77,7 @@ This is the single normative object-signing procedure of this specification. Whe
 
 **Byte-for-byte rule.** A signed `body` MUST be stored, forwarded, archived and re-published as the exact bytes that were signed. Parties MUST NOT substitute a parsed and re-serialized body for the original bytes, including to change whitespace, key order, number formatting or character escaping. An implementation that needs a modified object creates a new object and, if required, a new signature.
 
-**Verification.** A verifier MUST reject the object unless `sig` parses as the JSON object described under Format, it contains an entry for every required signer that the section defining the object names, and every such entry satisfies all of the following:
+**Verification.** A verifier MUST reject the object unless `sig` parses as the JSON object described under Format, it contains an entry for every required signer that the section defining the object names (for a threshold requirement, entries from at least k distinct candidate DIDs), and every such entry satisfies all of the following:
 
 1. The entry has exactly the members `protected` and `signature`, each a base64url string.
 2. The protected header decodes to a JSON object with exactly the members above; `alg` is `"EdDSA"`, `b64` is `false`, `crit` is `["b64"]`, `cty` equals the envelope's `contentType` and `agoraType` equals the envelope's `type`.
@@ -83,13 +85,13 @@ This is the single normative object-signing procedure of this specification. Whe
 4. The DID in `kid` is the signer that the section defining the object requires (for example the Space's CO DID, or the message's `senderDID`).
 5. The Ed25519 signature verifies over the JWS Signing Input built from the entry's received `protected` value and the `body` bytes exactly as received.
 
-A verifier MUST reject the object if any entry fails these checks, including an entry from a signer that is not required.
+A verifier MUST reject the object if any entry fails these checks, including an entry from a signer that is not required, and if two entries name the same DID in `kid`.
 
 Verification MUST NOT fetch any resource named inside `body`.
 
 **Admission signatures.** `admissionSig` is not an object-level signature. The channel admission key is a key the CO shares with current members, not a DID verification method, so no `kid` can name it (ARCHITECTURE §6.2). An `admissionSig` is a raw 64-byte Ed25519 signature (RFC 8032) under the channel admission private key over the exact bytes of a CBOR byte string named `signed`: the routing envelope's `signed` field (§5.2.2), or the `signed` member of a `PinInstruction` or blob upload authorization (§11.4, §11.8.2). The verifier checks it over those bytes as received, under the admission public key registered for the `channelToken` they contain, and never re-encodes them. The `AdmissionKeyRegistration` that tells an IO which public key to use is an object signed per this section by the CO's billing DID (§10.5.1).
 
-**Test vectors.** A JWS signing test-vector set MUST be published containing at minimum: (a) at least five representative signed object types, including at least one multi-signer object, each with its envelope fields, `body` bytes in hex, the Ed25519 test private key, and the expected `sig`; and (b) negative cases that a verifier MUST reject, including `b64` set to `true` or absent, an `alg` other than `EdDSA`, `cty` or `agoraType` not matching the envelope, a body that was re-serialized after signing, and a multi-signer object missing one required signer's entry. Because Ed25519 signatures are deterministic, expected `sig` values are byte-exact. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
+**Test vectors.** A JWS signing test-vector set MUST be published containing at minimum: (a) at least five representative signed object types, including at least one multi-signer object, each with its envelope fields, `body` bytes in hex, the Ed25519 test private key, and the expected `sig`; and (b) negative cases that a verifier MUST reject, including `b64` set to `true` or absent, an `alg` other than `EdDSA`, `cty` or `agoraType` not matching the envelope, a body that was re-serialized after signing, a multi-signer object missing one required signer's entry, and a threshold object whose k entries include two from the same DID. Because Ed25519 signatures are deterministic, expected `sig` values are byte-exact. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
 
 > **Open (agora-pozi.31.69):** The JWS test-vector set does not exist yet; no `test-vectors/` directory is present in the repository.
 
@@ -141,7 +143,7 @@ The protocol is designed to be extended without breaking existing clients:
 
 Every MLS exporter label, KDF and HPKE `info` string, AEAD associated-data prefix, signature context string and hash-input prefix that this specification defines is listed below. A new label MUST NOT equal a label in this table, and a section that defines a new label MUST add it here. The labels are opaque byte strings (UTF-8, no terminator); their spelling style carries no meaning. Every Agora MLS exporter call other than the SFrame ones (RFC 9605 §5.2) uses the group's MLS `group_id` as its context, for channels and DM groups alike. Every channel and DM group, broadcast channels included, derives its `channelToken` from its admission key with `agora channel token`; no other token label exists.
 
-The test-vector set of §13.1.1 MUST also cover each derivation in this table, the `admissionSig` input, CID computation, and each AEAD layout (sealed envelope §5.2.2, broadcast payload §5.2.1.4, group-encrypted blob §3.4, content-key blob §14.3.4), giving key, nonce, associated data, plaintext and expected ciphertext in hex.
+The test-vector set of §13.1.1 MUST also cover each derivation in this table, the `admissionSig` input, CID computation, and each AEAD layout (sealed envelope §5.2.2, broadcast payload §5.2.1.4, group-encrypted blob §3.4, chunked content-key blob §14.3.4, including a multi-chunk file with its root block), giving key, nonce, associated data, plaintext and expected ciphertext in hex.
 
 | Label | Kind | Context or input | Defined in |
 |---|---|---|---|
@@ -159,7 +161,7 @@ The test-vector set of §13.1.1 MUST also cover each derivation in this table, t
 | `agora/broadcast/v1` | AEAD associated-data prefix | broadcast payload | §5.2.1.4 |
 | `agora/asset/v1` | AEAD associated data | Space icon and custom emoji under `assetKey` | §3.4 |
 | `agora/history/v1` | AEAD associated data | history transfer archive blob | §2.6 |
-| `agora/content-blob/v1` | AEAD associated data | content-key blob of an `Attachment`, `FileNode` or `SceneAsset` under its `contentKey` | §14.3.4 |
+| `agora/chunk/v1` | AEAD associated-data prefix, followed by chunk index (uint64), chunk count (uint64) and final flag (uint8), big-endian | chunk of a chunked content-key blob of an `Attachment`, `FileNode` or `SceneAsset` under its `contentKey` | §14.3.4 |
 | `agora/envelope/v1` | Signature context (`ctx` of the routing envelope's `signed` map) | `admissionSig` over routing envelopes | §5.2.2 |
 | `agora/v1/device-binding` | Ed25519 signed-message prefix, followed by the leaf `signature_key` | `did:key` device binding in the `agora_device_binding` leaf extension | §5.2.1, §2.1 |
 | `agora sfu admission` | Signature context (`ctx` of `sfu-admission`) | `admissionSig` in an SFU `join` | §6.6 |

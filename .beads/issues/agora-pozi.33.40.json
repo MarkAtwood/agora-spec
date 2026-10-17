@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.40",
+  "title": "[CRY2-5] The DM admission host accepts any listed member's unordered `DMMembers` replacement, so on",
+  "description": "Review finding CRY2-5: The DM admission host accepts any listed member's unordered `DMMembers` replacement, so one member can lock the others out (lens CRY2). Location: spec/04-access-control.md:150-158, 259; spec/07-compliance.md:285. Fix: Confirmed. The only check is \"signed per §13.1.1 by a device key of a DID on the current list\". There is no freshness or ordering check, and nothing limits whom a signer may drop. A further impact the reviewer missed: a listed member can also drop the compliance logger DID, which cuts the logger off from the admission key. That conflicts with 04-access-control.md:257 (\"A self-Remove never removes a compliance logger\") and with §7.8.3. Two parts follow from existing rules without a decision: a `ts` freshness and monotonicity check, as for registrations (10-relays.md:813: \"within 300 seconds ... and later than the `ts` of the last request it accepted\"), and \"a replacement MUST NOT drop a logger DID\". Who may drop other members is a genuine design choice. Note that 04:259 currently has the *committer* drop the leaver, so allowing only self-drops would need that flow changed too. Full text: notes/review2/CRY2-verified.md and notes/review2/CRY2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:50.559569288Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:50.559569288Z",
+  "labels": [
+    "review",
+    "cry2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.40",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:50.579220751Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.53",
+  "title": "[CON2-9] The DM group ID is called `groupID` in some places and `mlsGroupID` in others",
+  "description": "Review finding CON2-9: The DM group ID is called `groupID` in some places and `mlsGroupID` in others (lens CON2). Location: spec/04-access-control.md:150, :158. Fix: §4.6's DM `ChannelAdmissionKey` \"carries `groupID`\" and `DMMembers` body is `{\"groupID\": ...}`, while `DMGroupDescriptor` (04:166) and the compliance records use `mlsGroupID`. Rename the two JSON fields to `mlsGroupID`; keep the `\u003cgroupID\u003e` URL path segment. Consistent with agora-channelid (\"DMs named by group ID\"). Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:51.435035808Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:51.435035808Z",
+  "labels": [
+    "review",
+    "con2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.53",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:51.44980732Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

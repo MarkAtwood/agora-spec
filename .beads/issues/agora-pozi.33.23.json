@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.23",
+  "title": "[DOC2-18] gsuite profile still relies on a custom `AgoraDIDAdmin` OAuth scope",
+  "description": "Review finding DOC2-18: gsuite profile still relies on a custom `AgoraDIDAdmin` OAuth scope (lens DOC2). Location: profiles/gsuite-employer-did.md:299, :410; contradicted by :446. Fix: :299 \"Google OAuth token with the `AgoraDIDAdmin` scope (§7)\" contradicts :446 \"No custom OAuth scope\", and §7 defines no admin mechanism. Authorize admin calls by mapping the token `sub` to a sidecar admin list or Google group, and define the `AgoraDIDAdmin` \"role\" at :410 as that sidecar-side mapping. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:49.4139595Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:49.4139595Z",
+  "labels": [
+    "review",
+    "doc2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.23",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:49.431864706Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

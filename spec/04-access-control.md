@@ -15,11 +15,11 @@ A Space run by an organization, whether a CO serving a community or an enterpris
 
 **Guardian transfer.** If the Space state carries `guardian` (§3.3), a threshold of guardians can transfer ownership when the owner key is lost or compromised:
 
-1. **Proposal.** At least `threshold` of `guardian.dids` sign, per §13.1.1 as a multi-signer object, a Space state document that differs from the current head only in `seq`, `prevStateCID` and an added `pendingTransfer` member: `{"newOwner": <DID>, "ts": <RFC 3339 UTC>}`. Clients accept this document as the exception to the signer rule of §3.3. The Space endpoint MUST NOT accept a proposal whose `ts` is more than 300 seconds from its clock, and announces an accepted proposal to members (§3.4). Clients MUST reject a proposal whose `ts` is more than 300 seconds ahead of their clock.
-2. **Objection.** Until `ts + delaySeconds`, the owner MAY object by signing a Space state document that chains on the proposal (or on any later document), removes `pendingTransfer` and adds `objectedAt`, the RFC 3339 UTC time of the objection. An objection whose `objectedAt` is at or after `ts + delaySeconds` has no effect, and clients MUST reject one whose `objectedAt` is more than 300 seconds ahead of their clock.
+1. **Proposal.** The guardians sign, as a threshold multi-signer object under §13.1.1 with `guardian.dids` as the candidate set and `threshold` as the required number of distinct signer DIDs, a Space state document that differs from the current head only in `seq`, `prevStateCID` and an added `pendingTransfer` member: `{"newOwner": <DID>, "ts": <RFC 3339 UTC>}`. Clients accept this document as the exception to the signer rule of §3.3. The Space endpoint MUST NOT accept a proposal whose `ts` is more than 300 seconds from its clock, and announces an accepted proposal to members (§3.4). Clients MUST reject a proposal whose `ts` is more than 300 seconds ahead of their clock.
+2. **Objection.** Until `ts + delaySeconds`, the owner MAY object by signing a Space state document that chains on the proposal (or on any later document), removes `pendingTransfer` and adds `objectedAt`, the RFC 3339 UTC time of the objection. An objection whose `objectedAt` is at or after `ts + delaySeconds` is invalid, and clients MUST reject it. Clients MUST also reject an objection whose `objectedAt` is more than 300 seconds ahead of their clock.
 3. **Completion.** After `ts + delaySeconds`, if no objection is in the chain, `newOwner` signs a Space state document that chains on the proposal or a later document, sets `owner` to `newOwner` and removes `pendingTransfer`. Clients MUST NOT accept a completion before their own clock passes `ts + delaySeconds`.
 
-If an objection and a completion both chain on the same document, the objection wins if its `objectedAt` is before `ts + delaySeconds`; otherwise the completion wins. While a proposal is pending, the owner and admins continue to sign state as usual. A completion SHOULD also replace `guardian` if a guardian was involved in the loss. Guardians who collude at or above `threshold` and backdate `ts` can shorten the objection period, so `guardian` SHOULD name independent parties. An owner key held by an attacker can object to every proposal, backdating `objectedAt` if needed; if that happens, or if the Space has no `guardian`, the remaining remedy is to found a new Space and move members to it.
+If a valid objection and a completion both chain on the same document, the objection wins. This rule decides a fork between an objection and a completion before the general fork rule of §5.1.1 applies. While a proposal is pending, the owner and admins continue to sign state as usual, and every such document other than an objection MUST carry `pendingTransfer` unchanged; clients MUST reject one that drops or changes it. A completion SHOULD also replace `guardian` if a guardian was involved in the loss. Guardians who collude at or above `threshold` and backdate `ts` can shorten the objection period, so `guardian` SHOULD name independent parties. An owner key held by an attacker can object to every proposal, backdating `objectedAt` if needed; if that happens, or if the Space has no `guardian`, the remaining remedy is to found a new Space and move members to it.
 
 **Channel/Space Admin:** a role granted by the owner and recorded in `admins` in the Space state document (§3.3). Admins can sign Space state mutations within their granted scope, issue invites, execute moderation operations within channels they administer, and add or remove members from channel MLS groups within their scope.
 
@@ -89,13 +89,13 @@ Link-based invites (no `issuedTo` field) are supported for public spaces. These 
 
 ## 4.4 Private Channels
 
-A channel is private if its MLS group membership is a strict subset of the Space's member list. The channel's existence MAY be hidden from non-members: the channel path is omitted from the view of Space state that the CO's Space endpoint (§3.4) serves to non-members, and that access-controlled view is signed by the space owner or a delegated admin. Only the Space endpoint serves Space state to non-members; no Relay does. Non-members have no way to enumerate private channels they are not members of.
+A channel is private if its MLS group membership is a strict subset of the Space's member list. The channel's existence MAY be hidden from non-members: the channel path is omitted from the view of Space state that the CO's Space endpoint (§3.4) serves to non-members, and that access-controlled view is signed by the space owner or a delegated admin. Only the Space endpoint serves Space state to non-members; no Relay does. Non-members have no way to enumerate private channels they are not members of. In a public Space with a broadcast channel whose `keyAccess` is `public`, the view also carries the `broadcasters` list (§3.4). The home Space endpoint of a shared channel serves this view to eligible guest members (§3.5, §8.6), whose clients validate a Welcome's adder and the channel's `ChannelAdmissionKey` against it.
 
 ## 4.5 Moderation Operations
 
-All moderation records (`BanRecord`, `KickRecord`, `TimeoutRecord` and the moderation log) are verified outside any MLS group and are signed per §13.1.1 by a CO key (the Space owner or an admin) and distributed like Space state (§3.4): referenced from the Space state chain, served by the Space endpoint, and announced to members in-band. Clients validate each record against current Space state, checking that the signer holds the required role and scope, and MUST ignore records that fail validation. Relays do not enforce moderation records (ARCHITECTURE §6.2).
+All moderation records (`BanRecord`, `KickRecord`, `KickLift`, `TimeoutRecord` and the moderation log) are verified outside any MLS group and are signed per §13.1.1 by a CO key (the Space owner or an admin) and distributed like Space state (§3.4): referenced from the Space state chain, served by the Space endpoint, and announced to members in-band. Clients validate each record against current Space state, checking that the signer holds the required role and scope, and MUST ignore records that fail validation. Relays do not enforce moderation records (ARCHITECTURE §6.2).
 
-**Kick:** removes a member from one or more channel MLS groups without a space-level ban. The Admin records a `KickRecord` and issues MLS Remove commits for the target DID across the relevant channel groups. The member retains space membership and may be re-added to channels by an Admin, which ends the kick for those channels.
+**Kick:** removes a member from one or more channel MLS groups without a space-level ban. The Admin records a `KickRecord` and issues MLS Remove commits for the target DID across the relevant channel groups. The member retains space membership and may be re-added to channels by an Admin. Before re-adding the member, the Admin publishes a `KickLift`, which ends the kick for the channels it lists; the Space endpoint serves the member those channels' keys again only once it holds the `KickLift` (§3.4).
 
 ```json
 {
@@ -109,6 +109,19 @@ All moderation records (`BanRecord`, `KickRecord`, `TimeoutRecord` and the moder
 ```
 
 `channels` lists the `channelID`s (§3.3) the target is removed from.
+
+```json
+{
+  "@type": "KickLift",
+  "space": "agora://bafkrei...",
+  "kickRecord": "bafkrei...",
+  "channels": ["base64url..."],
+  "liftedBy": "did:key:z6MkAdmin...",
+  "ts": "2026-03-13T12:00:00Z"
+}
+```
+
+`kickRecord` is the CID of the `KickRecord` that the lift ends, and `channels` lists the `channelID`s for which it ends, each of which MUST appear in that record. Clients and the Space endpoint MUST ignore a `KickLift` whose signer does not hold an admin scope covering every listed channel.
 
 **Ban:** removes a member from all space channel MLS groups and records a signed `BanRecord` in the space's moderation log:
 
@@ -147,7 +160,7 @@ Kicks and bans are removals the CO authorizes. On a `KickRecord` or `BanRecord` 
 
 A **Direct Message (DM) channel** is an MLS group established between two or more users outside of any Space's channel hierarchy. DM groups are not owned by any Space and do not appear in any Space state document. A DM group is named by its MLS group ID. It is routed like any channel, on a channel token derived from its admission key (§5.2.2), so relays cannot distinguish DM traffic from channel traffic.
 
-**Admission key and relays.** The DM initiator's identity host (the host of the initiator's `KeyPackageEndpoint`: the employer's provisioning service, or the host the individual chose, §5.2.1.1) plays the CO's part for the DM group's admission. It generates the group's admission key, registers it by `AdmissionKeyRegistration` with the relays it holds `ServiceAgreement`s with (§10.5.1), rotates it on removals, and serves it to the group's members as a `ChannelAdmissionKey` (§3.4) that carries `groupID`, the MLS group ID in unpadded base64url, in place of `channelID`, and that has no `sig`; members authenticate it by TLS to `<host>`:
+**Admission key and relays.** The DM initiator's identity host (the host of the initiator's `KeyPackageEndpoint`: the employer's provisioning service, or the host the individual chose, §5.2.1.1) plays the CO's part for the DM group's admission. It generates the group's admission key, registers it by `AdmissionKeyRegistration` with every IO holding a `ServiceAgreement` with it whose `serviceType` receives registrations (§10.5.1, §10.5.3), rotates it on removals, and serves it to the group's members as a `ChannelAdmissionKey` (§3.4) that carries `mlsGroupID`, the MLS group ID in unpadded base64url, in place of `channelID`, and that has no `sig`; members authenticate it by TLS to `<host>`:
 
 ```
 GET <host>/admission-key/<groupID>              → current ChannelAdmissionKey
@@ -155,7 +168,35 @@ GET <host>/admission-key/<groupID>/<keyEpoch>   → ChannelAdmissionKey of that 
 PUT <host>/admission-key/<groupID>/members      → replace the member list
 ```
 
-`<host>` is the identity host's base URL, carried in the group's `agora_admission_host` GroupContext extension (below). The record's `relays` list is the DM group's relay list; members publish and subscribe there. The host authenticates members by the §3.5 exchange and serves the key only to DIDs on the group's member list, which includes any compliance loggers (§7.8). The initiator registers the list when it creates the group, and any listed member replaces it after a membership change, by a typed payload envelope of type `urn:agora:type:DMMembers` with body `{"groupID": <base64url>, "members": [<DID>, ...], "ts": <RFC 3339 UTC>}`, signed per §13.1.1 by a device key of a DID on the current list. When a replacement drops a DID, the host rotates the key. The host learns the DM group's member DIDs; it is the initiator's own CO-side service, and no IO learns them. The initiator's client MUST put that URL in the DM group's GroupContext as the `agora_admission_host` extension, extension type 0xF0A0 from the RFC 9420 private-use range, listed in `required_capabilities`, whose data is the URL as UTF-8; a member joining by Welcome thereby finds the host before it receives any message. The same scheme admits a user's self-group (§2.6), whose host is the user's own identity host and whose member list is the user's DID.
+`<host>` is the identity host's base URL, carried in the group's `agora_admission_host` GroupContext extension (below), and `<groupID>` is the group's `mlsGroupID` in unpadded base64url. The record's `relays` list is the DM group's relay list; members publish and subscribe there. A host SHOULD list relays it does not operate, because a host that is also the group's relay sees both the member DIDs and the group's traffic. The host authenticates members by the §3.5 exchange and serves the key only to DIDs on the group's member list, which includes any compliance loggers and recorders (§7.8, §6.12.7). The host learns the DM group's member DIDs; it is a member's own CO-side service, and no IO learns them.
+
+The initiator's client MUST put that URL in the DM group's GroupContext as the `agora_admission_host` extension, extension type 0xF0A0 from the RFC 9420 private-use range, listed in `required_capabilities`, whose data is the URL as UTF-8; a member joining by Welcome thereby finds the host before it receives any message. Because the extension is required, every Agora client lists 0xF0A0 in its leaf `capabilities.extensions` (§5.2.1). The same scheme admits a user's self-group (§2.6), whose host is the user's own identity host and whose member list is the user's DID.
+
+**Responses.** A GET returns the `ChannelAdmissionKey` as its encoded typed payload envelope (§13.1) with `sig` absent, as `application/cbor`. A PUT takes an encoded `DMMembers` envelope (below) as `application/cbor` and returns `204` on success. Otherwise the host answers `400` to a malformed body, `401` to a request without authentication, `403` to a change this section does not allow, `404` for an unknown group or `keyEpoch`, `409` to a `seq` or `ts` that is not later than the current list's, and `429` when rate-limiting.
+
+**Member list.** The member list is a typed payload envelope of type `urn:agora:type:DMMembers`, signed per §13.1.1 by a device key of one DID, the signer, with body:
+
+```json
+{
+  "mlsGroupID": "base64url...",
+  "seq": 3,
+  "ts": "2026-03-12T12:00:00Z",
+  "members": [
+    "did:webvh:QmSCID...:example.com:users:k7f3qd2m",
+    "did:plc:ewvi7nxzyoun6zhxrhs64oiz",
+    "did:webvh:QmSCID...:compliance.example.com:logger"
+  ],
+  "complianceLoggers": ["did:webvh:QmSCID...:compliance.example.com:logger"]
+}
+```
+
+`members` lists every member DID. `complianceLoggers` lists the compliance logger and recorder DIDs among them (§7.8, §6.12.7). `seq` is an unsigned integer. The host accepts a `DMMembers` only if its signature verifies, its `ts` is within 300 seconds of the host's clock, its `seq` and `ts` are both greater than those of the list it replaces, and it is one of these changes:
+
+1. **Creation.** The first list the host accepts for an `mlsGroupID`, signed by a DID the host serves: the initiator when it creates the group, or the member taking the group over (§4.6.4).
+2. **Addition.** A list that keeps every DID and every `complianceLoggers` entry of the current list and adds one or more DIDs, signed by a DID on the current list. The committer of every Commit that adds a DID not already on the list, including a compliance logger or recorder, MUST send this addition and receive a `204` before it delivers the Welcome. The consent rules of §4.6.1 and §7.8.2 govern the Add in the group; the host does not see them.
+3. **Self-removal.** A list that differs from the current list only by the removal of the signer's own DID, signed by that DID. The host rotates the key when it accepts one.
+
+The host refuses every other change. In particular it never accepts the removal of a DID by another DID, and never accepts the removal of a DID listed in `complianceLoggers`, by itself or by anyone: a compliance logger or recorder stays on the list for the life of the group (§7.8.3).
 
 **DMGroupDescriptor schema:**
 
@@ -175,7 +216,7 @@ PUT <host>/admission-key/<groupID>/members      → replace the member list
 }
 ```
 
-`members` is the current member DID list. `complianceLoggers` is the list of `ComplianceLogger` DIDs that have been admitted to the group under §7.8. `consentModel` is optional (§4.6.1). The committer of each membership or logger change sends the updated descriptor to the group as an MLS application message of type `urn:agora:type:DMGroupDescriptor` (§5.2.3) in the new epoch, and members keep it locally. Because it lists member DIDs, it travels only inside the group. As an inside-group object it carries no object signature; the committer's MLS sender signature authenticates it (§13.1.1). It MUST NOT be stored on IO infrastructure except as a group-encrypted blob (§3.4).
+`members` is the current member DID list. `complianceLoggers` is the list of `ComplianceLogger` DIDs that have been admitted to the group under §7.8. `consentModel` is optional (§4.6.1), and so is `admissionHostDID` (§4.6.4). The committer of each membership or logger change sends the updated descriptor to the group as an MLS application message of type `urn:agora:type:DMGroupDescriptor` (§5.2.3) in the new epoch, and members keep it locally. Because it lists member DIDs, it travels only inside the group. As an inside-group object it carries no object signature; the committer's MLS sender signature authenticates it (§13.1.1). It MUST NOT be stored on IO infrastructure except as a group-encrypted blob (§3.4).
 
 **MLS group initialization:** The DM group creator generates a fresh MLS group, adds KeyPackages for each invited member, and delivers each Welcome by `POST {kp}/welcome` (§5.2.1.1) to the invitee's `KeyPackageEndpoint`, the endpoint the KeyPackage was fetched from: the `AgoraKeyPackageEndpoint` service entry of the invitee's DID document, or for `did:key` the endpoint in the invitee's Pkarr pointer record (§2.1). Delivery therefore reveals nothing to that endpoint beyond what the KeyPackage fetch already did. A Welcome is not sent on any gossipsub topic or relay. There is no Space admin in the invite path; any DM group member may add new members via standard MLS Add + Commit, subject to the consent mechanism in §4.6.1. A client MUST accept a DM Welcome only from an adder authenticated from the group's ratchet tree as a member of the group, MUST NOT accept an anonymous Welcome, and MUST reject a Welcome for a group ID for which it already holds group state. A client MUST ignore a `DMGroupDescriptor` whose `mlsGroupID` differs from the group ID of the group it was received in, and MUST leave a DM group joined by Welcome if the first descriptor it receives there names a different `mlsGroupID`. An accepted Welcome from a sender the user has not accepted enters the message request state (§4.6.3).
 
@@ -215,6 +256,19 @@ A client MUST hold a DM group in a **message request** state when the member who
 The user accepts, declines or blocks. On accept, the client adds the sender to its accepted senders and treats the group as any other. On decline, the client deletes the group state and sends nothing. On block, the client also adds the sender's DID to the user's block list, and later Welcomes whose adder is blocked are discarded without notice. The block list and accepted senders are kept locally and synchronized among the user's devices in the self-group (§2.6).
 
 A `KeyPackageEndpoint` host MAY refuse KeyPackage fetches and Welcome POSTs from blocked senders, or by other policy, such as rate limits or a proof of work (§10.5.2). A Welcome is encrypted to the recipient, so the host cannot see its adder; a host that gates by sender requires the caller to authenticate by the §3.5 exchange before a fetch or POST, which shows the caller's DID to the recipient's host. A client MAY give its own host its block list for this purpose.
+
+### 4.6.4 Admission Host Handover
+
+The **host's user** is the DID whose identity host is named in `agora_admission_host`: the `createdBy` of the `DMGroupDescriptor`, or after a handover its `admissionHostDID`. `admissionHostDID` is an optional descriptor field; absent, it means `createdBy`.
+
+When the host's user is no longer a member of the DM group, because it left (§4.8) or was offboarded (§2.5.6), the group moves to another member's identity host. The client of the remaining member with the lowest leaf index, other than a compliance logger or recorder, does this automatically; if no handover Commit has arrived 24 hours after the host's user ceased to be a member, any remaining member's client does it. The client:
+
+1. sends the current member list to its own identity host as a creation `DMMembers` (§4.6), whose `seq` and `ts` are greater than those of the list at the old host. That host generates a new admission key, registers it (§10.5.3) and serves it at the paths of §4.6;
+2. commits a GroupContextExtensions proposal (RFC 9420 §12.1.7) that sets `agora_admission_host` to its identity host's base URL, and sends the updated `DMGroupDescriptor`, with `admissionHostDID` set to its own DID, in the new epoch.
+
+Members that process the Commit fetch the admission key from the new host and use the relays it lists. Members MUST treat a Commit that changes `agora_admission_host` while the host's user is still a member as a policy violation (§4.5). Competing handover Commits are resolved by the canonical-Commit rule (§5.1.1); a member whose handover Commit lost sends a self-removal `DMMembers` to its own host.
+
+An identity host MAY stop serving a DM group's admission key, and deregister it, 30 days after no DID it serves remains on the group's member list, or after every such DID has been offboarded (§2.5.6). Remaining members complete the handover within that period.
 
 ## 4.7 Abuse Handling
 
@@ -256,7 +310,7 @@ Each item gives the CID of the routing envelope (§5.2.2), the DID of its MLS se
 
 A member other than a passive member (§5.2.1.3) that receives a self-Remove proposal MUST commit it before sending any further application message in that group, so that nothing it sends is readable by the leaver. Committing a self-Remove needs no Space admin authority (§4.1) and no consent (§4.6.1), and a `commitPolicy` does not restrict it (§4.1). Competing Commits are resolved by the canonical-Commit rule (§5.1.1). A self-Remove never removes a compliance logger, and §7.8.3 still applies to loggers.
 
-**Leaving a DM group.** A member leaves a DM group by the self-Remove procedure. The committer sends the updated `DMGroupDescriptor` and replaces the member list at the admission host by `DMMembers`, which rotates the admission key (§4.6). When no member remains other than one DID and compliance loggers, the group has ended: that member's client SHOULD tell the user and MAY delete its group state.
+**Leaving a DM group.** A member leaves a DM group by the self-Remove procedure. The committer sends the updated `DMGroupDescriptor`. After it processes the Commit that removes its last leaf, and before it deletes its group state, the leaver's client sends a self-removal `DMMembers` to the admission host, which rotates the admission key (§4.6). If the leaver was the host's user, the remaining members move the group to another host (§4.6.4). When no member remains other than one DID and compliance loggers, the group has ended: that member's client SHOULD tell the user and MAY delete its group state.
 
 **Leaving a channel.** A member leaves a Space channel by the self-Remove procedure in that channel's group. Space state does not change: the member's roles still permit it to read the channel (§4.2), and an admin MAY add it again at its request.
 

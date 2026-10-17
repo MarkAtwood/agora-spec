@@ -1,0 +1,3 @@
+{"id":"01a148b6-9bc8-773a-93f8-6b47e447b103","issue_id":"agora-pozi.33.23","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T07:14:49.416474635Z"}
+{"id":"01a148b6-9bcb-70c9-b2fa-35210b5f1caa","issue_id":"agora-pozi.33.23","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T07:14:49.419052054Z"}
+{"id":"01a148b6-9bcd-72d0-b466-a37bab0caffa","issue_id":"agora-pozi.33.23","event_type":"label_added","actor":"agent","comment":"Added label: doc2","created_at":"2026-10-17T07:14:49.421184998Z"}

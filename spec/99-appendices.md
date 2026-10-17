@@ -60,6 +60,9 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Routing envelope size, live stream and gossip | 65536 bytes | MUST NOT exceed | §11.4, §10.3.1 |
 | Sequencer submission `op` size | 65536 bytes | MUST NOT exceed | §14.4.3 |
 | Attachment size (`maxAttachmentBytes`) | 100 MiB | Example only | §11.8.3 |
+| File chunk size (chunked content-key blob) | 262,144 bytes (256 KiB); last chunk 1 to 262,144 bytes | Fixed | §14.3.4 |
+| File size (chunked content-key blob) | 2^32 bytes, so at most 16,384 chunks | MUST NOT exceed | §14.3.4 |
+| Blob replication floor (`replicationFloor`) | default 2, minimum 1 | Default; replication to the floor MUST | §10.4.4, §10.5.1 |
 | Pkarr record | 1000 bytes | MUST | §10.3.4.6 |
 | Directory `includes` depth | 3 | MUST | §10.3.4.1 |
 | Messages per `BroadcastKey` | fewer than 2^32 | MUST | §5.2.1.4 |
@@ -79,12 +82,24 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Relay key rotation overlap | at least 48 h | MUST | §10.2.6 |
 | `SpaceAd` TTL; re-advertise | 60 s; 45 s | Default | §10.3.2 |
 | Directory refresh | 1 h | Default | §10.3.4 |
-| Relay envelope cache | lesser of `expiryHint` and the retention window (default 30 days) | MUST | §10.4.3 |
+| Relay envelope cache | lesser of `expiryHint` and the agreement's `retentionDays` | MUST | §10.4.3, §10.4.6 |
+| Publish `ts` ahead of the Relay's clock before `expired` | 300 s | MUST | §11.4 |
 | Push registration TTL | default 30 days, maximum 30 days | Default; MUST NOT keep longer; renewal MUST | §11.7.3 |
 | `PinInstruction` and upload `expires` | at most 600 s ahead of the Relay's clock | MUST | §11.4, §11.8.2 |
 | Admission key registration request | 1 to 1000 keys or tokens; `ts` within 300 s | MUST | §10.5.3 |
 | Full re-registration of current keys | at least every 24 h | MUST | §10.5.3 |
-| Grace before deregistering the previous admission key after rotation | 300 s | RECOMMENDED | §10.5.3 |
+| Grace before deregistering the previous admission key after rotation | 300 s, for application messages and operations only; no Commit is stamped on the previous key's commit stream once the new key is registered | RECOMMENDED; MUST for the sequencer rule | §10.5.3 |
+| Canonical-Commit window without a sequencer | 5 s | MUST | §5.1.1 |
+| Hold of epoch state for an earlier-stamped counting Commit | 15 s after the stamp `ts` of the applied Commit | MUST | §5.1.1 |
+| Publication of a stamped Commit after its stamp | within 10 s, or the Commit is skipped | MUST | §5.1.1 |
+| Retention of the previous epoch's sealing key | 60 s | Descriptive | §5.2.2 |
+| Admission key fetch while connected | at least once an hour | MUST | §5.2.2 |
+| MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
+| Hold of a Welcome whose authorization cannot yet be decided | 7 days | See section | §4.3 |
+| `DMMembers` freshness | `seq` and `ts` both greater than the current list's; `ts` within 300 s of the host's clock | MUST | §4.6 |
+| DM admission host handover fallback | any remaining member after 24 h without a handover Commit | See section | §4.6.4 |
+| Old DM admission host stops serving | 30 days after no DID it serves remains a member, or once every such DID is offboarded | MAY (from then on) | §4.6.4 |
+| SFU `challenge` freshness for a `join` | 30 s | MUST | §6.6 |
 | Registrations under a superseded agreement | admitted for 1 h | MUST | §10.5.1 |
 | Relay retirement notice (`retiresAt`) | at least 30 days | MUST, unless agreed otherwise out of band | §10.4.7 |
 | Proof-of-work difficulty in a challenge | at most 64 bits | Format limit | §11.4, §10.5.2 |
@@ -114,6 +129,20 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `urn:agora:v1` | JMAP capability | §11.8.3 | IANA "JMAP Capabilities" (RFC 8620 §9.4) |
 | `urn:ietf:params:jmap:*` | JMAP family types | External drafts, profiled in §14.6 | Defined by those drafts |
 
+**Types, members and codes.** Payload and record types are registered in the type tables of §5.2.3, which include `KickLift` (§4.5) and `SpaceMembership` (§2.6). The following record members, operation values and codes are Agora-internal.
+
+| Identifier | Kind | Defined in |
+|---|---|---|
+| `admissionHostDID` | `DMGroupDescriptor` member | §4.6, §4.6.4 |
+| `replaces` | `AdmissionKeyRegistration` entry member (rotated token); also a `PushRegister` member (previous handle) | §10.5.3, §11.7.6 |
+| `replicationFloor` | `ServiceAgreement` member | §10.5.1, §10.4.4 |
+| `archive` | `ChannelAdmissionKey` member | §3.4, §10.4.4 |
+| `broadcasters` | Non-member view member, array of `{channelID, dids}` | §3.3, §3.4, §5.2.1.4 |
+| `chunkCount`, `thumbnailChunkCount`, `contentKey`, `thumbnailContentKey` | JMAP object extension properties | §14.3.4 |
+| `seed` | `pin-op` operation | §11.4, §10.4.4 |
+| `stream-closed` | Error code (sequencer commit stream) | §11.4, §14.4.3 |
+| `token` | Query parameter of the blob fetch and Peer API blob paths | §10.4.4, §10.2.2 |
+
 **Capability and model strings** (Agora-internal).
 
 | Strings | Use | Defined in |
@@ -122,6 +151,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `single-author`, `sequenced-v1` | Consistency model identifiers | §14.2.1 |
 | `text/markdown;variant=commonmark`, `text/markdown;variant=gfm`, `text/plain`, `application/jmap-chat-rich` | `bodyType` values | §5.2.7.2 |
 | `co-issued` | TURN `credentialScheme` | §6.11 |
+| `relay`, `sfu`, `sequencer`, `turn`, `push-proxy` | `ServiceAgreement` `serviceType` | §10.5.1 |
 | `pow` | Proof-of-work scheme | §10.5.2 |
 
 **DID service types.** Entries in the W3C DID Specification Registries are needed for resolvers outside Agora to recognize them.
@@ -141,10 +171,11 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 |---|---|---|
 | Well-known URI `agora-relay` | §10.2.1 | IANA "Well-Known URIs" (RFC 8615) |
 | Service name `agora-relay` (`_agora-relay._udp`, `_agora-relay._tcp`) | §10.2.5, §10.3.3 | IANA "Service Name and Transport Protocol Port Number" (RFC 6335) |
-| `_agora` and its children `_kp._agora`, `_profile._agora` | §2.1, §10.3.4.6 | IANA "Underscored and Globally Scoped DNS Node Names" (RFC 8552), for `_agora` |
+| `_agora` and its children `_kp._agora`, `_profile._agora`, `_corundum._agora` | §2.1, §10.3.4.6 | IANA "Underscored and Globally Scoped DNS Node Names" (RFC 8552), for `_agora` |
 | HTTP field `Agora-Storage-Auth` | §11.8.2 | IANA "HTTP Field Name" (RFC 9110 §16.3) |
 | HTTP fields `Agora-PoW-Challenge`, `Agora-PoW` | §10.5.2 | IANA "HTTP Field Name" (RFC 9110 §16.3) |
 | JWS header parameter `agoraType` | §13.1.1 | IANA "JSON Web Signature and Encryption Header Parameters" (RFC 7515 §4.3) |
+| WebSocket subprotocol `agora-sfu.v1` | §6.6 | IANA "WebSocket Subprotocol Name Registry" (RFC 6455 §11.5) |
 | URI scheme `agora` | §3.2 | IANA "Uniform Resource Identifier (URI) Schemes" (RFC 7595) |
 | HTTP path prefix `/v1/agora/`, gossip topics `v1/agora/...`, IPNS name `/ipns/agora.protocol/relays/v1` | §1.1, §10.3.1, §10.2.5 | Agora-internal |
 

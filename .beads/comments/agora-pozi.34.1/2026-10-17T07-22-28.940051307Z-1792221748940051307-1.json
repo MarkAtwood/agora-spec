@@ -1,0 +1,7 @@
+{
+  "id": "1792221748940051307-1",
+  "issue_id": "agora-pozi.34.1",
+  "author": "agent",
+  "text": "DECIDED (Mark 2026-10-17), option A: the uploader uploads each blob to every relay in the channel's relay list (from ChannelAdmissionKey.relays); readers fetch from any of them, falling back to the CO archive if listed; every copy verified by CID. On relay replacement the CO instructs a surviving relay or the archive to copy the channel's blobs to the new relay (relay-to-relay transfer by CID list under the ServiceAgreement; Bitswap MAY be used between these known peers). No discovery protocol; no new IO knowledge.",
+  "created_at": "2026-10-17T07:22:28.940051307Z"
+}

@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.33",
+  "title": "Final review pass (2026-10-17)",
+  "description": "Targeted re-review after the review-decision batches (b07bead..9e7711f): consistency of new names/flows, separation of new mechanisms, crypto of new constructions, implementability of new CDDL/protocols, docs vs spec. Findings in notes/review2/.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:02:22.42423475Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:02:22.42423475Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:02:22.437634438Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

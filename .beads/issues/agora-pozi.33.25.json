@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.25",
+  "title": "[DOC2-20] O365 profile registers DM admission keys only with relays",
+  "description": "Review finding DOC2-20: O365 profile registers DM admission keys only with relays (lens DOC2). Location: profiles/o365-employer-did.md:679; spec/10-relays.md:684-686, :777. Fix: Spec: \"with every IO that holds a `ServiceAgreement` with it whose `serviceType` receives registrations\". Reword to \"every IO (relay, SFU, sequencer) whose agreement receives registrations (spec §10.5.3)\". Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:49.545744155Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:49.545744155Z",
+  "labels": [
+    "review",
+    "doc2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.25",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:49.562179682Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -28,11 +28,11 @@ Agora is built on MLS (RFC 9420), the IETF standard for group end-to-end encrypt
 
 **Q: What does the relay operator see?**
 
-Network connection metadata (addresses, timing, volume), encrypted envelopes keyed by rotating tokens, and which customer agreement those tokens fall under. It does not see message content, senders, membership or channel names, and the protocol does not tell it which of a customer's Spaces a message belongs to. It can still infer some of that: a customer with one Space has no cover, registration timing can match a newly advertised public Space, and it can cluster routing tokens used from the same network address. A relay that serves push also learns which routing tokens wake the same device, though not whose device it is; users who do not accept that turn push off. The full list is closed and normative: anything not on it is a protocol violation, and any extension to it must be opt-in, declared, and visible to members. Agora is not anonymous at the network layer; members who need that use Tor.
+Network connection metadata (addresses, timing, volume), encrypted envelopes keyed by rotating tokens, and which customer agreement those tokens fall under. It does not see message content, senders, membership or channel names, and the protocol does not tell it which of a customer's Spaces a message belongs to. It can still infer some of that: a customer with one Space has no cover, and neither does a person whose direct messages run through an identity host that serves only them, because the host registers their tokens under its own agreement; registration timing can match a newly advertised public Space, and it can cluster routing tokens used from the same network address. A relay that serves push also learns which routing tokens wake the same device, though not whose device it is; users who do not accept that turn push off. The full list is closed and normative: anything not on it is a protocol violation, and any extension to it must be opt-in, declared, and visible to members. Agora is not anonymous at the network layer; members who need that use Tor.
 
 **Q: What can our hosting provider do to us?**
 
-Stop serving you, and nothing more. It cannot read your messages, change your membership, sign your Space's state, enforce your policies, or hold your history hostage. Your history is content-addressed, so another provider can serve the same records. Your service agreement is signed with a billing key that appears nowhere in your Spaces, so the protocol gives the provider no way to link your traffic to a particular Space. It can still guess from timing and network addresses, and if you run only one Space there is nothing to tell apart.
+Stop serving you, and nothing more. It cannot read your messages, change your membership, sign your Space's state, enforce your policies, or hold your history hostage. Your history is content-addressed, so another provider can serve the same records. Your service agreement is signed with a billing key that appears nowhere in your Spaces, so the protocol gives the provider no way to link your traffic to a particular Space, apart from a public broadcast channel a public Space publishes. It can still guess from timing and network addresses, and if you run only one Space there is nothing to tell apart.
 
 **Q: We run many communities. Does that matter?**
 
@@ -44,7 +44,7 @@ Through your identity provider. Your organization's provisioning service issues 
 
 **Q: Can we send confidential announcements to the whole company?**
 
-Yes. Broadcast channels are encrypted under a key your organization distributes to its members, so a message to 20,000 employees is unreadable to the relays that carry it. Public announcements use the same mechanism with the key published.
+Yes. Broadcast channels are encrypted under a key your organization distributes to its members, so a message to 20,000 employees is unreadable to the relays that carry it. Public announcements, which only a public Space can make, use the same mechanism with the key published; a relay can then tie that channel's traffic to your agreement, which the Space disclosed when it advertised itself.
 
 **Q: How does compliance capture work, and what are its limits?**
 

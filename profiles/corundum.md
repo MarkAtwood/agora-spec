@@ -1,6 +1,6 @@
 # Profile: CORUNDUM and Agora
 
-> Non-normative. Describes how CORUNDUM (public social media) and Agora (private groups, DMs and calls) share one identity and stay separate everywhere else. Records Mark's decisions C1-C8 (beads agora-pozi.32.1 to .32.8). Most of the work falls on CORUNDUM; section 8 lists the changes, none of which have been made yet.
+> Non-normative. Describes how CORUNDUM (public social media) and Agora (private groups, DMs and calls) share one identity and stay separate everywhere else. Records Mark's decisions C1-C8 (beads agora-pozi.32.1 to .32.8). Most of the work falls on CORUNDUM; section 8 lists the changes, none of which have been made yet. Capitalized BCP 14 key words here state what a deployment that follows this profile requires of its own components, not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source.
 
 **Status:** Draft, 2026-10-16
 **Depends on:** ARCHITECTURE.md §2.3, §2.4, §9; spec §2.1, §2.3, §4.5, §4.7, §5.2.1.1, §10.2, §10.3.4.6, §10.5.1, §13.1.1, Appendix E
@@ -35,7 +35,7 @@ What follows in practice:
 
 - IO keys (`relayDID`, `operatorDID`) MUST differ from every CO key, including the operator's manifest key and any posting key it holds (ARCHITECTURE §2.4).
 - Relay service is bought under a `ServiceAgreement` like any other (spec §10.5.1). Sharing an operator gives no shortcut.
-- **Disclosed cost.** A party that runs both a social or identity service and relays can link its own users to the COs whose traffic passes through its relays. It cannot learn content, channel or Space. Users and communities can avoid this by choosing other relays. C5 records this as an accepted cost for ARCHITECTURE §9. That text is not in ARCHITECTURE.md yet.
+- **Disclosed cost.** A party that runs both a social or identity service and relays can link its own users to the COs whose traffic passes through its relays. For Spaces it cannot learn content, channel or Space. DMs differ: as the DM admission host of a DM group its user started, the identity host learns that group's member DIDs and its relay list (spec §4.6), so if those are its own relays it can also attribute that DM's traffic at them to known members. It still cannot read content. As identity host acting as CO for its users' DM groups and self-groups, it also registers their tokens under its own billing DID (spec §10.5.3), so their anonymity at a relay is only as large as its user base, and a single-user host gives none. Users and communities can avoid the relay linkage by choosing other relays, and a DM admission host should list relays it does not operate. ARCHITECTURE §9 lists the combined-operator cost as accepted.
 
 ## 3. Shared identity (C2, C3, C4)
 

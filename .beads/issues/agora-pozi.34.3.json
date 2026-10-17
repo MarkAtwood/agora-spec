@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.34.3",
+  "title": "Public content on the IPFS network; local/offline exchange; gateway caching",
+  "description": "Lower priority: publish public Space records, public broadcast channels and CORUNDUM public posts to the public IPFS network (privacy-free because public by choice); device-to-device blob exchange on LAN or disconnected settings (radio-mesh gateways); any gateway/CDN may serve CIDs since content self-verifies.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:04:16.259616872Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:04:16.259616872Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.34.3",
+      "depends_on_id": "agora-pozi.34",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:04:16.270121657Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

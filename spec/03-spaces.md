@@ -93,8 +93,7 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
       "name": "Announcements",
       "keyAccess": "members",
       "broadcasterRoles": ["broadcaster"],
-      "noPin": true,
-      "mlsGroupID": "base64url..."
+      "noPin": true
     },
     {
       "channelID": "base64url...",
@@ -163,7 +162,7 @@ The Space state document is stored as an IPLD DAG node. Its CID changes on every
 
 `id` is absent from the genesis state document, whose CID it would otherwise have to contain. In every later state document `id` is `agora://<genesis CID>`, with no trailing slash (§3.2).
 
-The document is signed per §13.1.1 by the Space owner's authentication key or a delegated admin's key. Space state and channel state are signed only by these CO keys (ARCHITECTURE S4). A Relay or other IO key MUST NOT sign Space or channel state, and clients MUST reject Space or channel state that is not signed by the owner or by an admin authorized under the prior state. The one exception is a guardian transfer document, signed by the guardian threshold (§4.1).
+The document is signed per §13.1.1 by the Space owner's authentication key or a delegated admin's key. Space state and channel state are signed only by these CO keys (ARCHITECTURE S4). A Relay or other IO key MUST NOT sign Space or channel state, and clients MUST reject Space or channel state that is not signed by the owner or by an admin authorized under the prior state. The exceptions are the guardian transfer documents of §4.1: a proposal signed by the guardian threshold, and a completion signed by `pendingTransfer.newOwner` after `ts + delaySeconds`.
 
 Binary values in Space state (`channelID`, `mlsGroupID`, `assetKey`) are unpadded base64url (RFC 4648 §5).
 
@@ -226,10 +225,12 @@ The Space `name`, each channel `name` and each role `label` are text for people 
 | `archived` | boolean, default `false` | optional | §3.6 |
 | `deleted` | time | only in the terminal document | §3.6 |
 | `complianceLogging` | `ComplianceLoggingConfig` | optional | §7.2 |
+| `vtcCompliance` | `VTCComplianceConfig` | optional | §6.12.5 |
 | `retentionNotice` | string | required while compliance logging is enabled | §7.5 |
 | `sfus` | array of `SFUDescriptor` | optional | §6.6 |
 | `turnServers` | array of `TURNDescriptor` | optional | §6.11 |
 | `sharedChannels` | array of `SharedChannelAlias` | optional | §8.5 |
+| `broadcasters` | array of `{channelID, dids}` | only in the non-member view of a Space with a `keyAccess` `"public"` channel | §3.4, §5.2.1.4 |
 | `calendarId`, `taskListId` | JMAP Id | optional | §14.6.8, §14.6.9 |
 
 | Channel field | Type | Presence | Defined in |
@@ -239,10 +240,10 @@ The Space `name`, each channel `name` and each role `label` are text for people 
 | `type` | `"text"`, `"voice"` or `"category"` | required | §3.2, §6.1 |
 | `name` | string | optional | §3.3 |
 | `mode` | `"interactive"`, `"community"` or `"broadcast"` | required on a `text` channel | §3.2 |
-| `mlsGroupID` | base64url | required on a channel that has an MLS group | §3.3 |
+| `mlsGroupID` | base64url | required on a channel that has an MLS group; absent on `broadcast` | §3.3 |
 | `children` | array of channel entries | `category` only | §3.2 |
 | `commitPolicy` | array of role IDs | optional; absent means any member | §4.1 |
-| `keyAccess` | `"members"` or `"public"`, default `"members"` | `broadcast` only | §3.4 |
+| `keyAccess` | `"members"` or `"public"`, default `"members"` | `broadcast` only; `"public"` only in a public Space | §3.4 |
 | `broadcasterRoles` | array of role IDs | `broadcast` only | §5.2.1.4 |
 | `speakerCap` | unsigned integer, default 200, at most 500 | `community` only | §5.2.1.2 |
 | `idleEvictDays` | unsigned integer, default 7 | `community` only | §5.2.1.2 |
@@ -288,11 +289,12 @@ GET <spaceEndpoint>/broadcast-key/<channelID>/<keyEpoch>   → BroadcastKey of t
   "channelID": "base64url...",
   "keyEpoch": 3,
   "seed": "base64url...",
-  "relays": ["https://relay.example.net", "https://relay2.example.org"]
+  "relays": ["https://relay.example.net", "https://relay2.example.org"],
+  "archive": "https://archive.co.example.com"
 }
 ```
 
-A `ChannelAdmissionKey` carries the private half of the channel's admission key pair (§5.2.2). `seed` is the 32-byte Ed25519 private key seed (RFC 8032 §5.1.5), generated at random by the CO registration service. `keyEpoch` is an unsigned integer that starts at 0 and increases by one on every rotation. `relays` lists the relay endpoints with which the CO has registered this key by `AdmissionKeyRegistration` under a `ServiceAgreement` (§10.5.1); members publish and subscribe at those relays. Members derive the channel token from `seed` and `keyEpoch` (§5.2.2). When the CO adds a relay or renews an agreement, it registers the current key with that relay and adds the relay to `relays`. The CO rotates the admission key when it authorizes a removal of a member from the channel (§4.5) and whenever else it needs to (periodically, or after a compromise); it does not rotate on every MLS epoch. A client fetches the current `ChannelAdmissionKey` at the times §5.2.2 lists. If the endpoint is unreachable, the client keeps using the last key it holds.
+A `ChannelAdmissionKey` carries the private half of the channel's admission key pair (§5.2.2). `seed` is the 32-byte Ed25519 private key seed (RFC 8032 §5.1.5), generated at random by the CO registration service. `keyEpoch` is an unsigned integer that starts at 0 and increases by one on every rotation. `relays` lists the Relays with which the CO has registered this key by `AdmissionKeyRegistration` under a `ServiceAgreement` (§10.5.1); members publish and subscribe at those Relays. Each entry is the origin of a Relay, and the client reads the Relay's endpoints from its manifest (§10.2.1). Members derive the channel token from `seed` and `keyEpoch` (§5.2.2). `archive` is optional: the origin of a CO-operated blob store that serves the channel's blobs at `GET /v1/agora/blob/{cid}` (§10.4.4), which clients use when no listed Relay holds a blob. When the CO adds a relay or renews an agreement, it registers the current key with that relay and adds the relay to `relays`. The CO rotates the admission key when it authorizes a removal of a member from the channel (§4.5) and whenever else it needs to (periodically, or after a compromise); it does not rotate on every MLS epoch. A client fetches the current `ChannelAdmissionKey` at the times §5.2.2 lists. If the endpoint is unreachable, the client keeps using the last key it holds.
 
 The **subscriber form** of a `ChannelAdmissionKey` omits `seed` and carries `channelToken`, the channel token of that `keyEpoch` in unpadded base64url, in its place. It lets the holder subscribe to and read the channel's envelopes at relays but not sign envelopes. It is used only for `broadcast` channels (§5.2.1.4).
 
@@ -308,9 +310,9 @@ The **subscriber form** of a `ChannelAdmissionKey` omits `seed` and carries `cha
 
 A `BroadcastKey` is the content key of a `broadcast` channel (§5.2.1.4). `key` is 16 random bytes generated by the CO (the key length of AES-128-GCM), and `notBefore` is the time from which posters MUST use this key. For a broadcast channel the content key and the admission key rotate together and share `keyEpoch`. Sharing the counter exposes no secret: what a public channel publishes is the `BroadcastKey` and the subscriber form of the `ChannelAdmissionKey`, never `seed`.
 
-Both records are signed per §13.1.1 by the Space owner or a delegated admin, as for Space state (§3.3); for a DM group, the `ChannelAdmissionKey` is instead authenticated by TLS to the identity host named in the group's `agora_admission_host` extension and carries no `sig` (§4.6). Clients MUST verify the signature, MUST reject a record whose `channelID` is not a channel of the Space, and MUST reject a `BroadcastKey` for a channel that is not in `broadcast` mode. Both are distributed by the same rules. The endpoint serves a channel's records only under the access control below: to members permitted to read the channel (a role whose `channelAccess` covers it, §4.2, and no standing Kick or Ban for it, §4.5), to eligible guest members of a shared channel (§8.6), to holders of a role in the channel's `broadcasterRoles`, and to the `loggerDID` of an enabled compliance configuration (§7.2) whose scope covers the channel. For a `broadcast` channel, the endpoint serves the complete `ChannelAdmissionKey` only to holders of a role in `broadcasterRoles`, and the subscriber form to every other permitted reader. A broadcast channel's `keyAccess` field selects the policy: `members` (the default) or `public`. For `public`, the CO publishes the channel's `BroadcastKey` and the subscriber form of its `ChannelAdmissionKey` as public Space state, never the complete form: the endpoint serves them without authentication, and the CO MAY mirror them like other public Space state. When the CO stops serving a channel to a member, it MUST rotate that channel's keys and MUST NOT serve that member any record with a higher `keyEpoch`.
+Both records are signed per §13.1.1 by the Space owner or a delegated admin, as for Space state (§3.3); for a DM group, the `ChannelAdmissionKey` is instead authenticated by TLS to the identity host named in the group's `agora_admission_host` extension and carries no `sig` (§4.6). Clients MUST verify the signature, MUST reject a record whose `channelID` is not a channel of the Space, and MUST reject a `BroadcastKey` for a channel that is not in `broadcast` mode. Both are distributed by the same rules. The endpoint serves a channel's records only under the access control below: to members permitted to read the channel (a role whose `channelAccess` covers it, §4.2, and no standing Kick or Ban for it, §4.5), to eligible guest members of a shared channel (§8.6), to holders of a role in the channel's `broadcasterRoles`, and to the `loggerDID` of an enabled compliance configuration (§7.2) whose scope covers the channel. A Kick stands for a channel until a `KickLift` that names the `KickRecord` and covers that channel (§4.5). For a `community` channel, every member whose role covers the channel is served its `ChannelAdmissionKey`, not only the speaker group: the speaker group (§5.2.1.2) bounds who can decrypt, not who is admitted at relays, and evicting an idle speaker does not rotate the channel's keys. For a `broadcast` channel, the endpoint serves the complete `ChannelAdmissionKey` only to holders of a role in `broadcasterRoles`, and the subscriber form to every other permitted reader. A broadcast channel's `keyAccess` field selects the policy: `members` (the default) or `public`. `public` is allowed only in a public Space: clients MUST reject Space state that carries `assetKey` (§3.3) and a channel with `keyAccess` `public`. For `public`, the CO publishes the channel's `BroadcastKey` and the subscriber form of its `ChannelAdmissionKey` as public Space state, never the complete form: the endpoint serves them without authentication, and the CO MAY mirror them like other public Space state. Because the subscriber form carries `channelToken`, anyone, including an IO, can map that channel's token, and the billing DID it is registered under, to the Space; this is an accepted cost of a public broadcast channel (ARCHITECTURE §9). The non-member view of the Space (§4.4) carries a `broadcasters` list with one entry per channel whose `keyAccess` is `public`: its `channelID` and `dids`, the DIDs that hold a role in its `broadcasterRoles`. The view is signed by the owner or an admin, so the list is CO-signed. The CO publishes a new view whenever the list changes, and a subscriber that is not a member verifies each post's signer against the list in the current view (§5.2.1.4). When the CO stops serving a channel to a member, it MUST rotate that channel's keys and MUST NOT serve that member any record with a higher `keyEpoch`.
 
-**Responses.** `/head` returns the CID as text (`text/plain`). Every other response is the record's encoded typed payload envelope with `sig` present (§13.1), as `application/cbor`. The endpoint answers `401` to a request that needs authentication and has none, `403` to a client that is not permitted the record, `404` for an unknown CID, `channelID` or `keyEpoch`, and `429` when rate-limiting. A client that cannot reach any of a Space's endpoints retries with exponential backoff and keeps using the state and keys it holds.
+**Responses.** `/head` returns the CID as text (`text/plain`). Every other response is the record's encoded typed payload envelope with `sig` present (§13.1), as `application/cbor`; a DM identity host's `ChannelAdmissionKey` is the same envelope with `sig` absent (§4.6). The endpoint answers `401` to a request that needs authentication and has none, `403` to a client that is not permitted the record, `404` for an unknown CID, `channelID` or `keyEpoch`, and `429` when rate-limiting. A client that cannot reach any of a Space's endpoints retries with exponential backoff and keeps using the state and keys it holds.
 
 **Locating the endpoint.** The CO lists its Space endpoint URLs in the `spaceEndpoint` array of each `SpaceInvite` (§4.3) and `SpaceAd` (§10.3.2), and MAY list them as an `AgoraSpaceEndpoint` service entry in the Space owner's DID document. A CO changes endpoints by publishing new URLs through these same records; Space identity (genesis CID) is unaffected.
 
@@ -340,7 +342,7 @@ The client sends `POST <service>/auth`, where `<service>` is the service's base 
 
 An invitee who is not yet a member adds `invite`, the unpadded base64url of the encoded `SpaceInvite` envelope that names it (§4.3), or `inviteToken`, an open-link invite token.
 
-The service MUST verify the signature with `did` as the required signer, MUST check that `service` equals its own base URL and that `ts` is within 300 seconds of its clock, MUST reject an envelope it has accepted in the previous 600 seconds, and MUST check that `did` is a current member under the Space state it holds (for an identity host, a member of the DM group under §4.6; for the home Space endpoint of a shared channel, a guest member eligible under §8.6, which grants access to that channel's records only) or, for the Space endpoint, is named by the presented unexpired, unrevoked `SpaceInvite` or holds a valid open-link token (§4.3). On success it returns a bearer token of at least 128 random bits, valid for at most one hour, which the client sends as `Authorization: Bearer <token>` on later requests to that service.
+The service MUST verify the signature with `did` as the required signer, MUST check that `service` equals its own base URL and that `ts` is within 300 seconds of its clock, MUST reject an envelope it has accepted in the previous 600 seconds, and MUST check that `did` is a current member under the Space state it holds (for an identity host, a member of the DM group under §4.6; for the home Space endpoint of a shared channel, a guest member eligible under §8.6, which grants access to that channel's records and to the home Space's non-member view (§4.4) only; for a guest Space endpoint, the `homeAdminDID` of an in-force `ChannelShareAgreement` naming that Space (§8.6), which grants reads of the guest Space's state only) or, for the Space endpoint, is named by the presented unexpired, unrevoked `SpaceInvite` or holds a valid open-link token (§4.3). On success it returns a bearer token of at least 128 random bits, valid for at most one hour, which the client sends as `Authorization: Bearer <token>` on later requests to that service.
 
 ## 3.6 Space and Channel Lifecycle
 
@@ -348,10 +350,10 @@ The service MUST verify the signature with `did` as the required signer, MUST ch
 
 **Creation.** A Space is created in this order:
 
-1. The creating client generates the Space's own MLS group under a fresh random group ID and, for each initial channel, a `channelID` and an MLS group (§3.3).
+1. The creating client generates the Space's own MLS group under a fresh random group ID and, for each initial channel, a `channelID` and, for a channel that has one (§3.2), an MLS group (§3.3).
 2. The owner signs the genesis state document per §13.1.1. It MUST carry `@type`, `schemaVersion`, `name`, `owner`, `members`, `roles`, `channels`, `mlsGroupID` and `seq` set to 0; `assetKey` if the Space is not public; and `guardian` if the Space has one (§4.1). It MUST NOT carry `id` or `prevStateCID`. Every later state document has a `seq` one greater than that of the document its `prevStateCID` names, and clients MUST reject one that does not.
 3. The CO serves the genesis document at its Space endpoints (§3.4). The Space's identifier is `agora://<genesis CID>` (§3.2).
-4. The CO generates each channel's admission key and, for a `broadcast` channel, its `BroadcastKey`, and registers each admission key with its relays (§3.4, §10.5.3).
+4. The CO generates each channel's admission key and, for a `broadcast` channel, its `BroadcastKey`, and registers each admission key with every IO holding a `ServiceAgreement` whose `serviceType` receives registrations (§3.4, §10.5.1, §10.5.3).
 5. Admins are granted by later state documents (§4.1), and members join by invite (§4.3).
 
 **Channel creation, rename, move and deletion.** Each is a Space state mutation signed by the owner or by an admin whose scope covers the channel's path (§3.3).

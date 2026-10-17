@@ -86,9 +86,14 @@ Retention pruning removes records lawfully, which changes `indexCID`. To keep
 pruning distinguishable from tampering:
 
 1. Witness a `prune` head before removing anything.
-2. Write a `ComplianceRecord` to each affected chain describing the pruned
-   range (first and last `prevRecordCID` removed), the retention rule applied,
-   and the `prune` head's CID.
+2. Append a prune record to each affected chain: a typed payload envelope of
+   the practice type `urn:agora:practice:CompliancePruneRecord` (spec §13.1),
+   signed by the logger DID and linked by `prevRecordCID` like any record. It
+   names the pruned range (first and last record CID removed), the retention
+   rule applied, and the `prune` head's CID. It is not a `ComplianceRecord`:
+   it has no sender, so the per-message checks of spec §7.4 do not apply.
+   Verifiers check the logger signature and the chain link, and exempt it
+   from the sender check.
 3. Witness the next scheduled head as usual.
 
 An examiner then sees a witnessed head, a signed statement of what was removed

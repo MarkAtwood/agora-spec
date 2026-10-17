@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.75",
+  "title": "[IMP2-12] Non-member subscribers of a public broadcast channel cannot perform the poster check",
+  "description": "Review finding IMP2-12: Non-member subscribers of a public broadcast channel cannot perform the poster check (lens IMP2). Location: spec/05-messaging.md:200; spec/03-spaces.md:180, :311. Fix: As described. The public view omits `members` (03:180), so the MUST at 05:200 cannot be evaluated. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:52.906859637Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:52.906859637Z",
+  "labels": [
+    "review",
+    "imp2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.75",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:52.927697716Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

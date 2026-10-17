@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.35.5",
+  "title": "IRONWEED header protection for frame counter (decided)",
+  "description": "DECIDED (Mark 2026-10-17), option A: QUIC-style header protection (RFC 9001 §5.4 pattern): mask the explicit frame counter (and any per-sender header field) with a value derived from a sample of the ciphertext and a header-protection key derived from the traffic key; receivers unmask before decryption; no added bytes.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:19:56.019748082Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:19:56.019748082Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.35.5",
+      "depends_on_id": "agora-pozi.35",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:19:56.037587033Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

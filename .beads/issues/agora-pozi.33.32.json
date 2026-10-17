@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.32",
+  "title": "[SEP2-6] A DM's admission host stays with the initiator's identity host after the initiator leaves ",
+  "description": "Review finding SEP2-6: A DM's admission host stays with the initiator's identity host after the initiator leaves or is offboarded, and the remaining members cannot replace it (lens SEP2). Location: spec/04-access-control.md:158, :259; spec/02-identity.md:447-456; spec/12-security.md:239. Fix: No text changes `agora_admission_host` (it appears only at 04:158, 03:311 and 99:107). agora-doorkey-B says \"DMs via initiator's identity host\" but does not cover an initiator who has left. After offboarding (§2.5.6), the employer's provisioning service keeps issuing keys for, and observing the fetch timing of, outside members of a DM in which it has no member. Full text: notes/review2/SEP2-verified.md and notes/review2/SEP2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:50.017302447Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:50.017302447Z",
+  "labels": [
+    "review",
+    "sep2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.32",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:50.034256214Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

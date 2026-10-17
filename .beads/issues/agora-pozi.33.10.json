@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.10",
+  "title": "[DOC2-5] Identity-host DM agreements are an undocumented anonymity cost",
+  "description": "Review finding DOC2-5: Identity-host DM agreements are an undocumented anonymity cost (lens DOC2). Location: ARCHITECTURE.md §9 (:392-397); spec/12-security.md:53; PRFAQ.md:31. Fix: The core point is real. Under §10.5.3 an individually chosen identity host registers under \"its own billing DID ... acting as the CO\". A single-user host therefore puts all of that person's DM and self-group tokens under one billing DID, and §9 and the PRFAQ address only Spaces. Rejected part: the claim that the relay can \"distinguish them ... by type\" in contradiction to §12.4. That sentence of §12.4 concerns presence and typing versus other messages, and the same paragraph already says \"a Relay learns whose agreement covers a DM token\". Options (b) and (c) change the decided design. Memory agora-doorkey-B says \"DMs via initiator's identity host\", and Q6 rests the anonymity set on the CO, so the fix follows from existing rules. Extend the §9 bullet \"Space anonymity at the IO is only as large as the CO\" so it also covers an identity host acting as CO for DM groups and self-groups: its anonymity set is its users, and a single-user host gets none. Add one clause to PRFAQ \"What does the relay operator see?\". No change to §12.4 is needed beyond an optional cross-reference. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:48.588068393Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:48.588068393Z",
+  "labels": [
+    "review",
+    "doc2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.10",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:48.605695205Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

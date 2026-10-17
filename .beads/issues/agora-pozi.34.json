@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.34",
+  "title": "IPFS-style content distribution improvements",
+  "description": "From an IPFS-usage analysis (2026-10-17). Agora uses CIDs everywhere but deliberately keeps private ciphertext off the public IPFS network (DHT lookups link fetchers to CIDs). Guiding rule: use IPFS networking freely for public content and direct device-to-device exchange; keep private ciphertext off the public DHT; always verify by CID regardless of source.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:04:16.079892854Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:04:16.079892854Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.34",
+      "depends_on_id": "agora-pozi",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:04:16.091418563Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

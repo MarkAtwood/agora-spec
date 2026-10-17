@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.38",
+  "title": "[CRY2-3] Envelope `id` covers unsigned bytes, so any forwarder can change it, yet it decides Commit",
+  "description": "Review finding CRY2-3: Envelope `id` covers unsigned bytes, so any forwarder can change it, yet it decides Commit races and message order (lens CRY2). Location: spec/05-messaging.md:28, 244, 248; spec/10-relays.md:756; spec/06-calls.md:495; spec/14-jmap.md:114. Fix: Confirmed. `powProof` is outside `signed` (10-relays.md:756), and any nonce that meets the difficulty is valid. A forwarder can also add an optional `powProof` that was not there. A relay can therefore grind variants of the same `signed` bytes to any desired `id` ordering without the admission key. Under the no-sequencer rule, a member that receives both an honest copy and a ground copy still picks the lowest `id`, so the attack works even when honest relays deliver promptly. \"Relays MUST store and forward ... exactly as received\" binds honest relays only. There is no deterministic-CBOR requirement for the outer map either. Fix: define `id` as the CIDv1 (raw, SHA2-256) of the `signed` byte string at 05:248. State that `powProof` and the outer encoding are not part of the identity, and change 05:244 and 10-relays.md:756 (\"the envelope `id` covers it\") to match. Relays still store the full envelope. Dedup, pinning, history and ordering all keep working, because only an admission-key holder can produce new `signed` bytes. Full text: notes/review2/CRY2-verified.md and notes/review2/CRY2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:50.422846916Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:50.422846916Z",
+  "labels": [
+    "review",
+    "cry2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.38",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:50.440321404Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

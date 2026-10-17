@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.12",
+  "title": "[DOC2-7] HTTP proof-of-work text calls the sequencer a CO endpoint",
+  "description": "Review finding DOC2-7: HTTP proof-of-work text calls the sequencer a CO endpoint (lens DOC2). Location: spec/10-relays.md:760; ARCHITECTURE.md:61, :158-160. Fix: The spec reads \"A CO HTTP endpoint ... such as ... a sequencer (§14.4)\", while ARCHITECTURE lists \"Sequencer | IO\". Apply the reviewer's rewording, and extend ARCHITECTURE §5 item 3 to cover HTTP proof of work (§10.5.2). Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:48.716215397Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:48.716215397Z",
+  "labels": [
+    "review",
+    "doc2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.12",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:48.73270326Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

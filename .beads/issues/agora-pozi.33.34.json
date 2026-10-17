@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.34",
+  "title": "[SEP2-8] The self-group gives relays a token that only one person's devices hold, which links that ",
+  "description": "Review finding SEP2-8: The self-group gives relays a token that only one person's devices hold, which links that person's devices, addresses and push handles (lens SEP2). Location: spec/02-identity.md:496; spec/04-access-control.md:158; ARCHITECTURE.md:395-401. Fix: As suggested. §9 accepts linkage of one device via push and same-address clustering, not linkage across a person's devices on different networks. A self-group token is followed only by the user's devices, which gives exactly that linkage. Add the sentence to the §9 push/address bullet, with the optional RECOMMEND of a distinct relay. Full text: notes/review2/SEP2-verified.md and notes/review2/SEP2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:50.144835044Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:50.144835044Z",
+  "labels": [
+    "review",
+    "sep2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.34",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:50.160510456Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

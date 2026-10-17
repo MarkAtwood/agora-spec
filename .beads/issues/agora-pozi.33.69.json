@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.69",
+  "title": "[IMP2-6] The DM admission host member list has no bootstrap, Add ordering or freshness rule",
+  "description": "Review finding IMP2-6: The DM admission host member list has no bootstrap, Add ordering or freshness rule (lens IMP2). Location: spec/04-access-control.md:150-158; spec/07-compliance.md:285. Fix: Sub-points (1) creation authority, (2) the PUT-before-Welcome ordering, (4) replay freshness, and the missing PUT body and status codes are confirmed. The path exists (04:155), but the body encoding and codes do not. Drop sub-point (3), the rogue member. Any DM member can already Remove the others by MLS Commit (04:28, RFC 9420 default), so a member who rewrites the list gains no new power, and the optional Commit-hash rule is unneeded. Fix: the host accepts the first `DMMembers` for a `groupID` only from a DID it hosts; the committer of an Add MUST get a 2xx on the PUT before delivering Welcomes; the host rejects a `DMMembers` whose `ts` is not later than the last accepted one or is more than 300 s from its clock; the body is the `application/cbor` envelope, with 204, 400, 401, 403 and 409. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:52.517191888Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:52.517191888Z",
+  "labels": [
+    "review",
+    "imp2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.69",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:52.533463399Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -62,7 +62,7 @@ A properly configured Agora compliance archive contains the following for every 
 - Edits: each edit is a separate `Message` record referencing the original; the original and every version are preserved
 - Deletions: a deletion is a separate record carrying the deletion timestamp, sent by the original sender (or, for moderation, by an administrator); the original message record remains in the archive
 
-**File attachments and media.** Stored by content hash (CID). The same hash identifies the file wherever it is stored. If the content hash of a file produced in a proceeding matches the hash in the original conversation, the file has not been altered.
+**File attachments.** Each archived message records, for every attached file, the file's SHA-256 hash and size, the key that decrypts it, and the content identifier (CID) of its encrypted copy (spec §5.2.2). The spec places file attachments within compliance scope (spec §7) but does not yet define how the logger stores the file contents, so ask the firm how its logger fetches and retains each file and how it records a file it could not fetch. If the SHA-256 hash of a file produced in a proceeding matches the hash in the archived signed message, the file has not been altered. The CID identifies only the encrypted copy and is not the comparison to make.
 
 **Reactions.** Emoji responses to messages are JMAP Chat `Reaction` objects carried as ordinary group messages and archived identically to text messages.
 
@@ -202,7 +202,7 @@ For any DM group involving a regulated employee, the archive contains:
 
 **Gap: non-Agora applications.** DM compliance applies to conversations conducted via Agora (including bridged conversations where the counterparty uses Slack, Teams, or a MIMI-compatible platform). If the regulated employee conducts the same conversation via WhatsApp, iMessage, or another non-Agora application, Agora does not capture it.
 
-**Not a gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request (spec §4.6.3). A regulated employee's client still processes the Welcome, admits the logger and captures while the request is pending (spec §7.8.2); the request state suppresses only notifications, read receipts and typing indicators. Messages sent into the group while the employee has not yet accepted are therefore in the archive.
+**Not a gap: message requests.** When someone the regulated employee has not accepted adds them to a DM group, the client holds the group as a message request (spec §4.6.3). A regulated employee's client still processes the Welcome, admits the logger and captures while the request is pending (spec §4.6.3, §7.8.7); the request state suppresses only notifications, read receipts and typing indicators. Messages sent into the group while the employee has not yet accepted are therefore in the archive.
 
 **Gap: tampered clients.** A modified client can join or create a DM group without the logger. Such a group is invisible to the logger. The firm's controls here are managed devices and reconciliation of audit records against the groups the logger actually holds (spec §7.8.9).
 

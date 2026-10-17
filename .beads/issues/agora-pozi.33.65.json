@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.65",
+  "title": "[IMP2-2] The commit stream changes on admission key rotation, so competing Commits can be stamped o",
+  "description": "Review finding IMP2-2: The commit stream changes on admission key rotation, so competing Commits can be stamped on different streams (lens IMP2). Location: spec/05-messaging.md:27; spec/14-jmap.md:160-162, :207, :238. Fix: Confirmed against 10-relays.md:839. The old key stays registered for a RECOMMENDED 300 s grace period after rotation, and rotation follows exactly the removal Commits (05:257). The sequencer admits both tokens in that window (14:207), so two committers for epoch N+1 can be stamped on unrelated streams that each start at 0. §14.4.4 \"Closing a stream\" (14:238) covers only operation streams. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:52.253927909Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:52.253927909Z",
+  "labels": [
+    "review",
+    "imp2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.65",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:52.270550934Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

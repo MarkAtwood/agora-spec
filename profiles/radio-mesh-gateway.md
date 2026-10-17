@@ -102,9 +102,9 @@ Agora has no anonymous-inbound path, and this profile does not add one. Distress
 
 ## 8. Public broadcast
 
-IRONWEED BROADCAST (SPEC §5.5.3) maps to an Agora `broadcast` channel with `keyAccess: public` (§5.2.1.4). The content key is public Space state, so anyone can read; IOs still see only the routing envelope.
+IRONWEED BROADCAST (SPEC §5.5.3) maps to an Agora `broadcast` channel with `keyAccess: public` (§5.2.1.4), which only a public Space can have. The content key is public Space state, so anyone can read; IOs still see only the routing envelope, though they can tie the channel's published token to the CO's agreement, an accepted cost (ARCHITECTURE §9).
 
-- The gateway holds a role in the channel's `broadcasterRoles`, so the Space endpoint serves it the channel admission key with its private key, and it is the poster (§5.2.1.4).
+- The gateway holds a role in the channel's `broadcasterRoles`, so the Space endpoint serves it the channel admission key with its private key, and it is the poster (§5.2.1.4). The CO lists the gateway's DID in the channel's signed `broadcasters` list in the public view of Space state, and non-member receivers check the poster's signature against that list (§3.4, §5.2.1.4).
 - A broadcast payload is always a `urn:agora:type:BroadcastMessage` carrying a JMAP Chat `Message`, signed by the poster (§5.2.1.4, §13.1). The gateway puts a readable rendering of the broadcast in the `Message` text and attaches the original `urn:ironweed:Broadcast` frame (§5) as an encrypted blob, so receivers that understand IRONWEED can check `osig`.
 - The original mesh signature and source mesh CA certificate travel in the frame (`osig`, and `p` verbatim). Receivers keep "verified source" versus "source unverified" from the mesh signature, not from the gateway's JWS. The gateway's signature says only "this gateway relayed it".
 - The gateway never presents itself as the originating mesh. Clients should display the mesh identity, the verification result and the expiry, and should not act automatically (SPEC §5.5.3).

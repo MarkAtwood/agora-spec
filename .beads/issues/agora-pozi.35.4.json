@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.35.4",
+  "title": "LICHEN confessions anonymity claim corrected (decided)",
+  "description": "DECIDED (Mark 2026-10-17), option A: correct the claim; confessions hide the author only at the application layer; link signatures and SIID reveal the transmitting node over the air; clients MUST NOT call them anonymous without stating this. Applied in LICHEN spec/12-apps.md §18.10.5.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:18:39.102699639Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:18:39.102699639Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.35.4",
+      "depends_on_id": "agora-pozi.35",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:18:39.118543001Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

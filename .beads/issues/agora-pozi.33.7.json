@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.7",
+  "title": "[DOC2-2] Relay guide says a relay cannot suspend a token",
+  "description": "Review finding DOC2-2: Relay guide says a relay cannot suspend a token (lens DOC2). Location: guides/relay-operator.md:1060, :2373, §17.2 table (:2365-2371), metric `cause` labels (:1195); spec/10-relays.md:642; spec/11-transport.md:188. Fix: The guide says \"There is no admin operation that suspends or blocks a token\" and \"The relay has no control that blocks a single token\". Spec §10.4.7 says \"A Relay MAY stop admitting ... for one registered `channelToken` ... MUST notify the CO\", and §11.4 lists suspension as a `token-withdrawn` cause. Apply the reviewer's fix as written: add a suspend/lift admin operation, a §17.2 row, a `suspended` cause label and the mandatory `contact` notice, and delete both \"no control\" sentences. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:48.401089439Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:48.401089439Z",
+  "labels": [
+    "review",
+    "doc2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.7",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:48.417727646Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

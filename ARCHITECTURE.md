@@ -61,7 +61,7 @@ A component's role is determined by what it holds, not by who runs it:
 | Sequencer | IO | Stamps order on encrypted operations and Commits; members' clients validate the stamps (protocol spec §14.4). Bound like a relay: `ServiceAgreement`, registered admission keys, learns the CO and not the Space. A CO SHOULD use one sequencer across its Spaces and SHOULD designate a relay it already has an agreement with |
 | Push proxy | IO | Observation budget includes device push handles (§5); a CO MAY run its own |
 | SFU | IO | MUST NOT be an MLS member (§7, item 6) |
-| KeyPackage host | CO | Run by whoever runs the user's identity (§8, Q3). Issues and serves the admission key of DM groups the user initiates (§6.2). MAY refuse KeyPackage fetches and Welcome deliveries from senders the user has blocked, or by policy |
+| KeyPackage host | CO | Run by whoever runs the user's identity (§8, Q3). Issues and serves the admission key of DM groups the user initiates or whose admission host role it takes over (§6.2). MAY refuse KeyPackage fetches and Welcome deliveries from senders the user has blocked, or by policy |
 | Admission key registration service | CO | Generates and holds channel admission private keys; registers the public keys with IOs (§6.2) |
 | Compliance logger | CO | MLS member; holds plaintext |
 | Archive / Purview bridge | CO | Holds plaintext |
@@ -97,8 +97,10 @@ learning S1-protected information. The only such forms are those defined in
 **S3. No community keys at the infrastructure.** An IO component MUST NOT hold
 MLS group secrets, epoch secrets, MLS exporter outputs, channel admission
 private keys, user signing keys, or plaintext. The only key material an IO
-holds for a community is the verification material of §6.2: registered
-admission public keys and the routing tokens registered with them.
+holds for a community is the verification material of §6.2 (registered
+admission public keys and the routing tokens registered with them) and the
+TURN shared secret of §6.4, which authenticates the CO credential service and
+identifies no member.
 
 **S4. Community state is CO-signed.** Space state, channel state, role
 assignments, moderation records and retention policy MUST be signed by CO keys.
@@ -118,7 +120,8 @@ MUST be visible to members.
 
 **S7. Contracts, not configuration.** The only binding between a CO and an IO is
 the `ServiceAgreement` (protocol spec §10.5.1) and the verification material
-defined in §6. This holds for every IO service type: relay, SFU, TURN,
+defined in §6, including the TURN shared secret of a `turn` agreement (§6.4).
+This holds for every IO service type: relay, SFU, TURN,
 sequencer and push proxy. An IO MUST NOT require CO data beyond these as a condition of
 service.
 
@@ -156,18 +159,25 @@ An IO MAY observe the following and nothing else:
    one is required (protocol spec §10.5.2). The payload they carry is
    ciphertext.
 3. Verification material and proofs defined in §6 (registered admission public
-   keys and `admissionSig` values), and connection-level proof of work
-   (protocol spec §11.6). None of these reveals which member produced it.
+   keys and `admissionSig` values), connection-level proof of work (protocol
+   spec §11.6) and proof of work on HTTP endpoints (protocol spec §10.5.2).
+   None of these reveals which member produced it.
 4. Content identifiers (CIDs) it stores or pins, and pin/unpin instructions
-   authorized under §6.
+   authorized under §6. This includes CIDs it replicates to or pulls from
+   other IOs carrying the same routing token, which already carry that
+   token (protocol spec §10.4.4). An IO never announces or requests private
+   ciphertext on the public IPFS network.
 5. Quota state under a `ServiceAgreement`, keyed to the agreement and
    never to member identity. Commercial terms between CO and IO are outside the
    protocol.
 6. The billing DID of each CO it holds an agreement with, which admission keys
    (§6.2) are registered under each agreement, and when each was registered
-   and deregistered. An IO MUST NOT be able to map an admission key to a Space
-   or channel: the set of Spaces it cannot tell apart is every Space that CO
-   serves through it. This applies to sequencers and SFUs as to relays.
+   and deregistered, and which registered token a rotated key replaces
+   (protocol spec §10.5.3). An IO MUST NOT be able to map an admission key to
+   a Space or channel, except the token of a `keyAccess: public` broadcast
+   channel, which the CO publishes with its public Space (§9): the set of
+   Spaces it cannot tell apart is every Space that CO serves through it. This
+   applies to sequencers and SFUs as to relays.
 7. Push. A push proxy observes opaque device push handles, the platform device
    tokens they map to, and wake-up timing. A relay that serves push observes
    each registered `pushHandle`, its proxy endpoint and the set of
@@ -176,6 +186,12 @@ An IO MAY observe the following and nothing else:
    urgency. Users MAY disable push; a client with push disabled registers
    nothing with either party.
 8. Its own peering relationships with other IOs.
+9. SFrame key IDs. An SFU observes the KID of each media frame (protocol spec
+   §6.9), which carries the sender's MLS leaf index, stable across calls in
+   the group, the MLS epoch modulo 16, and a context ID the sender chooses
+   per track (RFC 9605 §5.2). It carries no DID. It can therefore
+   tell the senders of one group apart under stable pseudonyms and see when
+   the group's MLS epoch changes.
 
 Agora does not claim network-layer anonymity against an IO. Members who need it
 use an overlay transport (protocol spec §10.1, §11). This matches the privacy
@@ -198,7 +214,8 @@ agreements that MUST NOT appear in Space state or any other Space-identifying
 record. An agreement names no Space and no channel. Coverage is expressed by
 registering channel admission keys (§6.2) under the agreement through a CO-run
 registration service, so members can create groups without holding the
-billing key. Registration gives every IO, of any service type, a way to admit
+billing key. Registration gives every IO whose `serviceType` receives
+registrations (relay, SFU and sequencer; protocol spec §10.5.1) a way to admit
 members only, without learning their identity. Agreements and registrations are
 private between the two parties and are not gossiped or published.
 
@@ -226,16 +243,20 @@ review (§8 Q1):*
 
 - The CO registration service generates a random Ed25519 admission key pair
   for each channel and each DM group, numbered by a counter `keyEpoch`.
-- It registers the public key with every IO that holds a `ServiceAgreement`
-  with the CO, by an `AdmissionKeyRegistration` sent over HTTPS and signed by
+- It registers the public key with every IO holding a `ServiceAgreement`
+  with the CO whose `serviceType` receives registrations (protocol spec
+  §10.5.1), by an `AdmissionKeyRegistration` sent over HTTPS and signed by
   the billing DID per protocol spec §13.1.1. The registration carries the key's
-  `channelToken`. An `AdmissionKeyDeregistration` tells an IO to stop accepting
+  `channelToken` and, for a rotated key, the token it replaces, but no
+  `keyEpoch`. An `AdmissionKeyDeregistration` tells an IO to stop accepting
   a key. Neither is ever gossiped.
 - It serves the private key to authenticated current members (protocol spec
   §3.5) as a `ChannelAdmissionKey` from the Space endpoint, at
   `<spaceEndpoint>/admission-key/<channelID>`. For a DM group, the initiator's
   identity host (the host that serves the initiator's KeyPackages, §8 Q3)
-  issues and serves it at `<host>/admission-key/<groupID>`. For a shared
+  issues and serves it at `<host>/admission-key/<groupID>`. When that host's
+  user is no longer a member, a remaining member's client moves the role to
+  its own identity host (protocol spec §4.6). For a shared
   channel, the home Space's CO issues and registers it. Broadcast channels use
   this same mechanism; their content key is distributed the same way.
 - The routing token is derived from the key:
@@ -262,7 +283,7 @@ Consequences:
 - **Timeouts and mutes are client-enforced.** Members' clients drop messages
   from a timed-out member. An IO cannot enforce a timeout without learning the
   sender, so it does not try.
-- **Pin and delete instructions** are authorized by the same key (a
+- **Pin and unpin instructions** are authorized by the same key (a
   `PinInstruction` signed under it, protocol spec §11.4), plus a CO-signed role
   check that clients, not IOs, perform. An IO enforces storage quotas by
   agreement, not pin semantics by content.
@@ -271,7 +292,11 @@ Consequences:
   meantime can post ciphertext until the rotation, which members' clients
   drop, but cannot read it. This cost is accepted in §9.
 - **Commit conflicts.** When two Commits target the same MLS epoch, the one
-  the channel's sequencer stamps first wins. If the Space designates no
+  the channel's sequencer stamps first wins, among stamped Commits published
+  within 10 seconds of their stamp and valid under Space state; the others
+  are skipped by every member alike. Once a rotated admission key is
+  registered, the sequencer stamps no Commit on the old token's commit
+  stream. If the Space designates no
   sequencer, the Commit with the lowest envelope `id` among those received
   within a 5-second window wins. Clients discard the losing Commit and
   re-propose. The normative rule is protocol spec §5.1.1. The admission key
@@ -292,6 +317,14 @@ Clients validate membership changes, deletes and role actions against signed
 Space state. A client MUST accept an MLS Welcome only from a sender authorized
 to add members under current Space state, and a Welcome MUST NOT replace an
 existing group.
+
+### 6.4 TURN shared secret
+
+A CO that uses a TURN server shares one secret with the TURN operator under
+their `turn` agreement (protocol spec §6.11). The CO credential service uses it
+to issue short-lived credentials to members, and the TURN server uses it to
+check them. It authenticates the CO credential service, not a member, and it
+gives no access to MLS state, admission keys or content.
 
 ## 7. Disposition of conflicts in the imported specs
 
@@ -390,22 +423,61 @@ All resolved 2026-10-16 except the external review in Q1.
 - **Some infrastructure-level abuse controls get coarser.** Without identity, an
   IO rate-limits by routing token, agreement and network address.
 - **Space anonymity at the IO is only as large as the CO.** A CO with one Space
-  gets none. An IO can also correlate registration timing with a newly
-  advertised public Space, can link successive admission keys of one channel
-  by the timing of a deregistration and the matching registration, and can
-  cluster routing tokens that the same network address subscribes to. It
-  cannot name such a cluster without outside information.
+  gets none. The same holds for an identity host acting as the CO for DM
+  groups and self-groups (protocol spec §10.5.3): their anonymity set at the
+  IO is that host's users, and a host that serves one user gives none, since
+  its agreements then stand for that user. An IO can also correlate
+  registration timing with a newly advertised public Space, can link
+  successive admission keys of one channel through the token a registration
+  replaces, and can cluster routing tokens that the same network address
+  subscribes to. It cannot name such a cluster without outside information.
+- **An IO can infer removals.** After a rotation, an IO can see which
+  subscribers do not move to the new key's token, and so can infer that a
+  removal occurred and which connection or push handle it affected. It does
+  not learn who was removed.
+- **Public broadcast channels are mapped to their Space.** A `keyAccess:
+  public` broadcast channel exists only in a public Space, and the CO
+  publishes its token with that Space (protocol spec §3.4). An IO can
+  therefore map that token, and the billing DID it is registered under, to the
+  named Space. This ties the CO's billing DID to a Space that already
+  advertises itself and its relays, and lets push and address clustering tie
+  the followers' other tokens under that CO to a known community. Privacy
+  claims about tokens elsewhere in this document and the protocol spec exclude
+  these published tokens.
 - **Push links a device's channels at its relay.** A relay serving push holds
   each `pushHandle` with its registered routing tokens, so it can cluster
   those tokens as one device across sessions and network addresses. It learns
-  no DID and no channel identity. Users who do not accept this disable push. A Space that publishes its relay list has disclosed that it uses
+  no DID and no channel identity. Users who do not accept this disable push.
+  A user's self-group token is followed only by that user's devices, so a
+  relay that carries it can link those devices, their addresses and their
+  push handles even across networks; a user who does not accept this can
+  have the self-group served from a relay that carries none of their other
+  channels. A Space that publishes its relay list has disclosed that it uses
   those relays, by choice. Under legal demand an IO can produce which network
   addresses used a given CO's service, not which Space, channel or sender.
 
+- **Public content on the public IPFS network cannot be withdrawn.** Public
+  Space records and the envelopes and blobs of public broadcast channels MAY
+  be published to the public IPFS network (protocol spec §10.4.4). Once
+  announced there, copies outlive any deletion or takedown by the CO, and DHT
+  participants and the peers that serve those CIDs see the network addresses
+  that request them. Private ciphertext is never announced or requested
+  there, so this applies only to content its CO already made public.
+
+- **An SFU sees stable sender pseudonyms and MLS epoch changes.** The SFrame
+  KID (§5 item 9) is fixed by RFC 9605. An SFU can tell a group's senders
+  apart across calls and see when its MLS epoch changes, without learning any
+  DID.
+
 - **A party that runs both a social or identity service and relays can link
-  its own users to the COs whose traffic they use.** It never learns content,
-  channel or Space. Users and communities can choose relays run by someone else
-  (§2.4; profiles/corundum.md).
+  its own users to the COs whose traffic they use.** For Spaces it never
+  learns content, channel or Space. For a DM group whose admission host it
+  runs (protocol spec §4.6), it knows the members by DID, and if the group's
+  relays are its own, it also sees that group's traffic: it then knows which
+  token is which DM and when it is used, though never its content. A DM
+  admission host SHOULD list relays it does not operate. Users and
+  communities can choose relays run by someone else (§2.4;
+  profiles/corundum.md).
 
 ## 10. Review test
 

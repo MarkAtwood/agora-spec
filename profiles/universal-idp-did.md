@@ -1,5 +1,7 @@
 # Specification: Employer-Managed DIDs, Universal Identity Provider Support
 
+> Non-normative. Capitalized BCP 14 key words (RFC 2119, RFC 8174) in this profile state what a deployment that follows it requires of its own components; they bind only implementations that claim conformance to this profile and are not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source. Where this profile conflicts with the spec or ARCHITECTURE.md, those govern.
+
 **Version:** 0.1 Draft
 **Depends On:** the Agora protocol specification (`spec/`, current draft), O365 DID Spec v0.1, Google Workspace DID Spec v0.1
 **Status:** Pre-implementation design
@@ -19,7 +21,7 @@ This specification extends the DID Sidecar's `IdentityProvider` interface to cov
 
 All four categories produce the same output: a `did:webvh` identity `did:webvh:{SCID}:did.example.com:users:{localIdentifier}` whose DID log is served at `https://did.example.com/users/{localIdentifier}/did.jsonl` (spec §2.1, §2.5.2), triggered by the same sidecar event handler introduced in the Google Workspace spec. The categories differ only in which `IdentityProvider` implementation feeds that handler and which JML source drives user lifecycle events.
 
-**The sidecar is the organization's DID Provisioning Service** (spec §2.5.2), a CO component. It holds an update key for every DID log it creates. Each organizational change to a document (stub creation, device key addition or removal, suspension, deactivation) is a log entry signed with that update key and is visible to every resolver in the DID history (spec §2.5.1). It also hosts each user's KeyPackages: at stub creation it adds a `KeyPackageEndpoint` service entry of type `AgoraKeyPackageEndpoint` pointing at itself (spec §2.5.3), stores the KeyPackages the user's devices upload (spec §2.5.4 Step 6, §5.2.1.1), and accepts Welcomes by POST at the same endpoint (spec §4.6, §5.2.1.1).
+**The sidecar is the organization's DID Provisioning Service** (spec §2.5.2), a CO component. It holds an update key for every DID log it creates. Each organizational change to a document (stub creation, device key addition or removal, suspension, deactivation) is a log entry signed with that update key and is visible to every resolver in the DID history (spec §2.5.1). It also hosts each user's KeyPackages: at stub creation it adds a `KeyPackageEndpoint` service entry of type `AgoraKeyPackageEndpoint` pointing at itself and an `AgoraProvisioning` service entry naming its provisioning endpoint `{prov}` (spec §2.5.3), stores the KeyPackages the user's devices upload (spec §2.5.4 Step 6, §5.2.1.1), and accepts Welcomes by POST at the same endpoint (spec §4.6, §5.2.1.1). As the users' identity host it also serves admission keys for their DM groups and self-groups, exactly as O365 spec §6.7 describes; this profile defers to that section.
 
 **Witnesses.** These are CO-provisioned `did:webvh` identities, so spec §2.1 requires did:webvh witnesses: each DID's `witness` parameter lists at least one witness DID that the organization does not control, with a threshold that makes every accepted log entry carry a proof from at least one such witness. The sidecar therefore publishes a log entry only once it holds the required witness proofs, and clients reject an entry that lacks them (spec §2.1, §2.5.2). The witnesses are what stop the sidecar, which holds every update key, from serving different logs to different resolvers or rolling a log back. Which witnesses to use is the organization's choice; this profile names none. Relays play no part in provisioning: they never see IdP tokens, DID logs or KeyPackages.
 
@@ -37,7 +39,7 @@ Every source's events reduce to five normalized actions. Each source section bel
 
 | Normalized action | DID log entry (signed with the sidecar's update key) | `EmployeeCredential` | Resulting state |
 |---|---|---|---|
-| `PROVISION` | Create the stub log: no keys, one `KeyPackageEndpoint` service entry (spec §2.5.3). No-op if the user already exists. | None until first device enrollment | `STUB` |
+| `PROVISION` | Create the stub log: no keys, a `KeyPackageEndpoint` service entry and an `AgoraProvisioning` service entry (spec §2.5.3). No-op if the user already exists. | None until first device enrollment | `STUB` |
 | `UPDATE` | None. Claims live in the credential, not the DID document. | Re-issue with new claims | Unchanged |
 | `SUSPEND` | Remove all device keys (spec §2.5.5 `revokeAll`). The sidecar keeps the removed public keys in its private store. | Revoke | `SUSPENDED` |
 | `REACTIVATE` | Restore the device keys removed at suspension. | Re-issue | `ACTIVE` (or `STUB` if no keys were held) |
@@ -689,6 +691,8 @@ Internet → [Reverse Proxy] → /v1/devices              (device enrollment, sp
                            → /v1/hr-event             (HR webhook)
                            → /users/*/did.jsonl       (DID log serving)
                            → /v1/agora/kp/*           (KeyPackageEndpoint, spec §5.2.1.1: fetch, publish, Welcome, auth)
+                           → /v1/admission-key/*      (DM and self-group admission keys, spec §4.6; O365 spec §6.7)
+                           → /v1/auth                 (member authentication for admission keys, spec §3.5)
 
 Internal only:
   LDAP polling  → DC on port 636

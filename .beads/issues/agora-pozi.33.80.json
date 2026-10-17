@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.80",
+  "title": "[IMP2-17] Form of `ChannelAdmissionKey.relays` entries and the DM key response encoding are undefine",
+  "description": "Review finding IMP2-17: Form of `ChannelAdmissionKey.relays` entries and the DM key response encoding are undefined (lens IMP2). Location: spec/03-spaces.md:291-295, :313; spec/04-access-control.md:150; spec/10-relays.md:525. Fix: Apply the reviewer's text. Each entry is a Relay manifest origin, with endpoints read from §10.2.1. The DM host returns the `application/cbor` envelope with `sig` absent, using the status codes of 03:313. Without the second sentence, 03:313's \"with `sig` present\" reads as applying to DM hosts too. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:53.234934075Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:53.234934075Z",
+  "labels": [
+    "review",
+    "imp2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.80",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:53.255398785Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.13",
+  "title": "[DOC2-8] PROPOSAL still calls the guides \"pending revision\"",
+  "description": "Review finding DOC2-8: PROPOSAL still calls the guides \"pending revision\" (lens DOC2). Location: PROPOSAL.md:71. Fix: Drop \"(pending revision)\" once DOC2-1 to DOC2-3 land. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:48.77502944Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:48.77502944Z",
+  "labels": [
+    "review",
+    "doc2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.13",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:48.788774647Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

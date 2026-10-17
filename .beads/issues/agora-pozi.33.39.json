@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.39",
+  "title": "[CRY2-4] SFrame KID layout can make two senders share a KID, which reuses nonces under the shared `",
+  "description": "Review finding CRY2-4: SFrame KID layout can make two senders share a KID, which reuses nonces under the shared `base_key` (lens CRY2). Location: spec/06-calls.md:222, 479. Fix: Confirmed against RFC 9605 §5.2 (rfc9605.txt:866-867): \"Let S be the number of bits required to encode a member index in the group, i.e., the smallest value such that group_size \u003c= (1 \u003c\u003c S).\" The RFC is itself ambiguous about \"group_size\". Counterexample: members sit at leaves 0, 1 and 5, so the member count is 3 and S = 2. KID(context 0, index 5) = 0x50+e equals KID(context 1, index 1) = 0x40+0x10+e, which reuses (key, nonce). Correct the citation: the leaf count is defined in RFC 9420 §4.1 (\"The _size_ of a tree ... is the number of leaf nodes it contains\"; every tree is perfect, with 2^d leaves), not §7.1, which covers ParentNode contents. Fix at 06:222: \"S is the depth of the epoch's ratchet tree, that is, the smallest value with (number of leaves, including blank leaves, RFC 9420 §4.1) \u003c= (1 \u003c\u003c S)\". 06:479 inherits the fix. Add a test vector with blank leaves. Full text: notes/review2/CRY2-verified.md and notes/review2/CRY2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:50.491923081Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:50.491923081Z",
+  "labels": [
+    "review",
+    "cry2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.39",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:50.511316934Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

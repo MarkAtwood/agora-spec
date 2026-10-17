@@ -120,21 +120,24 @@ Deliver = {
 
 Ack = {
   "v": 1, "t": "Ack", "id": req-id,
-  ? "cid": cid                   ; the envelope id, in answer to Publish
+  ? "cid": cid                   ; the envelope id (CID of the signed
+                                 ; bytes only), in answer to Publish
 }
 
 Error = {
   "v": 1, "t": "Error",
   ? "id": req-id,                ; absent for a connection-level error
   "code": error-code,
-  ? "token": channel-token,      ; the token concerned, for token-withdrawn
+  ? "token": channel-token,      ; the token concerned, for unknown-token
+                                 ; or token-withdrawn without "id"
   ? "detail": tstr               ; diagnostic text, not for display
 }
 
 error-code = "bad-message" / "unsupported-version" / "unknown-token"
            / "token-withdrawn" / "bad-admission-sig" / "insufficient-pow"
            / "expired" / "replayed" / "too-large" / "rate-limited"
-           / "quota-exceeded" / "unknown-cid" / "internal"
+           / "quota-exceeded" / "unknown-cid" / "stream-closed"
+           / "internal"
 
 PinInstruction = {
   "v": 1, "t": "PinInstruction", "id": req-id,
@@ -143,7 +146,7 @@ PinInstruction = {
 }
 
 pin-op = {
-  "op": "pin" / "unpin",
+  "op": "pin" / "unpin" / "seed",
   "channelToken": channel-token,
   "cids": [+ cid],
   "nonce": bstr .size 16,
@@ -170,7 +173,7 @@ PushRegister = {
 
 **Hello and admission.** `ClientHello`, `RelayHello`, `AdmissionChallenge` and `AdmissionProof` are defined in §11.6. Every other message carries the negotiated version as `v`.
 
-**Subscribe and Unsubscribe.** A Relay MUST NOT require any proof to subscribe; subscriptions are rate-limited (§11.6). After answering a `Subscribe` with `Ack`, the Relay sends a `Deliver` for each envelope it accepts on any subscribed token until the client unsubscribes from that token or the connection closes. A subscription delivers only envelopes accepted after it; earlier envelopes come from the JMAP sync API (§11.8). A Relay delivers nothing for a token that has no registered admission key.
+**Subscribe and Unsubscribe.** A Relay MUST NOT require any proof to subscribe; subscriptions are rate-limited (§11.6). After answering a `Subscribe` with `Ack`, the Relay sends a `Deliver` for each envelope it accepts on any subscribed token until the client unsubscribes from that token or the connection closes. A subscription delivers only envelopes accepted after it; earlier envelopes come from the JMAP sync API (§11.8). A Relay delivers nothing for a token that has no registered admission key. It answers a `Subscribe` with one `Ack` for the request, subscribing the tokens that are registered, and sends, for each listed token that is not registered, an `Error` without `id` with code `unknown-token` and `token` set to that token (or `token-withdrawn`, as below). A client fails over for those tokens as §10.3.5 describes.
 
 **Publish.** On a `Publish` the Relay:
 
@@ -178,16 +181,20 @@ PushRegister = {
 2. looks up the admission public key registered for the `channelToken` in `signed` (§10.5.3), and answers `unknown-token` if there is none;
 3. verifies `admissionSig` over the exact bytes of `signed` under that key, and answers `bad-admission-sig` if it fails;
 4. checks `powProof` against its `minPowDifficulty` (§10.5.2), and answers `insufficient-pow` if it falls short;
-5. applies the remaining acceptance checks of §10.5.4 and §10.4.3, answering `expired`, `rate-limited` or `quota-exceeded` as they apply;
+5. applies the remaining acceptance checks of §10.5.4 and §10.4.3, answering `expired`, `rate-limited` or `quota-exceeded` as they apply. An envelope is `expired` if its `ts` is more than 300 seconds ahead of the Relay's clock or older than the `retentionDays` of the agreement under which the key is registered, or if it carries an `expiryHint` that has already passed;
 6. stores the envelope under its `channelToken` for the retention of the agreement under which the key is registered, answers `Ack` with `cid` set to the envelope `id` (§5.2.2), sends a `Deliver` with the same envelope bytes to every other connection subscribed to the token, and fans the envelope out as §10.4.2 describes.
+
+If the Relay already holds an envelope with the same `id` under the token, it answers `Ack` with that `cid` and neither stores nor delivers the envelope again.
 
 **Deliver.** A client processes a delivered envelope as §5.2.2 describes.
 
-**Error.** An `Error` without `id` reports a problem with the connection as a whole; the Relay MAY close the connection after sending it. The exception is `token-withdrawn`.
+**Error.** An `Error` without `id` reports a problem with the connection as a whole; the Relay MAY close the connection after sending it. The exceptions are `unknown-token` and `token-withdrawn` carrying `token`, which concern one token and leave the connection open.
+
+**Stream closed.** `stream-closed` is not sent on the live protocol. It is the code a sequencer returns for a Commit submitted on the commit stream of a token whose key has been replaced (§10.5.3, §14.4.3).
 
 **Withdrawn tokens.** `unknown-token` means that no admission key is registered for the token. `token-withdrawn` means that the token's key was registered and is no longer admitted: the CO deregistered it (§10.5.3), the agreement under which it was registered has ended (§10.5.1, §10.5.3), or the Relay suspended the token (§10.4.7). When a key stops being admitted, the Relay sends each connection subscribed to its token an `Error` without `id`, with code `token-withdrawn` and `token` set to that token, and ends those subscriptions without closing the connection. It answers a later `Subscribe`, `Publish` or `PinInstruction` naming that token with `token-withdrawn` for as long as it still holds envelopes under the token, and with `unknown-token` after that. On either code the client fetches the current `ChannelAdmissionKey` (§5.2.2). If its token is the one refused, the client uses another Relay in the key's relay list (§10.3.5).
 
-**PinInstruction.** A pin instruction asks the Relay to keep, or stop keeping, envelopes and blobs past retention (§5.2.6). The Relay MUST reject an instruction, with code `bad-message`, whose `signed` value does not decode to a `pin-op`. A routing envelope's `signed` map (§5.2.2) has no `op` member, so a signature made for one is never accepted as the other. The Relay then looks up the key registered for `channelToken` and verifies `admissionSig` over the exact bytes of `signed`, answering as for `Publish`. It answers `expired` if `expires` has passed or is more than 600 seconds ahead of its clock, and `replayed` if it has already accepted the same `nonce` for that token. For `pin`, it exempts each listed CID that it holds under that token from retention expiry and charges the storage to the agreement under which the key is registered, answering `quota-exceeded` if the agreement's quota would be exceeded and `unknown-cid` if it holds none of the CIDs. For `unpin`, it removes the exemption. The role check that decides whether a member may pin is made by clients against Space state (ARCHITECTURE §6.2), never by the Relay.
+**PinInstruction.** A pin instruction asks the Relay to keep, or stop keeping, envelopes and blobs past retention (§5.2.6). The Relay MUST reject an instruction, with code `bad-message`, whose `signed` value does not decode to a `pin-op`. A routing envelope's `signed` map (§5.2.2) has no `op` member, so a signature made for one is never accepted as the other. The Relay then looks up the key registered for `channelToken` and verifies `admissionSig` over the exact bytes of `signed`, answering as for `Publish`. It answers `expired` if `expires` has passed or is more than 600 seconds ahead of its clock, and `replayed` if it has already accepted the same `nonce` for that token. For `pin`, it exempts each listed CID that it holds under that token from retention expiry and charges the storage to the agreement under which the key is registered, answering `quota-exceeded` if the agreement's quota would be exceeded and `unknown-cid` if it holds none of the CIDs after attempting to pull them (§10.4.4). For `unpin`, it removes the exemption. For `seed`, it fetches each listed CID it does not hold from other Relays carrying the token, as for pull-through (§10.4.4), and keeps what it obtains for the ordinary retention window without a pin exemption; it answers `Ack` once it has accepted the instruction, before the fetches finish. A CO sends `seed` to a Relay newly added to a channel's relay list, signing with the channel's admission key, which its registration service holds. Envelope CIDs in a `pin-op` are envelope `id`s, the CIDs of the envelopes' `signed` bytes (§5.2.2). The role check that decides whether a member may pin is made by clients against Space state (ARCHITECTURE §6.2), never by the Relay.
 
 **PushRegister.** Defined in §11.7.3.
 
@@ -267,7 +274,7 @@ The fundamental constraint: APNs (Apple) and FCM (Google) are centralized servic
 
 **What neither learns:**
 - The client's DID
-- The channel or Space behind any `channelToken`
+- The channel or Space behind any `channelToken`, except the token of a `keyAccess: public` broadcast channel, which the CO publishes with its public Space (§3.4)
 - Any message content
 - The identity of any message sender
 
@@ -386,7 +393,7 @@ Clients locate the Session object from `endpoints.jmapSync`, not by RFC 8620 aut
 
 Relays never authenticate client identity on JMAP requests (§11.6). Envelope history is addressed by `channelToken`. The sync API is read-only for envelopes: envelopes are written only by `Publish` on the live stream (§11.4), where the Relay verifies `admissionSig` (ARCHITECTURE §6.2). Requests are rate-limited per network address and per `channelToken` (§11.6).
 
-**Blob upload.** A blob upload (`POST {base}/upload/{accountId}`) MUST carry an `Agora-Storage-Auth` header whose value is the base64url encoding (no padding) of the CBOR map `{"signed": bstr .cbor upload-op, "admissionSig": bstr .size 64}`, where `upload-op` is defined in §11.4 and `admissionSig` is an Ed25519 signature under the admission key of `channelToken` over the exact bytes of `signed`. The Relay verifies the signature, `expires` and `nonce` as for a `PinInstruction` (§11.4), checks that `sha256` equals the SHA-256 of the uploaded bytes, and charges the blob to the storage quota of the agreement under which that key is registered (§10.5.1). It rejects the upload with HTTP 403 if the header is missing or fails any check, and with HTTP 507 if the agreement's storage quota would be exceeded. Blob downloads need no authorization; blobs are encrypted (§3.4).
+**Blob upload.** A blob upload (`POST {base}/upload/{accountId}`) MUST carry an `Agora-Storage-Auth` header whose value is the base64url encoding (no padding) of the CBOR map `{"signed": bstr .cbor upload-op, "admissionSig": bstr .size 64}`, where `upload-op` is defined in §11.4 and `admissionSig` is an Ed25519 signature under the admission key of `channelToken` over the exact bytes of `signed`. The Relay verifies the signature, `expires` and `nonce` as for a `PinInstruction` (§11.4), checks that `sha256` equals the SHA-256 of the uploaded bytes, and charges the blob to the storage quota of the agreement under which that key is registered (§10.5.1). It rejects the upload with HTTP 403 if the header is missing or fails any check, and with HTTP 507 if the agreement's storage quota would be exceeded. On success, the `blobId` of the RFC 8620 upload response is the CID (§13.1) of the uploaded bytes in its text form, with codec `raw`; the Relay serves the same bytes under the `dag-pb` CID with the same multihash (§10.4.4). The Relay then replicates the blob to other Relays carrying the token (§10.4.4), so a client uploads each blob to one Relay only. A file is uploaded as its chunk blocks and, for more than one chunk, its root block, each in its own upload (§14.3.4). Blob downloads need no authorization; blobs are encrypted (§3.4).
 
 ### 11.8.3 Capability and Session Object
 
@@ -439,7 +446,7 @@ The Session object returned by `GET {base}/.well-known/jmap`:
 A single routing envelope (§5.2.2) as stored by the Relay. The name `Envelope` avoids a collision with the `Message` type of the JMAP Chat specification (draft-atwood-jmap-chat-00). **The `envelope` field holds the routing envelope exactly as the Relay received it; its sealed or broadcast payload is ciphertext the Relay cannot read.** Clients verify and decrypt it as they would on the live stream, using their local MLS group state.
 
 ```
-id              String     The envelope id (§5.2.2): the CID of the complete encoded envelope, in CID text form (§13.1)
+id              String     The envelope id (§5.2.2): the CID of the envelope's signed bytes only, in CID text form (§13.1)
 channelToken    String     Routing token under which the envelope was published, base64url without padding (RFC 4648 §5)
 envelope        String     base64url without padding: the exact bytes of the routing envelope as received
 receivedAt      UTCDate    Relay's clock; authoritative for stable sort order

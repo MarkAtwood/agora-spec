@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.33.47",
+  "title": "[CON2-3] No rule makes anyone update the DM admission host's member list when a member, logger or r",
+  "description": "Review finding CON2-3: No rule makes anyone update the DM admission host's member list when a member, logger or recorder is added (lens CON2). Location: spec/04-access-control.md:158, :259; spec/07-compliance.md:210-216, :336-352; spec/06-calls.md:466. Fix: §4.6 is permissive (\"any listed member replaces it after a membership change\"); the only obligations are on create (\"The initiator registers the list\") and on leave (§4.8 line 259). §7.8.2 steps 1-5 and the §7.8 Conformance Summary never mention `DMMembers`. A new member not put on the list cannot authenticate to the host, and a regulated member in request state (§7.8.7) cannot sign a `DMMembers` replacement unless already listed. Apply the reviewer's fix: \"The committer of every Commit that adds or removes a member MUST replace the member list by `DMMembers` before delivering the Welcome\"; add the step to §7.8.2 after step 4 and to §6.12.7; add a Conformance Summary row (Committing client, MUST). The recorder clause is a clarity gain only: §6.12.7 already says `complianceLoggers` \"records both text logger DIDs and VTC recorder DIDs\", but §4.6 should say \"compliance loggers and recorders\" explicitly. Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T07:14:51.053789437Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T07:14:51.053789437Z",
+  "labels": [
+    "review",
+    "con2"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.33.47",
+      "depends_on_id": "agora-pozi.33",
+      "type": "parent-child",
+      "created_at": "2026-10-17T07:14:51.07004476Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

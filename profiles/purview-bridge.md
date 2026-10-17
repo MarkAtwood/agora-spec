@@ -1,6 +1,8 @@
 # Agora Protocol: Microsoft Purview Bridge
 ## Implementation Specification v0.1
 
+> Non-normative. Capitalized BCP 14 key words (RFC 2119, RFC 8174) in this profile state what a deployment that follows it requires of its own components; they bind only implementations that claim conformance to this profile and are not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source. Where this profile conflicts with the spec or ARCHITECTURE.md, those govern.
+
 **Status:** Draft
 
 **Scope:** This document specifies the Agora Purview Bridge, a compliance gateway that ingests Agora `ComplianceRecord` objects (spec §7.4) and VTC compliance records (spec §6.12.4, spec §6.12.6) into Microsoft Exchange Online mailboxes for processing by Microsoft Purview Communication Compliance, eDiscovery, retention policies, and litigation hold.
@@ -297,13 +299,13 @@ Whether Purview keyword search tokenizes the marker block lines so that a full D
 
 ### 3.5 File Attachment Handling
 
-An attachment's `blobId` is the CID of a group-encrypted blob (spec §5.2.2, spec §3.4). Only a group member can decrypt it, so the bridge never fetches blobs from IPFS or any relay. The logger, as a passive member, fetches and decrypts attachment blobs and passes the plaintext to the bridge over the record stream (§8.3).
+An attachment's file is stored as a content-key blob: its `blobId` is the CID of the ciphertext, and the captured Message's `Attachment` carries the per-attachment `contentKey` and the plaintext `sha256` (spec §5.2.2, spec §14.3.4). The bridge never fetches blobs from IPFS or any relay. In this deployment the logger fetches each attachment blob, decrypts it with the `contentKey`, checks it against `sha256`, and passes the plaintext to the bridge over the record stream (§8.3). The spec places attachments in compliance scope (spec §7) but does not itself define that fetch; it is this profile's requirement on the logger.
 
 1. If the file fits within the tenant's configured maximum message size and the Graph attachment upload limits (verify against current Microsoft Graph documentation), the bridge adds it as a file attachment with its original filename, sanitized for Exchange, and its declared media type, falling back to `application/octet-stream` if unknown.
 2. If the file is too large, the bridge records only the metadata (name, size, type, `blobId`) in the body, and the item points investigators to the logger's archived copy on CO storage.
 3. If the logger could not decrypt or fetch the blob, the bridge MUST log the failure, record the metadata in the body with the line `Attachment content not captured`, and create the item without the file. The bridge MUST NOT block the deposit pipeline on attachment failures.
 
-The plaintext `sha256` of an attachment is CO data and stays on CO infrastructure (spec §5.2.2).
+`contentKey` and `sha256` must never be sent to any IO (spec §5.2.2). Each Exchange item carries the captured Message, and with it `contentKey` and `sha256`, so for attachments it is plaintext-equivalent: anyone who reads the item and obtains the ciphertext blob can decrypt the file. Protect the compliance mailbox accordingly.
 
 ---
 
@@ -360,7 +362,7 @@ The bridge creates items; Purview's retention machinery governs their lifecycle 
 
 ## 5. VTC Compliance Records (spec §6.12)
 
-The bridge handles VTC compliance records differently from text records. Media is not deposited into Exchange. The recorder stores each recording on CO storage, sealed with HPKE to the recorder's `keyAgreement` key (spec §6.12.4), and records its metadata as signed `VTCComplianceRecord` entries (one per epoch) and one `VTCComplianceAuditEntry` per session (spec §6.12.6). The bridge reads these from the recorder's record stream, which has the same form as the logger's (§8.3); the recorder may be the same principal as the logger (spec §7.6).
+The bridge handles VTC compliance records differently from text records. Media is not deposited into Exchange. The recorder stores each recording on CO storage, sealed with HPKE to the recorder's `keyAgreement` key (spec §6.12.4), and records its metadata as signed `VTCComplianceRecord` entries (one per epoch) and one `VTCComplianceAuditEntry` per session (spec §6.12.6). The bridge reads these, and the other audit-chain entries listed in §8.3, from the recorder's record stream, which has the same form as the logger's (§8.3); the recorder may be the same principal as the logger (spec §7.6).
 
 ### 5.1 VTC Notification Item
 
@@ -401,7 +403,7 @@ When an eDiscovery investigator needs the recording:
 
 1. Read the `x-agora-vtc-media-cid` values from the VTC notification item.
 2. Request the media from the CO's recording archive operator. The media objects are sealed to the recorder's key and only the CO can unseal them (spec §6.12.4); a copy held on IO storage is ciphertext only.
-3. Verify the JWS on the attached `VTCComplianceRecord` envelopes against the recorder's DID (spec §13.1.1), and confirm that each unsealed object's sealed form matches its `mediaCID`, before treating the media as authentic.
+3. Verify the JWS on the attached `VTCComplianceRecord` envelopes against the recorder's DID (spec §13.1.1), and confirm that each sealed object matches its `mediaCID`, before treating the media as authentic. If the archive key was rotated, the object now held has a different CID: follow the `ArchiveResealEntry` whose `oldCID` is the `mediaCID` to its `newCID` (repeating for each later re-seal), verify each entry's signature, and match the sealed object against the last `newCID` (spec §7.9).
 
 **Epoch gap handling:** If `x-agora-vtc-epochs-gapped` is present, the recording has gaps (spec §6.12.6). The investigator SHOULD check the compliance audit chain for a matching gap record. A gap the recorder documented (for example, the recorder was offline) is distinct from an undocumented gap, which may indicate a removal attempt; for DM voice groups the `DMComplianceAuditEntry` `removalAttempts` field (spec §7.8.8) records those.
 
@@ -556,7 +558,15 @@ Each line:   {
                "regulatedRecipients": ["did:...", ...],       (target set, §4.1)
                "attachments": [ { "blobId": "...", "path": "/run/agora-compliance/blobs/..." } ]
              }
+       or    {
+               "auditEntryCID": "...",
+               "entry": "{base64url of the exact stored audit-chain entry envelope}",
+               "entryType": "DMComplianceAuditEntry" | "ComplianceGapEntry"
+                          | "ArchiveResealEntry" | "VTCComplianceAuditEntry"
+             }
 ```
+
+The second line form carries the Space's compliance audit chain entries (spec §6.12.6, §7.8.8, §7.8.9, §7.9) as the logger or recorder writes them. The bridge verifies each against its signer's DID like a record, attaches every entry to an item in the compliance folder, uses `ComplianceGapEntry` and `DMComplianceAuditEntry` for the alerts of §9.2, uses `VTCComplianceAuditEntry` for §5, and keeps `ArchiveResealEntry` mappings for §5.2.
 
 `attachments` lists decrypted attachment files the logger has written to a local directory readable by the bridge (§3.5); an entry without `path` means the logger could not capture that blob. The bridge SHOULD verify each record's JWS against the logger DID (spec §13.1.1) before depositing it, and MUST alert on a verification failure. It verifies against the logger DID document version in effect when the record was signed, taken from the DID log, so that records signed before a rotation of the logger's signing key still verify (spec §7.9).
 
@@ -590,6 +600,7 @@ The following conditions MUST trigger an alert to the compliance officer (email 
 - Any row transitions to `failed` status.
 - Bridge delivery lag exceeds 15 minutes.
 - IPLD chain gap detected.
+- Capture gap recorded (any `ComplianceGapEntry`, spec §7.8.9).
 - DID mapping failure for a regulated member.
 - Record signature verification failure.
 - VTC epoch gap (`epochsGapped` non-empty in a `VTCComplianceAuditEntry`).
