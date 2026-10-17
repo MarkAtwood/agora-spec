@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.20.3",
+  "title": "Logger issues Welcome; committer must",
+  "description": "SPEC l.3782 says the compliance logger issues a Welcome. In MLS the committer that adds members produces the Welcome. Fix: reword so the committing member issues the Welcome when adding the logger. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:54.548592691Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:54.548592691Z",
+  "labels": [
+    "spec",
+    "mls"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.3",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:54.558516367Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

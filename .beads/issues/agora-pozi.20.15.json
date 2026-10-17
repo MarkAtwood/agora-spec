@@ -1,0 +1,25 @@
+{
+  "id": "agora-pozi.20.15",
+  "title": "Normatively referenced message types undefined",
+  "description": "SPEC references JmapTokenRequest (l.2170), QuotaGrant, ChannelStateMutation and full RelayAd without defining them; Lamport timestamp used but absent from schema (l.1082); roles: [...] elided (l.572). Fix: define each or remove references (JmapTokenRequest may go away with agora-pozi.13). Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:55.146995289Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:55.146995289Z",
+  "labels": [
+    "spec"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.15",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:55.154611751Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

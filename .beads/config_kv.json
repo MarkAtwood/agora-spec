@@ -1,4 +1,5 @@
 {
   "issue_prefix": "agora",
-  "kv.memory.agora-historical": "~/GIT/Agora (nie fork, prototype code) renamed to ~/GIT/Agora-historical on 2026-10-16. Frozen; Agora revival is spec-only in ~/PROJECT/agora. GitHub remote MarkAtwood/Agora unchanged."
+  "kv.memory.agora-historical": "~/GIT/Agora (nie fork, prototype code) renamed to ~/GIT/Agora-historical on 2026-10-16. Frozen; Agora revival is spec-only in ~/PROJECT/agora. GitHub remote MarkAtwood/Agora unchanged.",
+  "kv.memory.agora-no-payments": "Agora first ship: NO money or cryptocurrency handling (Mark, 2026-10-16) — distracting. Payment material lives in attic/relay-economics.md. RelayServiceAgreement stays (separation contract) minus price/fee fields. PoW spam deterrence kept as non-monetary."
 }

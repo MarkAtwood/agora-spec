@@ -1,0 +1,25 @@
+{
+  "id": "agora-pozi.20.10",
+  "title": "DM consent vs logger addition contradiction",
+  "description": "SPEC l.2496 applies DM consent to logger additions; l.3780 says logger addition has no consent threshold. Fix: pick one rule and state it once. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:54.902637704Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:54.902637704Z",
+  "labels": [
+    "spec"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.10",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:54.91000194Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

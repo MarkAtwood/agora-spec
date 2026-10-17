@@ -1,0 +1,25 @@
+{
+  "id": "agora-pozi.20.30",
+  "title": "Purview deletion: propagate vs MUST NOT delete",
+  "description": "PURVIEW §1.2 says the bridge propagates deletion via Graph delete; §6.2-6.3 say MUST NOT delete (also in ATTIC copy). Fix: MUST NOT delete (retention/legal hold); fix §1.2. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:55.869097981Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:55.869097981Z",
+  "labels": [
+    "purview"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.30",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:55.878173713Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

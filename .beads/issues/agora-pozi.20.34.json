@@ -1,0 +1,25 @@
+{
+  "id": "agora-pozi.20.34",
+  "title": "LEGAL logger silent member vs disclosure",
+  "description": "LEGAL calls the logger a silent member, contradicting mandatory disclosure; logger non-removal is enforced only by the regulated user's own client. Fix: logger must be visible in membership; state enforcement point honestly (CO enforcement per ARCHITECTURE §6.3). Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:56.050661946Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:56.050661946Z",
+  "labels": [
+    "spec"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.34",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:56.058779096Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

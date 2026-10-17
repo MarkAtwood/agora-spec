@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.20.26",
+  "title": "ENROLL recovery key generated in WebCrypto",
+  "description": "ENROLL §5.2 generates the recovery key in browser WebCrypto; SPEC §2.4.1 says the recovery key MUST NOT live in a networked device or software keystore. Fix: ENROLL must generate offline (or export to offline storage and erase) per §2.4.1. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:55.67133875Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:55.67133875Z",
+  "labels": [
+    "identity",
+    "security"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.26",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:55.681453619Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

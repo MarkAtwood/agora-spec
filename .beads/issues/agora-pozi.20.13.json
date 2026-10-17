@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.20.13",
+  "title": "Regulated status overbroad: any logged-Space member",
+  "description": "SPEC l.3762 treats any member of a logging-enabled Space as regulated, so all their DMs (including with non-regulated contacts, outside the Space) are logged. Fix: regulated status must be an explicit per-identity attribute set by the employing CO, not inferred from Space membership. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:55.045289239Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:55.045289239Z",
+  "labels": [
+    "spec",
+    "security"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.13",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:55.055390644Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

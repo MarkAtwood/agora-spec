@@ -1,0 +1,27 @@
+{
+  "id": "agora-pozi.20.6",
+  "title": "channelToken/TURN derived from epochSecret",
+  "description": "SPEC l.1397 channelToken = HKDF(epochSecret) and l.2732 TURN credential = epochSecret[:16] contradict l.3295 MUST use MLS exporter. Using raw epoch secret outside MLS breaks key separation. Fix: derive both via MLS-Exporter with distinct labels. Related: Q1 (agora-pozi.8). Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:54.700098403Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:54.700098403Z",
+  "labels": [
+    "spec",
+    "mls",
+    "security"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.6",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:54.712507026Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

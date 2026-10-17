@@ -1,0 +1,25 @@
+{
+  "id": "agora-pozi.20.11",
+  "title": "Signature canonicalization: CBOR vs URDNA2015",
+  "description": "SPEC l.466, 677, 927, 1534 say signatures cover canonical CBOR; §14.1 specifies URDNA2015 (JSON-LD). Fix: choose one canonicalization per object type and update all references. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:54.948379071Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:54.948379071Z",
+  "labels": [
+    "spec"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.11",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:54.955674167Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

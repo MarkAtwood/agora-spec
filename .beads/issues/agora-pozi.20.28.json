@@ -1,0 +1,26 @@
+{
+  "id": "agora-pozi.20.28",
+  "title": "O365 org key signs RecoveryAssertion",
+  "description": "O365 §6.4 has the org revocation key sign a RecoveryAssertion; SPEC §2.4.1 allows only the user recovery key. Lets the employer take over the identity. Fix: org may revoke/tombstone but never recover; align O365 with SPEC. Line numbers refer to import/ files (notes/research-2026-10-16.md).",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-17T03:22:55.768344188Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-17T03:22:55.768344188Z",
+  "labels": [
+    "identity",
+    "security"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.20.28",
+      "depends_on_id": "agora-pozi.20",
+      "type": "parent-child",
+      "created_at": "2026-10-17T03:22:55.777591299Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

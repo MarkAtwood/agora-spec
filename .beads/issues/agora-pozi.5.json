@@ -2,13 +2,15 @@
   "id": "agora-pozi.5",
   "title": "File research errata as beads",
   "description": "~40 errata from 2026-10-16 research (notes/): relay-blindness contradictions, MLS errors, canonicalization drift, Purview contradictions, O365 circular credential, stubs.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T02:41:24.82509209Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T02:41:24.82509209Z",
+  "updated_at": "2026-10-17T03:23:20.747031932Z",
+  "closed_at": "2026-10-17T03:23:20.747031932Z",
+  "close_reason": "36 errata filed under agora-pozi.20",
   "dependencies": [
     {
       "issue_id": "agora-pozi.5",
