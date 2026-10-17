@@ -93,6 +93,7 @@ This table collects the protocol's numeric limits in one place. The defining sec
 | Retention of the previous epoch's sealing key | 60 s | Descriptive | §5.2.2 |
 | Admission key fetch while connected | at least once an hour | MUST | §5.2.2 |
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
+| `agora_credentials` entries per leaf; extension data size | 8; 8192 bytes | Over the limit, the extension is ignored | §5.2.1.5 |
 | Hold of a Welcome whose authorization cannot yet be decided | 7 days | See section | §4.3 |
 | DM admission host handover fallback | any remaining member after 24 h without a handover Commit | See section | §4.6.4 |
 | DM admission key rotation fallback | every host's user's client rotates 24 h after a Commit that removed a leaf, if no Commit has changed `agora_admission` | MUST | §4.6 |
@@ -121,7 +122,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 
 **MLS credential types.** `AgoraMIMICredential` (§9.1) uses credential type 0xF0A2 from the RFC 9420 private-use range until it is registered. Interoperating with MIMI providers outside Agora requires a codepoint from the IANA "MLS Credential Types" registry (RFC 9420 §17.5), or use of a credential type MIMI defines. Outside MIMI interop, Agora leaves use the registered `basic` credential type (§5.2.1).
 
-**MLS extension types.** `agora_admission` (0xF0A0, GroupContext of DM groups and self-groups, §4.6), `agora_device_binding` (0xF0A1, LeafNode, §5.2.1), `agora_space_membership` (0xF0A3, GroupContext of self-groups, §2.6) and `agora_compliance` (0xF0A4, GroupContext of DM groups, §7.8.2) use the RFC 9420 private-use range and need no IANA registration.
+**MLS extension types.** `agora_admission` (0xF0A0, GroupContext of DM groups and self-groups, §4.6), `agora_device_binding` (0xF0A1, LeafNode, §5.2.1), `agora_space_membership` (0xF0A3, GroupContext of self-groups, §2.6) `agora_compliance` (0xF0A4, GroupContext of DM groups, §7.8.2) and `agora_credentials` (0xF0A5, LeafNode, optional, §5.2.1.5) use the RFC 9420 private-use range and need no IANA registration.
 
 **URN namespaces.**
 

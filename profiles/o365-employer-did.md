@@ -387,6 +387,10 @@ The Enrollment Service validates:
 
 This check is optional because the Teams/Entra OIDC auth already establishes org membership. It provides belt-and-suspenders assurance for high-security spaces and enables the Mover use case: a user whose department changes receives a new VC with updated `agoraRoles`, and space admission policies can enforce role-based access on VC claims rather than static provisional list entries.
 
+### 4.4 Carrying the EmployeeCredential in Groups (Non-Normative)
+
+The employee's client can also carry the `EmployeeCredential`, or a presentation of it, in the `agora_credentials` leaf extension (spec §5.2.1.5), with the media type of its encoding: `application/vc+jwt` for a VC secured per W3C VC-JOSE-COSE, or `application/jwt` for a VC Data Model 1.1 JWT such as the one above. Its subject (`credentialSubject.id`, or the JWT `sub`) is the employee's DID, so it satisfies the spec's subject check. Other members' clients can then verify it from the leaf: a colleague's client whose policy trusts `did:web:verifiedid.example.com` can treat the employee as an accepted DM sender (spec §4.6.3, §9.3 here), and a Space admin's client can assign roles from its claims (spec §4.2). By default the client leaves it out of published KeyPackages and adds it to each group by updating its own leaf after joining. Every member of the group, including members outside the organization, sees the claims it carries, so the organization should decide which claims, such as `employeeId`, `department` or `officeLocation`, employees carry into groups shared with outsiders.
+
 ---
 
 ## 5. Graph Lifecycle Workflow Integration

@@ -392,6 +392,8 @@ The sidecar has no push wallet to deliver VCs to. Three delivery options are sup
 
 For initial deployment, Option B is the recommended choice. Options A and C are extensions for orgs with existing wallet infrastructure.
 
+With Option B the client can also carry the `EmployeeCredential` in the `agora_credentials` leaf extension (spec §5.2.1.5), as O365 spec §4.4 describes; the trusted issuer is the org root DID (§3.2).
+
 In every option the VC is issued only after the first device key is registered, following the bootstrap order of O365 spec §4.2: the first device registers without a VC (§6), and the VC then names the active DID as its subject. The Option A acceptance link is therefore sent after first-device enrollment, not in the initial invitation.
 
 ### 5.4 VC Serving Endpoint

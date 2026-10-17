@@ -252,12 +252,14 @@ This section collects what each party learns. It does not restate the IO limits,
 | TURN credential service (CO) | Which members request credentials, and so call attendance | §6.11 |
 | Provisioning service (CO) | The employee's IdP identity, devices, registrations and revocations | §2.5 |
 | Compliance logger and recorder (CO) | Plaintext and media in scope of the compliance configuration | §7, §6.12 |
-| Group members | Each other's DIDs and devices (MLS leaves), presence, typing and call state | §5.2.1, §5.3, §6.2 |
+| Group members | Each other's DIDs and devices (MLS leaves), the credentials those leaves carry, presence, typing and call state | §5.2.1, §5.2.1.5, §5.3, §6.2 |
 | Anyone | DID documents and their full logs, display profiles, and public Space state and advertisements | §2.1, §2.3, §10.3.2 |
 
 **DM admission host.** The admission host serves no member list and no member other than its own user, which authenticates to it by the §3.5 exchange (§4.6). Every other member reads the admission key from its GroupContext, so the host does not learn the other members' DIDs or when they are active. When its user leaves the group or is offboarded (§2.5.6), the remaining members' clients move the `agora_admission` extension to another member's identity host (§4.6.4), after which the old host learns nothing more. An operator that runs both an identity host and relays sees, for a DM it hosts and carries, its own user's DID and the group's traffic at its relays (ARCHITECTURE §9). A DM admission host SHOULD therefore list relays it does not operate in the group's `relays`.
 
 **Compliance archives and DM admission keys.** A compliance record carries the `GroupContext` of its epoch (§7.4), so a logger's archive of a DM group holds that group's admission key seed. The logger, as a member, already holds that key. Anyone given the archive can compute the group's channel tokens; this is accepted.
+
+**Identity credentials.** Every member of a group, including a compliance logger or recorder, learns the claims disclosed in the `agora_credentials` entries of every leaf (§5.2.1.5). An entry placed in a published KeyPackage is also exposed to everyone allowed to fetch that KeyPackage, which is why clients omit it by default. Identical credential bytes in several groups let the members of those groups link the holder across them, beyond what the shared DID already links, and a fixed issuer signature or status-list index links the holder across issuers' verifiers as well. Clients SHOULD carry the fewest credentials and claims a group needs, and SHOULD use a selective-disclosure format such as SD-JWT VC with a fresh presentation for each group, disclosing only the claims that group's policy uses. Relays and other IOs never see the extension (ARCHITECTURE.md §5). Checking revocation can reveal the holder's activity to the status list's host; clients SHOULD fetch whole status lists and cache them rather than query per credential.
 
 **Minimization.** A DID document and its log are public and permanent (§2.1, §2.5.6). A provisioning service SHOULD omit optional verification-method metadata such as `meta.deviceLabel` and `meta.platform` (§2.5.4), or use values that do not contain a person's name. CO services SHOULD NOT retain requester DIDs, network addresses or request timing beyond what operation and abuse handling require, and SHOULD state their retention in the CO's member-facing policy.
 
@@ -312,5 +314,10 @@ A `RecoveryAssertion` names the log head it applies to in `prev` (§2.4.1), so a
 
 Admission keys and `channelToken`s do not change in this procedure, so members notice nothing: channels survive renewal or replacement of an agreement. The billing key gives no access to admission private keys, so their rotation is not needed.
 
----
+## 12.13 Identity Credentials
 
+*Binds: clients.*
+
+The credentials of §5.2.1.5 are claims by their issuers, not by Agora. A client that acts on them, for example by accepting a DM sender (§4.6.3) or by assigning a role (§4.2), relies on its own trust policy; two clients with different policies can treat the same leaf differently, and that is intended. A credential in a leaf stays there until its holder replaces the leaf, so it can be expired or revoked while still present: a client that acts on a credential SHOULD check its expiry and status when it acts, not only when it first sees the leaf. A decision already taken, such as a role assignment, is not undone by the credential's later revocation; the CO undoes it by its usual means (§4.2, §4.5). A member can omit a credential it holds, so the absence of a credential proves nothing. The subject check of §5.2.1.5 prevents one member from presenting another's credential; it does not protect against an issuer that issues false claims or a compromised issuer key, which is the trusting client's risk.
+
+---

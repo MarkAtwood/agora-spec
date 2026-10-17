@@ -50,6 +50,8 @@ Roles beyond Owner and Admin are defined freely in the Space state document and 
 
 `channelAccess` is a list of channel path patterns. A pattern without `*` matches exactly that path. A pattern whose last segment is `*` matches every path that has the preceding segments as a prefix and at least one more segment; `*` alone matches every path. No other wildcard is defined. Patterns are matched against NFC paths (§3.2). When a user is assigned a role, they are added to the MLS groups for all matching channels via a Commit signed by the Admin performing the assignment.
 
+An Admin's client MAY base invite issuance (§4.3) and role assignment on a member's verified credentials (§5.2.1.5), for example assigning a role to every member whose leaf carries a trusted employer credential with a given claim. It reads them from the member's leaf in a group they share, such as the Space's own group, or from a KeyPackage in which the member chose to publish them. Which issuers and claims qualify is the CO's policy, applied by the Admin's client; Space state carries no credential policy, and other members do not re-check the Admin's decision, which is authorized as any role assignment is.
+
 ## 4.3 Invite Flow
 
 Invites are signed tokens linking a specific DID (or an open link) to a Space and an optional role:
@@ -222,7 +224,7 @@ Users who need a persistent, named, multi-party private conversation with Space-
 
 ### 4.6.3 Message Requests
 
-A client SHOULD hold a DM group in a **message request** state when the member who added the user is not an accepted sender. An accepted sender is a DID the user has accepted a request from, has started a DM with, or has marked as a contact, or a DID that matches a rule set by the user or by whoever manages the user's device, for example every DID under the user's employer's domain, or every member of a Space the user belongs to. How a client presents requests is the user agent's choice; this section's recommendations describe the intended behavior. While a group is in the request state the client:
+A client SHOULD hold a DM group in a **message request** state when the member who added the user is not an accepted sender. An accepted sender is a DID the user has accepted a request from, has started a DM with, or has marked as a contact, or a DID that matches a rule set by the user or by whoever manages the user's device, for example every DID under the user's employer's domain, every member of a Space the user belongs to, or every adder whose leaf in the Welcome's ratchet tree carries a verified credential from an issuer that the rule names (§5.2.1.5). How a client presents requests is the user agent's choice; this section's recommendations describe the intended behavior. While a group is in the request state the client:
 
 - SHOULD NOT notify the user beyond an unobtrusive request list;
 - MUST NOT send read receipts, typing indicators or any other message to the group, except as a regulated member's client below;
