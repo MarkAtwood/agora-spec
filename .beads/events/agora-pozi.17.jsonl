@@ -1,1 +1,2 @@
 {"id":"01a147c6-34d0-744d-bb5d-1ec34332090f","issue_id":"agora-pozi.17","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T02:52:14.416282548Z"}
+{"id":"01a14859-f7bd-7357-80d9-a6787e484f21","issue_id":"agora-pozi.17","event_type":"closed","actor":"agent","old_value":"","new_value":"Verified: invite tokens \u003e=128 CSPRNG bits (§4.3); author self-retract (§4.5)","created_at":"2026-10-17T05:33:38.10921962Z"}

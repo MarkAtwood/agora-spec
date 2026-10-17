@@ -2,13 +2,15 @@
   "id": "agora-pozi.14",
   "title": "Backport: typing and presence inside MLS",
   "description": "nie's relay typing RPC violates separation; its in-MLS typing path is the model. Fixes §7. Source: notes/nie-backport-inventory.md",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T02:52:14.280573951Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T02:52:14.280573951Z",
+  "updated_at": "2026-10-17T05:33:37.996920116Z",
+  "closed_at": "2026-10-17T05:33:37.996920116Z",
+  "close_reason": "Verified: typing/presence are JMAP Chat ephemeral events sent as MLS PrivateMessage (spec §5.2.3, §5.3)",
   "dependencies": [
     {
       "issue_id": "agora-pozi.14",
