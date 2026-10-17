@@ -17,6 +17,7 @@ Status: draft specification. No conformant implementation exists.
 |---|---|---|
 | `PROPOSAL.md` | What Agora proposes, what is open, what we are asking for | no |
 | `PRFAQ.md` | Press release and FAQ: customers, risks, status | no |
+| `FUNDING.md` | What Agora is and why its creation should be funded | no |
 | `ARCHITECTURE.md` | Operator separation: roles, rules S1–S9, observation budget | yes, governs on conflict |
 | `spec/` | Protocol, in parts; each part states which operator it binds | yes |
 | `profiles/` | Deployment profiles: employer-managed DIDs (O365, Google Workspace, generic identity provider (IdP)), Purview export, Discord onboarding, compliance chain witnessing, CORUNDUM identity sharing, Parlance device data, radio mesh gateway, gateways to other networks (Matrix, Slack, Teams) and the path to native More Instant Messaging Interoperability (MIMI) | no |
