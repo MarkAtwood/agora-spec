@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.4",
   "title": "Public broadcast only in public Spaces (decided)",
   "description": "DECIDED (Mark 2026-10-17), option A (SEP2-1/CRY2-8): keyAccess public is allowed only in public Spaces; a public broadcast channel's published token and billing linkage are an accepted cost in ARCHITECTURE §9 (the Space already advertised itself and its relays). Private Spaces cannot have public broadcast channels. Qualify privacy claims accordingly.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:13:44.782654654Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:13:44.782654654Z",
+  "updated_at": "2026-10-17T07:33:54.989572424Z",
+  "closed_at": "2026-10-17T07:33:54.989572424Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "dependencies": [
     {
       "issue_id": "agora-pozi.33.4",

@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.17",
   "title": "[DOC2-12] Tor mapping cannot serve the advertised `ws://` onion endpoint",
   "description": "Review finding DOC2-12: Tor mapping cannot serve the advertised `ws://` onion endpoint (lens DOC2). Location: guides/relay-operator.md:1908, :1916. Fix: `HiddenServicePort 80 127.0.0.1:443` sends plaintext `ws://` traffic to the TLS listener. Forward onion port 80 to a plaintext WebSocket listener bound to loopback, or advertise `wss://` on onion port 443. The first matches the spec's `ws://` onion examples (spec/10-relays.md:64, :713). Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:49.029148964Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:49.029148964Z",
+  "updated_at": "2026-10-17T07:33:54.06785198Z",
+  "closed_at": "2026-10-17T07:33:54.06785198Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "doc2"

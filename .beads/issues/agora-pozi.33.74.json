@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.74",
   "title": "[IMP2-11] A new device has no source for the user's Spaces and endpoints",
   "description": "Review finding IMP2-11: A new device has no source for the user's Spaces and endpoints (lens IMP2). Location: spec/02-identity.md:496-509; spec/03-spaces.md:315; spec/04-access-control.md:88. Fix: Endpoints come only from a `SpaceInvite`, a `SpaceAd` or the owner's DID document (03:315), and the self-group contents (02:498-502) carry none of them. Add a single-author self-group record that lists each Space's genesis CID and `spaceEndpoint`. The existing device sends it before step 3 of 02:507. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:52.839989073Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:52.839989073Z",
+  "updated_at": "2026-10-17T07:33:50.680034055Z",
+  "closed_at": "2026-10-17T07:33:50.680034055Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "imp2"

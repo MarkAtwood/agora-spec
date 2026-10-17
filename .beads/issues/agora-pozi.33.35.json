@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.35",
   "title": "[SEP2-9] The SFrame KID gives the SFU a stable per-member pseudonym and epoch-change signal; §6.6 w",
   "description": "Review finding SEP2-9: The SFrame KID gives the SFU a stable per-member pseudonym and epoch-change signal; §6.6 wrongly calls this within budget items 1-2 (lens SEP2). Location: spec/06-calls.md:186, :191, :222; ARCHITECTURE.md:149-157. Fix: As suggested. Item 2 lists only envelope routing fields, while the KID (06:222, RFC 9605 §5.2) carries `sender_index` (the MLS leaf index, stable across calls in the group) and `epoch % 16`, which reveals MLS epoch changes that 12.4 otherwise keeps from IOs. Add the KID to ARCHITECTURE §5 (an SFU item), add the §9 sentence, and correct the 06:191 citation. The KID format comes from RFC 9605 and is not something to redesign. Full text: notes/review2/SEP2-verified.md and notes/review2/SEP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:50.205864848Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:50.205864848Z",
+  "updated_at": "2026-10-17T07:33:52.848336764Z",
+  "closed_at": "2026-10-17T07:33:52.848336764Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "sep2"

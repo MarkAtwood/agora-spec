@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.86",
   "title": "No shared pin lists in DMs (decided)",
   "description": "DECIDED (Mark 2026-10-17), option A (CON2-10): extend the §14.4.1 no-sequencer read-only rule to DM groups; no shared pin lists in DMs; remove 'in a group chat, admins' pinning text; personal bookmarks remain single-author data.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:16:44.197497042Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:16:44.197497042Z",
+  "updated_at": "2026-10-17T07:33:55.04764476Z",
+  "closed_at": "2026-10-17T07:33:55.04764476Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "dependencies": [
     {
       "issue_id": "agora-pozi.33.86",

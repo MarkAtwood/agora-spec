@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.60",
   "title": "[CON2-16] DM admission host responses are unspecified",
   "description": "Review finding CON2-16: DM admission host responses are unspecified (lens CON2). Location: spec/04-access-control.md:153-158; spec/03-spaces.md:313. Fix: §3.4 Responses says \"Every other response is the record's encoded typed payload envelope with `sig` present\", which the DM record (no `sig`) cannot satisfy, and the `PUT .../members` result is undefined. In §4.6 add: GET returns the encoded envelope without `sig` as `application/cbor`; PUT takes the encoded `DMMembers` envelope, returns 204, and otherwise 401/403/404/429 as §3.4, plus 409 for a `ts` not later than the current list's. Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:51.879640233Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:51.879640233Z",
+  "updated_at": "2026-10-17T07:33:52.111394975Z",
+  "closed_at": "2026-10-17T07:33:52.111394975Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "con2"

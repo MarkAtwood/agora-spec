@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.44",
   "title": "[CRY2-9] `channelToken` derived from the admission seed mixes two uses of one secret and conflicts ",
   "description": "Review finding CRY2-9: `channelToken` derived from the admission seed mixes two uses of one secret and conflicts with the HSM guidance (lens CRY2). Location: spec/12-security.md:167 (the part that holds); spec/05-messaging.md:255, spec/13-encoding.md:148 (rejected part). Fix: I reject the key-separation part. Deriving a token with HKDF under its own `info` label from a uniformly random 32-byte seed, which RFC 8032 separately hashes with SHA-512, has no attack. The reviewer says \"There is no known attack\", and the derivation is recorded design (ARCHITECTURE.md:241-243). The HSM conflict is real but independent of how the token is derived. 12-security.md:167 lists \"the channel admission private keys the registration service issues\" for HSM custody, yet 03-spaces.md:297 and 05:254 serve `seed` to every member. Fix: remove admission keys from the §12.8 HSM list and say that they are secrets shared with all current members, so hardware custody at the CO adds nothing. Full text: notes/review2/CRY2-verified.md and notes/review2/CRY2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:50.828338386Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:50.828338386Z",
+  "updated_at": "2026-10-17T07:33:53.388227597Z",
+  "closed_at": "2026-10-17T07:33:53.388227597Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "cry2"

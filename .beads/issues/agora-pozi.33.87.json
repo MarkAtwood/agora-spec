@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.87",
   "title": "Public broadcast poster list in public view (decided)",
   "description": "DECIDED (Mark 2026-10-17), option A (IMP2-12): the CO publishes a signed broadcasters list (DIDs authorized to post per broadcast channel) in the public Space view; non-member subscribers verify each announcement's signer against it.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:17:17.733188659Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:17:17.733188659Z",
+  "updated_at": "2026-10-17T07:33:54.744421121Z",
+  "closed_at": "2026-10-17T07:33:54.744421121Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "dependencies": [
     {
       "issue_id": "agora-pozi.33.87",

@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.18",
   "title": "[DOC2-13] Universal-IdP profile omits the sidecar's admission-key host role",
   "description": "Review finding DOC2-13: Universal-IdP profile omits the sidecar's admission-key host role (lens DOC2). Location: profiles/universal-idp-did.md:22, :686-697. Fix: The profile \"extends the DID Sidecar's `IdentityProvider` interface\" and \"Depends On ... O365 DID Spec\", so the O365 §6.7 duties are arguably inherited. That lowers the severity. The concrete defect is the reverse-proxy list, which claims to expose \"only the public endpoints\" and leaves out `/v1/admission-key/*` and `/v1/auth` (O365:602-606). Under that topology, DMs and self-group admission fail. Add those paths to the proxy list, and add one sentence at :22 deferring to O365 §6.7. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:49.093116955Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:49.093116955Z",
+  "updated_at": "2026-10-17T07:33:54.126950746Z",
+  "closed_at": "2026-10-17T07:33:54.126950746Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "doc2"

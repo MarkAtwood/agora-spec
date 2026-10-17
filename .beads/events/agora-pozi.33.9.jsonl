@@ -1,3 +1,4 @@
 {"id":"01a148b6-9853-7804-b377-5572af284a6c","issue_id":"agora-pozi.33.9","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T07:14:48.531526024Z"}
 {"id":"01a148b6-9855-7b58-a343-258f7d4b3407","issue_id":"agora-pozi.33.9","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T07:14:48.533743873Z"}
 {"id":"01a148b6-9857-7d7d-bd70-d1097d060c3f","issue_id":"agora-pozi.33.9","event_type":"label_added","actor":"agent","comment":"Added label: doc2","created_at":"2026-10-17T07:14:48.535884537Z"}
+{"id":"01a148c9-1658-712c-8ab9-1e3f05a64c8f","issue_id":"agora-pozi.33.9","event_type":"closed","actor":"agent","old_value":"","new_value":"Guides and purview profile now describe attachment capture per spec §7 and §14.3.4","created_at":"2026-10-17T07:35:00.440077803Z"}

@@ -105,7 +105,7 @@ Agora has no anonymous-inbound path, and this profile does not add one. Distress
 IRONWEED BROADCAST (SPEC §5.5.3) maps to an Agora `broadcast` channel with `keyAccess: public` (§5.2.1.4), which only a public Space can have. The content key is public Space state, so anyone can read; IOs still see only the routing envelope, though they can tie the channel's published token to the CO's agreement, an accepted cost (ARCHITECTURE §9).
 
 - The gateway holds a role in the channel's `broadcasterRoles`, so the Space endpoint serves it the channel admission key with its private key, and it is the poster (§5.2.1.4). The CO lists the gateway's DID in the channel's signed `broadcasters` list in the public view of Space state, and non-member receivers check the poster's signature against that list (§3.4, §5.2.1.4).
-- A broadcast payload is always a `urn:agora:type:BroadcastMessage` carrying a JMAP Chat `Message`, signed by the poster (§5.2.1.4, §13.1). The gateway puts a readable rendering of the broadcast in the `Message` text and attaches the original `urn:ironweed:Broadcast` frame (§5) as an encrypted blob, so receivers that understand IRONWEED can check `osig`.
+- A broadcast payload is always a `urn:agora:type:BroadcastMessage` carrying a JMAP Chat `Message`, signed by the poster (§5.2.1.4, §13.1). The gateway puts a readable rendering of the broadcast in the `Message` text and attaches the original `urn:ironweed:Broadcast` frame (§5) as an encrypted blob, so receivers that understand IRONWEED can check `osig`. The gateway uploads the blob once, to one relay in the channel's relay list, and the relays replicate it (§10.4.4). Because the channel is public, its blobs are public content that the CO, a member or a relay may also publish on the public IPFS network (§10.4.4); blobs of the gateway's other channels never go there.
 - The original mesh signature and source mesh CA certificate travel in the frame (`osig`, and `p` verbatim). Receivers keep "verified source" versus "source unverified" from the mesh signature, not from the gateway's JWS. The gateway's signature says only "this gateway relayed it".
 - The gateway never presents itself as the originating mesh. Clients should display the mesh identity, the verification result and the expiry, and should not act automatically (SPEC §5.5.3).
 - Broadcast channels have no MLS forward secrecy (§5.2.1.4). That is acceptable for public information.
@@ -148,6 +148,8 @@ IRONWEED BROADCAST (SPEC §5.5.3) maps to an Agora `broadcast` channel with `key
 | Voice (SPEC §7) | none; Agora call media | Codec2 to Opus | none | fast (§6) |
 | Org tree, net membership (SPEC §10.2) | none; Space and channel configuration | | | |
 | PTT floor (SPEC §7.2) | none; local to the gateway | | | |
+
+A large file becomes an Agora attachment: a chunked content-key blob of 256 KiB encrypted chunks, at most 2^32 bytes (§14.3.4). On radio-to-Agora, the gateway uploads it once to one relay in the channel's relay list, and the relays replicate it (§10.4.4). On Agora-to-radio, the gateway fetches the chunks by CID from any listed relay or the channel's `archive`, never from the public IPFS network (§10.4.4), and sends the file on air under the SPEC §9.3 rate limits.
 
 Overlays are edited by the radio command node. Agora members who want a change ask through text; a writable agora-to-radio overlay path needs the command node's authority and is not covered here.
 

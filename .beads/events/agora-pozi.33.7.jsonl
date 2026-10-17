@@ -1,3 +1,4 @@
 {"id":"01a148b6-97d3-75db-8e56-61dc813a3dfe","issue_id":"agora-pozi.33.7","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T07:14:48.403384395Z"}
 {"id":"01a148b6-97d5-7a53-981e-477bd475bd29","issue_id":"agora-pozi.33.7","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T07:14:48.405677584Z"}
 {"id":"01a148b6-97d7-7a3c-8f4d-6fe48589d89b","issue_id":"agora-pozi.33.7","event_type":"label_added","actor":"agent","comment":"Added label: doc2","created_at":"2026-10-17T07:14:48.407671407Z"}
+{"id":"01a148c8-10e9-7c9e-a0d2-ca6ea0bba9c1","issue_id":"agora-pozi.33.7","event_type":"closed","actor":"agent","old_value":"","new_value":"Fixed in fd8710f per notes/review2/reconciliation.md","created_at":"2026-10-17T07:33:53.513827579Z"}

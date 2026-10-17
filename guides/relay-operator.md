@@ -125,14 +125,25 @@ A production Agora relay deployment has these components:
 **Required components:**
 - `agora-relay`: the relay process. Implements all protocol-level behavior.
 - Database: SQLite for development/small deployments; PostgreSQL for production. Holds held ciphertext envelopes keyed by `channelToken`, the peer table, loaded agreements, registered admission public keys with their tokens and the `ts` of the last accepted registration request per token (spec §10.5.3), pin state, quota counters, and push registrations.
-- Blob store: content-addressed storage for opaque blobs: group-encrypted blobs (spec §3.4), pinned CIDs, and records a CO explicitly publishes, such as public Space state and directory documents (spec §10.4.3). Backed by the local filesystem (`blob_backend = "local"`) or an S3-compatible object store (`blob_backend = "s3"`) for HA deployments.
+- Blob store: content-addressed storage for opaque blobs, each held under the `channelToken` for which it was uploaded or replicated: the root and chunk blocks of encrypted files (spec §14.3.4), group-encrypted blobs (spec §3.4), pinned CIDs, and records a CO explicitly publishes, such as public Space state and directory documents (spec §10.4.3). Blocks are keyed by multihash, so one stored block answers to both its `raw` and its `dag-pb` CID (spec §10.4.4). Backed by the local filesystem (`blob_backend = "local"`) or an S3-compatible object store (`blob_backend = "s3"`) for HA deployments.
 
 **Blob access.** Blobs are reachable through exactly two public interfaces, both on the client-facing port:
 
-- `GET /v1/agora/blob/{cid}`: the CAS read endpoint (spec §10.4.4). Unauthenticated, rate-limited per network address (spec §11.6), and served with `Access-Control-Allow-Origin: *` so browser clients can fetch directly. The content is either ciphertext that only group members can decrypt or a record the CO chose to publish.
+- `GET /v1/agora/blob/{cid}`: the CAS read endpoint (spec §10.4.4). Unauthenticated, rate-limited per network address (spec §11.6), and served with `Access-Control-Allow-Origin: *` so browser clients can fetch directly. The content is either ciphertext that only group members can decrypt or a record the CO chose to publish. A request may carry `?token=<channelToken>`, which asks for pull-through (below).
 - JMAP upload and download (`/v1/agora/jmap/upload/{accountId}`, `/v1/agora/jmap/download/{accountId}/{blobId}/{name}`, paths under `endpoints.jmapSync`, spec §11.8.1). Downloads follow the same rules as the CAS endpoint. An upload is accepted only with an `Agora-Storage-Auth` header signed with the admission key registered for a `channelToken` (spec §10.4.4, §11.8.2). It counts against the storage quota of the agreement under which that key is registered and is kept for that agreement's retention, or longer if a `PinInstruction` signed with the same key pins it (spec §11.4).
 
-The relay runs no IPFS node and does not join the IPFS DHT or speak Bitswap; these two HTTPS interfaces are the fetch path for every blob, including `ipfs://` URIs (spec §10.4.4). "Pinning" means retention in the local blob store under a pin instruction, not pinning on the public IPFS network.
+These two HTTPS interfaces are the client fetch path for every blob, including `ipfs://` URIs (spec §10.4.4). "Pinning" means retention in the local blob store under a pin instruction, not pinning on the public IPFS network. Pinning a `dag-pb` root block also pins every chunk block it links to (spec §10.4.4).
+
+**Blob replication.** A client uploads each blob once, to any one relay in the channel's relay list, and the relays carrying that token replicate it among themselves over the Peer API (spec §10.2.2, §10.4.4). A file of up to 2^32 bytes arrives as a root block plus up to 16,384 chunk blocks of 256 KiB each, every one a separate upload and a separate CID (spec §14.3.4).
+
+- *Eager replication.* After accepting an upload, the relay pushes the blob with `POST /v1/agora/peer/blob?token=<channelToken>` to other relays carrying the token until at least `replicationFloor` relays, counting itself, hold it, or every relay carrying the token if fewer do. `replicationFloor` comes from the agreement under which the token is registered here; it defaults to 2 and is not a relay setting (spec §10.5.1). A peer answers 201 (stored or already held), 404 (token not registered there) or 507 (that agreement's storage quota is full).
+- *Pull-through.* When a client fetch with `token` names a CID this relay lacks, and the token is registered here under a current agreement, the relay fetches it from a relay carrying the token with `GET /v1/agora/peer/blob/{cid}?token=<channelToken>`, checks it against the CID, stores it under the token and serves it. A fetch without `token`, or for a token not registered here, gets 404 and triggers nothing.
+- *Inbound.* The relay accepts replicated or pulled blobs only for tokens registered with it under a current agreement, verifies each against its CID, charges it to that agreement's storage quota and keeps it for that agreement's `retentionDays` from receipt. It never pushes, pulls or caches blobs for any other token.
+- *Seeding.* A CO that adds this relay to a channel's relay list may send a `seed` pin instruction listing CIDs, signed with the channel's admission key (spec §11.4). The relay acknowledges at once, then pulls each listed CID it lacks from other relays carrying the token and keeps it for the ordinary retention window, without a pin exemption.
+
+Peer API blob requests are authenticated with HTTP Message Signatures like the rest of the Peer API (spec §10.2.3) and travel on the peer port (§11.1). Replication tells a relay nothing new: a peer that asks for a token's blob already carries that token, which the channel topic mesh shows anyway (spec §10.4.4).
+
+**Public IPFS.** Spec §10.4.4 forbids announcing on, providing to or requesting from the public IPFS network (its DHT, public Bitswap peers or public gateways) any blob that is not public content, and permits Bitswap for private ciphertext only between relays carrying the same token. This relay runs no IPFS node and exchanges blobs with peers only over the Peer API. It also never publishes public content to IPFS, because it cannot tell public content from ciphertext by looking at the bytes. A CO that wants its published records, or the blobs of a public broadcast channel, on the public IPFS network publishes them from its own node.
 
 There is no admin read endpoint for blob or envelope bytes. The Admin API has two content operations, both for takedown handling (§17): `GET /admin/content/{cid}` returns the agreement and contact for a CID, and `DELETE /admin/content/{cid}` deletes it (§5.2). Both sit behind the same bearer-token authentication as every other admin endpoint.
 
@@ -388,6 +399,20 @@ blob_s3_region     = ""   # e.g. "us-east-1"
 blob_s3_access_key = ""   # set via AGORA_BLOB_S3_ACCESS_KEY env var
 blob_s3_secret_key = ""   # set via AGORA_BLOB_S3_SECRET_KEY env var
 
+# Blob replication among the relays carrying a token (spec §10.4.4).
+# The replication floor is not set here: it is the replicationFloor of
+# the agreement under which each token is registered (default 2,
+# spec §10.5.1). Replicated copies count against the storage quota of
+# this relay's own agreement for the token.
+
+# Concurrent outbound Peer API blob transfers (eager replication,
+# pull-through and seed fetches). default: 16
+blob_peer_transfer_concurrency = 16
+
+# Seconds to wait for peers during a pull-through before answering the
+# client 404. default: 10
+blob_pull_through_timeout_seconds = 10
+
 # ─────────────────────────────────────────────
 # [agreements]: ServiceAgreements (spec §10.5.1)
 # ─────────────────────────────────────────────
@@ -403,7 +428,8 @@ blob_s3_secret_key = ""   # set via AGORA_BLOB_S3_SECRET_KEY env var
 # published as endpoints.admissionKeys (spec §10.2.1). It accepts
 # AdmissionKeyRegistration and AdmissionKeyDeregistration requests only
 # under a loaded, current, unsuperseded agreement, and enforces each
-# agreement's retentionDays, storageQuotaGb and bandwidthTierGbPerMonth.
+# agreement's retentionDays, storageQuotaGb and bandwidthTierGbPerMonth,
+# and replicates blobs to its replicationFloor (spec §10.4.4).
 # When a superseding agreement is loaded, keys registered under the
 # superseded one stay admitted for one hour and then lapse; that hour
 # is fixed by spec §10.5.1 and is not configurable.
@@ -1116,7 +1142,7 @@ Looks up a CID named in a takedown request (spec §10.4.5). Returns what the rel
 
 #### `DELETE /admin/content/{cid}`
 
-Stops serving a blob or envelope and deletes it, and adds the CID to a deny list so that a re-upload of the same bytes is refused. Spec §10.4.5 allows this as a storage decision under the operator's own policy and law; it removes this relay's copy only and is not a moderation decision. Copies on other relays and in members' stores are unaffected.
+Stops serving a blob or envelope and deletes it, and adds the CID to a deny list so that a re-upload of the same bytes is refused. Spec §10.4.5 allows this as a storage decision under the operator's own policy and law; it removes this relay's copy only and is not a moderation decision. Copies on other relays and in members' stores are unaffected; because blobs are replicated, other relays carrying the token usually hold a copy. The deny list also refuses the CID in replication pushes, pull-through and `seed` fetches. If `{cid}` is a `dag-pb` root block (spec §14.3.4), the relay also deletes and deny-lists the chunk blocks it links to, as pinning a root covers its chunks (spec §10.4.4).
 
 **Request body:**
 ```json
@@ -1284,6 +1310,19 @@ Histogram buckets for `agora_relay_jmap_request_duration_seconds`: `0.005, 0.01,
 | `agora_relay_blob_store_cid_count` | Gauge | none | Number of CIDs held in the blob store |
 | `agora_relay_storage_retention_gc_duration_seconds` | Histogram | none | Time taken per retention GC pass |
 | `agora_relay_storage_retention_deleted_total` | Counter | `kind` (`envelope`, `blob`) | Envelopes and blobs deleted by retention GC at the end of their agreement's `retentionDays` or `expiryHint` |
+
+#### Blob Replication Metrics
+
+No metric carries a `channelToken` or CID label; per-token series would build a record of which tokens are active that the relay does not otherwise keep.
+
+| Metric name | Type | Labels | Description |
+|---|---|---|---|
+| `agora_relay_blob_replication_pushes_total` | Counter | `result` (`stored`, `not_registered`, `quota`, `error`) | Outbound `POST /v1/agora/peer/blob` requests by peer answer (201, 404, 507, other) |
+| `agora_relay_blob_replication_received_total` | Counter | `result` (`stored`, `rejected_token`, `rejected_cid`, `quota`) | Inbound replicated blobs by outcome |
+| `agora_relay_blob_below_floor` | Gauge | none | Blobs held by fewer relays than their agreement's `replicationFloor` because no further peer accepted them |
+| `agora_relay_blob_pull_through_total` | Counter | `result` (`fetched`, `not_found`, `no_token`) | Client fetches for a CID not held here, by outcome |
+| `agora_relay_blob_seed_cids_total` | Counter | `result` (`held`, `fetched`, `not_found`) | CIDs listed in accepted `seed` instructions, by outcome |
+| `agora_relay_blob_peer_bytes_total` | Counter | `direction` (`in`, `out`) | Blob bytes moved over the Peer API |
 
 #### Compliance Metrics
 
@@ -1878,7 +1917,7 @@ Not applicable. A relay operates no compliance logger and holds no logger key. T
 | 443 | UDP (QUIC) | Inbound | WebTransport (primary client transport) | Public internet |
 | 443 | TCP (TLS) | Inbound | WebSocket (fallback client transport), JMAP sync API, blob CAS, admission key registration, `/.well-known/agora-relay` | Public internet |
 | 9001 | UDP (QUIC) | Inbound + Outbound | Gossipsub QUIC (peer relay mesh) | Peer relay IPs |
-| 9001 | TCP (TLS) | Inbound + Outbound | Gossipsub TCP fallback, Peer API HTTP/3 fallback | Peer relay IPs |
+| 9001 | TCP (TLS) | Inbound + Outbound | Gossipsub TCP fallback, Peer API HTTP/3 fallback, including blob replication and pull-through (spec §10.2.2) | Peer relay IPs |
 | 9099 | TCP | Inbound | Admin API | Internal only (loopback or management VLAN) |
 | 9100 | TCP | Inbound | Prometheus metrics scrape | Internal only (monitoring system) |
 
@@ -1982,7 +2021,7 @@ At 30-day retention: ~2.9 GB. At 90-day retention: ~8.8 GB. Retention is set per
 
 The relay sees users only as connections, so size from the storage quotas in your agreements rather than from user counts where you can: the sum of `storageQuotaGb` across agreements is the upper bound on agreement-covered storage.
 
-**Blob store:** Blobs are content-addressed and deduplicated automatically. Plan for the sum of agreement storage quotas, less what the database already holds, plus CO-published records (public Space state and directory documents, typically tens of KB each).
+**Blob store:** Blobs are content-addressed, but expect little deduplication: files are encrypted under a fresh key per upload, so the same file uploaded twice is two sets of blocks (spec §14.3.4). Each file costs its size plus 16 bytes per 256 KiB chunk and a small root block. Replicated and pulled copies count against your agreement for the token, so with the default `replicationFloor` of 2 each uploaded blob sits on at least two relays. Plan for the sum of agreement storage quotas, less what the database already holds, plus CO-published records (public Space state and directory documents, typically tens of KB each).
 
 ### 12.2 Memory
 
@@ -2030,6 +2069,10 @@ TLS is offloaded by the kernel or hardware in modern Linux systems and is not a 
 | Per active user egress | ~20–100 KB/s (receiving from subscribed channels) |
 | Gossipsub peer mesh | ~100–500 KB/s per peer at mesh degree 6 |
 | Blob store (S3 backend) | ~1–10 MB/s during active CID fetches from S3 |
+| Eager replication egress | Up to (`replicationFloor` - 1) × blob upload ingress; 1× at the default floor of 2 |
+| Replication, pull-through and seed ingress | Blob bytes that peers push to you plus what you pull on clients' behalf; a newly seeded relay can pull a channel's whole blob set in a burst |
+
+Cap peer blob traffic with `storage.blob_peer_transfer_concurrency` if seeding or pull-through bursts compete with client traffic.
 
 For 500 active users:
 - Client traffic: 500 × 100 KB/s = 50 MB/s peak egress
@@ -2299,7 +2342,7 @@ Content stored under an agreement belongs to that agreement's CO. The relay cann
        > "cids-$AGREEMENT_ID.txt"
    ```
 
-2. The CO arranges for its other relays to hold what it needs. Envelopes on tokens it registered at several relays already exist there through mesh fan-out. Blobs exist only where they were uploaded, so the CO's members re-upload them to another relay with an `Agora-Storage-Auth` authorization (spec §11.8.2) and pin what must outlive retention with a `PinInstruction` (spec §11.4). A CO may instead ask you to copy the blobs to a successor relay directly; the blobs are ciphertext, so a copy from your blob store (filesystem or S3 bucket) to the successor's storage under the CO's agreement with the successor discloses nothing new.
+2. The CO arranges for its other relays to hold what it needs. Envelopes on tokens it registered at several relays already exist there through mesh fan-out. Blobs already exist on at least `replicationFloor` relays carrying the token, where that many carry it (spec §10.4.4). For the rest, the CO adds a successor relay to the channel's relay list and either lets it pull blobs as clients ask for them or sends it a `seed` instruction listing the CIDs (spec §11.4); either way the successor pulls from you over the Peer API, so keep the Peer API up and the tokens registered until the CO confirms. Pins apply per relay, so the CO pins what must outlive retention at the successor with a `PinInstruction`. A CO may instead ask you to copy the blobs to a successor relay directly; the blobs are ciphertext, so a copy from your blob store (filesystem or S3 bucket) to the successor's storage under the CO's agreement with the successor discloses nothing new.
 
 3. Before shutdown, check that each listed CID is served by at least one other relay the CO named:
    ```bash

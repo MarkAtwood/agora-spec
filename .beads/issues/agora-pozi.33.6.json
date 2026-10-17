@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.6",
   "title": "[DOC2-1] Relay guide's restore procedure brings back deregistered admission keys",
   "description": "Review finding DOC2-1: Relay guide's restore procedure brings back deregistered admission keys (lens DOC2). Location: guides/relay-operator.md:1614 (§8.5 step 7), :1481 (§8.1 Database row); spec/10-relays.md:644. Fix: Spec §10.4.7 says: \"MUST NOT reinstate admission key registrations from the backup ... It starts with no registrations and answers `unknown-token` for every token\". Guide step 7 says instead: \"A restored database holds the registrations of the backup time: keys the CO deregistered since then are admitted again\". Rewrite step 7 to match. After a restore, purge every registration and per-token `ts` record, answer `unknown-token`, and notify each agreement's `contact` that registrations were lost. Restored envelopes and blobs may be kept within retention and served once their token is re-registered. In §8.1, mark the registration and `ts` state as backed up for audit only and never restored. A side effect of the purge: dropping `ts` state is safe because the CO re-registers with fresh requests. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:48.330430064Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:48.330430064Z",
+  "updated_at": "2026-10-17T07:33:53.453364427Z",
+  "closed_at": "2026-10-17T07:33:53.453364427Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "doc2"

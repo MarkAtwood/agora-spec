@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.55",
   "title": "[CON2-11] `RelayPeerAnnouncement` is a \"gossip message\" with no topic allowed to carry it",
   "description": "Review finding CON2-11: `RelayPeerAnnouncement` is a \"gossip message\" with no topic allowed to carry it (lens CON2). Location: spec/10-relays.md:256; :282-286, :332; spec/05-messaging.md:395. Fix: §10.2.6 sends it \"as a `RelayPeerAnnouncement` gossip message\"; §10.3.1 allows only SpaceAds/RelayAds on `v1/agora/discovery` and §10.3.2 says a Relay \"MUST NOT forward any record on `v1/agora/discovery` other than a SpaceAd or RelayAd\". Carry it over the Peer API (`POST /v1/agora/peer/announce`, 10:153, already exists for peer introduction) to Level 2+ peers, and change the 05:395 row to \"relay-to-relay Peer API\". Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:51.555363725Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:51.555363725Z",
+  "updated_at": "2026-10-17T07:33:51.809033433Z",
+  "closed_at": "2026-10-17T07:33:51.809033433Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "con2"

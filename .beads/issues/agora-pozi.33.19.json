@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.19",
   "title": "[DOC2-14] Discord onboarding omits identity-host admission-key and agreement duties",
   "description": "Review finding DOC2-14: Discord onboarding omits identity-host admission-key and agreement duties (lens DOC2). Location: profiles/discord-onboarding.md:45-48, :527. Fix: The omission is real (grep finds no \"admission\" or \"ServiceAgreement\" in the host description). Severity is lowered because the profile's scope is Space enrollment, and the host duties are defined normatively in spec §4.6 and §10.5.3. Apply the reviewer's fix: list the admission-key endpoints and the host's own ServiceAgreements and billing DID among host requirements, and extend the \"Identity host\" privacy item to cover DM member DIDs (spec §12.4, §12.11). Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:49.153368023Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:49.153368023Z",
+  "updated_at": "2026-10-17T07:33:54.187189832Z",
+  "closed_at": "2026-10-17T07:33:54.187189832Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "doc2"

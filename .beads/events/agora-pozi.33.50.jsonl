@@ -1,3 +1,4 @@
 {"id":"01a148b6-a2f2-7097-943b-152fc8be2ab8","issue_id":"agora-pozi.33.50","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-17T07:14:51.250039436Z"}
 {"id":"01a148b6-a2f4-756b-a28b-9e03a4a19a91","issue_id":"agora-pozi.33.50","event_type":"label_added","actor":"agent","comment":"Added label: review","created_at":"2026-10-17T07:14:51.252355748Z"}
 {"id":"01a148b6-a2f6-75ab-a410-114e2543fb4f","issue_id":"agora-pozi.33.50","event_type":"label_added","actor":"agent","comment":"Added label: con2","created_at":"2026-10-17T07:14:51.25437226Z"}
+{"id":"01a148c8-4959-73ea-8de0-ef342f4923a2","issue_id":"agora-pozi.33.50","event_type":"closed","actor":"agent","old_value":"","new_value":"05:215 and 10:868 now limit registration to IOs whose serviceType receives registrations","created_at":"2026-10-17T07:34:07.961257413Z"}

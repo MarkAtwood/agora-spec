@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.59",
   "title": "[CON2-15] §3.5 has no case for the guest Space endpoint authenticating the home CO",
   "description": "Review finding CON2-15: §3.5 has no case for the guest Space endpoint authenticating the home CO (lens CON2). Location: spec/03-spaces.md:343; spec/08-cross-space.md:98. Fix: §8.6 requires the guest endpoint to serve state to the home CO \"authenticated per §3.5 as `homeAdminDID`\", but §3.5's checks admit only current members, DM members, eligible guests and invitees. Add to §3.5's parenthetical: \"for a guest Space endpoint, the `homeAdminDID` of an in-force `ChannelShareAgreement` naming that Space (§8.6), which grants the guest Space's state only\". Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:51.815966982Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:51.815966982Z",
+  "updated_at": "2026-10-17T07:33:52.049231387Z",
+  "closed_at": "2026-10-17T07:33:52.049231387Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "con2"

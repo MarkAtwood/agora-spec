@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.61",
   "title": "[CON2-17] Appendix D leaves out identifiers that the new text allocates",
   "description": "Review finding CON2-17: Appendix D leaves out identifiers that the new text allocates (lens CON2). Location: spec/99-appendices.md:117-149. Fix: Drop `AgoraProvisioning`: no such DID service type exists anywhere in spec/ (grep finds none; 02:415 is a revocation body). The rest holds: `_corundum._agora` (10:497) is missing from the `_agora` children row; WebSocket subprotocol `agora-sfu.v1` (06:108) needs a Web identifiers row with IANA \"WebSocket Subprotocol Name Registry\" (RFC 6455 §11.5); `serviceType` values `relay`, `sfu`, `sequencer`, `turn`, `push-proxy` (§10.5.1) go in the capability and model strings table. Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:51.944167983Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:51.944167983Z",
+  "updated_at": "2026-10-17T07:33:52.172392215Z",
+  "closed_at": "2026-10-17T07:33:52.172392215Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "con2"

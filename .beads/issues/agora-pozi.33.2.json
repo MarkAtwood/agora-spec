@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.2",
   "title": "Stamped Commit counts only if published and valid (decided)",
   "description": "DECIDED (Mark 2026-10-17), option A (fixes CRY2-2 / IMP2-1 stall): members process stamped Commits in stamp order and take the first that (1) is published within a fixed window (e.g. 10 s after its stamp) and (2) validates (well-formed MLS Commit by a member authorized for that change under Space state); unpublished or invalid stamped Commits are skipped identically by all members.",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:12:17.380908821Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:12:17.380908821Z",
+  "updated_at": "2026-10-17T07:33:54.618009299Z",
+  "closed_at": "2026-10-17T07:33:54.618009299Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "dependencies": [
     {
       "issue_id": "agora-pozi.33.2",

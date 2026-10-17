@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.76",
   "title": "[IMP2-13] History reads and blob uploads exist only on the optional JMAP sync API",
   "description": "Review finding IMP2-13: History reads and blob uploads exist only on the optional JMAP sync API (lens IMP2). Location: spec/10-relays.md:579-580 (§10.4.3 list), :636; spec/11-transport.md:173, :389, :507-513. Fix: The decision follows from existing text. 11-transport.md:12 (\"JMAP is used only for history and blobs\") and the §11.8.8 table (history and blob upload: JMAP yes, live stream no) already settle it. Fix: add \"Implement the JMAP sync API (`jmap-sync-v1`, §11.8)\" to the §10.4.3 MUST list; change 10:636 \"through the live protocol and the JMAP sync API\" to \"through the JMAP sync API\"; state that the upload response `blobId` is the CID text form of the uploaded bytes. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:52.976133447Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:52.976133447Z",
+  "updated_at": "2026-10-17T07:33:50.800434452Z",
+  "closed_at": "2026-10-17T07:33:50.800434452Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "imp2"

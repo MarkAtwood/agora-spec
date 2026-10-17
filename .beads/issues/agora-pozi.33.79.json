@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.79",
   "title": "[IMP2-16] The Client conformance class omits §2.6 and §2.7",
   "description": "Review finding IMP2-16: The Client conformance class omits §2.6 and §2.7 (lens IMP2). Location: spec/01-overview.md:79. Fix: Add §2.6 and §2.7 to the Client row. Drop the second half of the fix: the KeyPackage host row (01:85) already lists §5.2.1.1, which defines the `leaf` parameter. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:53.169863202Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:53.169863202Z",
+  "updated_at": "2026-10-17T07:33:50.97310439Z",
+  "closed_at": "2026-10-17T07:33:50.97310439Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "imp2"

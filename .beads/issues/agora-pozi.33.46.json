@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.46",
   "title": "[CON2-2] `agora_admission_host` is required in DM GroupContexts, but no client is told to support i",
   "description": "Review finding CON2-2: `agora_admission_host` is required in DM GroupContexts, but no client is told to support it (lens CON2). Location: spec/05-messaging.md:73 (fix site); spec/04-access-control.md:158. Fix: 04 §4.6 puts 0xF0A0 in `required_capabilities`; 05 §5.2.1 says only \"Every Agora client lists 0xF0A1 in its leaf `capabilities`\". Under RFC 9420 a leaf lacking a required extension cannot be added. Change to \"Every Agora client lists 0xF0A0 and 0xF0A1 in its leaf `capabilities.extensions`.\" Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:50.990966186Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:50.990966186Z",
+  "updated_at": "2026-10-17T07:33:51.323800056Z",
+  "closed_at": "2026-10-17T07:33:51.323800056Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "con2"

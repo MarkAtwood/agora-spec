@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.77",
   "title": "[IMP2-14] Live-protocol Subscribe and Publish outcomes are underspecified",
   "description": "Review finding IMP2-14: Live-protocol Subscribe and Publish outcomes are underspecified (lens IMP2). Location: spec/11-transport.md:101-104, :126-132, :173, :181, :188; spec/10-relays.md:845-850. Fix: As described. The `Error.token` comment says it is \"for token-withdrawn\", so it would need widening to `unknown-token`. Apply the reviewer's fix: one Ack for the request plus one `Error` without `id` naming each unregistered token; define `expired`; answer a duplicate Publish with `Ack` carrying the existing `cid`. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:53.043911707Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:53.043911707Z",
+  "updated_at": "2026-10-17T07:33:50.861562692Z",
+  "closed_at": "2026-10-17T07:33:50.861562692Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "imp2"

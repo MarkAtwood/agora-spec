@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.54",
   "title": "[CON2-10] Pinning in DM groups cannot be done",
   "description": "Review finding CON2-10: Pinning in DM groups cannot be done (lens CON2). Location: spec/05-messaging.md:445, :465; spec/14-jmap.md:153. Fix: §5.2.6 grants pin rights \"in a group chat, admins\" but pins are `sequenced-v1` \"ordered by the Space's blind sequencer\"; DM groups have no Space, no sequencer (05:28 \"including in every DM group\") and no defined admins. The §14.4.1 rule \"If `sequencer` is absent, `sequenced-v1` types in the Space are read-only\" covers Spaces only. Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:51.497398305Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:51.497398305Z",
+  "updated_at": "2026-10-17T07:33:51.746104845Z",
+  "closed_at": "2026-10-17T07:33:51.746104845Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "con2"

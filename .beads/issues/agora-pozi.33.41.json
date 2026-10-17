@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.41",
   "title": "[CRY2-6] Threshold multi-signer objects don't fit §13.1.1, and nothing requires distinct signer DID",
   "description": "Review finding CRY2-6: Threshold multi-signer objects don't fit §13.1.1, and nothing requires distinct signer DIDs (lens CRY2). Location: spec/04-access-control.md:18; spec/13-encoding.md:59, 78, 86. Fix: Confirmed. §13.1.1 knows only \"an entry for every required signer\" and rejects \"an entry from a signer that is not required\". For \"at least `threshold` of `guardian.dids`\", the required set is undefined. Nothing stops two entries whose `kid`s are different authentication keys of one guardian DID. Fix: add a threshold rule to §13.1.1. The defining section names a candidate DID set and k. The verifier requires entries from at least k distinct DIDs in the set, rejects an object with two entries from the same DID, and rejects entries from DIDs outside the set. Point 04:18 at that rule. Full text: notes/review2/CRY2-verified.md and notes/review2/CRY2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:50.623968653Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:50.623968653Z",
+  "updated_at": "2026-10-17T07:33:53.212830122Z",
+  "closed_at": "2026-10-17T07:33:53.212830122Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "cry2"

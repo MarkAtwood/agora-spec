@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.43",
   "title": "[CRY2-8] Public broadcast channels publish `channelToken`, so an IO can map a token to a Space and ",
   "description": "Review finding CRY2-8: Public broadcast channels publish `channelToken`, so an IO can map a token to a Space and channel, contrary to ARCHITECTURE §5 item 6 (lens CRY2). Location: spec/03-spaces.md:297, 311; ARCHITECTURE.md:166-169; spec/12-security.md:31, 39; spec/11-transport.md:270. Fix: The contradiction is real. 03:311 publishes the subscriber form, which carries `channelToken`, as public Space state, against ARCHITECTURE \"An IO MUST NOT be able to map an admission key to a Space or channel\". But a channel that anyone may read without authentication needs a token that anyone can get, and a relay operator counts as anyone. The reviewer concedes that option (b) \"only moves the exposure\", and option (c) adds a mechanism to protect metadata of a channel whose content is public. The only consistent fix is therefore (a): qualify ARCHITECTURE §5 item 6, 12-security.md:31 and :39, and 11-transport.md:270 to read \"except the tokens of `keyAccess: public` broadcast channels, which the CO publishes\". Lowered to P3: this is a wrong privacy claim about channels whose content is already public. Members' data is not exposed. Full text: notes/review2/CRY2-verified.md and notes/review2/CRY2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:50.761599958Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:50.761599958Z",
+  "updated_at": "2026-10-17T07:33:53.33300431Z",
+  "closed_at": "2026-10-17T07:33:53.33300431Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "cry2"

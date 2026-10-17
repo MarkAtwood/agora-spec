@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.28",
   "title": "[SEP2-2] Admission key registrations disclose `keyEpoch`, which tells every IO a channel's removal ",
   "description": "Review finding SEP2-2: Admission key registrations disclose `keyEpoch`, which tells every IO a channel's removal count and when it was created (lens SEP2). Location: spec/10-relays.md:790, :807; spec/14-jmap.md:198, :207, :212; spec/06-calls.md:134, :138, :163, :167. Fix: `keyEpoch` is redundant at the IO. 10:815 says \"A token is registered with at most one key\", and the token is derived per epoch (05:255), so `channelToken` alone identifies the key. The leak is smaller than claimed. \"Undoes the random delay\" is wrong: the delay hides the registration time whatever the body says. An IO can already tell a new channel from a rotation, because a new channel's registration has no matching deregistration (10:564). The real extra leak is the cumulative rotation count, including rotations before this IO was engaged (a newly engaged relay receives the current key with its full counter, 10:829). That is outside §5 item 6. Fix as suggested: drop `keyEpoch` from `AdmissionKeyRegistration` (10:790, 10:807 sentence), from `seq-auth` (14:198, :207 \"and `keyEpoch`\", :212 error text), and from `sfu-admission`/`sfu-admitted` (06:134, :138, :163, :167). IOs match on `channelToken` only. Keep `keyEpoch` member-side. Replay protection at the SFU comes from the nonce, so nothing else depends on the field. Full text: notes/review2/SEP2-verified.md and notes/review2/SEP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:49.76832052Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:49.76832052Z",
+  "updated_at": "2026-10-17T07:33:52.413840755Z",
+  "closed_at": "2026-10-17T07:33:52.413840755Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "sep2"

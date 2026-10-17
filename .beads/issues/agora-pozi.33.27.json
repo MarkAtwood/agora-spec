@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.27",
   "title": "[SEP2-1] Public broadcast channels publish their channelToken, so any IO can map that token (and th",
   "description": "Review finding SEP2-1: Public broadcast channels publish their channelToken, so any IO can map that token (and the CO's billing DID) to a named Space and channel (lens SEP2). Location: spec/03-spaces.md:311, :297, :245; spec/05-messaging.md:175; ARCHITECTURE.md:166-170 (§5 item 6), :392-404 (§9); spec/10-relays.md:546; spec/12-security.md:39. Fix: The leak is real. 03:311 publishes the subscriber form, which per 03:297 \"carries `channelToken`\", while ARCHITECTURE §5 item 6 says \"An IO MUST NOT be able to map an admission key to a Space or channel\" and 10:546 has the relay testify \"I do not know which Space or channel any token belongs to\". This is not an attack on a decision: agora-broadcast-decision says \"public channels publish key in public Space state\", and a subscriber cannot read without the token. Disclosure therefore follows from the decision. Option (b) in the finding contradicts the decision and, as the finding admits, does not stop the mapping. Fix: add to ARCHITECTURE §5 item 6 \"except the token of a `keyAccess: public` broadcast channel, which the CO publishes with its Space\", add a matching §9 bullet (an IO can map a public channel's token, and the billing DID it is registered under, to the Space; this ties that CO's billing DID to a named Space and lets push/address clustering tie followers' other tokens under that CO to a known community), and qualify 10:546 and 12:39 (\"except tokens a CO publishes\"). Additional defect the finding missed: in a non-public Space, \"public Space state\" has no defined meaning. 03: Full text: notes/review2/SEP2-verified.md and notes/review2/SEP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:49.702895396Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:49.702895396Z",
+  "updated_at": "2026-10-17T07:33:52.356930997Z",
+  "closed_at": "2026-10-17T07:33:52.356930997Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "sep2"

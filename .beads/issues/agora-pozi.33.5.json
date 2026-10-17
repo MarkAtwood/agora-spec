@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.5",
   "title": "DM member list change rules (decided)",
   "description": "DECIDED (Mark 2026-10-17), option A (SEP2-5/CRY2-5, plus CON2-3): the DM admission host accepts DMMembers changes only as: add (by a current member, sent with the MLS Add they commit, subject to DM consent rules), remove self; never removal of other members; the compliance logger can never be removed; each update carries a strictly increasing sequence number and timestamp (no replay). Committers of an Add MUST send the DMMembers update.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:31.0801773Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:31.0801773Z",
+  "updated_at": "2026-10-17T07:33:54.924668621Z",
+  "closed_at": "2026-10-17T07:33:54.924668621Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "dependencies": [
     {
       "issue_id": "agora-pozi.33.5",

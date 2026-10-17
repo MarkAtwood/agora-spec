@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.9",
   "title": "[DOC2-4] Counsel and regulators guides promise attachment capture the spec does not provide",
   "description": "Review finding DOC2-4: Counsel and regulators guides promise attachment capture the spec does not provide (lens DOC2). Location: spec/07-compliance.md:171 (scope) and §7.4 (fix site); guides/counsel.md:33; guides/regulators.md:65. Fix: The gap is real. spec/07 mentions attachments only in the scope line, and no text has the logger fetch, decrypt or retain a blob. The guides' claim \"The CID matches the original's\" describes the retired design: per 05-messaging.md:317, the CID now hashes ciphertext and `sha256` covers the plaintext. Adjustment: the design choice is already made. §7 scope says §7.1-§7.5 \"cover ... file attachments\", so option (a) only implements an existing commitment. Add to §7.4: on archiving a Message with attachments, the logger fetches each blob (§10.4.4), decrypts it with `contentKey`, checks `sha256`, stores it re-sealed under the archive key, and records a failed fetch as a capture gap. Then say in both guides that integrity is shown by the `sha256` in the archived signed Message, not by the CID. Option (b) would contradict the existing scope line. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:48.529183307Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:48.529183307Z",
+  "updated_at": "2026-10-17T07:35:00.435197805Z",
+  "closed_at": "2026-10-17T07:35:00.435197805Z",
+  "close_reason": "Guides and purview profile now describe attachment capture per spec §7 and §14.3.4",
   "labels": [
     "review",
     "doc2"

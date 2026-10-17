@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.84",
   "title": "DM admission host handover (decided)",
   "description": "DECIDED (Mark 2026-10-17), option A (SEP2-6 / IMP2-8): when the admission host's user is no longer a DM member (left, offboarded), a remaining member PUTs the current member list to its own identity host, then commits a GroupContextExtensions proposal setting agora_admission_host to that host, which issues and registers a new admission key; clients MUST do this automatically; the old host may stop serving after a stated period.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:15:37.82270773Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:15:37.82270773Z",
+  "updated_at": "2026-10-17T07:33:54.862800839Z",
+  "closed_at": "2026-10-17T07:33:54.862800839Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "dependencies": [
     {
       "issue_id": "agora-pozi.33.84",

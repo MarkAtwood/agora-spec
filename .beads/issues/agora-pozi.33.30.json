@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.30",
   "title": "[SEP2-4] ARCHITECTURE §9 says an identity-plus-relay operator \"never learns ... channel\", but as DM",
   "description": "Review finding SEP2-4: ARCHITECTURE §9 says an identity-plus-relay operator \"never learns ... channel\", but as DM admission host it knows DM membership by DID, and as relay it sees each DM's traffic (lens SEP2). Location: ARCHITECTURE.md:405-408; profiles/corundum.md:38; spec/04-access-control.md:158; spec/12-security.md:239. Fix: As suggested. 04:158 says \"The host learns the DM group's member DIDs\" and also names the relays. When those are its own relays, the \"never learns content, channel or Space\" claim at ARCHITECTURE:406 is false for DMs. The ARCHITECTURE bullet now exists at :405-408, so corundum.md:38 \"That text is not in ARCHITECTURE.md yet\" is stale and should be deleted. Rewrite the §9 bullet as proposed, mirror it in corundum.md §2, and add the RECOMMEND that a DM admission host list relays it does not operate. Full text: notes/review2/SEP2-verified.md and notes/review2/SEP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:49.894189506Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:49.894189506Z",
+  "updated_at": "2026-10-17T07:33:52.536721833Z",
+  "closed_at": "2026-10-17T07:33:52.536721833Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "sep2"

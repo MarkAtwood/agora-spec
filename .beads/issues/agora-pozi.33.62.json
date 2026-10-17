@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.62",
   "title": "[CON2-18] Appendix C has a stale default and is missing the new numeric rules",
   "description": "Review finding CON2-18: Appendix C has a stale default and is missing the new numeric rules (lens CON2). Location: spec/99-appendices.md:82. Fix: \"lesser of `expiryHint` and the retention window (default 30 days)\" conflicts with §10.4.3 (10:580) and §10.4.6 (10:636), which use the agreement's `retentionDays` and give no default. Change to \"lesser of `expiryHint` and the agreement's `retentionDays`\" and add the missing rows listed by the reviewer (5 s canonical-Commit window, 60 s previous sealing key, hourly admission key fetch, 7-day undecidable Welcome hold, 30 s SFU challenge freshness, 32/1000 generation window). Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:52.008885977Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:52.008885977Z",
+  "updated_at": "2026-10-17T07:33:52.236278654Z",
+  "closed_at": "2026-10-17T07:33:52.236278654Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "con2"

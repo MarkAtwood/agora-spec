@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.66",
   "title": "[IMP2-3] Guardian transfer completion fails the §3.3 signer rule, and the two fork rules disagree",
   "description": "Review finding IMP2-3: Guardian transfer completion fails the §3.3 signer rule, and the two fork rules disagree (lens IMP2). Location: spec/03-spaces.md:166; spec/04-access-control.md:19-22; spec/05-messaging.md:32. Fix: The signer-rule defect is real. 03:166 exempts only a document \"signed by the guardian threshold\", while the completion at 04:20 is signed by `newOwner`. The fork-rule conflict is narrower than described. 03:352 makes every `seq` exactly one more than its predecessor's, so siblings at a fork always have equal `seq`, and the \"higher `seq`\" scenario cannot occur. What remains: 04:19 says a late objection \"has no effect\" without saying whether it is invalid. If it is a valid owner-signed document, 05:32's owner preference beats the completion, contrary to 04:22. Fix: (1) extend the 03:166 exception to a completion signed by `pendingTransfer.newOwner` after `ts + delaySeconds`; (2) state that clients MUST reject an objection whose `objectedAt` is at or after `ts + delaySeconds`; (3) state that owner and admin mutations during the pending period MUST carry `pendingTransfer` unchanged, and that clients reject one that drops it without `objectedAt`. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:52.32140355Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:52.32140355Z",
+  "updated_at": "2026-10-17T07:33:50.179569579Z",
+  "closed_at": "2026-10-17T07:33:50.179569579Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "imp2"

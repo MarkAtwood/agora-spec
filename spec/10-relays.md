@@ -865,7 +865,7 @@ The IO applies a valid request entirely or not at all. An IO with a `sequencer` 
 **When the CO registers.** The registration service registers:
 
 - a new channel's or DM group's first admission key before serving it to members;
-- each rotated key (§5.2.2) with every IO, with `replaces` set, before serving it to members;
+- each rotated key (§5.2.2) with every IO whose `serviceType` receives registrations (§10.5.1), with `replaces` set, before serving it to members;
 - every current key with an IO that it engages, and under every renewed or superseding agreement (§10.5.1), before listing that IO to members (§10.3.5);
 - every current key with an IO that reports lost registrations (§10.4.7), without delay.
 

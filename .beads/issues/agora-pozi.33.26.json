@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.26",
   "title": "[DOC2-21] Five profiles use BCP 14 key words and carry no non-normative banner",
   "description": "Review finding DOC2-21: Five profiles use BCP 14 key words and carry no non-normative banner (lens DOC2). Location: profiles/o365-employer-did.md:1, gsuite-employer-did.md:1, universal-idp-did.md:1, discord-onboarding.md:1, purview-bridge.md:1; README.md:22 marks profiles/ non-normative. Fix: The headers read \"# Specification:\" or \"Implementation Specification v0.1\" and carry no banner. The other four profiles open with \"\u003e Non-normative.\" Under the reviewer's option (a), the o365:190 tightening (MUST where spec §2.5.2 :291 says SHOULD) is legitimate, because it binds only conformance to the profile. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:49.609275193Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:49.609275193Z",
+  "updated_at": "2026-10-17T07:33:54.558937447Z",
+  "closed_at": "2026-10-17T07:33:54.558937447Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "doc2"

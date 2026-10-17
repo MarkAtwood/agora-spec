@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.51",
   "title": "[CON2-7] Is `expiryHint` authenticated or not?",
   "description": "Review finding CON2-7: Is `expiryHint` authenticated or not? (lens CON2). Location: spec/05-messaging.md:409 (fix site) vs :240. Fix: §5.2.2: \"It is authenticated in the same weak sense as `ts`\"; §5.2.4: \"This field is unauthenticated at the outer layer\". Replace the §5.2.4 sentence with \"It is covered by `admissionSig`, which shows only that some key holder set it (§5.2.2); Relays use it as a hint only.\" Full text: notes/review2/CON2-verified.md and notes/review2/CON2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:51.310222982Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:51.310222982Z",
+  "updated_at": "2026-10-17T07:33:51.563034013Z",
+  "closed_at": "2026-10-17T07:33:51.563034013Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "con2"

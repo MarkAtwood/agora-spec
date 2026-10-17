@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.72",
   "title": "[IMP2-9] `did:key` leaves fail the IdentityChanged rule and compliance verification",
   "description": "Review finding IMP2-9: `did:key` leaves fail the IdentityChanged rule and compliance verification (lens IMP2). Location: spec/02-identity.md:541, :550; spec/07-compliance.md:142; spec/05-messaging.md:73. Fix: As described. 02:509 already uses the right two-branch form (\"a current `authentication` key of that DID, or for `did:key` a valid device binding\"). Apply the same branch at 02:541, 02:550 and 07:142 step 6. Full text: notes/review2/IMP2-verified.md and notes/review2/IMP2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:52.714953244Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:52.714953244Z",
+  "updated_at": "2026-10-17T07:33:50.542558912Z",
+  "closed_at": "2026-10-17T07:33:50.542558912Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "imp2"

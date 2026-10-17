@@ -2,13 +2,15 @@
   "id": "agora-pozi.33.8",
   "title": "[DOC2-3] Relay guide's retirement procedure uses an invented `maintenance` field and drains early",
   "description": "Review finding DOC2-3: Relay guide's retirement procedure uses an invented `maintenance` field and drains early (lens DOC2). Location: guides/relay-operator.md:2225-2238 (§16.2), :2242-2254 (§16.3); spec/10-relays.md:112, :646. Fix: `retiresAt` appears nowhere in the guide. The CO notice is framed \"as the agreement's notice terms require\", but the spec makes it a 30-day MUST, with an exception only for an out-of-band agreement. §16.3 refuses new connections, which contradicts \"Until `retiresAt` the Relay keeps admitting registered tokens.\" Apply the reviewer's fix: set `retiresAt` at least 30 days ahead, notify every `contact` at the same time, and drop `maintenance` or demote it to an optional hint. Start the drain at `retiresAt`, or earlier only for tokens whose COs have already deregistered. Full text: notes/review2/DOC2-verified.md and notes/review2/DOC2.md.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T07:14:48.470245462Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T07:14:48.470245462Z",
+  "updated_at": "2026-10-17T07:33:53.572390332Z",
+  "closed_at": "2026-10-17T07:33:53.572390332Z",
+  "close_reason": "Fixed in fd8710f per notes/review2/reconciliation.md",
   "labels": [
     "review",
     "doc2"
