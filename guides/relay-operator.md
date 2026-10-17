@@ -886,7 +886,7 @@ The Relay Admin API is an HTTP API served on the admin listen address (default `
 
 The Admin API is an operator interface defined in this document, outside the Agora protocol.
 
-The Admin API reports per-token and per-agreement counters only. It never reports Space or channel names, types, Space CIDs, channel IDs, or member counts (ARCHITECTURE §7 item 7); the relay does not have them (spec §10.4.1). Agreements are identified by their `id`, the CID of the encoded agreement envelope (spec §10.5.1), and their billing DID, which is what the relay holds (ARCHITECTURE §5 item 6). The Admin API never returns registered admission keys or agreement documents to anyone; they stay private between the relay and each CO (spec §10.4.3).
+The Admin API reports per-token and per-agreement counters only. It never reports Space or channel names, types, Space CIDs, channel IDs, or member counts (ARCHITECTURE §7 item 7); the relay does not have them (spec §10.4.1). Agreements are identified by their `id`, the CID of the agreement body bytes both parties signed (spec §10.5.1), and their billing DID, which is what the relay holds (ARCHITECTURE §5 item 6). The Admin API never returns registered admission keys or agreement documents to anyone; they stay private between the relay and each CO (spec §10.4.3).
 
 ### 5.1 Authentication
 
