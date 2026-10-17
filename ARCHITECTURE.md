@@ -53,6 +53,10 @@ A component's role is determined by what it holds, not by who runs it:
 - A component that holds none of these and needs no such knowledge is an
   **IO component**.
 
+A personal agent that holds a user's keys, MLS secrets, or plaintext is one of
+that user's devices (spec §2.6) when the user runs it, and its host is a CO
+component when a provider runs it, as with an employer's provisioning service.
+
 | Component | Role | Notes |
 |---|---|---|
 | Relay | IO | |

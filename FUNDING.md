@@ -139,6 +139,24 @@ them is rising.
   platforms change terms, prices, and moderation rules overnight, and want a
   home they can leave.
 
+## Works with OpenVTC and the Decentralized Trust Graph
+
+Agora already interoperates with OpenVTC, the open-source implementation of
+the Decentralized Trust Graph credential stack, with no change to the core
+protocol. A deployment profile defines four connections:
+
+- **Strangers in DMs.** A client can show who sent a message request from the
+  sender's trust-graph credentials, checked against a public trust registry.
+- **Credential-gated Spaces.** A Space can admit members on a trust
+  community's admission decision.
+- **Shared identities.** Both use the same default decentralized identifier
+  method, so identities work on both sides unchanged.
+- **Personal agents.** A user's always-on trust agent runs as one of the
+  user's own devices.
+
+OpenVTC has no calls. Agora's call design is ready for the trust-graph work
+to adopt rather than reinvent.
+
 ## Where it stands
 
 The protocol specification is complete. What does not exist yet is production
@@ -150,7 +168,7 @@ software.
 | Protocol specification | 14 parts plus appendices: identity, spaces, access control, messaging, calls, compliance, cross-community channels, interoperability, relays, transport, security, encoding, data formats |
 | Independent review | 4 full review rounds covering consistency, operator separation, cryptography, and implementability, with every finding fixed or decided |
 | Test vectors | 11 vector files; every value computed by two independent cryptographic implementations that agree |
-| Deployment profiles | 10, including Microsoft 365, Google Workspace, Microsoft Purview, Discord migration, and radio-mesh gateways |
+| Deployment profiles | 11, including Microsoft 365, Google Workspace, Microsoft Purview, Discord migration, and radio-mesh gateways |
 | Operator guides | 3: relay operators, financial regulators, legal counsel |
 | Implementation | An earlier prototype codebase exists; no implementation of the current specification yet |
 
@@ -168,7 +186,7 @@ next begins.
 | --- | --- | --- |
 | 1. Build | Two independent implementations; interoperability test suite; MLS and HPKE test vectors | Interop suite passes |
 | 2. Audit | External cryptographic audit; compliance review; fix all findings | Audit closed |
-| 3. Pilot | Two independent relay operators; pilot communities, including one regulated firm; one community moves hosts | Daily use by pilots |
+| 3. Pilot | Two independent relay operators; pilot communities, including one regulated firm; one community moves hosts; an OpenVTC interop demonstration | Daily use by pilots |
 | 4. Standardize | Stable 1.0 specification; standards submission; native MIMI interoperability path | (end of funded period) |
 
 The phases do the following:

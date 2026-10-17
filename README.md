@@ -20,7 +20,7 @@ Status: draft specification. No conformant implementation exists.
 | `FUNDING.md` | What Agora is and why its creation should be funded | no |
 | `ARCHITECTURE.md` | Operator separation: roles, rules S1–S9, observation budget | yes, governs on conflict |
 | `spec/` | Protocol, in parts; each part states which operator it binds | yes |
-| `profiles/` | Deployment profiles: employer-managed DIDs (O365, Google Workspace, generic identity provider (IdP)), Purview export, Discord onboarding, compliance chain witnessing, CORUNDUM identity sharing, Parlance device data, radio mesh gateway, gateways to other networks (Matrix, Slack, Teams) and the path to native More Instant Messaging Interoperability (MIMI) | no |
+| `profiles/` | Deployment profiles: employer-managed DIDs (O365, Google Workspace, generic identity provider (IdP)), Purview export, Discord onboarding, compliance chain witnessing, CORUNDUM identity sharing, Parlance device data, radio mesh gateway, OpenVTC and Decentralized Trust Graph (DTG) interop, gateways to other networks (Matrix, Slack, Teams) and the path to native More Instant Messaging Interoperability (MIMI) | no |
 | `guides/` | Relay operator guide, regulators' guide, counsel's guide | no |
 | `attic/` | Out of scope for the first release: relay economics and payments, futures, chief information officer (CIO) assessment | no |
 | `import/` | Frozen verbatim source from nie, with provenance | no, reference only |
