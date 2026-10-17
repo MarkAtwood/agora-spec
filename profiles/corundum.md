@@ -18,7 +18,7 @@ The two protocols cover different ground. CORUNDUM covers "the public conversati
 What the two share:
 
 - **One identity.** The DID methods are the same (C3). One DID document carries service entries for both protocols, and each protocol uses its own keys (section 3).
-- **One signing scheme.** Both sign exact bytes with JWS and Ed25519 (C1, section 4).
+- **The same signing primitives.** Both sign exact bytes with JWS and Ed25519 (C1, section 4). Each protocol defines its own signing rules and header members.
 - **A one-way border.** Agora messages may reference public CORUNDUM content. Nothing private from Agora ever lands in CORUNDUM public data (C6, section 5).
 
 ## 2. Roles
@@ -72,12 +72,12 @@ No key appears in two rows. Anyone who resolves the DID can see both sets of ser
 
 ## 4. Signing (C1)
 
-Both protocols sign the exact stored bytes with JWS (RFC 7515), using a detached unencoded payload (RFC 7797) and EdDSA with Ed25519 (RFC 8037). This is the procedure in spec §13.1.1:
+Both protocols sign the exact stored bytes with JWS (RFC 7515), using a detached unencoded payload (RFC 7797) and EdDSA with Ed25519 (RFC 8037). CORUNDUM defines its own signing rules, modeled on spec §13.1.1 but separate from it: its own protected-header member naming the object type (for example `corundumType`) in place of Agora's `agoraType`, and its own test vectors. Agora's rules and vectors do not govern CORUNDUM objects, and a change to either protocol's signing rules does not change the other's. The points below apply to CORUNDUM's rules:
 
 - **A post's id is the CID of its stored bytes,** using the `raw` codec and sha2-256. The id no longer depends on a canonical form, so it stops depending on the id-less re-serialization in Ch 11 and Ch 12.
 - **No canonical JSON and no NFKC.** CORUNDUM's Canonical JSON (Ch 33) goes beyond RFC 8785 with NFKC, timestamp rewriting and null omission. NFKC is lossy: it folds ligatures and full-width forms, so a verifier can end up checking bytes the author never wrote. The byte-for-byte rule of spec §13.1.1 replaces all of it. A stored object is never re-serialized.
 - **The detached SigningRecord stays, as a JWS.** The detached design of Ch 12 maps cleanly to a JWS with a detached payload over the activity's stored bytes. Resignatures add JWS `signatures` entries. The activity and its CID do not change.
-- **Key binding by DID URL.** `kid` names the signing key as a DID URL. That key must be in the signer's verified DID document under the expected relationship (spec §13.1.1 step 3). Ch 34 avoided embedded key ids because an attacker could name a key it created. Resolving through the verified DID document answers that concern.
+- **Key binding by DID URL.** `kid` names the signing key as a DID URL. That key must be in the signer's verified DID document under the expected relationship, as in spec §13.1.1 step 3; for the posting key, the CORUNDUM service entry (section 3). Ch 34 avoided embedded key ids because an attacker could name a key it created. Resolving through the verified DID document answers that concern.
 - **This also fixes a CORUNDUM bug.** CORUNDUM labels the id CID `dag-json` while hashing canonical-JSON bytes (Ch 11, step 4), and those bytes need not be valid DAG-JSON.
 
 ## 5. The border (C6)
@@ -115,7 +115,7 @@ None of these changes have been made in CORUNDUM. Each is a proposal, mapped to 
 
 **Signing (C1)**
 - [ ] Ch 33: drop Canonical JSON as the signing input, including NFKC, timestamp and null rules. Remove the Ch 45 test vectors, or replace them with JWS vectors.
-- [ ] Ch 34: replace strip-canonicalize-sign with JWS over the stored bytes (RFC 7515/7797/8037). Replace key lookup through the IPNS RootManifest with a `kid` DID URL.
+- [ ] Ch 34: replace strip-canonicalize-sign with JWS over the stored bytes (RFC 7515/7797/8037), with CORUNDUM's own protected-header type member and JWS test vectors (section 4). Replace key lookup through the IPNS RootManifest with a `kid` DID URL.
 - [ ] Ch 11, Ch 12: activity id = CIDv1 with the `raw` codec and sha2-256 over the stored bytes. The SigningRecord becomes a detached JWS. Removes the `dag-json` label.
 - [ ] Ch 35, Ch 36: map algorithm agility onto the JWS `alg` and multiple `signatures` entries. Keep the sunset registry. Keep the downgrade rule (require every active algorithm family).
 
@@ -149,7 +149,7 @@ None of these changes have been made in CORUNDUM. Each is a proposal, mapped to 
 1. **Pointer update cadence.** Resolved (Mark, 2026-10-16, C2a): the DID document carries a stable service entry naming the operator's content endpoint and the posting key. The operator serves each new RootManifest signed by the posting key, with a sequence number and the CID of the previous manifest. Readers check the key against the DID document, the signature, the rising sequence and the chain, and remember the highest sequence seen. The DID log changes only when the operator or posting key changes.
 2. **`did:key` users.** Resolved (Mark, 2026-10-16, C2b): the Pkarr record carries an optional `_corundum._agora` service record with the operator's content endpoint and the posting key (spec §10.3.4.6). The user's device updates it only when switching operators; the operator re-publishes the unchanged signed record to keep it alive.
 3. **The posting key relationship.** Resolved (Mark, 2026-10-17, C): the posting key is in no verification relationship. It appears only in the CORUNDUM service entry (question 1), or the `_corundum._agora` Pkarr record for `did:key` users (question 2), so generic DID tooling never treats it as able to authenticate or assert claims for the user.
-4. **JWS header members.** CORUNDUM needs its own protected-header member in place of Agora's `agoraType` (spec §13.1.1). Should both protocols share one header profile, so that one test-vector set (agora-pozi.31.69) covers both?
+4. **JWS header members.** Resolved (Mark, 2026-10-17, C): the protocols do not share a header profile. CORUNDUM defines its own signing rules, protected-header type member and test vectors (section 4); Agora's vectors cover only Agora.
 5. **Follow list encryption.** Which construction (for example HPKE to the user's `keyAgreement` key and an operator key), and how re-encryption works when the user switches operators.
 6. **Witnesses.** When a CORUNDUM operator hosts an individual's `did:webvh` log but holds no update key, is that DID individual (witnesses optional) or CO-provisioned (witnesses required, spec §2.1)?
 7. **Curated content inside Agora.** Is it enough that the fetch path applies whatever policy it has when a CORUNDUM post that curators later flag is referenced in an Agora message, or should clients warn?
