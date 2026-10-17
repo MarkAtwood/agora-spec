@@ -8,7 +8,7 @@
 
 Every Agora payload is carried in a **typed payload envelope**. The envelope names what the payload is, says how its bytes are encoded, and carries those bytes unchanged. Agora computes no canonical form of any payload.
 
-The routing envelope that Relays carry is not a typed payload envelope and is defined in §5.2.2. It follows the same exact-bytes rule: its `signed` field is a CBOR byte string holding the encoded routing fields that `admissionSig` covers, and its `id` is the CID of the complete encoded routing envelope. Neither is computed over a re-encoding.
+The routing envelope that Relays carry is not a typed payload envelope and is defined in §5.2.2. It follows the same exact-bytes rule: its `signed` field is a CBOR byte string holding the encoded routing fields that `admissionSig` covers, and its `id` is the CID of those `signed` bytes. Neither is computed over a re-encoding.
 
 **Fields.**
 
@@ -30,7 +30,7 @@ The routing envelope that Relays carry is not a typed payload envelope and is de
 
 **Stored and published objects.** An object verified outside an MLS group (for example Space state, compliance records, `ServiceAgreement`, `AdmissionKeyRegistration`, `AdmissionKeyDeregistration`, `ChannelAdmissionKey` other than a DM group's (§3.4), `BroadcastKey`, discovery records and `ChannelShareAgreement`) is stored, served and forwarded as its encoded envelope with `sig` present. Where such an object is content-addressed, its CID is computed over the encoded envelope bytes as stored.
 
-**Content identifiers.** Every CID this specification computes, whether of an encoded envelope, a routing envelope or a blob, is a CIDv1 with multicodec `raw` (0x55) and multihash `sha2-256` (0x12, 32-byte digest), computed over exactly those bytes. A CID carried in CBOR or used as input to a derivation is in binary form. A CID written in text, JSON or a URI is in multibase base32 lower-case form (prefix `b`), its CID text form.
+**Content identifiers.** Every CID this specification computes, whether of an encoded envelope, a routing envelope's `signed` bytes (§5.2.2) or a blob block, is a CIDv1 with multicodec `raw` (0x55) and multihash `sha2-256` (0x12, 32-byte digest), computed over exactly those bytes. The one exception is the root block of a chunked file (§14.3.4), whose CID is a CIDv1 with multicodec `dag-pb` (0x70) and multihash `sha2-256`. A CID carried in CBOR or used as input to a derivation is in binary form. A CID written in text, JSON or a URI is in multibase base32 lower-case form (prefix `b`), its CID text form.
 
 **Type URIs.** `type` values are compared as exact, case-sensitive strings. No normalization is applied.
 
@@ -93,7 +93,9 @@ Verification MUST NOT fetch any resource named inside `body`.
 
 **Test vectors.** A JWS signing test-vector set MUST be published containing at minimum: (a) at least five representative signed object types, including at least one multi-signer object, each with its envelope fields, `body` bytes in hex, the Ed25519 test private key, and the expected `sig`; and (b) negative cases that a verifier MUST reject, including `b64` set to `true` or absent, an `alg` other than `EdDSA`, `cty` or `agoraType` not matching the envelope, a body that was re-serialized after signing, a multi-signer object missing one required signer's entry, and a threshold object whose k entries include two from the same DID. Because Ed25519 signatures are deterministic, expected `sig` values are byte-exact. Implementations MUST pass all test vectors before signing or verification code is considered conformant.
 
-> **Open (agora-pozi.31.69):** The JWS test-vector set does not exist yet; no `test-vectors/` directory is present in the repository.
+Test vectors are in the repository's `test-vectors/` directory, computed with two independent implementations that agree byte for byte.
+
+> **Open (agora-pozi.31.69):** Still missing: the chunked-file root block, JWS negative vectors for `b64`, `alg`, `cty`/`agoraType` mismatch and re-serialized bodies, further signed object types, the broadcast payload AEAD, and the remaining §13.3 derivations.
 
 ### 13.1.2 Context Document Caching
 

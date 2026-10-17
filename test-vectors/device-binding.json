@@ -1,0 +1,31 @@
+{
+ "construction": "did:key device binding (agora_device_binding, 0xF0A1)",
+ "spec": "\u00a75.2.1 (definition), \u00a72.1, \u00a713.3 label 'agora/v1/device-binding'",
+ "notes": [
+  "Fixed inputs named by a label are SHA-256(UTF-8(\"agora-test-vectors/\" || label)), truncated to the stated length.",
+  "extensionData = Ed25519(identity seed, UTF-8(\"agora/v1/device-binding\") || signature_key). did:key = \"did:key:z\" || base58btc(0xed 0x01 || identity public key)."
+ ],
+ "vectors": [
+  {
+   "inputs": {
+    "identityKey": {
+     "seedLabel": "did-key-identity",
+     "seedHex": "ee60f43d147a88cbd819c6c451e9cb52074160518c9a2119a03a95f271cb93ec",
+     "publicKeyHex": "662cb00f0f6a2a16f02c5f45e9b59ddf27afbc3a34d7dcbc6071ea85c4f913ef"
+    },
+    "leafSignatureKey": {
+     "seedLabel": "device-leaf-signature-key",
+     "seedHex": "12d8e6075ab5997b6aed41a4b8cf075acdcee7c318ee84726d2305e15456fce1",
+     "publicKeyHex": "2291b6a7c84b5248168f43b126cf9d5c3d0221bda4dc292fd84d932f17f8050f"
+    }
+   },
+   "intermediates": {
+    "didKey": "did:key:z6MkmL79oxQpAuq6pEbB4kYov4X4ifS2DE7bo7tejDkRrq66",
+    "signedMessageHex": "61676f72612f76312f6465766963652d62696e64696e672291b6a7c84b5248168f43b126cf9d5c3d0221bda4dc292fd84d932f17f8050f"
+   },
+   "outputs": {
+    "extensionDataHex": "8e191ab6dff90c401c125914339eb11d3dd25a0af8dfc2070ce90bce5bbf137a76836b7efb755695ec18203fde9df6601b592a145684e7a36aa7ab2c0cbd3a0e"
+   }
+  }
+ ]
+}

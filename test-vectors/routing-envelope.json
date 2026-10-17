@@ -1,0 +1,35 @@
+{
+ "construction": "Routing envelope: admissionSig and envelope id",
+ "spec": "\u00a75.2.2 Outer Routing Envelope; \u00a713.1.1 Admission signatures; \u00a713.1 Content identifiers",
+ "notes": [
+  "Fixed inputs named by a label are SHA-256(UTF-8(\"agora-test-vectors/\" || label)), truncated to the stated length.",
+  "The admission key is the keyEpoch 0 key of channel-token.json; channelToken is its epoch 0 token.",
+  "sealedEnvelope is sealedEnvelopeHex from sealed-envelope.json.",
+  "SignedFields and the outer map are encoded with RFC 8949 section 4.2.1 core deterministic key order and preferred integer widths. The spec does not require this order; it is one valid encoding, and verifiers MUST use the signed bytes as received.",
+  "admissionSig = Ed25519(admission seed, signed bytes). id = CIDv1(raw 0x55, sha2-256) of the signed bytes only (\u00a75.2.2)."
+ ],
+ "vectors": [
+  {
+   "inputs": {
+    "admissionKey": {
+     "seedLabel": "admission-key",
+     "seedHex": "d80799371e1a331ba551eb02e98f56cc9f9d21a69bb8a96cc45902897921a25a",
+     "publicKeyHex": "a7cee674787c5a215c953ea421a34251e08d3965728f7f92fcb415e8d123cf9d"
+    },
+    "channelTokenHex": "1f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca",
+    "ts": 1792195200000,
+    "expiryHint": 1792800000000,
+    "sealedEnvelopeHex": "62f4e1cd69757ea23147d241885ed8d2b3f6a29aa1a436654a12e8b324816833652389d6a3cebf149c1e197b75fd22ad8aa3ec01bb87cbe81bc0b10e39f2feb417c576bf09cc38ad12cc23a3584a5dfab1fd94d8da83da4247953257c7f84196bdf12b97dc494e4dec"
+   },
+   "intermediates": {
+    "signedHex": "a56274731b000001a147288400636374787161676f72612f656e76656c6f70652f76316a65787069727948696e741b000001a16b3508006c6368616e6e656c546f6b656e58201f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca6e7365616c6564456e76656c6f7065586962f4e1cd69757ea23147d241885ed8d2b3f6a29aa1a436654a12e8b324816833652389d6a3cebf149c1e197b75fd22ad8aa3ec01bb87cbe81bc0b10e39f2feb417c576bf09cc38ad12cc23a3584a5dfab1fd94d8da83da4247953257c7f84196bdf12b97dc494e4dec"
+   },
+   "outputs": {
+    "admissionSigHex": "860f7714c6c46591f3c9d503677c2d19953559fea27331d2c68c42b2ab83a8e379c8ece5de47175cafc39457f673d49531eb97b96a2af8e1d86380681fa1da0d",
+    "idCidBytesHex": "0155122045eb4b4bef280ec48169ccc6dba6c030cae973d40ad0b0ca115e8144b0652111",
+    "idCidText": "bafkreicf5nfux3zib3cic2omy3n2nqbqzluxhvak2cymuek6qfclazjbce",
+    "routingEnvelopeHex": "a2667369676e656458e0a56274731b000001a147288400636374787161676f72612f656e76656c6f70652f76316a65787069727948696e741b000001a16b3508006c6368616e6e656c546f6b656e58201f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca6e7365616c6564456e76656c6f7065586962f4e1cd69757ea23147d241885ed8d2b3f6a29aa1a436654a12e8b324816833652389d6a3cebf149c1e197b75fd22ad8aa3ec01bb87cbe81bc0b10e39f2feb417c576bf09cc38ad12cc23a3584a5dfab1fd94d8da83da4247953257c7f84196bdf12b97dc494e4dec6c61646d697373696f6e5369675840860f7714c6c46591f3c9d503677c2d19953559fea27331d2c68c42b2ab83a8e379c8ece5de47175cafc39457f673d49531eb97b96a2af8e1d86380681fa1da0d"
+   }
+  }
+ ]
+}

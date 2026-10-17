@@ -1,0 +1,33 @@
+{
+ "construction": "Sealed envelope AEAD",
+ "spec": "\u00a75.2.2 Sealed Envelope; \u00a713.3 labels 'agora sealed envelope', 'agora/sealed/v1'",
+ "notes": [
+  "Fixed inputs named by a label are SHA-256(UTF-8(\"agora-test-vectors/\" || label)), truncated to the stated length.",
+  "key is the given MLS-Exporter(\"agora sealed envelope\", group_id, 16) output; MLS is not implemented here.",
+  "nonce is FIXED for the vector; the spec requires a fresh random 12-byte nonce per envelope.",
+  "plaintext is opaque stand-in bytes, not a valid MLSMessage.",
+  "channelToken is the keyEpoch 0 token of channel-token.json.",
+  "aad = \"agora/sealed/v1\" || channelToken || uint64be(epoch); sealedEnvelope = nonce || ciphertext || tag (AES-128-GCM)."
+ ],
+ "vectors": [
+  {
+   "inputs": {
+    "exporterOutputLabel": "sealed-envelope-exporter-output",
+    "keyHex": "1b4c39d911f665812f8b9dd3e14e36ec",
+    "channelTokenHex": "1f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca",
+    "epoch": 7,
+    "nonceLabel": "sealed-envelope-nonce",
+    "nonceHex": "62f4e1cd69757ea23147d241",
+    "plaintextHex": "61676f7261207465737420766563746f723a207374616e642d696e20627974657320666f7220612073657269616c697a6564204d4c534d65737361676520286e6f742076616c6964204d4c5329"
+   },
+   "intermediates": {
+    "aadHex": "61676f72612f7365616c65642f76311f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca0000000000000007"
+   },
+   "outputs": {
+    "ciphertextAndTagHex": "885ed8d2b3f6a29aa1a436654a12e8b324816833652389d6a3cebf149c1e197b75fd22ad8aa3ec01bb87cbe81bc0b10e39f2feb417c576bf09cc38ad12cc23a3584a5dfab1fd94d8da83da4247953257c7f84196bdf12b97dc494e4dec",
+    "tagHex": "953257c7f84196bdf12b97dc494e4dec",
+    "sealedEnvelopeHex": "62f4e1cd69757ea23147d241885ed8d2b3f6a29aa1a436654a12e8b324816833652389d6a3cebf149c1e197b75fd22ad8aa3ec01bb87cbe81bc0b10e39f2feb417c576bf09cc38ad12cc23a3584a5dfab1fd94d8da83da4247953257c7f84196bdf12b97dc494e4dec"
+   }
+  }
+ ]
+}

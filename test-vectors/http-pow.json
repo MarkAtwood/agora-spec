@@ -1,0 +1,40 @@
+{
+ "construction": "HTTP proof-of-work challenge and response",
+ "spec": "\u00a710.5.2 HTTP endpoints; leading-zero-bit count as \u00a711.6",
+ "notes": [
+  "Fixed inputs named by a label are SHA-256(UTF-8(\"agora-test-vectors/\" || label)), truncated to the stated length.",
+  "challenge is fixed here; the spec requires 32 random bytes per challenge.",
+  "nonce is the smallest 8-byte big-endian counter meeting difficulty, so both toolchains find it independently.",
+  "Header values are RFC 9651 Dictionaries; Byte Sequences are standard base64 with padding."
+ ],
+ "vectors": [
+  {
+   "inputs": {
+    "challengeLabel": "pow-challenge",
+    "challengeHex": "46e8578d1b5d04cd757f4196a6aeaa0b22ee6977ddf03cc43a210cf84ce02ed9",
+    "difficulty": 20,
+    "expires": 30
+   },
+   "outputs": {
+    "challengeHeader": "Agora-PoW-Challenge: challenge=:RuhXjRtdBM11f0GWpq6qCyLuaXfd8DzEOiEM+EzgLtk=:, difficulty=20, expires=30",
+    "nonceHex": "000000000005a6ff",
+    "hashHex": "00000e1890c442a031f7135818689a3f2594aa589065086aa966c0f8ea449ba3",
+    "leadingZeroBits": 20,
+    "powHeader": "Agora-PoW: challenge=:RuhXjRtdBM11f0GWpq6qCyLuaXfd8DzEOiEM+EzgLtk=:, nonce=:AAAAAAAFpv8=:"
+   },
+   "negative": {
+    "nonceHex": "0000000000000000",
+    "hashHex": "24f25d9817304fbcabbda8c706de435171af2e0cb0ea6cbf6fb771eac203b68c",
+    "leadingZeroBits": 2,
+    "expected": "reject"
+   }
+  }
+ ],
+ "specExample": {
+  "challengeHex": "46f278133a8d5d68b78eb0d70022fc0a9222974859f7a05f73d6571bf7770aec",
+  "nonceHex": "00000000001704a6",
+  "hashHex": "000002bc97e47122088a35cd127a78d13f9fc2a0644d0204fbd201855852a343",
+  "leadingZeroBits": 22,
+  "meetsDifficulty20": true
+ }
+}

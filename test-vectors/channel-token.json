@@ -1,0 +1,56 @@
+{
+ "construction": "channelToken derivation",
+ "spec": "\u00a75.2.2 Channel Admission; \u00a713.3 label 'agora channel token'",
+ "notes": [
+  "Fixed inputs named by a label are SHA-256(UTF-8(\"agora-test-vectors/\" || label)), truncated to the stated length.",
+  "channelToken = HKDF-SHA256(IKM = seed, salt = zero-length, info = \"agora channel token\" || uint64be(keyEpoch), L = 32).",
+  "prkHex is the RFC 5869 extract output; a zero-length salt is HashLen zero bytes."
+ ],
+ "vectors": [
+  {
+   "inputs": {
+    "seedLabel": "admission-key",
+    "seedHex": "d80799371e1a331ba551eb02e98f56cc9f9d21a69bb8a96cc45902897921a25a",
+    "keyEpoch": 0,
+    "saltHex": ""
+   },
+   "intermediates": {
+    "infoHex": "61676f7261206368616e6e656c20746f6b656e0000000000000000",
+    "prkHex": "dd201d0c062ed661de464e28f6ac8ae552784223585da88394ab494243190074"
+   },
+   "outputs": {
+    "channelTokenHex": "1f7dab32bfd6a6f5337681a62f1a05c7fe974e8b8aec903c53e10b10f5dcaaca"
+   }
+  },
+  {
+   "inputs": {
+    "seedLabel": "admission-key",
+    "seedHex": "d80799371e1a331ba551eb02e98f56cc9f9d21a69bb8a96cc45902897921a25a",
+    "keyEpoch": 1,
+    "saltHex": ""
+   },
+   "intermediates": {
+    "infoHex": "61676f7261206368616e6e656c20746f6b656e0000000000000001",
+    "prkHex": "dd201d0c062ed661de464e28f6ac8ae552784223585da88394ab494243190074"
+   },
+   "outputs": {
+    "channelTokenHex": "0841102af96e78e746c403cafab31cefd60f0ab34f58705fcc18fe3eb42782d0"
+   }
+  },
+  {
+   "inputs": {
+    "seedLabel": "admission-key",
+    "seedHex": "d80799371e1a331ba551eb02e98f56cc9f9d21a69bb8a96cc45902897921a25a",
+    "keyEpoch": 4294967296,
+    "saltHex": ""
+   },
+   "intermediates": {
+    "infoHex": "61676f7261206368616e6e656c20746f6b656e0000000100000000",
+    "prkHex": "dd201d0c062ed661de464e28f6ac8ae552784223585da88394ab494243190074"
+   },
+   "outputs": {
+    "channelTokenHex": "c3e598b427f46cdefe1e74e51e9a133e02e689d72801b8c8943e68eaa535e146"
+   }
+  }
+ ]
+}
