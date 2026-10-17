@@ -83,7 +83,7 @@ The bridge authenticates to Microsoft Graph with the OAuth 2.0 client credential
 
 `Mail.ReadWrite` as an application permission covers every mailbox in the tenant. The operator SHOULD restrict the app to the regulated members' mailboxes with Exchange Online's application access scoping (RBAC for Applications or an application access policy; verify against current Microsoft Graph documentation).
 
-The bridge MUST authenticate using a certificate credential, not a client secret. Certificate rotation SHOULD be automated via Azure Key Vault or an equivalent HSM-backed credential store.
+The bridge MUST authenticate using a certificate credential, not a client secret. The operator SHOULD automate certificate rotation with Azure Key Vault or an equivalent HSM-backed credential store.
 
 All application permissions above require tenant admin consent. The bridge operator grants consent once, and it applies tenant-wide.
 
@@ -313,7 +313,7 @@ The bridge never fetches blobs from IPFS or any relay. The logger fetches each a
 2. If the file is too large, the bridge records only the metadata (name, size, type, `blobId`) in the body, and the item points investigators to the logger's archived copy on CO storage.
 3. If the logger could not decrypt or fetch the blob, the bridge MUST log the failure, record the metadata in the body with the line `Attachment content not captured`, and create the item without the file. The bridge MUST NOT block the deposit pipeline on attachment failures.
 
-Spec §5.2.2 forbids sending `contentKey` and `sha256` to any IO. Each Exchange item carries the captured Message, and with it `contentKey` and `sha256`. For attachments the item is therefore plaintext-equivalent: anyone who reads the item and obtains the ciphertext blob can decrypt the file. Protect the compliance mailbox accordingly.
+Spec §5.2.2 forbids sending `contentKey` and `sha256` to any IO. Each Exchange item carries the captured Message, and with it `contentKey` and `sha256`. For attachments the item is therefore plaintext-equivalent: anyone who reads the item and obtains the ciphertext blob can decrypt the file. The operator SHOULD limit read access to the `Agora Compliance Archive` folders and the catch-all mailbox to the compliance and eDiscovery roles authorized to read the captured content.
 
 ---
 
@@ -546,7 +546,7 @@ The bridge caches the token and refreshes it 5 minutes before its `expires_in` e
 
 - The bridge process MUST run as a dedicated service account with no network access beyond the Microsoft endpoints in §1.3, the compliance logger's local socket, the CO's mapping interface (§2.3), and the CO's DID and profile resolver (§3.2).
 - The delivery state store MUST reside on an encrypted volume (LUKS or equivalent).
-- The certificate private key for Entra authentication MUST be stored in an HSM or TPM-backed keystore, never in a file. `PKCS#11` or `tpm2-pkcs11` are the required interfaces on Linux.
+- The certificate private key for Entra authentication MUST be stored in an HSM or TPM-backed keystore, never in a file. On Linux, PKCS#11 is the usual interface (for a TPM, through `tpm2-pkcs11`; see spec §12 key storage table).
 - Bridge logs MUST NOT contain message plaintext or UPNs. Log `envelope_id`, `record_cid`, `sender_did`, `target_did`, and `status` only.
 
 ### 8.3 ComplianceLogger Payload Access
@@ -676,6 +676,6 @@ subject:"[Agora VTC]"
 
 2. **Header searchability.** Whether Purview Communication Compliance and eDiscovery can match `x-agora-*` header values is unconfirmed. This profile does not rely on it: searches and policies use the subject prefix and body marker block (§3.4, §10). If header matching is confirmed, operators MAY add header-based conditions.
 
-3. **Large attachments.** Files above the tenant's message size or Graph upload limits are deposited as metadata with a pointer to the logger's archived copy on CO storage (§3.5). Whether a pointer to a CO-held archive satisfies the applicable retention rule SHOULD be confirmed with the organization's compliance counsel before production deployment.
+3. **Large attachments.** Files above the tenant's message size or Graph upload limits are deposited as metadata with a pointer to the logger's archived copy on CO storage (§3.5). Whether a pointer to a CO-held archive satisfies the applicable retention rule needs confirmation from the organization's compliance counsel before production deployment.
 
-4. **Catch-all mailbox governance.** Items deposited to the catch-all mailbox because a regulated member has no mapping are regulated communications. The compliance officer MUST review and resolve mapping gaps promptly. A backlog in the catch-all mailbox is a compliance gap as well as an operational issue.
+4. **Catch-all mailbox governance.** Items deposited to the catch-all mailbox because a regulated member has no mapping are regulated communications. The compliance officer needs to review and resolve mapping gaps as they are alerted (§2.3, §9.2). A backlog in the catch-all mailbox is a compliance gap as well as an operational issue.

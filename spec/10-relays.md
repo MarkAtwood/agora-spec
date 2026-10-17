@@ -38,7 +38,7 @@ Relays form a gossipsub mesh with each other for fan-out. This section specifies
 
 **Transport for relay-to-relay communication.** libp2p supports multiple transports. Relays SHOULD prefer **QUIC-v1** (`/ip4/.../udp/.../quic-v1` multiaddr) for gossipsub connections, with TCP (`/ip4/.../tcp/...`) as the fallback for environments where UDP is blocked. QUIC eliminates head-of-line blocking between gossip streams and removes TCP from the relay-to-relay data path entirely.
 
-The Peer API (§10.2.2) SHOULD be served over **HTTP/3** (QUIC); relays MUST also support HTTP/1.1 or HTTP/2 over TLS as a fallback and SHOULD advertise HTTP/3 availability via `Alt-Svc: h3=":<port>"` response headers. A relay SHOULD serve everything on port 443: its client endpoints and Peer API over TCP and UDP 443, and libp2p QUIC on UDP 443, sharing one QUIC listener with HTTP/3 and telling connections apart by their TLS ALPN (`h3` or `libp2p`). An operator MAY use other ports; every endpoint, multiaddr, and SRV record carries its port. Relay operators that cannot expose UDP MAY operate TCP-only, but MUST declare this in their manifest `capabilities` by omitting `gossipsub-quic-v1`.
+The Peer API is served over HTTP/3 with an HTTP/1.1 and HTTP/2 fallback (§10.2.2). A relay SHOULD serve everything on port 443: its client endpoints and Peer API over TCP and UDP 443, and libp2p QUIC on UDP 443, sharing one QUIC listener with HTTP/3 and telling connections apart by their TLS ALPN (`h3` or `libp2p`). An operator MAY use other ports; every endpoint, multiaddr, and SRV record carries its port. Relay operators that cannot expose UDP MAY operate TCP-only, but MUST declare this in their manifest `capabilities` by omitting `gossipsub-quic-v1`.
 
 ### 10.2.1 Relay Manifest
 
@@ -113,7 +113,7 @@ Each entry in `keys` has a `status` of `active`, `deprecated` (still accepted du
 
 `retiresAt` is optional. A relay that will stop serving sets it to the RFC 3339 UTC time at which it stops (§10.4.7); a relay without a planned end omits it.
 
-`knownPeers` is the relay's current peer list. This serves as a mesh map: a new relay fetching any existing relay's manifest obtains a list of further relays to contact, enabling rapid mesh joining without a central directory server.
+`knownPeers` lists the relay's peers, including any peer marked unreachable within the last 7 days (§10.2.6). This serves as a mesh map: a new relay fetching any existing relay's manifest obtains a list of further relays to contact, enabling rapid mesh joining without a central directory server.
 
 `capabilities` is an array of capability strings declaring what features this relay supports:
 
@@ -315,7 +315,7 @@ Each gossipsub **topic** maps to a specific scope:
 
 **Discovery topic.** Every mesh relay MAY carry `v1/agora/discovery`. Only SpaceAds and RelayAds travel on it. Clients do not publish on any gossip topic. They send envelopes to a relay in a live protocol `Publish` (§11.4). Clients MUST NOT send DID-signed records about themselves (profiles, recovery assertions, device revocations, or any other user record) over a relay connection. A user is discovered through the DID document or Pkarr record (§2.1, §10.3.4.6), key recovery is recorded in the DID log (§2.4), and a user tells its groups to re-resolve its DID and profile with an `urn:agora:type:IdentityChanged` MLS application message (§5.2.3).
 
-**Parameters.** Relays MUST use the gossipsub signature policy `StrictNoSign`: messages carry no libp2p author, sequence number, or signature, so no peer ID is attached to an envelope and peers with different policies do not drop each other's messages. The message ID is SHA-256 of the message data. The maximum message data size is 65536 bytes, the `maxEnvelopeBytes` of §11.8.3. Mesh degree parameters are `D = 6`, `D_low = 4`, `D_high = 12`, and the heartbeat interval is 1 second, the gossipsub v1.1 defaults.
+**Parameters.** Relays MUST use the gossipsub signature policy `StrictNoSign`: messages carry no libp2p author, sequence number, or signature, so no peer ID is attached to an envelope and peers with different policies do not drop each other's messages. The message ID is SHA-256 of the message data. The maximum message data size is 65,536 bytes, the `maxEnvelopeBytes` of §11.8.3. Mesh degree parameters are `D = 6`, `D_low = 4`, `D_high = 12`, and the heartbeat interval is 1 second, the gossipsub v1.1 defaults.
 
 No topic carries a Space CID, MLS group ID, `channelID`, or other Space identifier (ARCHITECTURE S1). Space state, moderation records, and other Space-level records reach members from the CO's Space endpoint and in-band MLS notifications (§3.4); Welcomes go to the invitee's `KeyPackageEndpoint` (§4.6).
 
@@ -363,7 +363,7 @@ To bootstrap into the gossip network, a client needs at least one known peer. Ag
 1. **Directory sources.** user-configured URLs serving `RelayDirectory` or `SpaceDirectory` documents (§10.3.4); the primary bootstrap mechanism in practice.
 2. **Previously cached relay list.** Relays successfully contacted in a prior session, stored locally with a staleness TTL of 7 days.
 3. **Mainline DHT.** Relays announce themselves on the BitTorrent Mainline DHT (BEP-5) under a well-known infohash; clients perform a `get_peers` lookup to find announcing relays (§10.3.4.6).
-4. **DNS-SD.** `_agora-relay._udp` and `_agora-relay._tcp` mDNS for LAN or overlay discovery (§10.2.5).
+4. **DNS-SD.** `_agora-relay._udp` and `_agora-relay._tcp` SRV and TXT records under a configured domain, including overlay-internal DNS (§10.2.5).
 
 ### 10.3.4 Directory Documents
 
@@ -636,7 +636,7 @@ A conformant relay MUST NOT:
 
 A conformant relay SHOULD:
 
-- Announce itself on `v1/agora/discovery` with a signed `RelayAd` including all available endpoint URIs.
+- Announce itself on `v1/agora/discovery` with a signed `RelayAd` listing its client-facing endpoints (§10.5.1).
 - Operate a Tor hidden service endpoint to protect operator IP and support Tor-connected clients.
 - Maintain peering connections to at least 3 other known relays.
 - Implement gossipsub peer scoring to limit amplification attacks.

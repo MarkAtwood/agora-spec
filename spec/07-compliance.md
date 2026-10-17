@@ -40,6 +40,8 @@ The block carries no signature of its own. The Space owner's signature on the Sp
 - `logStore` is the IPFS CID root of the compliance log: a content-addressed, append-only IPLD structure.
 - `retentionDays` is the minimum retention period the logger is obligated to maintain.
 - `scope` is `all-channels` or a list of channel path globs.
+- `loggerLabel` is a human-readable name for the logger, shown in disclosure notices (§7.8.4).
+- `enabledBy` is the DID that enabled logging and `enabledAt` the time it was enabled (RFC 3339). Both are informational; the Space state signature (§13.1.1) is the authority.
 
 The compliance log and the compliance audit chain (§7.8.8) hold plaintext and member DIDs, so they are Communications Operator (CO) data (ARCHITECTURE S8). Any copy stored on Infrastructure Operator (IO) infrastructure MUST be encrypted under a key the CO holds and the IO does not (§7.9).
 
@@ -183,7 +185,7 @@ Video teleconferencing (VTC) compliance recording is governed by the `RecordingG
 Compliance logging is not hidden from members. It is disclosed in Space metadata and MLS group membership. Conformant clients MUST present the `retentionNotice` as §7.5 requires. Clients SHOULD:
 
 - Display a compliance logging indicator in the Space information panel when `complianceLogging.enabled` is `true`.
-- Allow members to inspect the full `ComplianceLoggingConfig` including `loggerDID`, `loggerLabel`, `retentionDays`, and `regulatoryFramework` from the Space settings UI.
+- Allow members to inspect the full `ComplianceLoggingConfig` including `loggerDID`, `loggerLabel`, and `retentionDays`, and the logger's `regulatoryFramework` (§7.3), from the Space settings UI.
 - Not display a join/leave notification in any channel's message feed when the logger DID is added or removed from an MLS group.
 
 The logger's MLS group membership is visible to any client that inspects raw MLS group state. This is intentional: the logger is UI-silent but not cryptographically hidden. A technically capable member can always verify that a compliance logger is present.
@@ -266,7 +268,7 @@ The endpoint follows §5.2.1.1. It MUST return a fresh, unused `KeyPackage` on e
 
 ### 7.8.3 Logger Removal Prohibition
 
-Once a compliance logger has been admitted to a DM group by a regulated member, no member, including the regulated member, MAY issue an MLS Remove Commit for the logger DID, except in a Commit that also adds a leaf of that DID (§7.8.5).
+Once a compliance logger has been admitted to a DM group by a regulated member, a member, including the regulated member, MUST NOT issue an MLS Remove Commit for the logger DID, except in a Commit that also adds a leaf of that DID (§7.8.5).
 
 A conformant client for a regulated Space member MUST:
 
@@ -313,7 +315,7 @@ Each regulated member's client MUST verify on group join that their Space's logg
 
 ### 7.8.6 Cross-Space DM: Regulated Member with Non-Space Participant
 
-A DM group between a regulated Space member and a participant who has no Space affiliation (or a Space without compliance logging) is handled exactly as §7.8.4 describes. The non-Space participant receives the same disclosure notice. The compliance obligation applies to the regulated member's participation regardless of the counterparty's affiliation.
+A DM group between a regulated Space member and a participant who has no Space affiliation, or whose Space has no compliance logging, is handled exactly as §7.8.4 describes. That participant receives the same disclosure notice. The compliance obligation applies to the regulated member's participation regardless of the counterparty's affiliation.
 
 ### 7.8.7 Offline and Deferred Join Scenarios
 
@@ -325,7 +327,7 @@ Clients MUST queue the logger addition and disclosure as the first operations to
 
 ### 7.8.8 Audit Trail
 
-The regulated member's Space MUST record each DM group compliance logger admission in its IPLD compliance audit chain. The audit record is a `DMComplianceAuditEntry`:
+The compliance logger MUST record each of its DM group admissions in the regulated member's Space's IPLD compliance audit chain. The audit record is a `DMComplianceAuditEntry`:
 
 ```json
 {
@@ -354,19 +356,20 @@ DM compliance capture is enforced only at CO enforcement points (ARCHITECTURE §
 - The regulated member's client MUST NOT send any application message into a DM group whose current MLS membership lacks the `loggerDID` of each Space whose `regulatedMembers` lists the user (§7.8.1). Regulated members SHOULD communicate from CO-managed devices, where the CO controls the client and its configuration.
 - The compliance logger MUST record every capture gap it can detect in the Space's IPLD compliance audit chain. This includes its own removal from a group (the epoch of the Remove Commit) and its re-admission (the epoch of the re-add), so the missing epochs are identified. A Commit that removes and re-adds the logger in one epoch is not a gap. The logger records each gap as a `ComplianceGapEntry`, signed per §13.1.1 by `loggerDID`:
 
-```json
-{
-  "@type": "ComplianceGapEntry",
-  "mlsGroupID": "base64url...",
-  "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
-  "removedAtEpoch": 41,
-  "readmittedAtEpoch": 43,
-  "detectedAt": "2026-03-12T00:00:00Z",
-  "prevEntryCID": "bafkrei..."
-}
-```
+  ```json
+  {
+    "@type": "ComplianceGapEntry",
+    "mlsGroupID": "base64url...",
+    "loggerDID": "did:webvh:QmSCID...:compliance.example.com:logger",
+    "removedAtEpoch": 41,
+    "readmittedAtEpoch": 43,
+    "detectedAt": "2026-03-12T00:00:00Z",
+    "prevEntryCID": "bafkrei..."
+  }
+  ```
 
-`mlsGroupID` is the DM group's MLS group ID (§4.6). For a Space channel, `channelID` (as in `ComplianceRecord`) replaces `mlsGroupID`. `readmittedAtEpoch` is `null` while the logger has not been re-admitted. An attachment capture gap (§7.4), recorded when a blob cannot be fetched or fails its check, carries `recordCID`, the CID of the Message's `ComplianceRecord`, and `missingBlobId`, the attachment's `blobId`, in place of `removedAtEpoch` and `readmittedAtEpoch`.
+  `mlsGroupID` is the DM group's MLS group ID (§4.6). For a Space channel, `channelID` (as in `ComplianceRecord`) replaces `mlsGroupID`. `readmittedAtEpoch` is `null` while the logger has not been re-admitted. An attachment capture gap (§7.4), recorded when a blob cannot be fetched or fails its check, carries `recordCID`, the CID of the Message's `ComplianceRecord`, and `missingBlobId`, the attachment's `blobId`, in place of `removedAtEpoch` and `readmittedAtEpoch`.
+
 - The CO's audit pipeline SHOULD reconcile `DMComplianceAuditEntry` records (§7.8.8) against the groups the logger actually holds and alert the compliance officer to discrepancies.
 
 **Accepted cost.** A modified or non-conformant client can create or join a DM group without the logger, and no infrastructure component will stop it; such groups are invisible to the logger. The mitigation is the managed endpoint, the same trust boundary regulated firms already rely on for every other channel (ARCHITECTURE §9).

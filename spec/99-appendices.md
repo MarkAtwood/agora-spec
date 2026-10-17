@@ -14,11 +14,11 @@
 | `did:key` pointer records | Pkarr (BEP-44 mutable items on the Mainline DHT) | `pkarr` (Rust) |
 | Content addressing | IPFS / IPLD (CIDv1, `raw` codec, sha2-256, §13.1) | `go-ipfs`, `helia` (JS), `rust-ipfs` |
 | Peer discovery / fan-out | libp2p gossipsub v1.1 | `go-libp2p-pubsub`, `libp2p` (Rust) |
-| Primary transport | WebTransport (RFC 9000) | Native browser; `webtransport-go`, `wtransport` (Rust) |
+| Primary transport | WebTransport over HTTP/3 (draft-ietf-webtrans-http3-16) | Native browser; `webtransport-go`, `wtransport` (Rust) |
 | Fallback transport | WebSocket (RFC 6455) | Native in all environments |
 | Voice/video media | WebRTC | Native browser; `pion` (Go) |
 | SFU | WebRTC Selective Forwarding Unit (SFU) | `mediasoup`, `Pion ion-sfu`, `LiveKit` |
-| TURN relay | RFC 5766 / RFC 7065 | `coturn` |
+| TURN relay | RFC 8656 / RFC 7065 | `coturn` |
 | Wire encoding | CBOR (RFC 8949) | `fxamacker/cbor` (Go), `cbor2` (Python) |
 | Relay-to-relay auth | RFC 9421 HTTP Message Signatures | `httpsig` (Go), `httpbis-message-signatures` (JS) |
 | Ed25519 / X25519 | RFC 8032 / RFC 7748 | Native in all major crypto libraries |
@@ -56,8 +56,8 @@ This table collects the protocol's numeric limits in one place. If this table an
 | Envelopes sealed per sending leaf per epoch | 2^20 | MUST NOT exceed | §5.2.2 |
 | Invite code entropy | at least 128 bits | MUST | §4.3 |
 | Custom emoji `name` | 32 characters | MUST | §5.2.8.4 |
-| Routing envelope size, live stream and gossip | 65536 bytes | MUST NOT exceed | §11.4, §10.3.1 |
-| Sequencer submission `op` size | 65536 bytes | MUST NOT exceed | §14.4.3 |
+| Routing envelope size, live stream and gossip | 65,536 bytes | MUST NOT exceed | §11.4, §10.3.1 |
+| Sequencer submission `op` size | 65,536 bytes | MUST NOT exceed | §14.4.3 |
 | Attachment size (`maxAttachmentBytes`) | 100 MiB | Example only | §11.8.3 |
 | File chunk size (chunked content-key blob) | 262,144 bytes (256 KiB); last chunk 1 to 262,144 bytes | Fixed | §14.3.4 |
 | File size (chunked content-key blob) | 2^32 bytes, so at most 16,384 chunks | MUST NOT exceed | §14.3.4 |
@@ -66,7 +66,7 @@ This table collects the protocol's numeric limits in one place. If this table an
 | Directory `includes` depth | 3 | MUST | §10.3.4.1 |
 | Messages per `BroadcastKey` | fewer than 2^32 | MUST | §5.2.1.4 |
 | `BroadcastKey` rotation | at least every 30 days | SHOULD | §5.2.1.4 |
-| MLS epoch lifetime | 7 days maximum | Recommended | §12.2 |
+| Own-leaf update interval | 7 days maximum | SHOULD | §12.2 |
 | Presence re-send; offline after silence | 30 s; 60 s | MUST; descriptive | §5.3.1 |
 | Typing events; indicator clear | at most 1 per 3 s; 10 s | Descriptive; SHOULD | §5.3.2 |
 | `ParticipantState` republish | every `ttl / 2` | MUST | §6.2 |
@@ -77,6 +77,7 @@ This table collects the protocol's numeric limits in one place. If this table an
 | Relay-to-relay timestamp window; nonce cache | 300 s; 600 s | MUST | §10.2.3 |
 | Member authentication `ts` window; replay cache; bearer token lifetime | 300 s; 600 s; at most 1 h | MUST | §3.5 |
 | Clock skew tolerance for start times | 300 s | MUST | §12.9 |
+| Clock skew tolerance for expiry | 0 s | MUST | §12.9 |
 | Peer health poll; unreachable after | 60 s; 3 misses | MUST | §10.2.6 |
 | Relay key rotation overlap | at least 48 h | MUST | §10.2.6 |
 | `SpaceAd` TTL; re-advertise | 60 s; 45 s | Default | §10.3.2 |
@@ -96,7 +97,7 @@ This table collects the protocol's numeric limits in one place. If this table an
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
 | `agora_credentials` entries per leaf; extension data size | 8; 8192 bytes | Over the limit, the extension is ignored | §5.2.1.5 |
 | Hold of a Welcome whose authorization cannot yet be decided | 7 days | See section | §4.3 |
-| Guardian transfer proposal `ts` window; objection period | 300 s; default 259200 s | MUST; default | §4.1, §3.3 |
+| Guardian transfer proposal `ts` window; objection period | 300 s; default 259,200 s | MUST; default | §4.1, §3.3 |
 | KeyPackage upload `ts` window | 300 s | MUST | §5.2.1.1 |
 | BEP-5 re-announce | 30 min | SHOULD | §10.3.4.6 |
 | Pkarr re-publish | 2 h | SHOULD | §10.3.4.6 |

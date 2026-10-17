@@ -14,11 +14,11 @@ Agora separates the Infrastructure Operator (IO), which runs relays and other in
 
 A **Space** is a named collection of channels, analogous to a Discord server. A **channel** is a named, typed stream of messages within a Space.
 
-Every channel has a **mode** that determines its encryption and membership model:
+Every text channel has a **mode** that determines its encryption and membership model:
 
 | Mode | MLS Group | Who Can Post | Encrypted | Use Case |
 |---|---|---|---|---|
-| `interactive` | All members (≤ 200) | All members | Yes: full MLS E2EE | Team channels, small communities |
+| `interactive` | All members (about 200) | All members | Yes: full MLS E2EE | Team channels, small communities |
 | `community` | Active speakers only (≤ `speakerCap`) | Space members in speaker group | Yes: full MLS E2EE for speakers | Large community channels |
 | `broadcast` | None (§5.2.1.4) | Holders of a role in `broadcasterRoles` | Yes: CO-distributed content key (§5.2.1.4) | Announcements, release notes |
 
@@ -163,11 +163,11 @@ Binary values in Space state (`channelID`, `mlsGroupID`, `assetKey`) are unpadde
 
 `id` is absent from the genesis state document, whose CID it would otherwise have to contain. In every later state document, `id` is `agora://<genesis CID>`, with no trailing slash (§3.2).
 
-`guardian` is optional and RECOMMENDED. It is set in the genesis state and names the DIDs (`dids`), the number of them whose signatures are required (`threshold`), and the objection period in seconds (`delaySeconds`, default 259200, that is 72 hours) for a guardian ownership transfer (§4.1). Only the owner may change it after genesis.
+`guardian` is optional and RECOMMENDED. It is set in the genesis state and names the DIDs (`dids`), the number of them whose signatures are required (`threshold`), and the objection period in seconds (`delaySeconds`, default 259200, that is 72 hours) for a guardian ownership transfer (§4.1). Only the owner may change it after genesis. Clients MUST reject a state document that changes `guardian` and is not signed by the owner.
 
-`admins` lists the delegated admins (§4.1). Each entry's `scope` is a list of channel path patterns, matched as `channelAccess` is (§4.2). `["*"]` covers the whole Space, including Space-level mutations other than those reserved to the owner (§4.1). Only the owner may change `admins`.
+`admins` lists the delegated admins (§4.1). Each entry's `scope` is a list of channel path patterns, matched as `channelAccess` is (§4.2). `["*"]` covers the whole Space, including Space-level mutations other than those reserved to the owner (§4.1). Only the owner may change `admins`. Clients MUST reject a state document that changes `admins` and is not signed by the owner.
 
-`members` assigns roles (§4.2) to member DIDs. A DID not listed is not a member. The access-controlled view served to non-members (§3.4) omits `members`.
+`members` assigns roles (§4.2) to member DIDs. A DID not listed is not a member. The access-controlled view served to non-members (§4.4) omits `members`.
 
 `acceptedDIDMethods` is an optional list of the user DID methods (§2.1) the CO accepts for members of the Space. When it is absent, all methods of §2.1 are accepted. Clients enforce it. A client MUST NOT issue a `SpaceInvite` (§4.3) to a DID whose method is not listed, MUST NOT add such a DID to any of the Space's MLS groups, and MUST NOT join a Space whose list excludes its own DID method. A client that sees a member with an unlisted method (for example, after the list is narrowed) SHOULD flag that member to admins, who MAY remove them. The list applies to user identities only, not to device keys or service identities.
 

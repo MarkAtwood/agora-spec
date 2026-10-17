@@ -56,7 +56,7 @@ This is the single normative object-signing procedure of this specification. Whe
 
 **Required signers.** The section defining each object states its required signer or signers. An object with one required signer has one entry; a multi-signer object (for example `ServiceAgreement` or `ChannelShareAgreement`) has one entry per required signer. Signing order is irrelevant: each signer computes its entry independently over the same `body`, and entries MAY appear in any order.
 
-**Threshold signers.** A section MAY instead define a threshold requirement: a candidate set of DIDs and a number k (for example, at least `threshold` of `guardian.dids`, §4.1). Such an object has one entry per signing DID. A verifier MUST require valid entries from at least k distinct DIDs in the candidate set, MUST reject an object with two entries whose `kid`s name the same DID, and MUST reject an entry whose DID is not in the candidate set. In the checks below, every DID in the candidate set counts as a required signer, but entries are required from only k of them.
+**Threshold signers.** A section MAY instead define a threshold requirement: a candidate set of DIDs and a number k (for example, at least `threshold` of `guardian.dids`, §4.1). Such an object has one entry per signing DID. A verifier MUST require valid entries from at least k distinct DIDs in the candidate set and MUST reject an entry whose DID is not in the candidate set. In the checks below, every DID in the candidate set counts as a required signer, but entries are required from only k of them.
 
 **Protected header.** Each entry's JWS Protected Header MUST be a JSON object containing exactly these members:
 

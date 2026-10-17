@@ -900,13 +900,13 @@ The Admin API reports per-token and per-agreement counters only. It never report
 
 All Admin API requests must include an `Authorization: Bearer <token>` header. The token is configured via the `AGORA_ADMIN_TOKEN` environment variable. The relay must reject any request without a valid token with HTTP 401.
 
-The admin token must be a cryptographically random value of at least 32 bytes, base64url-encoded. Generate with:
+The admin token must be a cryptographically random value of at least 32 bytes, base64-encoded. Generate with:
 
 ```bash
 openssl rand -base64 32
 ```
 
-The admin token provides full control over the relay. It must be treated as a high-value secret: stored in a secrets manager, rotated via `POST /admin/reload` after updating the environment variable, and never logged.
+The admin token provides full control over the relay. It must be treated as a high-value secret: stored in a secrets manager, rotated by updating the environment variable and restarting the relay (§10.3), and never logged.
 
 Every Admin API call is recorded in the relay's audit log (retrievable via `GET /admin/audit`).
 
@@ -989,7 +989,7 @@ Sets the trust level for a peer manually. Trust level 3 is the maximum; level 0 
 
 #### `DELETE /admin/peers/{did}`
 
-Removes a peer and adds it to the permanent blocklist. This action is irreversible via the API; to unblock, restart the relay with the peer removed from `peering.blocked_peers`.
+Removes a peer and appends its DID to `peering.blocked_peers` in `relay.toml`. This action is irreversible via the API; to unblock, remove the peer from `peering.blocked_peers` and call `POST /admin/reload` (§5.2).
 
 **Request body:**
 ```json
@@ -1968,7 +1968,7 @@ Peer traffic shares 443 with client traffic, so a public relay cannot restrict p
 
 **Blob store (S3 backend only):**
 - ALLOW TCP 443 outbound to S3-compatible endpoint (blob store API)
-- No additional inbound ports required; the local blob store serves via the relay process on existing ports
+- No additional inbound ports required; clients fetch blobs through the relay process on existing ports, never directly from the object store
 
 ### 11.4 Load Balancer Considerations
 
@@ -2218,7 +2218,7 @@ A multi-relay HA deployment runs two or more relay instances sharing a common da
                           │              │
                ┌──────────▼──┐      ┌───▼──────────┐
                │  relay-1    │      │  relay-2     │
-               │  (primary)  │      │  (replica)   │
+               │  (active)   │      │  (active)    │
                └──────┬──────┘      └──────┬───────┘
                       │                    │
                ┌──────▼────────────────────▼──────┐
@@ -2373,9 +2373,7 @@ Content stored under an agreement belongs to that agreement's CO. The relay cann
 
    `announce` is an authenticated Peer API call, so the request must also carry the RFC 9421 signature of spec §10.2.3; the `curl` line shows only the body and content type. Send it with the relay's Peer API client.
 
-2. Update the relay manifest to remove the relay from `knownPeers` entries gossiped by this relay.
-
-3. Stop the peer heartbeat daemon. Peer relays detect the relay as unreachable after 3 missed heartbeats (180 seconds) and mark it for removal from their peer tables per spec §10.2.6.
+2. Stop the peer heartbeat daemon. Peer relays detect the relay as unreachable after 3 missed heartbeats (180 seconds) and mark it for removal from their peer tables per spec §10.2.6.
 
 ### 16.6 DID Tombstone
 

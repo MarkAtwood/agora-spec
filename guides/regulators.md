@@ -161,7 +161,7 @@ A demand on a relay operator yields only what falls within its observation budge
 - Opaque ciphertext, its size and timing, and the rotating routing tokens it was addressed to
 - The recent encrypted envelopes it holds for each routing token, kept for the retention period of the agreement under which the token is registered (spec §10.4.6)
 - The identity of each customer it holds an agreement with (the customer's billing DID), which routing tokens and admission keys that customer registered and when, and quota counters per agreement (ARCHITECTURE §5 item 6)
-- For push proxies, opaque device push handles and wake-up timing. A relay that serves push also knows which routing tokens wake the same device; users may turn push off (ARCHITECTURE §5 item 7)
+- For push proxies, opaque device push handles, wake-up timing, and which routing tokens wake the same device (users may turn push off; ARCHITECTURE §5 item 7)
 
 From these a relay operator can say which network addresses used a given firm's service. It cannot say which Space, channel, or sender any traffic belonged to: the firm's agreement names no Space or channel, and the billing identity never appears in any Space record (ARCHITECTURE §6.1). If a firm runs several Spaces through one relay, the relay cannot tell them apart.
 
@@ -232,7 +232,7 @@ Conventional communication archives (for example, Exchange Online in-place holds
 
 In Agora's archive, each record contains the cryptographic hash of the previous record. A hash is a mathematical fingerprint: changing a single character in a record changes its hash completely. Because each record's hash is embedded in the next record, any alteration breaks the chain at that point, and anyone can detect the break without consulting the firm, the archive vendor, or any authority.
 
-**Practical consequence for examinations.** A firm cannot silently delete or alter an archived message and produce a clean archive that passes verification against previously recorded chain heads. A deletion produces a chain break, which the firm is required to investigate and disclose before producing records. A chain break the firm cannot explain is a material compliance event.
+**Practical consequence for examinations.** A firm cannot silently delete or alter an archived message and produce a clean archive that passes verification against previously recorded chain heads. A deletion produces a chain break, which the firm is required to investigate and disclose before producing records. A chain break the firm cannot explain is a material compliance deficiency.
 
 ### What Logger Signatures Prove
 
@@ -258,7 +258,7 @@ A firm with chain heads recorded in an independent system, and a chain that veri
 
 **Requirement summary.** Rule 17a-4(b)(4) requires broker-dealers to keep business communications sent and received for not less than three years, the first two in an easily accessible place. Other record classes have other periods (six years under 17a-4(a), life of the enterprise under 17a-4(d)); FINRA Rule 4511 applies a six-year default to records with no period specified in 17a-4. Many firms configure a longer period by policy. Confirm the periods that apply to each record class with counsel. Electronic records must be kept either in non-rewriteable, non-erasable (WORM) form or, since the October 2022 amendments, in a system with a complete time-stamped audit trail (17a-4(f)(2)(i)). The rules also require the ability to produce records promptly.
 
-**What Agora provides.** The IPLD hash chain makes alteration detectable. The Space state sets the retention period (`retentionDays`). The firm owns the archive, with no third-party platform operator involved, which supports the control requirement.
+**What Agora provides.** The IPLD hash chain makes alteration detectable. The Space state sets the retention period (`retentionDays`). The firm owns the archive, so it can produce records promptly without depending on a platform operator.
 
 **What to verify in an examination.**
 - `retentionDays` is at least the period the firm's applicable rule requires (for example, 1095 days for 17a-4(b)(4) communications), or the firm's longer policy period
@@ -296,7 +296,7 @@ A firm with chain heads recorded in an independent system, and a chain that veri
 
 **The standard exemption.** GDPR Article 17(3)(b) exempts retention "for compliance with a legal obligation" and Article 17(3)(e) exempts retention "for the establishment, exercise or defence of legal claims." Both exemptions apply to communications retained under financial services regulatory requirements. The firm must document the specific legal retention obligation and retention period, apply the exemption only for the duration of the retention period, and delete records promptly when the retention period expires.
 
-**What to verify.** The firm has a documented legal basis for retention that covers the GDPR Article 17 conflict, and a mechanism to identify and delete records promptly (not later) after the retention period expires. Records retained beyond the retention period without a documented basis fall outside the exemption.
+**What to verify.** The firm has a documented legal basis for retention that covers the GDPR Article 17 conflict, and a mechanism to identify and delete records promptly after the retention period expires. Records retained beyond the retention period without a documented basis fall outside the exemption.
 
 ---
 
@@ -314,9 +314,11 @@ These checkpoints correspond to the configuration items in the firm's compliance
 
 ### Archive Completeness
 
-- Verify the archive starts from the date compliance logging was first enabled. No archive exists for the period before the compliance logger was added to the group. This is a known limitation; the question is whether the firm's records show when logging was enabled and whether that date is consistent with when the firm adopted Agora.
+- Verify the archive starts from the date compliance logging was first enabled
 - Check for channel scope gaps: if the configured scope excludes certain channels, verify that no regulated business communications occurred in them
 - Review the logger's gap records and the `epochsGapped` lists in `VTCComplianceAuditEntry` records
+
+No archive exists for the period before the compliance logger was added to the group. This is a known limitation; the question is whether the firm's records show when logging was enabled and whether that date is consistent with when the firm adopted Agora.
 
 ### Chain Integrity
 
@@ -327,7 +329,7 @@ These checkpoints correspond to the configuration items in the firm's compliance
 ### DM Compliance
 
 - Verify `DMComplianceAuditEntry` records are present for regulated employees
-- Review removal attempt records. Each removal attempt is a compliance event; confirm the firm alerts on these records.
+- Review removal attempt records and confirm the firm alerts on each one (each removal attempt is a compliance event)
 - Sample DM groups and verify disclosure notices precede any message content
 
 ### Logger Infrastructure

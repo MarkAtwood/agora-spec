@@ -12,7 +12,7 @@
 
 Spec §9 defines what every gateway is and must do. A gateway is a Communications Operator (CO) component with its own DID. It is admitted to the channel MLS group as a member, listed in a `GatewayDescriptor`, and announced by a `gateway-added` `SystemEvent` before any message flows through it. On a broadcast channel it is instead a broadcaster, disclosed by its descriptor and the `broadcasters` list (spec §9.3). This profile describes how a gateway to a particular network does its job inside those rules. It adds no protocol.
 
-Every gateway described here breaks end-to-end encryption (E2EE) at the gateway, because it holds plaintext. Native MIMI interop would not; section 4 records what it would take.
+Every gateway described here breaks end-to-end encryption (E2EE) at the gateway, because it holds plaintext. Native More Instant Messaging Interoperability (MIMI) interop would not; section 4 records what it would take.
 
 ## 2. Matrix Gateway
 
@@ -90,7 +90,7 @@ Placeholder. Slack and Microsoft Teams bridges follow the same model as section 
 
 ### 4.1 What It Gives
 
-MIMI (More Instant Messaging Interoperability) is the IETF working group producing a standard for cross-provider messaging over MLS. Agora and MIMI share RFC 9420. Native interop would put Agora and MIMI members in one MLS group with one tree and one set of epoch secrets, so a message stays end-to-end encrypted across the provider boundary. No component re-encrypts, and nothing in the path is a gateway.
+MIMI is the IETF working group producing a standard for cross-provider messaging over MLS. Agora and MIMI share RFC 9420. Native interop would put Agora and MIMI members in one MLS group with one tree and one set of epoch secrets, so a message stays end-to-end encrypted across the provider boundary. No component re-encrypts, and nothing in the path is a gateway.
 
 ### 4.2 Status (as of 2026-10-17)
 
@@ -112,7 +112,7 @@ Agora therefore specifies no native MIMI interop now, and decides the ordering q
 
 **Identity.** MIMI addresses users by `mimi://provider/u/user-id` URIs and has no DID support. An Agora leaf in a shared group would carry both the DID and the MIMI URI, in a new MLS credential type. The intended codepoint is 0xF0A2 from the RFC 9420 private-use range; it is not allocated in spec Appendix D. Interoperating with providers outside Agora needs an IANA "MLS Credential Types" codepoint (RFC 9420 §17.5) or a credential type MIMI defines, and MIMI clients would have to support it. The fallback is a `basic` credential holding the MIMI URI, with the CO-side endpoint holding the URI-to-DID mapping; that mapping never goes to a relay.
 
-**Disclosure.** The peer provider learns the room's participant list, so members should be told.
+**Disclosure.** The peer provider learns the room's participant list, so native interop would need a disclosure to members comparable to the gateway disclosure in spec §9.3.
 
 **Not mapped.** Franking-based abuse reports, relative expiry, and multipart alternatives have no Agora counterpart; Agora typing, presence, broadcast mentions, and pins have no MIMI counterpart.
 

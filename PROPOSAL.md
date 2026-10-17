@@ -51,7 +51,7 @@ specification must pass.
   devices, the compliance logger, and the archive.
 - Relays store only ciphertext or records the CO chose to publish.
 
-What it does not guarantee: anonymity at the network layer, or capture from a
+What it does not guarantee: anonymity at the network layer, or compliance capture from a
 tampered client. Both are stated as accepted costs.
 
 ## What is specified

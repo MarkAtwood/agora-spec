@@ -21,7 +21,7 @@ Status: draft specification. No conformant implementation exists.
 | `spec/` | Protocol, in parts; each part states which operator it binds | yes |
 | `profiles/` | Deployment profiles: employer-managed DIDs (O365, Google Workspace, generic identity provider (IdP)), Purview export, Discord onboarding, compliance chain witnessing, CORUNDUM identity sharing, Parlance device data, radio mesh gateway, gateways to other networks (Matrix, Slack, Teams) and the path to native More Instant Messaging Interoperability (MIMI) | no |
 | `guides/` | Relay operator guide, regulators' guide, counsel's guide | no |
-| `attic/` | Out of scope for first ship: relay economics and payments, futures, CIO assessment | no |
+| `attic/` | Out of scope for the first release: relay economics and payments, futures, chief information officer (CIO) assessment | no |
 | `import/` | Frozen verbatim source from nie, with provenance | no, reference only |
 | `notes/` | Research and backport inventory | no |
 

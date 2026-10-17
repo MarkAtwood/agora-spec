@@ -20,7 +20,7 @@ Version negotiation is defined per surface:
 
 - **Transport endpoints.** The URL path version is fixed at connection time. A client connects to `/v1/agora/wt` or `/v1/agora/ws`, and the relay either accepts or returns HTTP 404 (§13.2).
 - **Client-relay handshake.** Version negotiation occurs as part of the `ClientHello`/`RelayHello` exchange (§11.6).
-- **Relay-to-relay Peer API.** The version is encoded in the URL path. A relay's manifest `capabilities` array declares which versions it supports.
+- **Relay-to-relay Peer API.** The version is encoded in the URL path. A relay's manifest `capabilities` array (§10.2.1) declares which versions it supports.
 - **Gossip topics.** The version is encoded in the topic string. v1 and v2 topics can coexist on the mesh simultaneously, and a relay that supports both subscribes to both topic families.
 - **Documents.** The `schemaVersion` field carries the document schema version. Processors that do not support the declared version MUST reject the document.
 
@@ -43,7 +43,7 @@ Agora defines no payment layer in this release. Commercial terms between a commu
 | **JSON (RFC 8259)** | Payload bodies in the typed envelope (§13.1); JSON-LD is an optional content type |
 | **libp2p gossipsub v1.1** | Peer discovery, room advertisement, live message fan-out |
 | **IPLD** | Content addressing: CIDv1, `raw` codec, sha2-256, over exact bytes (§13.1); relay-hosted CAS for blob storage |
-| **WebTransport (RFC 9000)** | Primary transport for browsers and native clients |
+| **WebTransport over HTTP/3 (draft-ietf-webtrans-http3-16)** | Primary transport for browsers and native clients |
 | **WebSocket (RFC 6455)** | Fallback transport, and the only transport available over Tor |
 
 ### 1.2.2 Design Principles

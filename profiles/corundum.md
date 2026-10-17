@@ -3,7 +3,7 @@
 > Non-normative. Capitalized BCP 14 key words (RFC 2119, RFC 8174) in this profile state what a deployment that follows it requires of its own components; they bind only implementations that claim conformance to this profile and are not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source. Where this profile conflicts with the spec or ARCHITECTURE.md, those govern.
 
 **Status:** Draft, 2026-10-16
-**Depends on:** ARCHITECTURE §2.3, §2.4, §9; spec §2.1, §2.3, §4.5, §4.7, §5.2.1.1, §10.2, §10.3.4.6, §10.5.1, §13.1.1, Appendix E
+**Depends on:** ARCHITECTURE §2.3, §2.4, §9; spec §2.1, §2.3, §4.5, §4.6, §4.7, §5.2.1.1, §10.2, §10.3.4.6, §10.4.4, §10.5.1, §10.5.3, §13.1.1, Appendix E
 **Sources:** Mark's decisions C1–C8 (epic agora-pozi.32, beads agora-pozi.32.1 to .32.8); analysis in `notes/corundum-fit.md`; CORUNDUM at b7abcd5 (read only): `README.md`, `PRFAQ.md`, `docs/spec/01-overview.md` (Ch 1–3), `03-identity.md` (Ch 5–8), `04-content-storage.md` (Ch 9–13), `08-social-graph.md` (Ch 25–26), `09-curation.md` (Ch 29–32), `10-crypto.md` (Ch 33–36), `14-out-of-scope.md` (Ch 40), `15-implementation-guide.md` (Ch 41–46), `docs/corundum-mvp-implementation-plan.md`
 
 ---
@@ -116,7 +116,7 @@ Agora's relay peering (spec §10.2) derives from CORUNDUM's operator federation 
 
 ## 8. Changes CORUNDUM needs to adopt this profile
 
-None of these changes have been made in CORUNDUM. Each is a proposal, mapped to the chapter it affects.
+None of these changes have been made in CORUNDUM. Each is a proposal, mapped to the chapter it affects. The one checked item was made on the Agora side.
 
 **Signing (C1)**
 - [ ] Ch 33: drop Canonical JSON as the signing input, including NFKC, timestamp, and null rules. Remove the Ch 45 test vectors, or replace them with JWS vectors.
@@ -153,8 +153,8 @@ None of these changes have been made in CORUNDUM. Each is a proposal, mapped to 
 
 1. **Pointer update cadence.** Resolved (Mark, 2026-10-16, C2a): the DID document carries a stable service entry naming the operator's content endpoint and the posting key. The operator serves each new RootManifest signed by the posting key, with a sequence number and the CID of the previous manifest. Readers check the key against the DID document, the signature, the rising sequence, and the chain, and remember the highest sequence seen. The DID log changes only when the operator or posting key changes.
 2. **`did:key` users.** Resolved (Mark, 2026-10-16, C2b): the Pkarr record carries an optional `_corundum._agora` service record with the operator's content endpoint and the posting key (spec §10.3.4.6). The user's device updates it only when switching operators. The operator re-publishes the unchanged signed record to keep it alive.
-3. **The posting key relationship.** Resolved (Mark, 2026-10-17, C): the posting key is in no verification relationship. It appears only in the CORUNDUM service entry (question 1), or the `_corundum._agora` Pkarr record for `did:key` users (question 2), so generic DID tooling never treats it as able to authenticate or assert claims for the user.
-4. **JWS header members.** Resolved (Mark, 2026-10-17, C): the protocols do not share a header profile. CORUNDUM defines its own signing rules, protected-header type member, and test vectors (section 4). Agora's vectors cover only Agora.
+3. **The posting key relationship.** Resolved (Mark, 2026-10-17): the posting key is in no verification relationship. It appears only in the CORUNDUM service entry (question 1), or the `_corundum._agora` Pkarr record for `did:key` users (question 2), so generic DID tooling never treats it as able to authenticate or assert claims for the user.
+4. **JWS header members.** Resolved (Mark, 2026-10-17): the protocols do not share a header profile. CORUNDUM defines its own signing rules, protected-header type member, and test vectors (section 4). Agora's vectors cover only Agora.
 5. **Follow list encryption.** Which construction (for example Hybrid Public Key Encryption (HPKE) to the user's `keyAgreement` key and an operator key), and how re-encryption works when the user switches operators.
 6. **Witnesses.** When a CORUNDUM operator hosts an individual's `did:webvh` log but holds no update key, is that DID individual (witnesses optional) or CO-provisioned (witnesses required, spec §2.1)?
 7. **Curated content inside Agora.** Is it enough that the fetch path applies whatever policy it has when a CORUNDUM post that curators later flag is referenced in an Agora message, or should clients warn?

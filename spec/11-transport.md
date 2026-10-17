@@ -6,13 +6,13 @@ Agora uses two complementary transport surfaces that serve different access patt
 
 **Live stream** (§11.1–§11.7): WebTransport (QUIC) or WebSocket. The live stream is optimized for real-time delivery: new message events, MLS handshake messages (Commits and Proposals), presence and typing indicators. Welcomes do not travel on the live stream; they are delivered to the new member's `KeyPackageEndpoint` (§4.6, §5.2.1.1). Any client that needs low-latency delivery requires the live stream.
 
-**JMAP Sync API** (§11.8): Standard HTTPS request/response with EventSource push, served by relays. It is optimized for token-keyed envelope history retrieval and state sync. JMAP is used only for history and blobs; envelopes are written only on the live stream (§11.4). Clients that need only history (bots, compliance tools, search indexers) can use JMAP without opening a live stream connection. Relays do not serve the Space, membership, role, and invite management API; it runs in the client or on Communications Operator (CO) infrastructure (§11.8.9).
+**JMAP Sync API** (§11.8): Standard HTTPS request/response with EventSource push, served by relays. It is optimized for token-keyed envelope history retrieval and state sync. The sync API carries only history and blobs; envelopes are written only on the live stream (§11.4). Clients that need only history (bots, compliance tools, search indexers) can use JMAP without opening a live stream connection. Relays do not serve the Space, membership, role, and invite management API; it runs in the client or on Communications Operator (CO) infrastructure (§11.8.9).
 
 A full-featured client uses both. The live stream delivers new events; JMAP fills history on startup and provides a clean sync model for catching up after a disconnect.
 
 ## 11.1 Primary Transport: WebTransport
 
-Clients connect to relays via **WebTransport** (IETF RFC 9000 / HTTP/3 over QUIC). WebTransport provides:
+Clients connect to relays via **WebTransport** (WebTransport over HTTP/3, draft-ietf-webtrans-http3-16; HTTP/3 is RFC 9114 and runs over QUIC, RFC 9000). WebTransport provides:
 
 - Multiplexed bidirectional streams over a single QUIC connection
 - Reliable ordered streams for MLS handshake messages and persistent message delivery
@@ -198,7 +198,7 @@ If the relay already holds an envelope with the same `id` under the token, it an
 
 When a key stops being admitted, the relay sends each connection subscribed to its token an `Error` without `id`, with code `token-withdrawn` and `token` set to that token, and ends those subscriptions without closing the connection. It answers a later `Subscribe`, `Publish`, or `PinInstruction` naming that token with `token-withdrawn` for as long as it still holds envelopes under the token, and with `unknown-token` after that.
 
-On either code the client fetches the current `ChannelAdmissionKey` (§5.2.2). In a direct message (DM) group or a self-group, the client instead fetches that token's history (§11.8), processes the Commits in it, and uses the key in `agora_admission` (§4.6). If that key is the refused one at every listed relay, the client applies the recovery of §4.6 instead of retrying. If its token is the one refused, the client uses another relay in the key's relay list (§10.3.5).
+On either code the client fetches the current `ChannelAdmissionKey` (§5.2.2). In a direct message (DM) group or a self-group, the client instead fetches that token's history (§11.8), processes the Commits in it, and uses the key in `agora_admission` (§4.6). If the current key's token differs from the refused one, the client uses the current key. Otherwise the client uses another relay in the key's relay list (§10.3.5); in a DM group or self-group, if every listed relay it can reach refuses that token, the client applies the recovery of §4.6 instead of retrying.
 
 **Rotated tokens.** When a relay applies a registration whose key has `replaces` (§10.5.3), it sends each connection subscribed to the replaced token an `Error` without `id`, with code `token-rotated` and `token` set to the replaced token, and keeps those subscriptions open. On `token-rotated` the client fetches the current `ChannelAdmissionKey` (§5.2.2).
 
@@ -214,7 +214,7 @@ A CO sends `seed` to a relay newly added to a channel's relay list, signing with
 
 ## 11.5 Direct Peer Connections
 
-Clients MAY establish direct WebRTC data channels to each other, bypassing relays entirely. Clients use the `VoiceSignal` mechanism (§6.4) for ICE negotiation. Direct peer connections are mandatory for voice and video (media MUST NOT transit relays) and optional for text messaging (latency optimization).
+Clients MAY establish direct WebRTC data channels to each other, bypassing relays entirely. Clients use the `VoiceSignal` mechanism (§6.4) for ICE negotiation. Voice and video media travel over WebRTC, either directly between peers or through an SFU (§6.5), and MUST NOT transit relays. Direct data channels for text messaging are optional (latency optimization).
 
 On WireGuard-based overlays (Tailscale, Headscale), direct peer connections benefit from overlay-managed NAT traversal. Overlay-internal `100.x.x.x` addresses appear as ICE host candidates and are preferred over STUN-discovered public addresses when both peers are on the same overlay network.
 
@@ -365,7 +365,7 @@ Content-Type: application/json
 
 `pushHandle` is in base64url without padding, as at registration (§11.7.3).
 
-3. The proxy maps `pushHandle → deviceToken` and sends a push notification with no content to APNs or FCM.
+On receiving it, the proxy maps `pushHandle → deviceToken` and sends a push notification with no content to APNs or FCM.
 
 Wake-ups carry no content and no urgency. Relays send every wake-up the same way, and the proxy sends every wake-up to APNs or FCM with the same platform priority and the same empty payload. The OS wakes the app; the app reconnects to its relay, subscribes, and fetches what it missed through the JMAP sync API (§11.8). The device decides how to notify the user after it has decrypted the messages.
 
@@ -479,11 +479,11 @@ expiresAt       UTCDate|null  Time the Relay will drop the envelope; null = no c
 
 ### 11.8.5 Methods
 
-All methods follow RFC 8620 conventions. `/get`, `/set`, `/changes`, and `/query` have their standard semantics. Methods marked **read-only** have no `/set`.
+All methods follow RFC 8620 conventions. `/get`, `/set`, `/changes`, and `/query` have their standard semantics.
 
 | Method | Notes |
 |---|---|
-| `Envelope/get` | Fetch by ids. Returns encrypted blobs. |
+| `Envelope/get` | Fetch by ids. Returns envelopes. |
 | `Envelope/changes` | State-token delta. Returns added/updated/destroyed ids since a given state. |
 | `Envelope/query` | Filter by `channelToken`; sort by `receivedAt`. |
 | `Envelope/queryChanges` | RFC 8620 extended query-delta. |

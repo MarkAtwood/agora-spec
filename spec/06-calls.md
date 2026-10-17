@@ -81,7 +81,7 @@ The threshold of 4 is a recommendation. Clients MAY negotiate mesh topology for 
 
 ### SFU Identity and Trust
 
-An SFU is an IO component (ARCHITECTURE §2.3). It has a DID, but it MUST NOT be an MLS member of any channel group, and no client may add it to one.
+An SFU is an IO component (ARCHITECTURE §2.3). It has a DID, but it MUST NOT be an MLS member of any channel group, and clients MUST NOT add it to one.
 
 The Communications Operator (CO) engages an SFU under a `ServiceAgreement` with `serviceType` `sfu` (§10.5.1). The CO admits the SFU to a Space by an `SFUDescriptor` entry in the CO-signed Space state document (ARCHITECTURE S4), which binds the SFU's DID to its endpoint. For each voice channel that may use the SFU, the CO registers the channel admission key (§5.2.2) with the SFU by `AdmissionKeyRegistration` (§10.5.3), so the SFU admits members without learning who they are.
 
@@ -184,7 +184,7 @@ The SFU then replies `admitted` and places the connection in the room keyed by t
 
 **Leaving and errors.** A client leaves by sending `leave` or by closing the WebSocket. The SFU then stops forwarding to and from that connection. Before it closes a connection for a protocol violation, the SFU sends `error`. `code` values are local to the SFU. Clients MUST treat `reason` as untrusted text from the SFU.
 
-Participants map SFU-forwarded streams to DIDs using information exchanged among themselves in MLS-encrypted messages. The SFU sees only connection-scoped stream identifiers.
+Participants map each SFU-forwarded stream to its sender through the leaf index in the stream's SFrame KID (§6.9) and that leaf's credential in the ratchet tree. This mapping is not authenticated (§6.10). What the SFU can observe is listed under SFU Media Opacity.
 
 ### SFU Media Opacity
 
@@ -345,7 +345,7 @@ A channel admin or the Space owner issues a `RecordingGrant` as an MLS applicati
 }
 ```
 
-The grant is signed per §13.1.1 by `grantedBy`. Because only an admin or owner may issue it, it is a CO-signed record (ARCHITECTURE S4): recipients MUST verify that `grantedBy` holds the admin or owner role in current Space state and MUST ignore a grant that fails this check. The one exception is a grant whose `grantedTo` is the `vtcCompliance.recorderDID` of a Space in which `grantedBy` is a member and `vtcCompliance.enabled` is `true` (§6.12.5, §6.12.7): the CO-signed `vtcCompliance` block is then the authorization, and any member of that Space MAY issue the grant.
+The grant is signed per §13.1.1 by `grantedBy`. Except as described below, only an admin or owner may issue it, so it is a CO-signed record (ARCHITECTURE S4): recipients MUST verify that `grantedBy` holds the admin or owner role in current Space state and MUST ignore a grant that fails this check. The one exception is a grant whose `grantedTo` is the `vtcCompliance.recorderDID` of a Space in which `grantedBy` is a member and `vtcCompliance.enabled` is `true` (§6.12.5, §6.12.7): the CO-signed `vtcCompliance` block is then the authorization, and any member of that Space MAY issue the grant.
 
 `channelID` is the channel's identifier from Space state (§3.3). `grantedTo` is the DID of the recording principal. The recorder can derive media keys and produces plaintext, so it is a CO component (ARCHITECTURE §2.3) and MUST run under CO control (ARCHITECTURE S8). Clients MUST NOT issue a `RecordingGrant` to a DID that appears in Space state as an SFU, a relay, or any other IO key, and MUST NOT add such a DID to a channel group as a recorder. `scope` is `"audio-only"`, `"video-only"`, or `"audio-video"`. `purpose` is `"operational"` (ad-hoc recording by an admin) or `"compliance"` (regulatory retention obligation). `retentionDays` is the retention period the CO commits to for the archive (§6.12.4). Clients present `participantDisclosure` as §6.12.3 describes.
 
@@ -476,7 +476,7 @@ The Space's IPLD compliance audit chain receives a `VTCComplianceAuditEntry` for
 }
 ```
 
-The entry is signed per §13.1.1 by `recorderDID`. `epochsGapped` is an array of epoch numbers of the call during which the recorder captured no media (§6.12.2), resulting in an unrecorded segment. An empty array means complete capture. Non-empty arrays are compliance gaps that must be reported to the compliance officer.
+The entry is signed per §13.1.1 by `recorderDID`. `epochsGapped` is an array of epoch numbers of the call during which the recorder captured no media (§6.12.2), resulting in an unrecorded segment. An empty array means complete capture. A non-empty array records a compliance gap. This entry is how the compliance officer learns of the gap.
 
 ### 6.12.7 VTC Compliance in DM Voice Groups
 

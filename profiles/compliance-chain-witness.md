@@ -2,6 +2,9 @@
 
 > Non-normative. Capitalized BCP 14 key words (RFC 2119, RFC 8174) in this profile state what a deployment that follows it requires of its own components; they bind only implementations that claim conformance to this profile and are not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source. Where this profile conflicts with the spec or ARCHITECTURE.md, those govern.
 
+**Status:** Draft
+**Depends on:** spec §7, §7.4
+
 This profile is suggested practice for firms that run an Agora compliance
 logger (spec §7). Publishing chain heads is a firm practice; the protocol
 does not require it. This profile describes one consistent way to do it so
@@ -46,9 +49,12 @@ The logger DID signs it per spec §13.1.1.
 }
 ```
 
+- `loggerDID` is the Space's `complianceLogging.loggerDID` (spec §7.2), the
+  DID that signs the envelope.
 - `indexCID` is the CID of the Space-level index (spec §7.4), which names the
   head of every channel's chain. One CID commits to the whole archive.
 - `recordCount` is the total number of records under the index.
+- `ts` is the time the logger produced the head, as an RFC 3339 UTC timestamp.
 - `reason` is one of `scheduled`, `prune`, `legal-hold`, or `key-rotation`.
 - `prevHeadCID` is the CID of the previous `ComplianceChainHead` envelope, so
   the heads form their own chain and a missing head is visible.
@@ -122,8 +128,11 @@ While a legal hold is in force, the firm does not prune the held chains.
    spec §7.4 (`guides/regulators.md`). Verify each record's signature against
    the logger DID document version in effect when it was signed, which the
    DID log preserves across key rotation (spec §7.9). Where an archive object
-   was re-sealed after an archive-key compromise, an `ArchiveResealEntry`
-   maps the CID a record names to the object's new CID (spec §7.9).
+   was re-sealed after an archive-key compromise, follow the
+   `ArchiveResealEntry` whose `oldCID` is the CID the record names to its
+   `newCID`, repeating for each later re-seal. Verify each entry's signature
+   and its place in the audit chain, then match the object held against the
+   last `newCID` (spec §7.9).
 5. Confirm that every witnessed `indexCID` is reachable from the current
    archive by appending records, with any differences explained by signed
    prune records. A witnessed head that the current archive cannot extend is

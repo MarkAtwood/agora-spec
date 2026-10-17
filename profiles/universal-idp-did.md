@@ -93,7 +93,7 @@ One sidecar instance maps to one identity provider and one JML source. An organi
 | **Ping Identity** (PingOne) | Webhook subscriptions | `USER.CREATE`, `USER.UPDATE`, `USER.DELETE`, `ROLE.USER_ROLE_ASSIGNMENT_CREATED`, `ROLE.USER_ROLE_ASSIGNMENT_DELETED` (see §3.4) |
 | **OneLogin** | Events API + webhooks | `user.created`, `user.deactivated`, `user.deleted`, `role.add_user`, `role.remove_user` |
 
-All four providers use the same sidecar webhook receiver (`POST /v1/notify`) with provider-specific payload adapters.
+All four providers' webhooks use the same sidecar webhook receiver (`POST /v1/notify`) with provider-specific payload adapters. For OneLogin, webhooks are a supplement to Events API polling (§3.5).
 
 Event names and payload formats are as of October 2026; verify them against current vendor documentation (Okta, JumpCloud, PingOne, OneLogin) before implementation.
 
@@ -221,11 +221,11 @@ PingOne verifies the endpoint with an initial POST containing `"verifyRequest": 
 OneLogin provides both a push-based webhook and a pull-based Events API. The Events API SHOULD be used as the primary source, polled at a short interval (1 minute), because it is more reliable. Webhooks MAY be used as a fast-path supplement.
 
 ```
-GET https://api.us.onelogin.com/api/2/events?event_type_id=1,2,13,35,36&since={cursor}
+GET https://api.us.onelogin.com/api/2/events?event_type_id={ids}&since={cursor}
 Authorization: bearer {access-token}
 ```
 
-Relevant `event_type_id` values: 1 (user created), 2 (user updated), 13 (user deactivated), 35 (role added to user), 36 (role removed from user).
+Relevant events: user created, user updated, user deactivated, user activated, user deleted, user reactivated, role assigned to user (`event_type_id` 4), and role removed from user. OneLogin's public documentation confirms only the role-assigned ID, so this profile fixes no other IDs: the deployment obtains each event's `event_type_id` from `GET /api/1/events/types`, caches the result for up to 24 hours, and passes the IDs in `{ids}`. Because the poll includes the user-deleted event, the sidecar sees deletions without relying on a webhook.
 
 ---
 
@@ -271,7 +271,7 @@ DELETE /scim/v2/Groups/{id}        Delete group
 
 The SCIM endpoint authenticates callers with a Bearer token. The token is a pre-shared secret configured in the upstream provisioner and stored in the sidecar config. For Azure AD and Okta as upstream provisioners, this is the standard "provisioning secret token" in their SCIM connector configuration.
 
-**User identifier mapping.** SCIM uses `externalId` (the upstream system's user ID) and `id` (the SCIM provider's internal ID). The sidecar MUST store `externalId` as the `stableID` mapped to the DID (§1), falling back to the SCIM `id` if `externalId` is absent (§4.4).
+**User identifier mapping.** SCIM uses `externalId` (the upstream system's user ID) and `id` (the SCIM provider's internal ID). The sidecar keys the user record on `externalId`, falling back to the SCIM `id` (§4.4); this is the `stableID` mapped to the DID (§1).
 
 ### 4.3 SCIM Client Mode
 
@@ -457,7 +457,7 @@ GET  /v1/status/{localIdentifier}    Current state of one DID
 GET  /v1/audit/{localIdentifier}     Audit log for one DID
 ```
 
-The sidecar applies manual calls with `SourceEvent = "manual"`.
+The sidecar applies manual calls with `Source = "manual"`.
 
 The admin API is documented with an OpenAPI spec. A minimal web UI SHOULD be provided for the IT helpdesk, so that routine operations such as revoking a lost device need no raw API calls.
 
@@ -618,7 +618,7 @@ When `jml_source.type` is not `none`, the sidecar runs both the identity provide
 | Okta (§3.2) | `user.lifecycle.create`, `user.lifecycle.activate` | `group.user_membership.add/remove` | `user.lifecycle.deactivate`, `user.lifecycle.suspend` | `user.lifecycle.unsuspend` | `user.lifecycle.delete` |
 | JumpCloud (§3.3) | `user.create` | `user.update`, `group.member.add/remove` | `user.update` with account suspended | `user.update` with account unsuspended | `user.delete` |
 | PingOne (§3.4) | `USER.CREATE` | `USER.UPDATE`, `ROLE.USER_ROLE_ASSIGNMENT_*` | `USER.UPDATE` with `enabled: false` | `USER.UPDATE` with `enabled: true` | `USER.DELETE` |
-| OneLogin (§3.5) | event 1 | events 2, 35, 36 | event 13 | event 2 with user reactivated | `user.deleted` webhook |
+| OneLogin (§3.5) | user created | user updated, role assigned (4), role removed | user deactivated | user activated, user reactivated | user deleted |
 | SCIM server (§4.2) | `POST /Users` | `PUT/PATCH /Users`, `/Groups` | `active: false` | `active: true` (was `false`) | `DELETE /Users` |
 | SCIM client (§4.3) | new user in poll | changed attributes | `active: false` | `active: true` (was `false`) | user absent from full sync |
 | Workday (§5.2) | `HIRE` | `TRANSFER`, `POSITION_CHANGE` | `LEAVE_OF_ABSENCE` | `RETURN_FROM_LEAVE` | `TERMINATE` |
@@ -629,13 +629,7 @@ When `jml_source.type` is not `none`, the sidecar runs both the identity provide
 
 **Deduplication.** If the same user receives the same action from two sources within a 60-second window, the second action is a no-op. If two sources disagree within that window, the more restrictive action wins, in the order `TERMINATE` > `SUSPEND` > `UPDATE` > `REACTIVATE` > `PROVISION`. Because `TERMINATE` is final (§2), no later event from any source reverses it.
 
-**Trust hierarchy for conflicting events.**
-
-```
-HR system (Workday/BambooHR) > LDAP > SCIM > webhook IdP > manual
-```
-
-A Workday `TERMINATE` event always overrides a concurrent LDAP `REACTIVATE`, which may reflect DC replication lag. Manual IT operations bypass the trust hierarchy; they are applied immediately and logged with a `manual-override` flag.
+For example, a Workday `TERMINATE` always overrides a concurrent LDAP `REACTIVATE`, which may reflect DC replication lag. Manual IT operations are exempt from deduplication: they are applied immediately and logged with a `manual-override` flag.
 
 ---
 
@@ -755,12 +749,12 @@ New library dependencies:
 
 ## 12. Open Questions
 
-1. **Okta event hook delivery guarantees.** Okta event hooks are asynchronous and best-effort. The System Log API reconciliation poller covers missed events but has up to 24-hour latency. Regulated organizations requiring sub-minute termination enforcement SHOULD also call `POST /v1/tombstone` directly when terminating an employee rather than relying solely on the Okta hook.
+1. **Okta event hook delivery guarantees.** Okta event hooks are asynchronous and best-effort. The System Log API reconciliation poller covers missed events but has up to 24-hour latency. Regulated organizations requiring sub-minute termination enforcement should also call `POST /v1/tombstone` directly when terminating an employee rather than relying solely on the Okta hook.
 
-2. **SCIM Groups vs. flat role attributes.** Some IdPs encode roles as user profile attributes rather than group membership. The sidecar's SCIM implementation supports both patterns, but the role derivation configuration MUST explicitly specify which is in use rather than auto-detecting.
+2. **SCIM Groups vs. flat role attributes.** Some IdPs encode roles as user profile attributes rather than group membership. The sidecar's SCIM implementation supports both patterns, but the role derivation configuration must explicitly specify which is in use rather than auto-detecting.
 
 3. **AD multi-forest trust.** This profile covers multi-domain single-forest scenarios. Multi-forest trust relationships are not addressed. Each forest requires its own sidecar deployment with its own DID namespace; cross-forest enrollment uses the SAML adapter for authentication with the appropriate forest's LDAP as the JML source.
 
 4. **Workday RaaS vs. Studio.** Workday supports both Report-as-a-Service (no coding required) and Studio (full EIB, more control) for outbound data. This profile does not prescribe which Workday integration type to use; the operator's Workday administrator selects based on existing expertise. The sidecar endpoint accepts the same payload regardless of which mechanism produces it.
 
-5. **Air-gapped deployments.** A sidecar in a fully air-gapped environment cannot receive webhooks from cloud IdPs. The sidecar MAY operate in a fully internal mode, serving DID logs and KeyPackages only on the internal network under an internal-only domain, with the relays also internal. This eliminates cross-org federation. It is an explicit architectural trade-off for non-discoverable deployments (spec §10.1.1).
+5. **Air-gapped deployments.** A sidecar in a fully air-gapped environment cannot receive webhooks from cloud IdPs. The sidecar may operate in a fully internal mode, serving DID logs and KeyPackages only on the internal network under an internal-only domain, with the relays also internal. This eliminates cross-org federation. It is an explicit architectural trade-off for non-discoverable deployments (spec §10.1.1).

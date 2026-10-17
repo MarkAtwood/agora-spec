@@ -57,7 +57,7 @@ Both are frontends to the same enrollment flow and share the same backend protoc
                        ciphertext only)     spec §3.4)
 ```
 
-The Enrollment Service is a Communications Operator (CO) component. It is stateless beyond the provisional member list. It MUST NOT hold users' private keys or session state between requests (beyond a short-lived OAuth2 state token). Its only write path into channels is the enrollment agent's MLS Add Commits (§8.2), which a relay carries as ciphertext like any member's Commit. The relay learns neither the new member nor the Space.
+The Enrollment Service is a Communications Operator (CO) component. It is stateless beyond the provisional member list and outstanding enrollment challenges (§5.4). It MUST NOT hold users' private keys or session state between requests (beyond a short-lived OAuth2 state token and the challenge record). Its only write path into channels is the enrollment agent's MLS Add Commits (§8.2), which a relay carries as ciphertext like any member's Commit. The relay learns neither the new member nor the Space.
 
 The user's identity host has duties beyond the two the diagram shows. The spec, not this profile, defines them (spec §4.6, §10.5.3); the tool only checks that a host it offers can meet them. As identity host, it plays the CO's part in admission for every direct message (DM) group the user starts or moves to it (spec §4.6.4) and for the user's self-group (spec §2.6). It therefore serves three admission-key endpoints, where `<host>` is the origin of the user's `KeyPackageEndpoint`:
 
@@ -98,7 +98,7 @@ The user picks one of the three user DID methods of spec §2.1. The tool SHOULD 
 
 **`did:plc`.** This method suits users who already have a Bluesky identity. The tool adds the device verification method and a `KeyPackageEndpoint` service entry by an ordinary PLC operation, signed by a rotation key the user controls (for an existing identity, this may require the user's PDS to sign). A new `did:plc` identity uses the device key and the recovery public key as rotation keys.
 
-**`did:key`.** Before creating a `did:key` identity, the tool SHOULD show the warning that spec §2.1 recommends: losing the key loses the identity permanently, a lost or stolen device cannot be revoked, and there is no recovery beyond the user's own encrypted backup. The user confirms explicitly. The tool then publishes the user's Pkarr pointer record (spec §2.1, §10.3.4.6) with `_kp._agora.` set to the `KeyPackageEndpoint` URL at the host the user picked; the record MUST NOT name a relay. The client re-publishes the record every 2 hours (spec §10.3.4.6). The identity key is not an MLS leaf key: each device generates its own leaf signature key and carries a device binding signed by the identity key in its leaf, which members verify (spec §2.2, §5.2.1). The identity key signs the KeyPackage publications (spec §5.2.1.1) and the registration proof (§8). `did:key` is CLI-only because the identity key has to be exportable to reach the user's other devices (spec §2.1), and the browser device key is not (§5.1). The CLI offers `did:key` only with the encrypted file or OS keychain backend, or with PKCS#11 if the user accepts a single-device identity.
+**`did:key`.** Before creating a `did:key` identity, the tool SHOULD show the warning that spec §2.1 recommends: losing the key loses the identity permanently, a lost or stolen device cannot be revoked, and there is no recovery beyond the user's own encrypted backup. The user confirms explicitly. The tool then publishes the user's Pkarr pointer record (spec §2.1, §10.3.4.6) with `_kp._agora.` set to the `KeyPackageEndpoint` URL at the host the user picked; the record MUST NOT name a relay. After enrollment, the user's Agora client SHOULD re-publish the record every 2 hours (spec §10.3.4.6). The identity key is not an MLS leaf key: each device generates its own leaf signature key and carries a device binding signed by the identity key in its leaf, which members verify (spec §2.2, §5.2.1). The identity key signs the KeyPackage publications (spec §5.2.1.1) and the registration proof (§8). `did:key` is CLI-only because the identity key has to be exportable to reach the user's other devices (spec §2.1), and the browser device key is not (§5.1). The CLI offers `did:key` only with the encrypted file or OS keychain backend, or with PKCS#11 if the user accepts a single-device identity.
 
 ---
 
@@ -284,7 +284,7 @@ The CLI prompts for the passphrase at key generation and at each later use. The 
 
 ### 6.4 PKCS#11 Backend
 
-The CLI uses the PKCS#11 interface to generate a key on the hardware token with the `CKM_EDDSA` (Ed25519) mechanism. The private key is non-extractable and stays on the token. The CLI retrieves the public key for DID derivation. Device keys are Ed25519 only (spec §2.2), so a token without `CKM_EDDSA` cannot hold the device key; the CLI then refuses the PKCS#11 backend and offers the other two. The PKCS#11 library path is configurable in `~/.agora/config.toml`:
+The CLI uses the PKCS#11 interface to generate a key on the hardware token with the `CKM_EDDSA` (Ed25519) mechanism. The private key is non-extractable and stays on the token. The CLI retrieves the public key for the DID document (and, for `did:key`, to derive the DID). Device keys are Ed25519 only (spec §2.2), so a token without `CKM_EDDSA` cannot hold the device key; the CLI then refuses the PKCS#11 backend and offers the other two. The PKCS#11 library path is configurable in `~/.agora/config.toml`:
 
 ```toml
 [keystore]
@@ -311,7 +311,7 @@ The CLI MUST NOT generate the recovery key during enrollment; for `did:webvh` an
 
 ### 6.6 Offline Recovery Key Generation
 
-`agora-enroll recovery-keygen` generates the recovery key. It MUST refuse to run if any non-loopback network interface is up, MUST NOT write the private key to any keystore or file, and MUST output the private key only as a recovery phrase for the user to write on paper (or generate it on a PKCS#11 token, which keeps it non-extractable). It prints the `publicKeyMultibase` and its fingerprint, as text and as a QR code, for transfer to the enrolling device. When recovery is needed, `agora-enroll recovery-sign`, under the same offline constraints, takes the recovery phrase (or token) and signs a `RecoveryAssertion` (spec §2.4.1) for transfer back to a networked device.
+`agora-enroll recovery-keygen` generates the recovery key. It MUST refuse to run if any non-loopback network interface is up, MUST NOT write the private key to any software keystore or file. It MUST either output the private key only as a recovery phrase for the user to write on paper, or generate it as a non-extractable key on a PKCS#11 token. It prints the `publicKeyMultibase` and its fingerprint, as text and as a QR code, for transfer to the enrolling device. When recovery is needed, `agora-enroll recovery-sign`, under the same offline constraints, takes the recovery phrase (or token) and signs a `RecoveryAssertion` (spec §2.4.1) for transfer back to a networked device.
 
 ---
 
@@ -508,7 +508,7 @@ Spec §3.3 recommends that the genesis Space state also set the `guardian` field
 
 **Key material lifetime.** The device key is held as described in §5.1 and is never exported. The X25519 keypair is held in a `CryptoKey` with `extractable: true`; it MUST be exported to the keyfile immediately after generation, and all references to the extractable object MUST be dropped after the keyfile download is initiated.
 
-**Service worker restrictions.** The enrollment page MUST NOT be served with a service worker that could cache responses containing key material. All enrollment API responses MUST carry the HTTP header `Cache-Control: no-store`, which is separate from the Content Security Policy.
+**Service worker restrictions.** The enrollment page MUST NOT be served with a service worker that could cache responses containing key material. All enrollment API responses MUST carry the HTTP header `Cache-Control: no-store`.
 
 ---
 
@@ -555,10 +555,10 @@ Spec §3.3 recommends that the genesis Space state also set the `guardian` field
 
 2. **Provisional list sync.** The Enrollment Service loads the provisional member list from a static file. Users added to Discord after the initial `discord2agora` run will not be in the list. A `POST /v1/enroll/sync` endpoint is specified (§11), but the sync source (incremental re-execution of `discord2agora` or direct Discord API access) is not yet defined.
 
-3. **Passphrase recovery.** If a user loses their keyfile passphrase, the keyfile contents are inaccessible; the offline recovery key (§5.2) is unaffected. There is no protocol-level remedy for the keyfile itself. Operators SHOULD communicate this clearly during enrollment. A Shamir-based guardian recovery scheme (spec §2.4.2) is a natural extension but is out of scope for this tool.
+3. **Passphrase recovery.** If a user loses their keyfile passphrase, the keyfile contents are inaccessible; the offline recovery key (§5.2) is unaffected. There is no protocol-level remedy for the keyfile itself. Operators should communicate this clearly during enrollment. A Shamir-based guardian recovery scheme (spec §2.4.2) is a natural extension but is out of scope for this tool.
 
 4. **WebAuthn credential ID storage.** Resolved by §5.1: the keyfile holds no WebAuthn credential ID. The passkey's credential ID is stored beside the wrapped device key in browser storage, and the two are lost together.
 
-5. **Platform authenticator sync behavior.** Platform authenticators on Windows (Hello) and macOS/iOS (iCloud Keychain) may sync credentials across devices via the platform. This is both a feature (multi-device from day one) and a concern (credentials leave the device). The app SHOULD inform users of this behavior and SHOULD recommend a FIDO2 roaming authenticator (such as a YubiKey) for higher-assurance deployments.
+5. **Platform authenticator sync behavior.** Platform authenticators on Windows (Hello) and macOS/iOS (iCloud Keychain) may sync credentials across devices via the platform. This is both a feature (multi-device from day one) and a concern (credentials leave the device). The app should inform users of this behavior and should recommend a FIDO2 roaming authenticator (such as a YubiKey) for higher-assurance deployments.
 
 6. **WebAuthn signatures as protocol signatures.** Resolved (spec §2.2, §12.6). A WebAuthn authenticator signs only `authenticatorData || SHA-256(clientDataJSON)`, so a passkey cannot be the device key. The browser signs with a non-extractable WebCrypto Ed25519 device key, and the passkey only protects the stored key through the PRF extension (§5.1).

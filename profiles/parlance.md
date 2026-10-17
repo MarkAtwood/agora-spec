@@ -36,7 +36,7 @@ Each Parlance object is one typed envelope (spec §13.1). `contentType` is `appl
 
 Rejected alternative: one `type` per IPSO object, such as the OMA registry URN `urn:oma:lwm2m:oma:3303:1.1`. That URN names the object definition, not the reading message, so spec §13.1 would credit OMA with a body format OMA did not define. Receivers drop envelopes with a `type` they do not recognize (spec §6.13, §13.1). With per-object types, a client meeting a new object would drop the whole reading. With message-kind types, the same client can still show the value and its UCUM unit. Per-object types would also prevent batching (§6).
 
-**Measurement body.** The SPEC-Substrate §11.3 state event, unchanged, plus two keys:
+**Measurement body.** The SPEC-Substrate §11.3 state event, unchanged, plus two keys, `topic` and `catalogue`:
 
 ```cbor
 {

@@ -18,9 +18,9 @@ Two components perform this work.
 
 **Entra Verified ID** issues a signed `EmployeeCredential` verifiable credential (VC) to each enrolled employee's wallet (Microsoft Authenticator). The VC is the organization's cryptographic attestation that the holder is a current employee with specific claims (department, role, clearance level). It is issued after the first device key is registered (§4.2), and Spaces MAY require it for admission (§4.3). VC revocation blocks future Space admissions (§4.3) without writing a DID log entry. It does not cut off access the employee already has: membership in the MLS group (RFC 9420) is the only access control, so access ends when the Enrollment Service issues the MLS Remove Commits (§5.4, Action C).
 
-Relays play no part in this profile. They never receive or verify Entra tokens; identity provider (IdP) authentication runs between the client, Entra, and the sidecar (spec §2.5.2).
+Relays play no part in IdP authentication or DID provisioning. They never receive or verify Entra tokens; identity provider (IdP) authentication runs between the client, Entra, and the sidecar (spec §2.5.2). The sidecar's only contact with relays is registering admission keys (§6.7).
 
-The two components are independent and address different concerns:
+The two components are independent and address different concerns. The table maps each concern to the part that handles it, including the DID log and the Enrollment Service:
 
 | Concern                                               | Component                                                        |
 | ----------------------------------------------------- | ---------------------------------------------------------------- |
@@ -29,7 +29,7 @@ The two components are independent and address different concerns:
 | Employee controls private key                         | DID Sidecar (device key generated and registered by client, never by org) |
 | Org key insertion is auditable                        | DID log (every update-key entry is visible to all resolvers)     |
 | Block future Space admissions without DID deactivation | Entra Verified ID (VC revocation)                               |
-| Access cut-off in existing Spaces                     | Enrollment Service (MLS Remove commits)                          |
+| Access cut-off in existing Spaces                     | Enrollment Service (MLS Remove Commits)                          |
 | Specific device revocation (lost device)              | DID Sidecar (log entry removing one `verificationMethod`)        |
 | KeyPackage hosting and Welcome delivery               | DID Sidecar (`KeyPackageEndpoint`)                               |
 | Admission keys for DM groups and self-groups          | DID Sidecar (identity host, spec §4.6)                           |
@@ -135,8 +135,6 @@ Each user's DID log moves through the following states. Every transition is a ne
 
 The log is always served with `200` and stays resolvable after deactivation for the regulatory retention period and beyond (spec §2.5.6). Because every transition is a log entry, suspension and re-activation are visible in the history; a suspension cannot be hidden by stripping keys from a served response.
 
-The stub document contains no organization key: an org key listed as a `verificationMethod` in a user's document would let the org sign as that user. The org's authority over the document is the update key in the log `parameters` (§3.2). A client that tries to add this DID to a group finds no KeyPackage at its `KeyPackageEndpoint` (spec §5.2.1.1 returns HTTP 404) and no `authentication` key, so it cannot complete the Add; it should queue the Add (spec §5.2.1.1, KeyPackage Exhaustion) and tell the user the person has not enrolled yet.
-
 ### 3.2 Stub Document (Pre-Enrollment)
 
 The sidecar creates the genesis log entry at Joiner time (spec §2.5.3). The entry is one line of `did.jsonl`, shown expanded:
@@ -194,6 +192,8 @@ The sidecar creates the genesis log entry at Joiner time (spec §2.5.3). The ent
 The document has no `controller` property naming the organization. With `did:webvh`, authority to change the document comes from the `updateKeys` parameter of the log, not from the DID Core `controller` property. Listing the org's DID as `controller` would add nothing for updates and, under DID Core, could let verification methods in the org's own DID document be accepted as acting for the user, a power spec §2.5.1 does not grant. Each `verificationMethod` names the user's DID as its `controller`.
 
 What the sidecar's update key permits: adding and removing keys and service entries, deactivating the DID, and moving it to a new domain. Each such action is a signed, permanent log entry that every resolver sees. The update key does not let the org sign as the user. To do that the org would first have to add a key it holds, in a visible log entry signed with its update key, so organizational impersonation is auditable without trusting the organization (spec §2.5.1, §12.7.3). Employees hold no update key in this profile; their devices hold the `authentication` and `keyAgreement` keys only (spec §2.1).
+
+The stub document contains no organization key: an org key listed as a `verificationMethod` in a user's document would let the org sign as that user. The org's authority over the document is the update key in the log `parameters` (above). A client that tries to add this DID to a group finds no KeyPackage at its `KeyPackageEndpoint` (spec §5.2.1.1 returns HTTP 404) and no `authentication` key, so it cannot complete the Add; it should queue the Add (spec §5.2.1.1, KeyPackage Exhaustion) and tell the user the person has not enrolled yet.
 
 ### 3.3 Active Document (Post-Enrollment)
 
@@ -469,7 +469,7 @@ Logic App payload:
 }
 ```
 
-**Space role update.** When `agoraRoles` changes, the Enrollment Service (notified by webhook from the sidecar) issues a Space role update commit for the user's existing MLS membership. This updates only the Agora role claims in the Space state document; MLS group membership itself is unchanged.
+**Space role update.** When `agoraRoles` changes, the Enrollment Service (notified by webhook from the sidecar), acting as a Space admin, signs a Space state mutation of `members` that sets the user's new roles (spec §4.2, §3.3). It then commits MLS Adds and Removes for the channel groups that the new roles grant or withdraw.
 
 ### 5.4 Leaver Workflow
 
@@ -502,7 +502,7 @@ Three actions execute in parallel:
 
 The log stays resolvable with this entry as its last (spec §2.5.6). Members of groups outside the organization's control Remove the user's leaves when they next resolve the DID and find no `authentication` keys (spec §2.5.5, §2.5.6, §2.7). The reason and initiator are recorded in the sidecar's audit log, not in the public document. Nothing is gossiped: DID document changes are distributed only by the log (spec §2.5.7, §2.7).
 
-**Action C: MLS Removal (the access cut-off, via Enrollment Service).** The sidecar notifies the Enrollment Service, which issues MLS Remove Commits for the user from all Spaces they belong to. After these commits propagate, the user's device keys cannot decrypt new messages even if the private key is retained.
+**Action C: MLS Removal (the access cut-off, via Enrollment Service).** The sidecar notifies the Enrollment Service, which issues MLS Remove Commits for the user from all Spaces they belong to. After these Commits propagate, the user's device keys cannot decrypt new messages even if the private key is retained.
 
 Logic App payload:
 
@@ -544,7 +544,7 @@ The sidecar (spec §2.5.5):
 3. Sends no announcement: the user's remaining devices send an `IdentityChanged` notice (spec §2.7) to the user's groups when they see the new log entry, and other members learn of the revocation when they resolve the DID (spec §2.5.5)
 4. Notifies the Enrollment Service, which issues MLS Remove Commits for that device's leaf in all groups (an `Update` Commit cannot remove another device's leaf; spec §2.2)
 
-Other device keys (the user's phone, recovery key) are unaffected. The user retains access via remaining enrolled devices and can re-enroll the lost device after obtaining a replacement.
+The user's other keys (the phone's device key and the recovery key) are unaffected. The user retains access via remaining enrolled devices and can re-enroll the lost device after obtaining a replacement.
 
 If the revoked key was the user's only device key, the document returns to `STUB` state and the user must re-enroll. The user's DID is preserved: the user's leaves were removed from every group, so after re-enrollment the user must be re-added to each group.
 
@@ -631,7 +631,7 @@ GET    /v1/status/{localIdentifier}      Current DID state
 
 # Enrollment Service webhook (internal, mTLS)
 POST   /v1/internal/enrollment-complete  Called by Enrollment Service post-MLS-Add
-POST   /v1/internal/mls-remove-ack       Acknowledgment of MLS Remove commit
+POST   /v1/internal/mls-remove-ack       Acknowledgment of MLS Remove Commit
 ```
 
 The KeyPackage and Welcome endpoints are the only ones other users' Agora clients call; only the organization's own employees call the admission-key endpoints. Relays never call the sidecar and hold no KeyPackages; the sidecar calls relays only to register admission keys (§6.7).
@@ -642,7 +642,7 @@ The KeyPackage and Welcome endpoints are the only ones other users' Agora client
 | --------------------------- | --------------------------------- | ------------------------------------------------------------------- |
 | Public DID logs             | None                              | None                                                                |
 | KeyPackage upload           | Signature by a device key in the user's verified log | None                                             |
-| KeyPackage fetch, Welcome   | None (rate-limited); a §3.5 bearer token if the org gates by sender (spec §4.6.3) | None                                |
+| KeyPackage fetch, Welcome   | None (rate-limited); a spec §3.5 bearer token if the org gates by sender (spec §4.6.3) | None                                |
 | Admission-key endpoints     | Spec §3.5 bearer token            | Caller's DID is one the sidecar serves; for DELETE and confirmation, the key's issuee (spec §4.6) |
 | Device key registration     | Entra access token                | `acrs` contains the authentication context ID, `oid` maps to the DID |
 | User device revocation      | Spec §13.1.1 signature by a surviving device key of the DID | None                                     |
@@ -786,12 +786,12 @@ The organization's managed client configuration (MDM or enrollment policy) can a
 
 ## 10. Open Questions
 
-1. **Verified ID VC auto-accept in Authenticator.** Authenticator supports auto-accept of VCs from trusted issuers, but requires the user to have the trust relationship configured. For corporate deployments, this SHOULD be pushed via Intune MDM policy. The enrollment issuance UX depends on this being configured; without it, the user receives a notification requiring a manual tap. This profile assumes MDM-managed Authenticator; unmanaged devices require a documented fallback.
+1. **Verified ID VC auto-accept in Authenticator.** Authenticator supports auto-accept of VCs from trusted issuers, but requires the user to have the trust relationship configured. For corporate deployments, this should be pushed via Intune MDM policy. The enrollment issuance UX depends on this being configured; without it, the user receives a notification requiring a manual tap. This profile assumes MDM-managed Authenticator; unmanaged devices require a documented fallback.
 
 2. **StatusList2021 revocation scalability.** The Verified ID service uses StatusList2021 for VC revocation status. Each status list holds up to 131,072 entries and is served as a public URL, which is adequate for large organizations. For organizations with privacy concerns about public enumerability of revocation state (an external party can observe which entries are revoked over time), the Bitstring Status List specification (the StatusList2021 successor) does not address this: it defines no encrypted entries. Mitigations are large lists with random index assignment, or a status list served only to authorized verifiers.
 
-3. **Non-Authenticator wallets.** This profile assumes Microsoft Authenticator as the VC wallet. The Verified ID service supports OID4VC-compliant third-party wallets in principle, but compatibility varies. Organizations that want employees to use a different wallet (for example, a corporate-branded wallet) MUST validate compatibility against the specific Verified ID API version in use.
+3. **Non-Authenticator wallets.** This profile assumes Microsoft Authenticator as the VC wallet. The Verified ID service supports OID4VC-compliant third-party wallets in principle, but compatibility varies. Organizations that want employees to use a different wallet (for example, a corporate-branded wallet) must validate compatibility against the specific Verified ID API version in use.
 
 4. **On-premises AD hybrid identity.** Organizations with on-premises AD synced to Entra via Entra Connect have UPNs controlled by on-premises AD. UPN changes on-premises propagate to Entra via sync, which can trigger the Mover workflow; they do not change the DID (§2). The default sync interval (30 minutes) introduces lag between an on-premises change and the sidecar update. For terminations, this lag is a risk: this profile calls for immediate on-demand workflow execution to bypass the sync cycle, but this requires the termination to be processed in Entra ID directly, or for the HR system to trigger both on-premises AD and Entra simultaneously.
 
-5. **Intune integration for device key registration.** Device key registration requires phishing-resistant MFA (the authentication strength behind the §5.6 authentication context). On Intune-managed devices, Windows Hello for Business satisfies this requirement automatically. On unmanaged or BYOD devices, a FIDO2 security key is the only option. The organization MUST decide whether to allow BYOD enrollment or require managed devices; this policy decision significantly affects the enrollment UX.
+5. **Intune integration for device key registration.** Device key registration requires phishing-resistant MFA (the authentication strength behind the §5.6 authentication context). On Intune-managed devices, Windows Hello for Business satisfies this requirement automatically. On unmanaged or BYOD devices, a FIDO2 security key is the only option. The organization must decide whether to allow BYOD enrollment or require managed devices; this policy decision significantly affects the enrollment UX.

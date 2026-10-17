@@ -36,9 +36,9 @@ A `did:key` user publishes a **Pkarr pointer record**: a BEP-44 mutable item on 
 
 | Record | Value | Required |
 |---|---|---|
-| `_agora.` | `v=1` | Yes |
-| `_kp._agora.` | `url=<KeyPackageEndpoint URL>`: the user's `KeyPackageEndpoint` (§5.2.1.1), which also receives the user's Welcomes | Yes |
-| `_profile._agora.` | `cid=<profile CID>`: the bare CID, with no scheme, of the current profile node (§2.3) | No |
+| `_agora` | `v=1` | Yes |
+| `_kp._agora` | `url=<KeyPackageEndpoint URL>`: the user's `KeyPackageEndpoint` (§5.2.1.1), which also receives the user's Welcomes | Yes |
+| `_profile._agora` | `cid=<profile CID>`: the bare CID, with no scheme, of the current profile node (§2.3) | No |
 
 Clients MUST verify the BEP-44 signature against the key in the `did:key` identifier before using any field. The record MUST NOT name a relay or other Infrastructure Operator (IO) (ARCHITECTURE §2).
 
@@ -71,7 +71,7 @@ Example DID document:
 }
 ```
 
-**Reference implementations.** For `did:webvh` and `did:plc`, see the implementations listed by their specifications. `did-key` generation and resolution is implemented by:
+**Reference implementations.** For `did:webvh` and `did:plc`, see the implementations listed by their specifications. `did:key` generation and resolution is implemented by:
 - TypeScript/JS: [`@digitalbazaar/did-io`](https://github.com/digitalbazaar/did-io), [`@transmute/did-key`](https://github.com/transmute-industries/did-key.js)
 - Go: [`github.com/nuts-foundation/go-did`](https://github.com/nuts-foundation/go-did)
 - Rust: [`did-key` crate](https://crates.io/crates/did-key), [`ssi` crate (Spruce Systems)](https://github.com/spruceid/ssi)
@@ -211,7 +211,7 @@ The `SocialRecoveryConfig` is signed per §13.1.1 by `did`. `guardianKeyID` name
 
 `S` itself is never stored anywhere; it exists only transiently during setup (to split) and recovery (to reconstruct). Guardians hold shares only. They never hold `S`, the derived key, or any signing authority. Relays hold nothing related to recovery.
 
-**Guardian obligations.** Guardians SHOULD confirm their designation when first asked. The account owner SHOULD periodically verify that all guardians remain reachable and responsive, and should re-key shares when a guardian becomes unreachable or leaves the system.
+**Guardian obligations.** Guardians SHOULD confirm their designation when first asked. The account owner SHOULD periodically verify that all guardians remain reachable and responsive, and re-key shares when a guardian becomes unreachable or leaves the system.
 
 **Reference implementations for SSS.** [`hashicorp/vault` SSS](https://github.com/hashicorp/vault/tree/main/shamir) (Go), [`secrets.js`](https://github.com/grempe/secrets.js) (JS), [`sharks` crate](https://crates.io/crates/sharks) (Rust).
 
@@ -285,7 +285,7 @@ Resolution: `GET https://{orgDomain}/users/{localIdentifier}/did.jsonl` (the DID
 Example:
 - `did:webvh:QmSCID...:example.com:users:k7f3qd2m` → `GET https://example.com/users/k7f3qd2m/did.jsonl`
 
-The `localIdentifier` MUST be stable for the lifetime of the account and MUST NOT be reassigned to a different person after the original user departs. It MUST NOT be derived from a person's name, email address, UPN, or any other attribute that can change. The organization chooses the source: an employee ID, the IdP's immutable user ID, or a random value minted by the provisioning service. The provisioning service keeps the mapping to the IdP principal in its private store. The mapping is not published.
+The `localIdentifier` MUST be stable for the lifetime of the account and MUST NOT be reassigned to a different person after the original user departs. It MUST NOT be derived from a person's name, email address, User Principal Name (UPN), or any other attribute that can change. The organization chooses the source: an employee ID, the IdP's immutable user ID, or a random value minted by the provisioning service. The provisioning service keeps the mapping to the IdP principal in its private store. The mapping is not published.
 
 Because the DID is stable, group memberships, compliance records, and audit trails stay keyed to one identifier for a person's whole tenure. A domain change does not break the identity: the provisioning service SHOULD create DIDs with did:webvh portability enabled, so that the log moves to the new domain with the same SCID and records the previous DID in `alsoKnownAs`. Clients MUST treat two `did:webvh` DIDs with the same SCID and one continuous verified log as the same identity.
 
@@ -294,7 +294,7 @@ A DID is not a display name. Clients identify a person by the display profile (�
 The DID document is served by the organization's **DID provisioning service**, a lightweight HTTPS service, typically deployed alongside the organization's IdP or directory service. It is a CO component. The service:
 
 - Maintains the authoritative DID document for each user in a backing store (LDAP attribute, database, or directory extension)
-- Serves documents at the well-known URL path
+- Serves each user's DID log (`did.jsonl`) at the URL derived from the DID, as given above
 - Accepts authenticated device key registration requests (§2.5.4)
 - Accepts authenticated device revocation requests (§2.5.5)
 - Writes each document change as a DID log entry with the witness proofs that §2.1 requires
@@ -303,7 +303,7 @@ Relays play no part in identity provisioning and never receive or verify IdP tok
 
 ### 2.5.3 Initial Provisioning (Onboarding)
 
-When a user is onboarded to Agora, the organization creates a stub DID document containing no device keys. This happens in the same workflow as email account creation, automated via HR system integration or the IdP's provisioning API (SCIM 2.0 is the standard mechanism):
+When a user is onboarded to Agora, the organization creates a stub DID document containing no device keys. This happens in the same workflow as email account creation, automated via HR system integration or the IdP's provisioning API (System for Cross-domain Identity Management (SCIM) 2.0 is the standard mechanism):
 
 ```json
 {
@@ -332,7 +332,7 @@ When Alice installs the Agora client on a new device, the client performs the fo
 
 Neither private key leaves the device's key store. The client transmits only the public keys. A browser client generates its Ed25519 device key as a non-extractable WebCrypto key (§2.2, §12.6) and sets `secureEnclaveAttested` to `false`. If the user authenticates with a passkey during Step 2, the WebAuthn exchange is between the user and the IdP or the provisioning service; the passkey never becomes a device key (§2.2).
 
-**Step 2: IdP authentication.** The client initiates a SAML 2.0 or OIDC authentication flow against the organization's IdP. The user authenticates (password and MFA) and the client receives an IdP token.
+**Step 2: IdP authentication.** The client initiates a SAML 2.0 or OIDC authentication flow against the organization's IdP. The user authenticates (password and multi-factor authentication (MFA)) and the client receives an IdP token.
 
 **Step 3: Registration request.** The client sends `POST {prov}/devices` with a typed payload envelope (§13.1) of type `urn:agora:type:DeviceKeyRegistrationRequest` whose body is:
 
@@ -490,7 +490,7 @@ For enterprise `did:webvh` identities, the recovery mechanisms of §2.4 interact
 
 - **Encrypted backup (§2.4.3).** Valid. A backup from a software keystore restores device keys. If a restored key is still listed in the DID document and its source device is no longer active, the restored device uses it without re-enrollment. A backup from a non-extractable keystore restores no keys, and the device enrolls as a new device via §2.5.4. Neither restores MLS state (§2.4.3).
 
-- **Org-initiated recovery (helpdesk).** When a user loses all devices and has no recovery key or guardians, the organization can initiate recovery on their behalf. An admin issues a provisioning request to add a new device key to the user's DID document, with admin authorization in place of an existing-device signature. This is a privileged operation. This path MUST be logged in the audit trail, and the added key appears in the DID log as an entry signed with the provisioning service's update key and witnessed (§2.1).
+- **Org-initiated recovery (helpdesk).** When a user loses all devices and has no recovery key or guardians, the organization can initiate recovery on their behalf. An admin issues a provisioning request to add a new device key to the user's DID document, with admin authorization in place of an existing-device signature. This is a privileged operation. The provisioning service MUST record this operation in its audit log, and the added key appears in the DID log as an entry signed with the provisioning service's update key and witnessed (§2.1).
 
 ## 2.6 Multi-Device
 

@@ -258,7 +258,7 @@ of the current key without learning which member sent it.
 review (§8 Q1):*
 
 - The CO registration service generates a random Ed25519 admission key pair
-  for each channel and each direct message (DM) group, numbered by a counter `keyEpoch`.
+  for each channel, numbered by a counter `keyEpoch`.
 - It registers the public key with every IO holding a `ServiceAgreement`
   with the CO whose `serviceType` receives registrations (spec
   §10.5.1), by an `AdmissionKeyRegistration` sent over HTTPS and signed by
@@ -319,8 +319,9 @@ Consequences:
   consulted. Once a rotated admission key is registered, the sequencer stamps
   no Commit on the old token's commit stream. If the Space designates no
   sequencer, the Commit with the lowest envelope `id` among those received
-  within a 5-second window wins. Clients discard the losing Commit and
-  re-propose. Authorization under Space state is checked after the winner is
+  within a 5-second window wins. In either case, a client whose Commit lost
+  discards it and, if the change is still wanted, re-proposes it in the
+  winning epoch. Authorization under Space state is checked after the winner is
   chosen, and an unauthorized winner is a policy violation. The admission key
   plays no part in Commit ordering. The normative rule is spec §5.1.1.
 

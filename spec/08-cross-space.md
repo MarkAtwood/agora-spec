@@ -65,7 +65,7 @@ The recommended flow is that the home Space admin admits the guest Space admin f
 
 Clients accept such a Welcome only from a committer authorized to add members under the home Space state and the agreement (ARCHITECTURE §6.3).
 
-Guest members appear in the channel participant list with a visual indicator of their home Space (a Space icon or badge), which distinguishes them from home Space members. Clients SHOULD display the member's display name from their own Space's profile, with the foreign Space indicator making affiliation clear.
+Guest members appear in the channel participant list with a visual indicator of their home Space (a Space icon or badge), which distinguishes them from home Space members. Clients SHOULD display the guest member's display name from that member's profile (§2.3), with the foreign Space indicator making affiliation clear.
 
 ## 8.5 Namespace Resolution
 
@@ -121,7 +121,7 @@ Either party MAY revoke the `ChannelShareAgreement` unilaterally by publishing a
 
 On revocation:
 
-1. The revoking admin issues MLS Remove Commits for all members of the foreign Space from the channel's MLS group. The home CO rotates the channel admission key and stops serving it to guest members (§8.6). When the guest admin revokes, the home CO does this as soon as it receives the revocation.
+1. The revoking admin issues MLS Remove Commits for all guest Space members from the channel's MLS group. The home CO rotates the channel admission key and stops serving it to guest members (§8.6). When the guest admin revokes, the home CO rotates the key and stops serving it as soon as it receives the revocation.
 2. The alias entry is removed from the guest Space's state document.
 3. The `ChannelShareRevocation` is stored in both Spaces' IPLD state chains and distributed like any Space state change (§3.4).
 4. Clients of the guest Space remove the channel from their sidebar on next state refresh.
@@ -131,7 +131,7 @@ On revocation:
 
 The home Space's compliance logging configuration (§7) applies to all messages in the shared channel, regardless of the sender's Space affiliation. When a guest Space member sends a message in a compliance-logged shared channel, the home Space's compliance logger captures it.
 
-A guest member's client MUST present the home Space's `retentionNotice` to its user, attributed to the home Space, before the user first sends in the shared channel. The client displays the notice on first entry to the shared channel:
+A guest member's client MUST present the home Space's `retentionNotice` to its user, attributed to the home Space, before the user first sends in the shared channel. For example, the client can display the notice on first entry to the shared channel:
 
 > "This channel is hosted by [Home Space Name] and is subject to their message retention policy: [retentionNotice text]"
 

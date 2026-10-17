@@ -39,7 +39,7 @@ A Commit **counts** if it opens under the epoch's sealing key (§5.2.2), decrypt
   Whether a Commit is authorized under Space state (§4) does not affect which Commit wins. A member that finds the winning Commit unauthorized under the Space state head it holds first fetches the current head from the Space endpoint (§3.4) and re-checks; if the Commit is still unauthorized, it treats it as a policy violation (§4.5).
 - **No sequencer.** Otherwise, including in every direct message (DM) group, a member that receives a Commit for epoch N keeps its epoch N state and collects every Commit for epoch N that arrives within 5 seconds of the first. It then applies, among those Commits that count (as defined above), the one whose envelope `id` (§5.2.2) is lowest, compared as bytes, and discards Commits for epoch N that arrive later. The committer applies the same rule to its own Commit, timing the window from when it published it. A member can hold more than one counting Commit for epoch N when it first processes epoch N, as after fetching history (§5.2.5). If it also holds an envelope that opens under the sealing key (§5.2.2) of the epoch one of those Commits creates and of no other, it applies, among such Commits, the one with the lowest `id`. Otherwise it applies the counting Commit with the lowest `id`.
 
-  A Commit delayed by more than the window at some members but not others splits the group. A member has **flagged itself out of sync** in the group if it applied a Commit for epoch N, then drops an envelope that opens under no sealing key it holds (§5.2.2), after processing its next Commit or after holding the envelope for 24 hours, and obtains no Commit that explains it. Such a member does not delete its state for the group. Its client SHOULD tell the user that the group may be out of sync and SHOULD suggest asking a member to re-add them. The member keeps its state, and the flag, until it accepts a Welcome for the group, which replaces that state (§4.3, §4.6). It clears the flag when it processes a Commit for a later epoch issued by another member. A Space avoids splits by designating a sequencer.
+  A Commit delayed by more than the window at some members but not others splits the group. A member has **flagged itself out of sync** in the group if it applied a Commit for epoch N, then drops an envelope that opens under no sealing key it holds (§5.2.2), after processing its next Commit or after holding the envelope for 24 hours, and obtains no Commit that explains it. Such a member does not delete its state for the group. Its client SHOULD tell the user that the group may be out of sync and SHOULD suggest asking a member to re-add them. The member keeps its state until it accepts a Welcome for the group, which replaces that state (§4.3, §4.6). It clears the flag when it accepts such a Welcome or when it processes a Commit for a later epoch issued by another member. A Space avoids splits by designating a sequencer.
 
 A committer MUST NOT deliver the Welcome for an Add in its Commit until that Commit has won (RFC 9420 §14). A client whose Commit lost discards it and its pending state, and, if the change is still wanted, re-proposes it as a new Commit for the winning epoch.
 
@@ -58,7 +58,7 @@ Each channel manages its own MLS epoch independently. This enables per-channel a
 
 This section covers `interactive` and `community` channels. `broadcast` channels are specified in §5.2.1.4.
 
-**`interactive` mode.** A full MLS group in which all channel members hold leaves (§3.2). Maximum 200 members. Standard §5.2.1 behavior applies without modification.
+**`interactive` mode.** A full MLS group in which all channel members hold leaves (§3.2). Intended for up to about 200 members; the only enforced limit is the 4096-leaf cap below. Standard §5.2.1 behavior applies without modification.
 
 **`community` mode.** An MLS group limited to active speakers (§3.2). The Space endpoint serves the channel's admission key, from which the `channelToken` is derived, to every member whose role covers the channel (§3.4), so those members can follow the channel's envelopes at relays. Only the speaker group can decrypt them. See §5.2.1.2.
 
@@ -119,15 +119,16 @@ POST {kp}/auth            authenticate the caller (§3.5), where the host requir
 - **Fetch.** The request carries no caller identity unless the host gates fetches by sender (§4.6.3), as described at the end of this item. Each of the DID's devices is a separate leaf (§2.2), so one fetch returns one KeyPackage for each device that has any supply: for each device, a single-use KeyPackage if one remains, otherwise that device's last-resort KeyPackage. The response body, media type `application/cbor`, is a CBOR array of byte strings, each one `MLSMessage` with `wire_format` `mls_key_package` (RFC 9420 §6). A committer adding the user adds every returned KeyPackage. If no device has supply, the host returns HTTP 404. A rate-limited caller receives HTTP 429. With the `leaf` query parameter, the unpadded base64url of a leaf `signature_key`, the host returns a one-element array holding a KeyPackage of only the device whose leaf carries that key, and HTTP 404 if that device has no supply. An existing device uses this to add a new device of the same user (§2.6) without consuming the KeyPackages of the user's other devices. A host that gates fetches by sender answers an unauthenticated fetch or Welcome POST with HTTP 401. The caller then authenticates by the §3.5 exchange at `{kp}/auth` and repeats the request with the bearer token.
 - **Publish.** The request body is a typed payload envelope (§13.1) of type `urn:agora:type:KeyPackagePublish`, signed per §13.1.1 by a device key of the endpoint's DID (for `did:key`, the identity key). Its body is:
 
-```json
-{
-  "keyPackages": ["base64url...", "base64url..."],
-  "lastResort": "base64url...",
-  "ts": "2026-03-12T12:00:00.000Z"
-}
-```
+  ```json
+  {
+    "keyPackages": ["base64url...", "base64url..."],
+    "lastResort": "base64url...",
+    "ts": "2026-03-12T12:00:00.000Z"
+  }
+  ```
 
-`keyPackages` are encoded `MLSMessage` KeyPackages added to the single-use supply, each in base64url without padding (RFC 4648 §5), as is `lastResort`. `lastResort` is optional; it replaces the last-resort KeyPackage of the device whose leaf it carries. The host MUST reject a request whose `ts` differs from its clock by more than 300 seconds, MUST reject any KeyPackage it has stored before, so that a replayed request cannot restore consumed KeyPackages, and MUST apply the checks above to each KeyPackage. It returns HTTP 204 on success.
+  `keyPackages` are encoded `MLSMessage` KeyPackages added to the single-use supply, each in base64url without padding (RFC 4648 §5), as is `lastResort`. `lastResort` is optional; it replaces the last-resort KeyPackage of the device whose leaf it carries. The host MUST reject a request whose `ts` differs from its clock by more than 300 seconds, MUST reject any KeyPackage it has stored before, so that a replayed request cannot restore consumed KeyPackages, and MUST apply the checks above to each KeyPackage. It returns HTTP 204 on success.
+
 - **Welcome.** The request body is one `MLSMessage` with `wire_format` `mls_welcome`, media type `message/mls`. The host returns HTTP 202 and holds the Welcome for the DID's devices. How a device collects Welcomes from its own host is a matter between the device and the host.
 
 ##### KeyPackage Exhaustion
@@ -302,7 +303,7 @@ Relays admit an envelope only if it is signed with the channel's current admissi
 
 - **Admission key.** For each channel, the CO's registration service generates a random Ed25519 key pair, the **channel admission key**, numbered by `keyEpoch` from 0. It registers the public key and its `channelToken` with every IO holding a `ServiceAgreement` with the CO whose `serviceType` receives registrations (§10.5.1), by an `AdmissionKeyRegistration`, and withdraws a key by an `AdmissionKeyDeregistration` (§10.5.3). Neither is gossiped. The Space endpoint serves the private key to authenticated current members of the channel (§3.5) as a `ChannelAdmissionKey` at `<spaceEndpoint>/admission-key/<channelID>` (§3.4). For a DM group or a self-group, the admission host named in the group's `agora_admission` GroupContext extension issues and registers the key, and members read the key from that extension (§4.6). For a shared channel, the home Space's CO issues and registers it (§8). The admission key is independent of MLS: it does not change when the MLS epoch changes.
 - **Channel token.** `channelToken = HKDF-SHA256(IKM = seed, salt = "" (zero-length), info = "agora channel token" || keyEpoch, L = 32)`, where `seed` is the 32-byte Ed25519 private key seed (RFC 8032) of the admission key and `keyEpoch` is a big-endian uint64. Members compute it from the `ChannelAdmissionKey`; relays receive it in the registration. It changes when, and only when, the admission key rotates.
-- **Member duties.** A member signs every envelope it publishes to the channel with the admission key of the highest `keyEpoch` it holds (in a DM group or a self-group, the key in the current epoch's `agora_admission` extension, §4.6), and subscribes (§11) to that key's `channelToken`. A client MUST fetch the current `ChannelAdmissionKey` when it joins the channel, on reconnect, after processing a Commit that removes a member, when a relay reports that a `channelToken` is no longer admitted (§11), when a relay reports `token-rotated` (§11.4), and at least once an hour while connected. In a DM group or a self-group it fetches nothing and instead uses the key in `agora_admission` (§4.6); when a relay reports a token withdrawn, it first fetches that token's history (§11.8) and processes the Commits in it (§11.4). When it obtains a higher `keyEpoch`, or in a DM group or a self-group processes a Commit that changes `agora_admission` and keeps its `host`, it subscribes to the new token and keeps the previous subscription until the relay reports the old token withdrawn, so that it still receives envelopes from members who have not yet fetched the new key. When it processes a Commit that moves a DM group to another host (§4.6.4), it subscribes to the new token, keeps its subscriptions to the previous host's tokens until a relay in the new key's `relays` has accepted a Subscribe to the new token, and then ends them. A client retains the `channelToken`s of earlier key epochs to fetch history (§5.2.5).
+- **Member duties.** A member signs every envelope it publishes to the channel with the admission key of the highest `keyEpoch` it holds (in a DM group or a self-group, the key in the current epoch's `agora_admission` extension, §4.6), and subscribes (§11) to that key's `channelToken`. A client MUST fetch the current `ChannelAdmissionKey` when it joins the channel, on reconnect, after processing a Commit that removes a member, when a relay reports that a `channelToken` is no longer admitted (§11), when a relay reports `token-rotated` (§11.4), and at least once an hour while connected. In a DM group or a self-group it fetches nothing and instead uses the key in `agora_admission` (§4.6), and when a relay reports a token withdrawn it first fetches that token's history (§11.8) and processes the Commits in it (§11.4). When it obtains a higher `keyEpoch`, or in a DM group or a self-group processes a Commit that changes `agora_admission` and keeps its `host`, it subscribes to the new token and keeps the previous subscription until the relay reports the old token withdrawn, so that it still receives envelopes from members who have not yet fetched the new key. When it processes a Commit that moves a DM group to another host (§4.6.4), it subscribes to the new token, keeps its subscriptions to the previous host's tokens until a relay in the new key's `relays` has accepted a Subscribe to the new token, and then ends them. A client retains the `channelToken`s of earlier key epochs to fetch history (§5.2.5).
 - **Rotation.** The CO rotates the admission key, incrementing `keyEpoch`, when it authorizes the removal of a member from the channel (not on the idle eviction of a speaker from a `community` channel's speaker group, §5.2.1.2), and at other times of its choosing (periodically, or on suspected compromise). In a DM group or a self-group, a host's user rotates it after a Commit that removes a leaf (§4.6). It does not rotate on MLS epochs. It registers the new key before it deregisters the old one (§10.5.3); the interval between the two is the window in which a removed member can still have envelopes admitted. When the CO enters into or renews a `ServiceAgreement`, it registers the current key with that IO.
 - **Outage.** If the Space endpoint or the registration service is unreachable, relays keep accepting the last registered key and members keep using it. A member removed during the outage can still have envelopes admitted until the CO rotates the key, but it cannot read anything sent after its MLS removal, and its envelopes fail MLS processing at every member.
 
@@ -479,9 +480,9 @@ Only Messages can be pinned, as in the JMAP Chat specification. A file or an ext
 
 Pinning does not copy data. It records a reference that tells clients, and through pin instructions tells relays, to retain the Message and display it prominently.
 
-#### Pin List in Channel State
+#### Pin List
 
-Retired. The pin list is `Chat.pinnedMessageIds` in each member's JMAP store, changed by the pin updates below; channel state carries no `pins` array. Two Agora fields remain in CO-signed channel state (§3.3):
+The pin list is `Chat.pinnedMessageIds` in each member's JMAP store, changed by the pin updates below; channel state carries no `pins` array. (Agora's former `pins` array is retired.) Two Agora fields remain in CO-signed channel state (§3.3):
 
 - `pinLimit`: the maximum number of simultaneous pins for the channel. Default is 50. Space admins can set a different limit. Clients MUST ignore a pin update that would make `pinnedMessageIds` longer than `pinLimit`. Relays do not enforce `pinLimit`.
 - `noPin`: a boolean, default false. When true, clients MUST ignore every pin update for the channel (see Message Expiry Interaction).
@@ -490,9 +491,9 @@ Retired. The pin list is `Chat.pinnedMessageIds` in each member's JMAP store, ch
 
 Who may change `pinnedMessageIds` in a channel is defined by the JMAP Chat specification: members holding the `"pin"` Space permission. DM groups have no pin list: they have no sequencer, so `Chat.pinnedMessageIds` is read-only in them (§14.4.1), and clients MUST ignore pin updates in a DM group. Clients evaluate this against current signed Space and channel state (§3.3) and MUST ignore pin updates that fail it. Only current MLS group members can produce pin updates at all; relays admit them only with a valid `admissionSig` (§5.2.2).
 
-#### PinEvent and UnpinEvent
+#### Pin Updates
 
-Retired. A pin or unpin is a `JmapSet` patch (§14.3.2) on the channel's `Chat` that sets `pinnedMessageIds` to the complete new list:
+A pin or unpin (formerly PinEvent and UnpinEvent) is a `JmapSet` patch (§14.3.2) on the channel's `Chat` that sets `pinnedMessageIds` to the complete new list:
 
 ```json
 {
@@ -627,9 +628,9 @@ Unicode emoji are valid UTF-8 content in any Message `body`. No special handling
 
 **ZWJ sequences and skin tone modifiers** are treated as atomic units. A Reaction with `"emoji": "👍🏽"` (thumbs up + medium skin tone) is a distinct reaction from one with `"emoji": "👍"` (thumbs up, no modifier). Clients SHOULD display them as separate reaction types.
 
-#### 5.2.8.2 ReactionEvent Schema
+#### 5.2.8.2 Reaction Body
 
-Retired. A reaction is an MLS application message of type `urn:ietf:params:jmap:chat#Reaction` (§5.2.3). Its body carries the fields of the federation `reactionUpdate` object and follows the add and remove semantics of the JMAP Chat `Reaction` type:
+A reaction (formerly ReactionEvent) is an MLS application message of type `urn:ietf:params:jmap:chat#Reaction` (§5.2.3). Its body carries the fields of the federation `reactionUpdate` object and follows the add and remove semantics of the JMAP Chat `Reaction` type:
 
 ```json
 {

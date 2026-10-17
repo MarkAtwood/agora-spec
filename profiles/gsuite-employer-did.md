@@ -70,10 +70,10 @@ The DID Sidecar authenticates to Google using a service account with domain-wide
 
 | Scope | Purpose |
 | ----- | ------- |
-| `https://www.googleapis.com/auth/admin.directory.user.readonly` | Read user records for provisioning |
-| `https://www.googleapis.com/auth/admin.directory.user` | Watch Users resource for push notifications |
+| `https://www.googleapis.com/auth/admin.directory.user.readonly` | Read user records for provisioning and watch the Users resource for push notifications (§2.2) |
 | `https://www.googleapis.com/auth/admin.directory.group.readonly` | Read group membership for role derivation |
 | `https://www.googleapis.com/auth/admin.reports.audit.readonly` | Read Admin Audit log (login events, account changes) |
+| `https://www.googleapis.com/auth/gmail.send` | Send enrollment invitation and VC acceptance emails as the sender address (§4.2, §5.3) |
 
 Domain-wide delegation MUST be granted in the Google Admin console (`Security → API controls → Domain-wide delegation`). The service account MUST be granted the `User Management Admin` role.
 
@@ -224,7 +224,7 @@ Actions:
 2. Derive Agora roles from group membership (§4.7).
 3. Mint the `localIdentifier` (§3.1) and write the genesis log entry (state: `STUB`), including the `KeyPackageEndpoint` service entry (spec §2.5.3).
 4. Store the user record in the sidecar DB keyed by Google user ID, with the private mapping to the `localIdentifier`.
-5. Send an enrollment invitation email via Google Workspace SMTP relay or Gmail API, including an enrollment URL pre-populated with the user's DID.
+5. Send an enrollment invitation email via the Gmail API (see below), including an enrollment URL pre-populated with the user's DID.
 
 The enrollment invitation email is sent using the Gmail API with domain-wide delegation, impersonating an admin account or a dedicated `noreply@example.com` address. Example:
 
@@ -384,7 +384,7 @@ One status list is maintained per year (configurable), with a maximum of 131,072
 
 The sidecar has no push wallet to deliver VCs to. Three delivery options are supported:
 
-**Option A: deep link in enrollment email.** The enrollment invitation includes a second link for VC acceptance. When clicked, the browser calls the sidecar's issuance endpoint, which returns the signed VC as a JSON file download for import into a W3C VC-compatible wallet.
+**Option A: deep link by email.** After first-device enrollment, the sidecar emails the user a link for VC acceptance. When clicked, the browser calls the sidecar's issuance endpoint, which returns the signed VC as a JSON file download for import into a W3C VC-compatible wallet.
 
 **Option B: Agora client built-in wallet.** The Agora client (web or CLI) stores the `EmployeeCredential` in its local keystore alongside device keys and presents the VC automatically during Space enrollment. This option requires no external wallet app and keeps the credential collocated with the keys it attests.
 

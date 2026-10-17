@@ -12,7 +12,7 @@
 
 This profile describes one way to carry data from constrained radio meshes (IRONWEED, LICHEN) across Agora through a gateway. It uses only mechanisms the Agora spec already defines and adds no protocol.
 
-IRONWEED (VHF/UHF land mobile) and LICHEN (LoRa) are IPv6 radio meshes with their own identities, OSCORE security, and per-group keys. Agora cannot run over either radio.
+IRONWEED (VHF/UHF land mobile) and LICHEN (LoRa) are IPv6 radio meshes with their own identities, Object Security for Constrained RESTful Environments (OSCORE, RFC 8613) security, and per-group keys. Agora cannot run over either radio.
 
 An Agora message costs roughly 470 B before payload. The CBOR routing envelope (spec §5.2.2) takes about 210 B: its `signed` field holds `ctx`, the 32-byte `channelToken`, `ts`, and `expiryHint` with their text keys, and `admissionSig` adds a 64-byte Ed25519 signature. The sealed envelope adds a 12-byte nonce and a 16-byte AEAD tag. The MLS `PrivateMessage` adds about 95 B of framing (32-byte `group_id`, epoch, encrypted sender data with its own tag, and the content tag) and a 64-byte MLS signature. The inner envelope's `type`, `contentType`, and `seq` add about 70 B. The envelope `id` and the epoch are not carried, and the sealed wrapper has no sender DID, ephemeral key, or signature of its own. Spec §5.2.1 recommends padding MLS content to a multiple of 256 bytes, which brings a short message to about 590 B. These are estimates from the CDDL and RFC 9420 framing, not measurements.
 
@@ -34,7 +34,7 @@ The gateway is a CO component under spec §9.1–§9.3 and ARCHITECTURE S8:
 
 On the radio side the gateway is a member of each net it bridges. For IRONWEED it is the backhaul gateway node (SPEC §11.9); for LICHEN, it is an application proxy on a border router, which appendix-border-router.md names as the route for conventional Internet integration. The trust shape matches IRONWEED's federation border node: a command-designated relay that holds both security contexts so it can enforce policy (SPEC §11.5).
 
-**Filter.** Every gateway applies a default-deny, per-data-type filter modeled on the IRONWEED federation policy (SPEC §11.4). The radio operator, or the CO acting for it, writes the filter. Each rule names a data type, a direction (`radio-to-agora`, `agora-to-radio`, or both), the nets it applies to, and for position data a precision cap. Types not listed are dropped. Radio command traffic is never bridged. For IRONWEED, the gateway also enforces the mesh's own `/fed/policy` and SPEC §11.9 egress policy, and the stricter rule wins.
+**Filter.** Every gateway applies a default-deny, per-data-type filter modeled on the IRONWEED federation policy (SPEC §11.4). The radio operator, or the CO acting for it, writes the filter. Each rule names a data type, a direction (`radio-to-agora`, `agora-to-radio`, or both), the nets it applies to, and for position data a precision cap. Types not listed are dropped. IRONWEED command (C2) traffic (SPEC §11.4) is never bridged, whatever the filter lists. For IRONWEED, the gateway also enforces the mesh's own `/fed/policy` and SPEC §11.9 egress policy, and the stricter rule wins.
 
 **Revocation.** A gateway is often a field device, such as a vehicle or a command post kit. If it is lost, the CO removes its DID from every bridged MLS group and the radio side rekeys without it (IRONWEED SPEC §6.4). Each side's removal is independent, and both are needed.
 
@@ -50,13 +50,13 @@ On the radio side the gateway is a member of each net it bridges. For IRONWEED i
 
 Radio nodes are not Agora principals and are never MLS members. The gateway authors every bridged message under its own DID. The radio identity rides in the body (§5): the node's Ed25519 public key (IRONWEED SPEC §6.2; LICHEN 06 §8.5), its callsign if known, and its radio trust level.
 
-Clients display radio-sourced identity as "reported by gateway <name>", never as DID-verified. Clients display trust levels from the body: IRONWEED tiers per SPEC §6.5.4, LICHEN TOFU, border-router provisioned or DANE (06 §8.7). A client may derive a `did:key` from the radio's Ed25519 key for display and correlation. That DID is attribution only and never becomes an MLS leaf, because the radio cannot run MLS.
+Clients display radio-sourced identity as "reported by gateway <name>", never as DID-verified. Clients display trust levels from the body: IRONWEED tiers per SPEC §6.5.4, LICHEN trust on first use (TOFU), border-router provisioned or DANE (06 §8.7). A client may derive a `did:key` from the radio's Ed25519 key for display and correlation. That DID is attribution only and never becomes an MLS leaf, because the radio cannot run MLS.
 
 ## 5. Payload mapping
 
 Each bridged item is one typed envelope (spec §13.1). `type` names the message kind in the radio project's own namespace, `urn:ironweed:` or `urn:lichen:`, owned by those projects' editors and treated as registered (spec §13.1 "Any other type"). The type tables are in the annexes.
 
-**Body.** `contentType` is `application/cbor`. The body is a CBOR array of one or more frames of that type, so the gateway can batch (§5.2). Each frame is a CBOR map:
+**Body.** `contentType` is `application/cbor`. The body is a CBOR array of one or more frames of that type, so the gateway can batch (§5.1). Each frame is a CBOR map:
 
 | Key | Value |
 |---|---|
@@ -78,7 +78,7 @@ Rejected alternative: put the radio media type in the envelope `contentType` and
 
 **Paths.** Everything goes on the slow path, as MLS application messages through relays (spec §14.5). Radio rates (positions every 60–300 s; LICHEN 12-apps §18.2.1) are far below the few-per-second line of spec §6.13. The fast path is used only for voice (§6).
 
-### 5.2 Batching and padding
+### 5.1 Batching and padding
 
 Relays see per-channel size and timing (ARCHITECTURE §5). Bridged position beacons produce a periodic pattern that reveals beacon cadence and, by count, roughly how many radios are on the net. The gateway should send one envelope per type per fixed interval, whether or not anything changed, and pad each `PrivateMessage` (RFC 9420 §6.3.1). Spec §5.2.1 recommends a multiple of 256 bytes; the gateway may pad to larger fixed buckets. The cost is added latency up to one interval. Distress and broadcast items bypass the batch and leak by timing; that trade is accepted.
 
@@ -133,9 +133,9 @@ IRONWEED BROADCAST (SPEC §5.5.3) maps to an Agora `broadcast` channel with `key
 
 ## Annex A. IRONWEED
 
-**Link budget.** C4FM 9.6 kbps or 4FSK TDMA 12 kbps in 12.5 kHz, OFDM 20–100 kbps in 25–100 kHz (SPEC §4.1). Voice at Codec2 3200 uses three-frame bursts of 53 ms airtime per 60 ms of audio (SPEC §7.3). The gateway should rate-limit Agora-to-radio traffic so that it does not starve voice and PLI, as SPEC §9.3 does for files.
+**Link budget.** C4FM 9.6 kbps or 4FSK TDMA 12 kbps in 12.5 kHz, OFDM 20–100 kbps in 25–100 kHz (SPEC §4.1). Voice at Codec2 3200 uses three-frame bursts of 53 ms airtime per 60 ms of audio (SPEC §7.3). The gateway should rate-limit Agora-to-radio traffic so that it does not starve voice and position location information (PLI), as SPEC §9.3 does for files.
 
-**Security model.** Every frame is link-encrypted; only the sync pattern is in the clear, so no unit ID or net is visible on air (SPEC §4.4). Pairwise OSCORE with EDHOC (SPEC §6.3); one Group OSCORE context per net (SPEC §6.4); three trust tiers plus TOFU variants (SPEC §6.5.4). Suggested `e2eeNote`: "Bridged to IRONWEED net <name>. Radio traffic is protected by IRONWEED link and group encryption; the gateway holds plaintext."
+**Security model.** Every frame is link-encrypted; only the sync pattern is in the clear, so no unit ID or net is visible on air (SPEC §4.4). Pairwise OSCORE with Ephemeral Diffie-Hellman Over COSE (EDHOC, RFC 9528) (SPEC §6.3); one Group OSCORE context per net (SPEC §6.4); three trust tiers plus TOFU variants (SPEC §6.5.4). Suggested `e2eeNote`: "Bridged to IRONWEED net <name>. Radio traffic is protected by IRONWEED link and group encryption; the gateway holds plaintext."
 
 | Data | `type` | `ct` of `p` | Model | Path |
 |---|---|---|---|---|
@@ -171,7 +171,7 @@ The radio command node edits overlays. Agora members who want a change ask throu
 | SOS (§18.4) | `urn:lichen:Sos` | `application/cbor`, 56 B origin signature in `osig` | single-author | slow, unbatched |
 | Presence (§18.5) | `urn:lichen:Presence` | `application/cbor` | single-author, LWW per `src` | slow, batched |
 | Check-in, roll call (§18.6) | `urn:lichen:CheckIn` | `application/cbor` | single-author | slow |
-| Compact CoT (07 §10.1.1) | `urn:lichen:CompactCot` | `application/octet-stream` | single-author | slow, batched |
+| Compact Cursor on Target (CoT) (07 §10.1.1) | `urn:lichen:CompactCot` | `application/octet-stream` | single-author | slow, batched |
 | Group membership (§18.8) | none; channel configuration | | | |
 | Dead drop (§18.9), Confessions (§18.10) | not bridged | | | |
 
