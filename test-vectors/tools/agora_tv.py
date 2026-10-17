@@ -580,9 +580,10 @@ def jws_vectors():
                        "accept", "both required signers (provider and billing) present, §10.5.1",
                        req(relay[0], billing[0]))
     sa_env = typed_envelope(T + "ServiceAgreement", CTY, sa_body, sa_case["envelope"]["sig"])
-    sa_cid = cid_raw(sa_env)
     sa_case["encodedEnvelopeHex"] = sa_env.hex()
-    sa_case["envelopeCidText"] = cid_text(sa_cid)
+    sa_case["envelopeCidText"] = cid_text(cid_raw(sa_env))
+    sa_cid = cid_raw(sa_body)  # §10.5.3: agreement = CID of the signed body bytes
+    sa_case["bodyCidText"] = cid_text(sa_cid)
 
     old_tok = token(fixed("admission-key"), 0)
     new_seed = fixed("admission-key-rotated")
@@ -608,8 +609,8 @@ def jws_vectors():
                  "cryptographically valid, but only 1 distinct DID < threshold 2 and duplicate DIDs MUST "
                  "be rejected, §13.1.1", thr),
         jws_case("admission-key-registration", T + "AdmissionKeyRegistration", akr_body, [billing], "accept",
-                 "signed by the agreement's billing DID, §10.5.3; agreement = envelopeCidText of "
-                 "two-signer-serviceagreement; keys[0] is a rotation with replaces = the keyEpoch 0 token",
+                 "signed by the agreement's billing DID, §10.5.3; agreement = bodyCidText (CID of the "
+                 "ServiceAgreement body bytes) of two-signer-serviceagreement; keys[0] is a rotation with replaces = the keyEpoch 0 token",
                  req(billing[0])),
         jws_case("channel-admission-key", T + "ChannelAdmissionKey", cak_body, [owner], "accept",
                  "signed by the Space owner, §3.4; seed is the rotated admission key of "

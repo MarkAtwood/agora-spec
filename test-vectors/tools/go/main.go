@@ -706,6 +706,8 @@ func jws(f flat) {
 	saEnv := typedEnvelope(T+"ServiceAgreement", cty, sa, saSig)
 	f.put("vectors.1.encodedEnvelopeHex", saEnv)
 	f.put("vectors.1.envelopeCidText", cidText(cidRaw(saEnv)))
+	agreement := cidText(cidRaw(sa)) // §10.5.3: CID of the signed ServiceAgreement body bytes
+	f.put("vectors.1.bodyCidText", agreement)
 	jwsCase(f, "vectors.2.", jcase{name: "negative-missing-required-signer", typ: T + "ServiceAgreement", body: sa,
 		signers: []signer{billing}, required: []string{relay.did, billing.did}})
 	jwsCase(f, "vectors.3.", jcase{name: "threshold-2-of-3-valid", typ: T + "SpaceState", body: gb,
@@ -715,7 +717,7 @@ func jws(f flat) {
 
 	oldTok := token(fixed("admission-key", 32), 0)
 	newSeed := fixed("admission-key-rotated", 32)
-	akr := akrBody(cidText(cidRaw(saEnv)), b64url(token(newSeed, 1)), b64url(edPub(newSeed)), b64url(oldTok))
+	akr := akrBody(agreement, b64url(token(newSeed, 1)), b64url(edPub(newSeed)), b64url(oldTok))
 	jwsCase(f, "vectors.5.", jcase{name: "admission-key-registration", typ: T + "AdmissionKeyRegistration",
 		body: []byte(akr), signers: []signer{billing}, required: []string{billing.did}})
 	jwsCase(f, "vectors.6.", jcase{name: "channel-admission-key", typ: T + "ChannelAdmissionKey",

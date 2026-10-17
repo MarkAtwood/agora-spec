@@ -27,7 +27,7 @@ Fixed inputs named by a label are `SHA-256(UTF-8("agora-test-vectors/" || label)
 
 | File | Construction | Spec |
 |---|---|---|
-| `jws.json` | JWS General JSON Serialization, RFC 7797 `b64:false` detached, Ed25519 (16 cases). Valid: `RelayAd` (1 signer); `ServiceAgreement` (2 signers, plus its encoded envelope and CID); threshold 2-of-3 `SpaceState`; `AdmissionKeyRegistration` with `replaces`; `ChannelAdmissionKey`; `BroadcastKey`. Negative: missing required signer; threshold with duplicated DID; `b64` true; `b64` absent; `b64` and `crit` absent; `crit` absent; `alg` `Ed25519`; `cty` mismatch; `agoraType` mismatch; re-serialized body | §13.1.1, §10.5.1, §10.5.3, §3.4, §4.1 |
+| `jws.json` | JWS General JSON Serialization, RFC 7797 `b64:false` detached, Ed25519 (16 cases). Valid: `RelayAd` (1 signer); `ServiceAgreement` (2 signers, plus `bodyCidText`, the body CID that `agreement` uses per §10.5.3, and its encoded envelope with `envelopeCidText`); threshold 2-of-3 `SpaceState`; `AdmissionKeyRegistration` with `replaces`; `ChannelAdmissionKey`; `BroadcastKey`. Negative: missing required signer; threshold with duplicated DID; `b64` true; `b64` absent; `b64` and `crit` absent; `crit` absent; `alg` `Ed25519`; `cty` mismatch; `agoraType` mismatch; re-serialized body | §13.1.1, §10.5.1, §10.5.3, §3.4, §4.1 |
 | `channel-token.json` | `channelToken` for `keyEpoch` 0, 1, 2^32 | §5.2.2, §13.3 |
 | `sealed-envelope.json` | Sealed envelope AES-128-GCM (exporter output given) | §5.2.2 |
 | `routing-envelope.json` | `SignedFields`, `admissionSig`, envelope `id`, outer envelope. Chained from the two files above | §5.2.2, §13.1 |
@@ -62,6 +62,6 @@ The Go check compares in both directions: every value it computes must match the
 
 ## Spec ambiguities
 
-1. **§5.2.1.4** says `message` "carries the fields of a new Message as defined in §5.2.2". §5.2.2 defines no Message fields; the JMAP Chat `Message` is §5.2.3. The vector uses the members of the spec example.
-2. **§10.5.1 / §10.5.3.** An agreement is identified by the CID of its encoded envelope, but §13.1 leaves the envelope's map encoding free. The CO and the IO therefore get the same `agreement` CID only if they hold byte-identical encoded envelopes, and the spec does not say who fixes those bytes. The vector uses the deterministic encoding.
-3. **§3.4 group-encrypted blob.** The text does not state the nonce length; 12 bytes is assumed from AES-128-GCM. The text also says "the AEAD of the group's ciphersuite", so the vector assumes the default suite.
+None open.
+
+Resolved in the current spec and matching these vectors: §5.2.1.4 `message` now references the JMAP Chat `Message` (§5.2.3); §3.4 now gives the group-encrypted blob nonce as 12 bytes; §10.5.1 now identifies an agreement, and its `supersedes` value, by the body CID, matching §10.5.3.
