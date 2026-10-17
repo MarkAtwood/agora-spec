@@ -510,7 +510,7 @@ The channel's IPLD state document includes a `pins` array. Each entry is a signe
 #### Authorization
 
 - **Any current MLS group member** MAY add a pin (`PinEvent`).
-- **Space/Channel Admins and the original pinner** MAY remove a pin (`UnpinEvent`). Other members MAY NOT remove pins they did not add.
+- **Space/Channel Admins and the original pinner** MAY remove a pin (`UnpinEvent`). Other members MUST NOT remove pins they did not add.
 - Clients validate these rules against current signed Space and channel state and MUST ignore pin operations that fail them. Only current MLS group members can produce pin operations at all; relays admit them only with a valid epoch access proof (§5.2.2).
 
 #### PinEvent and UnpinEvent
@@ -692,7 +692,7 @@ A reaction is an MLS application message of type `ReactionEvent`:
 
 #### 5.2.8.3 Reaction Semantics
 
-**One reaction per emoji per sender per target.** A sender MAY NOT add the same `emoji` value to the same `targetCID` more than once. A second `"action": "add"` for the same `(senderDID, targetCID, emoji)` tuple is a no-op; clients MUST deduplicate and MUST NOT display it as a separate reaction.
+**One reaction per emoji per sender per target.** A sender MUST NOT add the same `emoji` value to the same `targetCID` more than once. A second `"action": "add"` for the same `(senderDID, targetCID, emoji)` tuple is a no-op; clients MUST deduplicate and MUST NOT display it as a separate reaction.
 
 **Reaction state is derived from the ordered event stream.** Clients reconstruct the current reaction set for a message by replaying all `ReactionEvent` messages targeting that CID in `seq` order. The canonical reaction state at any point is:
 
