@@ -193,6 +193,8 @@ Binary values in Space state (`channelID`, `mlsGroupID`, `assetKey`) are unpadde
 
 `pushProxy` is optional and names the push proxy that the CO designates for its members (§11.7). It is an object with the members of the relay manifest's `pushProxy` (§11.7.2). It is omitted from the non-member view (§4.4). The proxy is an IO that serves the CO under a `ServiceAgreement` with `serviceType` `push-proxy` (§10.5.1). A client registers with this proxy only the `channelToken`s of channels whose home Space's state names it (§11.7.3), under a `pushHandle` it uses with no other proxy. The client registers every other token, including those of direct message (DM) groups and self-groups, with a relay-designated proxy.
 
+`trustedAttesters` is optional. It is an array of at most 32 DIDs naming credential issuers that the CO recommends members' clients trust within the Space (§5.2.1.5), for example a registered identity verifier that issues derived claims to members' DIDs. It is omitted from the non-member view (§4.4), including the view served to guest members of a shared channel. A client MAY treat an `agora_credentials` entry as coming from a trusted issuer when the entry's issuer identifier equals a listed DID as an exact string, its signature verifies under a key in that DID's document, and the leaf carrying it is in the group of a channel whose home Space is this Space, or in the Space's own group. The list applies to no other group: not to DM groups, self-groups, or the channels of other Spaces. A client's own trust policy (§5.2.1.5) prevails over the list, both to add issuers and to exclude them. The list changes only which issuers a client trusts; the binding, verification, and revocation rules of §5.2.1.5 apply unchanged. Over the limit, clients ignore the list.
+
 `consistencyModels` is optional and maps a JMAP data type URI to the consistency model identifier the Space selects for that type, overriding the type's default (§14.2.2).
 
 The Space `name`, each channel `name`, and each role `label` are text for people to read. They follow the rules of §2.3 for `displayName`. The signer stores each in the enforced form of the PRECIS Nickname profile (RFC 8266). Clients apply that profile's enforcement rule before display or comparison, and isolate each string as a bidirectional run when displaying it. Clients SHOULD warn an admin who gives a channel a name confusable (Unicode Technical Standard #39) with another channel name in the Space. Channel paths follow §3.2 instead.
@@ -219,6 +221,7 @@ The Space `name`, each channel `name`, and each role `label` are text for people
 | `sequencer` | object `{did, endpoint}` | optional | §3.3, §14.4.1 |
 | `closingHeads` | array of `{channelID, stream, n, hash}` | only in a state that replaces or removes the `sequencer` DID; omitted from the non-member view; in a guest view, see §8.6 | §3.3, §14.4.5 |
 | `pushProxy` | object with the members of the relay manifest's `pushProxy` (§11.7.2) | optional; omitted from the non-member view | §3.3, §11.7 |
+| `trustedAttesters` | array of DIDs, at most 32 | optional; omitted from the non-member view | §3.3, §5.2.1.5 |
 | `consistencyModels` | object | optional | §14.2.2 |
 | `mlsGroupID` | base64url | required | §3.3 |
 | `prevStateCID` | CID | required, except in genesis | §3.3 |

@@ -96,6 +96,7 @@ This table collects the protocol's numeric limits in one place. If this table an
 | Admission key fetch while connected | at least once an hour | MUST | §5.2.2 |
 | MLS generation window per sender | 32 behind; 1000 ahead | Descriptive | §5.2.1 |
 | `agora_credentials` entries per leaf; extension data size | 8; 8192 bytes | Over the limit, the extension is ignored | §5.2.1.5 |
+| `trustedAttesters` entries in Space state | 32 | Over the limit, the list is ignored | §3.3 |
 | Hold of a Welcome whose authorization cannot yet be decided | 7 days | See section | §4.3 |
 | Guardian transfer proposal `ts` window; objection period | 300 s; default 259,200 s | MUST; default | §4.1, §3.3 |
 | KeyPackage upload `ts` window | 300 s | MUST | §5.2.1.1 |
@@ -152,6 +153,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 | `archive` | `ChannelAdmissionKey` member | §3.4, §10.4.4 |
 | `closingHeads` | Space state member, array of `{channelID, stream, n, hash}` (closing commit-stream heads at a sequencer replacement) | §3.3, §14.4.5 |
 | `pushProxy` | Space state member, an object with the members of the relay manifest's `pushProxy` (the push proxy that the Communications Operator, or CO, designates) | §3.3, §11.7.2 |
+| `trustedAttesters` | Space state member, array of DIDs (credential issuers the CO recommends within the Space) | §3.3, §5.2.1.5 |
 | `broadcasters` | Non-member view member, array of `{channelID, keyEpoch, dids}` | §3.3, §3.4, §5.2.1.4 |
 | `chunkCount`, `thumbnailChunkCount`, `contentKey`, `thumbnailContentKey` | JMAP object extension properties | §14.3.4 |
 | `seed` | `pin-op` operation | §11.4, §10.4.4 |

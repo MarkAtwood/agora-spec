@@ -28,7 +28,7 @@ This profile needs no Agora core change. Sections 3 to 6 apply the pattern to fo
 | Directories (Active Directory, Entra ID, Google Workspace, LDAP) | 3 | `EmployeeCredential` and JML lifecycle in the employer profiles |
 | Identity providers (OIDC, SAML) | 4 | `idpToken` at device registration (spec §2.5.4) |
 | CAC and PIV smartcards | 5 | Nothing specific; usually reached through an IdP (section 4) |
-| EU Digital Identity Wallet | 6 | Nothing specific; this profile defines the relying-party flow |
+| EU Digital Identity Wallet | 6 | `trustedAttesters` in Space state (spec §3.3) for a delegated verifier; this profile defines the relying-party flow |
 
 ## 2. Common Rules
 
@@ -161,7 +161,7 @@ The FASC-N, card UUID, and EDIPI stay at the CO (section 2.1). The verifier keys
 
 ## 6. EU Digital Identity Wallet
 
-The CO registers as an EUDI wallet-relying party and verifies its members' person identification data (PID) and attestations of attributes ((Q)EAA) over OpenID4VP under HAIP, then applies section 2.4 and section 2.5.
+The CO, or a delegated verifier it trusts (section 6.7), registers as an EUDI wallet-relying party and verifies its members' person identification data (PID) and attestations of attributes ((Q)EAA) over OpenID4VP under HAIP, then applies section 2.4 and section 2.5.
 
 ### 6.1 Why the CO Verifies
 
@@ -172,7 +172,7 @@ The CO registers as an EUDI wallet-relying party and verifies its members' perso
 - **Peer presentation is in person only.** ARF v3.0.0 wallet-to-wallet presentation works only in proximity, over ISO/IEC 18013-5 (Topic 30, W2W_08). A stranger's wallet will not produce a remote presentation for another user.
 - **PID in a leaf shows legal identity to every member.** The PID minimum is family name, given name, birth date, birthplace, and nationality, and from 11 August 2028 a portrait. Every member of every group carrying the leaf would see it (spec §12.11), and one stored presentation reused across groups defeats the unlinkability the regulation requires (Art 5a(16)).
 
-**The decision.** EUDI verification is a CO relying-party function. When other members need to see the result, the CO vouches for the member's Agora DID with its own credential. The strict subject-DID rule of spec §5.2.1.5 stays as written.
+**The decision.** EUDI verification is a relying-party function of the CO or of a delegated verifier (section 6.7). When other members need to see the result, the CO vouches for the member's Agora DID with its own credential, or lists the delegated verifier in `trustedAttesters` (spec §3.3). The strict subject-DID rule of spec §5.2.1.5 stays as written.
 
 **Rejected.**
 
@@ -223,7 +223,26 @@ Two plausible joins with the employer profiles (`profiles/o365-employer-did.md`,
 - **Organization.** A CO verifies a business-wallet presentation of an organization's EUID and legal name, then issues a credential linking the organization's root DID to that EUID.
 - **Employee.** A business wallet issues employment or mandate attestations to employees' EUDI wallets. These are key-bound like any EAA, so they enter Agora through section 6.4 and section 2.5.
 
-### 6.7 Caveats
+### 6.7 Delegated Verifier
+
+A CO need not register itself. A delegated verifier is a separate party with its own DID. It registers as the relying party (section 6.3), verifies the member's wallet (section 6.4), and issues the member a credential with derived claims (section 6.5) whose subject is the member's Agora DID (section 2.5). The verifier holds the PID, and the CO never receives it. One registration serves every CO that trusts the verifier. Candidates include an identity-verification firm, a public body that runs an attestation service, and an organization's identity office serving several of its COs. The same pattern works for any source in this profile, for example a proofing service that checks CAC or PIV cards for several COs.
+
+The CO trusts the verifier in either or both of two ways:
+
+- **Admission policy.** In step 2 of section 2.4, the CO's verifier checks the delegated verifier's credential instead of reading the wallet, then admits the member or assigns a role. The CO MAY also issue its own credential after the check (section 2.5).
+- **`trustedAttesters`.** The CO lists the verifier's DID in its Space state (spec §3.3). Members' clients may then trust the verifier's credential, carried in a leaf in that Space's groups, with no CO re-issuance (spec §5.2.1.5). The list is a recommendation: a client's own policy prevails, and the list applies to no group outside the Space.
+
+The verifier is not an Agora operator role. It holds personal data in plaintext, so it can never be an IO, and it holds no Agora keys or Space policy, so it is not a CO. It is an outside credential issuer, like an IdP.
+
+Caveats:
+
+- **Intended use.** The verifier must register an intended use that covers issuing derived attestations to the user (section 6.3, step 2). Whether every Member State registrar accepts that use is **unverified**.
+- **Registered entity.** Registration requires an identified entity with official identifiers (section 6.3), so the verifier's DID belongs to a service run by a registered entity, not to an anonymous account.
+- **What the user sees.** The wallet shows the verifier's trade name, not the CO's. The member approves the verifier's request, then chooses to carry its credential in a Space.
+- **Reliance.** Some COs must be the relying party themselves, for example a government CO under Art 5f(1), or a firm whose anti-money-laundering rules limit reliance on third parties. Whether a given CO may rely on a delegated verifier is a question for counsel.
+- **Withdrawal.** If the CO stops trusting the verifier, it removes the DID from `trustedAttesters` and from its admission policy. Credentials already issued stay valid by their own rules until they expire or the verifier revokes them, so a CO that needs faster withdrawal re-verifies its affected members.
+
+### 6.8 Caveats
 
 - **Wallet availability.** No certified wallet exists yet, and national launches are uneven, with Germany reported for January 2027 **[secondary]**. A CO should confirm wallet support in its members' Member States before relying on this section.
 - **Pseudonyms.** Art 5b(9) bars a relying party from refusing a pseudonym where law does not require identification, which limits "verify real identity to join" designs outside regulated or government settings.
