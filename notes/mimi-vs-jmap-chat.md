@@ -184,3 +184,19 @@ A8. **Track, do not implement yet**:
 - PROTO §5.1 vs §5.7 disagree on consent endpoint path parameters, and PROTO §3.1 uses capability names absent from POL. These are MIMI-internal inconsistencies, not resolved here.
 - FED is internally inconsistent on whether group "delivered" needs all recipients or one ("Group Chat Delivery").
 - Currency of EXT, AV and PORT was not checked against datatracker.
+
+## Outcome (Mark, 2026-10-17)
+
+Section 5a suggestions, as decided and applied to the jmap-chat drafts:
+
+| Item | Decision |
+|---|---|
+| R1 MessageId mapping | Deferred until a MIMI bridge is designed; the right recipe depends on which timestamp every follower sees |
+| R2 Per-revision identity | Deferred with R1 |
+| R3 E2EE attachment fields | One sentence: the encryption scheme in use defines key and location fields inside the ciphertext; no new fields |
+| R4 Expire after read | Added `expiresAfterReadSeconds`; `burnOnRead` kept and takes precedence |
+| R5 Topics | Added optional `topicId` and `subject`, with a `topicId` query filter; wanted for named topics in their own right |
+| R6 Message statuses | One sentence: MIMI `expired`, `hidden`, and `error` are not read acknowledgements |
+| R7 Media reactions | One sentence: carried as a reply containing the media, as MIMI content permits |
+| R8 Version currency | Pinned MIMI references; cited room policy in the federation draft |
+| R9 FED vs MIMI hub | No action; the drafts already state the architectures differ |
