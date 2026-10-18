@@ -19,7 +19,8 @@ Everything here works on the spec as written. It needs no core change.
 
 What an exchange proves, and what it does not:
 
-- It proves that the two devices hold the private keys for the scanned device keys, that each scanned key is in the DID document each side resolves, and that both sides resolve the same document version. A key substituted by a DID host, a KeyPackage host, or a network attacker fails the check.
+- It proves that each scanned device key is listed in the counterpart's DID document at the version the counterpart stated, and that the document each side resolves is that version or descends from it. It proves that the counterpart's device holds the private key for that key only once a valid `Reveal` from it arrives (section 3.2); an exchange without a received, valid `Reveal` proves the listing but not possession. A key substituted by a DID host, a KeyPackage host, or a network attacker fails the check.
+- It covers only the keys the counterpart's DID document listed at the stated version. A key added to the document after that version is not verified by the exchange (section 3.4).
 - It does not prove physical presence. A channel can be relayed (section 8). The person who looks at the other's face and at what the client shows is the final check.
 - It says nothing about who the person is beyond "the holder of this DID, whom I met". It carries no name, no age, and no attribute.
 
@@ -27,7 +28,7 @@ What an exchange proves, and what it does not:
 
 A client learns a contact's keys by resolving the contact's DID (spec §2.1). For `did:webvh` without witnesses, whoever holds an update key or serves the log can show one resolver a different valid log, a split view, or an old prefix of it (spec §2.1). A split view can list an extra device key that the attacker holds next to the real ones. For `did:key`, the document cannot be substituted, but the DID itself can, for example in a contact card relayed by a third party. In each case the user talks, end to end encrypted, to the wrong key.
 
-Checking one device key against the resolved document misses the added-key case, because the real key is still listed. This profile therefore binds the whole document version: the presenting device states the version of its own DID document, and the scanning device confirms that the version it resolved is that version or a later version that descends from it (section 3.4).
+Checking one device key against the resolved document misses the added-key case, because the real key is still listed. This profile therefore binds the whole document version: the presenting device states the version of its own DID document, and the scanning device confirms that the version it resolved is that version or a later version that descends from it, and treats any key added after that version as not verified by this exchange (section 3.4).
 
 ## 3. The Exchange
 
@@ -63,9 +64,12 @@ A device that follows this profile:
 
 - MUST process a `Reveal` only if it scanned the sender's code, or the `Reveal`'s `peer` equals its own `c`. If it scanned a code in this exchange, it MUST process only the `Reveal` whose `kid` equals that code's `kid`.
 - If it scanned the sender's code, MUST abort unless the `Reveal`'s `kid`, `pk`, and `ver` equal the scanned ones and `SHA-256(IPVCommit)` over the revealed nonce equals the scanned `c`.
+- MUST discard a `Reveal` whose MLS sender's leaf is not bound to the `Reveal`'s `kid`, and process it no further. For `did:webvh` and `did:plc`, the leaf is bound when its `signature_key` equals `pk`, the key of the `kid` verification method (spec §5.2.1). For `did:key`, whose leaf `signature_key` is never the identity key, the leaf is bound when its `agora_device_binding` extension verifies under `pk`, the key the DID encodes (spec §5.2.1).
 - If it did not scan the sender's code, MUST NOT send its own `Reveal` until it has received and processed the sender's. This orders a one-scan exchange so that the non-scanning side's nonce is revealed only after the other side's tuple is fixed.
 
-In mutual-scan mode the `Reveal`s need not be sent at the meeting. The scans already authenticated everything, so the two devices can finish over the network later.
+The sender signs the `Reveal` with its leaf key, so a processed `Reveal` proves that the sender's device holds the private key for `kid` or, for `did:key`, a leaf key that `kid`'s key has bound.
+
+In mutual-scan mode the `Reveal`s need not be sent at the meeting. The scans already authenticated the tuples, so the two devices can finish over the network later. The binding rule above applies to a late `Reveal` too, so possession of the `kid` key is proven when the valid `Reveal` arrives. An exchange in which a device has not received a valid `Reveal` proves that the scanned key is listed in the counterpart's DID document, but not that the counterpart holds it.
 
 ### 3.3 The Anchor
 
@@ -99,9 +103,11 @@ Neither party alone chooses the anchor: each contributes a nonce committed befor
 
 Each device resolves the other's DID per spec §2.1 and MUST abort unless:
 
-1. for `did:webvh` or `did:plc`, the scanned or revealed `ver` names an entry in the verified log (a `did:webvh` entry with that `versionId`, or a `did:plc` operation with that CID), and the current document descends from it;
+1. for `did:webvh` or `did:plc`, the scanned or revealed `ver` names an entry in the verified log (a `did:webvh` entry with that `versionId`, or a `did:plc` operation with that CID), and the current document is that version or descends from it;
 2. the document at that version, and the current document, both contain a verification method whose `id` equals `kid`, which holds the Ed25519 key `pk` and is referenced from `authentication`; and
 3. for `did:key`, `pk` is the key the DID encodes.
+
+The device MUST identify every key added to the counterpart's DID document after `ver`: each key referenced from `authentication`, `assertionMethod`, or `keyAgreement` in the current document that was absent from the document at `ver`. It MUST treat those keys as not verified by this exchange. A client may show them, so that the user can check them with the counterpart. The credential's evidence and claims cover only the keys present at `ver` (section 4.2).
 
 The check binds the keys as they were at that version. A later change to the counterpart's DID document does not invalidate the credential, which is about the DID, but the key binding becomes stale (section 8).
 
@@ -170,7 +176,7 @@ Why `eddsa-jcs-2022` rather than `application/vc+jwt`: DTG credentials use it (D
 - `issuerScope` is `directed`: in DTG terms, known to "a set of counterparties the holder chooses". That matches selective publication (section 7). `pairwise` would bar it from leaves under `profiles/dtg-openvtc.md` section 4.
 - `validFrom` is the time of the exchange. There is no `validUntil`: a meeting does not expire. `credentialStatus` is optional (section 8).
 - `evidence` holds the anchor and both `IPVParty` tuples in the order of section 3.3, with binary values in base64url (spec §13.1). A verifier can recompute the anchor and see which subject device key and document version were checked. The nonces were single use and reveal nothing.
-- The proof's verification method MUST be referenced from `assertionMethod` in the issuer's DID document, or the entry matches no issuer DID (spec §5.2.1.5). Spec §2.1 describes a user document with `authentication` and `keyAgreement` keys. A user who issues these credentials also lists a key under `assertionMethod`, for example by referencing a device key from both relationships. A `did:key` document already lists its key under both.
+- The proof's verification method MUST be referenced from `assertionMethod` in the issuer's current DID document, or the entry matches no issuer DID (spec §5.2.1.5). Spec §2.1 describes a user document with `authentication` and `keyAgreement` keys. A user who issues these credentials also lists a key under `assertionMethod`, for example by referencing a device key from both relationships. A `did:key` document already lists its key under both.
 
 A credential is roughly 1.3 to 1.8 KB, depending on DID length, so several fit within the 8192-byte limit (spec §5.2.1.5).
 
@@ -178,7 +184,7 @@ A credential is roughly 1.3 to 1.8 KB, depending on DID length, so several fit w
 
 A client that follows this profile and finds an entry with this type in a leaf:
 
-- MUST apply the subject, issuer, and `assertionMethod` rules of spec §5.2.1.5, and verify the `eddsa-jcs-2022` proof.
+- MUST apply the subject, issuer, and `assertionMethod` rules of spec §5.2.1.5 against the issuer DID's current document, resolved per spec §2.1, and verify the `eddsa-jcs-2022` proof. The signing key MUST be listed under `assertionMethod` in that document now; a key listed only at `validFrom` does not count.
 - MUST NOT treat the entry as an in-person verification unless `evidence` holds exactly one object whose `type` includes `InPersonVerification`, its `parties` has two tuples whose `kid` DIDs are the issuer and the subject, and `anchor` equals the anchor recomputed from `parties` per section 3.3.
 - MAY check, by historical resolution, that each tuple's key was an `authentication` key of its DID at the stated version. Doing so confirms the issuer's key check rather than taking the issuer's word for it.
 
@@ -236,7 +242,7 @@ Differences from DTG and RLTP practice:
 - **Relay.** Someone who relays one code to a distant device in real time, but not the reverse, fails mutual-scan mode, because the distant device cannot scan the local one. In one-scan mode such a relay fails at the SAS. A two-way real-time relay, where both cameras see relayed screens, defeats any optical exchange, including this one. The defense is the human check: each person confirms that the person in front of them is the one their client shows. A client that follows this profile does not claim physical presence.
 - **SAS length.** Six digits give an attacker one chance in about a million per exchange (section 3.5). Fewer digits trade security for convenience. More than six add little, because a failed guess is visible.
 - **Key rotation.** The exchange binds the keys and document version as they were. When the counterpart later adds or removes a device or rotates keys, the DID-level credential still stands, and the key binding is stale. The verified DID log carries trust forward from the checked version through entries signed by authorized update keys (spec §2.1), but it does not protect against a later split view. A user who wants that assurance verifies in person again.
-- **Lost or compromised devices.** A credential issued from a device key that is later revoked stays verifiable, as other objects signed before a revocation do; whether to trust it is the verifier's decision (spec §12.12). A verifier that checks status by historical resolution uses the issuer's document at `validFrom`.
+- **Lost or compromised devices.** A verifier checks the proof against the issuer DID's current document (section 4.3), so a credential verifies only while its signing key is listed under `assertionMethod`. Removing a key from the document therefore invalidates everything it signed, including credentials that an attacker holding the key backdates with an earlier `validFrom`. The tradeoff is that the issuer's honest credentials signed by that key stop verifying too. When an issuer rotates or removes its assertion key, its client may re-issue its in-person credentials to those contacts over their DMs, signed with the new key.
 - **Revocation.** Optional. An issuer that runs or uses a status list can include a `credentialStatus` entry, such as a W3C Bitstring Status List entry, and verifiers check it by the format's rules (spec §5.2.1.5). Most people will not run one. Checking status can reveal the holder's activity to the list's host, so verifiers fetch and cache whole lists (spec §12.11).
 - **False claims.** An issuer can issue a credential without meeting anyone, or a compromised issuer key can. That is the trusting client's risk (spec §12.13), and it is why section 5 counts only issuers the user already trusts.
 
