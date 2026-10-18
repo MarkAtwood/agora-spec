@@ -512,16 +512,15 @@ _profile._agora     TXT  "cid=bafkrei..."
 _kp._agora          TXT  "url=https://kp.example.net/v1/agora/kp/z6Mk..."
 ```
 
-`v` and `_kp` are required; `_profile` and the service records below are optional.
+`v` and `_kp` are required; `_profile` is optional.
 
 | Record | Key | Value | Required |
 |---|---|---|---|
 | `_agora` | `v` | Schema version (`1`) | Yes |
 | `_profile._agora` | `cid` | Bare CID (no scheme) of the user's current profile node (§2.3) | No |
 | `_kp._agora` | `url` | The user's `KeyPackageEndpoint` (§5.2.1.1), an HTTPS URL whose path begins with `/v1/agora/kp/` | Yes |
-| `_corundum._agora` | `url`, `key` | Optional service record for the CORUNDUM social protocol: the operator's content endpoint (`url`) and the multibase Ed25519 posting key (`key`) that signs the user's content index (profiles/corundum.md) | No |
 
-**Service records.** Beyond `_profile` and `_kp`, a Pkarr record MAY carry the optional service records listed in the table above, each the `did:key` equivalent of a DID document `service` entry. Only the identity key holder can change the record; any party MAY re-publish the unchanged signed record to keep it alive on the DHT.
+Only the identity key holder can change the record; any party MAY re-publish the unchanged signed record to keep it alive on the DHT.
 
 The total DNS packet MUST fit within 1000 bytes (BEP-44 value limit). In practice a record with a profile CID and a KeyPackage URL occupies about 200 bytes.
 

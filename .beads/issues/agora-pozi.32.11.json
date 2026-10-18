@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.32.11",
+  "title": "C2r: CORUNDUM keeps IPNS; IPNS key is the content key (decided)",
+  "description": "DECIDED (Mark 2026-10-18, in CORUNDUM): reverses C2, C2a, C2b and the posting-key part of C4. Chain handle -\u003e DID -\u003e IPNS -\u003e RootManifest. DID doc CorundumIdentity service {ipnsName, operatorEndpoint (origin), listKey (X25519), additionalKeys?}. IPNS name = Ed25519 content-signing key (signs activities and RootManifests) + pointer; served via GET /routing/v1/ipns/{name} at operatorEndpoint, DHT fallback. Operator holds content key by default; self-custody optional; update/recovery keys user-only. Content keys in no verification relationship (Agora rejects them unchanged). did:key users: IPNS name derived from the DID; no Pkarr _corundum._agora record. JWS kid = IPNS name (not DID URL); alg Ed25519 (RFC 9864). Source: CORUNDUM c014c29 docs/spec/03-identity.md, 10-crypto.md.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T17:57:58.998644739Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T17:57:58.998644739Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.32.11",
+      "depends_on_id": "agora-pozi.32",
+      "type": "parent-child",
+      "created_at": "2026-10-18T17:57:59.046411273Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

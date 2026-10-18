@@ -2,13 +2,14 @@
   "id": "agora-pozi.32.6",
   "title": "C6: public/private border and private follow lists (decided)",
   "description": "DECIDED (Mark 2026-10-16): (A) one-way border: public CORUNDUM content may be referenced in Agora by CID; no software writes Agora membership, Space names, channels or member lists into CORUNDUM public data; clients disclose that the identity is shared across both systems. PLUS: CORUNDUM follow lists become PRIVATE by default: stored encrypted, readable only by the user and their own operator (needed to build the feed); users may opt in to publishing all or part; new-follower notices are the follower's setting. Accepted loss: friends-of-friends discovery comes only from opted-in lists or curators.",
+  "notes": "CORUNDUM 2026-10-18: follow lists private by default (JWE to listKey + operator key), publishable; but every follow ALWAYS sends a signed FollowNotification (not the follower's setting) because followers-only reply policies need it. Profile section 5 updated.",
   "status": "open",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-17T06:45:33.603409188Z",
   "created_by": "agent",
-  "updated_at": "2026-10-17T06:45:33.603409188Z",
+  "updated_at": "2026-10-18T17:57:59.676669604Z",
   "dependencies": [
     {
       "issue_id": "agora-pozi.32.6",

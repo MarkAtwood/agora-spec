@@ -2,6 +2,8 @@
 
 Status: research note, non-normative. 2026-10-16. Sources: `~/PROJECT/CORUNDUM` at b7abcd5 (README, PRFAQ, `docs/spec/*`, MVP plan skimmed); Agora `ARCHITECTURE.md`, `spec/02,03,04,05,10,13,14`.
 
+**Update, 2026-10-18.** Decision 2 below is settled the other way: CORUNDUM keeps IPNS (handle → DID → IPNS → RootManifest), and the IPNS key is the delegated content-signing key, held by the operator by default. This reverses C2, C2a, and C2b and the posting-key part of C4. CORUNDUM has also made the C1, C3, and C6 changes and fixed the minor inconsistencies listed in §5. `profiles/corundum.md` has the current design; the rest of this note is the analysis as of 2026-10-16.
+
 **Verdict.** A Corundum operator is an Agora **CO**. It is not an IO. Once it is classified that way, the "operators enforce moderation" conflict goes away. The two protocols cover complementary ground: Corundum explicitly leaves DMs, private groups and E2EE out of scope (Corundum Ch 40). Recommended combination: (a) public/private split, (c) shared DID layer, and optionally (d) curator feeds consumed at CO enforcement points. Do not route Corundum through Agora relays, and do not merge the federation meshes.
 
 ## 1. Corundum in brief

@@ -189,7 +189,7 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 |---|---|---|
 | Well-known URI `agora-relay` | §10.2.1 | IANA "Well-Known URIs" (RFC 8615) |
 | Service name `agora-relay` (`_agora-relay._udp`, `_agora-relay._tcp`) | §10.2.5, §10.3.3 | IANA "Service Name and Transport Protocol Port Number" (RFC 6335) |
-| `_agora` and its children `_kp._agora`, `_profile._agora`, `_corundum._agora` | §2.1, §10.3.4.6 | IANA "Underscored and Globally Scoped DNS Node Names" (RFC 8552), for `_agora` |
+| `_agora` and its children `_kp._agora`, `_profile._agora` | §2.1, §10.3.4.6 | IANA "Underscored and Globally Scoped DNS Node Names" (RFC 8552), for `_agora` |
 | HTTP field `Agora-Storage-Auth` | §11.8.2 | IANA "HTTP Field Name" (RFC 9110 §16.3) |
 | HTTP fields `Agora-PoW-Challenge`, `Agora-PoW` | §10.5.2 | IANA "HTTP Field Name" (RFC 9110 §16.3) |
 | JWS header parameter `agoraType` | §13.1.1 | IANA "JSON Web Signature and Encryption Header Parameters" (RFC 7515 §4.3) |
