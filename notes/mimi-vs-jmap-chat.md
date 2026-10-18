@@ -191,8 +191,8 @@ Section 5a suggestions, as decided and applied to the jmap-chat drafts:
 
 | Item | Decision |
 |---|---|
-| R1 MessageId mapping | Deferred until a MIMI bridge is designed; the right recipe depends on which timestamp every follower sees |
-| R2 Per-revision identity | Deferred with R1 |
+| R1 MessageId mapping | `senderMsgId` is the ULID encoding of the 16 octets after the MIMI message ID's algorithm octet, so anyone holding a MIMI ID derives it, even for a message never received. The timestamp recipe was rejected: MIMI references carry no timestamp, and JMAP Chat orders by the receiver's `id`, not `senderMsgId` |
+| R2 Per-revision identity | No revision IDs. A MIMI edit (`replaces` always names the first version) maps to an edit of that message; each edit's derived ID is recorded as an alias, so a reference to a later version lands on the message as a whole |
 | R3 E2EE attachment fields | One sentence: the encryption scheme in use defines key and location fields inside the ciphertext; no new fields |
 | R4 Expire after read | Added `expiresAfterReadSeconds`; `burnOnRead` kept and takes precedence |
 | R5 Topics | Added optional `topicId` and `subject`, with a `topicId` query filter; wanted for named topics in their own right |
