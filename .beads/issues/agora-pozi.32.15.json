@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.32.15",
+  "title": "Optional: restricted CORUNDUM curation feeds over broadcast",
+  "description": "profiles/corundum.md §10 item 3. Curator runs a private Space; vetted operators are members; broadcast channel posts carry signed CORUNDUM CurationEntry/feed-head objects; relays/CDN hold only ciphertext; removal = key rotation. HTTPS feed remains fallback. Check rotation cost and history access for operators admitted later (past epoch keys, §3.4).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T18:13:48.198914545Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T18:13:48.198914545Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.32.15",
+      "depends_on_id": "agora-pozi.32",
+      "type": "parent-child",
+      "created_at": "2026-10-18T18:13:48.217904876Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

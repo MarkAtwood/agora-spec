@@ -1,0 +1,12 @@
+{
+  "id": "agora-u89j",
+  "title": "Proposal: private boards (large private forums) as broadcast channels",
+  "description": "Design note notes/private-boards.md (2026-10-18). A board = broadcast channel (§5.2.1.4) whose broadcasterRoles includes the member role. Additions: (1) one sentence permitting many-poster broadcast + client indicator; (2) message delete defined for broadcast channels (§4.5 assumes MLS); (3) history beyond relay retention: long relay retention (preferred) or CO archive read API (§5.2.5); (4) optional CO thread/search index service. Security model must be stated: no FS within an epoch, removal forward-only, members can leak, CO reads plaintext. Open questions for Mark in note §7: scale target, sysop reads, history policy default, archive source, pseudonymity.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T18:10:27.14730256Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T18:10:27.14730256Z"
+}

@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.32.13",
+  "title": "Optional: DM from CORUNDUM profile via DID-doc discovery",
+  "description": "profiles/corundum.md §10 item 1. CORUNDUM client offers 'message privately' only when target DID doc has AgoraKeyPackageEndpoint; opens/requests Agora DM (§4.6, §4.6.3). No protocol change; client UX + profile text only.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T18:13:48.039428119Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T18:13:48.039428119Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.32.13",
+      "depends_on_id": "agora-pozi.32",
+      "type": "parent-child",
+      "created_at": "2026-10-18T18:13:48.059741254Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

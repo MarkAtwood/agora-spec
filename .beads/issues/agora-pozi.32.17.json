@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.32.17",
+  "title": "Optional: private CORUNDUM reports/appeals over Agora DM",
+  "description": "profiles/corundum.md §10 item 5. When the operator's or curator's DID doc has AgoraKeyPackageEndpoint, send abuse reports / curation appeals as Agora DMs; else HTTPS. Decision still published on the CORUNDUM side. Needs: how an operator or curator publishes a DID for intake.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T18:13:48.445465313Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T18:13:48.445465313Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.32.17",
+      "depends_on_id": "agora-pozi.32",
+      "type": "parent-child",
+      "created_at": "2026-10-18T18:13:48.463567577Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "agora-pozi.32.18",
+  "title": "Optional: CORUNDUM follows as message-request signal",
+  "description": "profiles/corundum.md §10 'reverse direction'. Recipient's client treats a message request (§4.6.3) as from a known sender when the recipient follows that DID on CORUNDUM (own decrypted following list, CORUNDUM Ch 25). Local client policy, no new message.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T18:13:48.522781349Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T18:13:48.522781349Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.32.18",
+      "depends_on_id": "agora-pozi.32",
+      "type": "parent-child",
+      "created_at": "2026-10-18T18:13:48.537944453Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

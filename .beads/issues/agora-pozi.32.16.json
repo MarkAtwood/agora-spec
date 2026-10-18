@@ -1,0 +1,30 @@
+{
+  "id": "agora-pozi.32.16",
+  "title": "Optional: private audiences linked from a CORUNDUM profile",
+  "description": "profiles/corundum.md §10 item 4. 'Close friends'/subscriber audience as an Agora broadcast channel or board (notes/private-boards.md, agora-u89j) linked from a CORUNDUM profile. Define the link (profile field or service entry) and the disclosure (link reveals the audience exists, not membership).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T18:13:48.279155374Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T18:13:48.279155374Z",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.32.16",
+      "depends_on_id": "agora-pozi.32",
+      "type": "parent-child",
+      "created_at": "2026-10-18T18:13:48.300385201Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "agora-pozi.32.16",
+      "depends_on_id": "agora-u89j",
+      "type": "blocks",
+      "created_at": "2026-10-18T18:13:48.362653101Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

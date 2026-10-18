@@ -1,0 +1,24 @@
+{
+  "id": "agora-pozi.32.19",
+  "title": "Add optional-integrations section to CORUNDUM profile",
+  "description": "Added profiles/corundum.md §10 (2026-10-18, by the CORUNDUM agent at Mark's request): five DID-doc-gated optional integrations plus reverse direction and what-not-to-do. Follow-ups: agora-pozi.32.13 agora-pozi.32.14 agora-pozi.32.15 agora-pozi.32.16 agora-pozi.32.17 agora-pozi.32.18.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T18:13:48.597787558Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T18:13:48.681904379Z",
+  "closed_at": "2026-10-18T18:13:48.681904379Z",
+  "close_reason": "Section added.",
+  "dependencies": [
+    {
+      "issue_id": "agora-pozi.32.19",
+      "depends_on_id": "agora-pozi.32",
+      "type": "parent-child",
+      "created_at": "2026-10-18T18:13:48.616600826Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
