@@ -1,0 +1,14 @@
+{
+  "id": "agora-93x2",
+  "title": "JMAP Chat MIMI bridge: MessageId mapping (R1) and per-revision IDs (R2)",
+  "description": "Deferred by Mark 2026-10-17 until a MIMI bridge is designed. See notes/mimi-vs-jmap-chat.md section 5a and Outcome. Open question: which timestamp every MIMI follower sees identically.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-18T01:23:20.2963089Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-18T01:35:20.130413071Z",
+  "closed_at": "2026-10-18T01:35:20.130413071Z",
+  "close_reason": "Decided by Mark 2026-10-17: R1 A (hash-derived ULID), R2 B (edit alias)"
+}
