@@ -2,12 +2,13 @@
 
 *2026-10-17*
 
-Fund Agora's move from a finished protocol specification to working, audited,
+Fund Agora's move from a feature-complete draft specification to working, audited,
 interoperable software. Agora is an open protocol for group messaging and
 calls. The companies that run its servers cannot read, censor, or control the
 conversations, while organizations keep the policy, compliance, and identity
-control they need. The specification is complete and has passed four rounds of
-independent review. Funding pays for:
+control they need. The specification is feature-complete in draft and has been
+through four internal review rounds. External cryptographic review is still to
+come. Funding pays for:
 
 - two independent reference implementations;
 - an external cryptographic audit;
@@ -28,14 +29,16 @@ Agora splits that into two roles:
 - **Infrastructure operators** run relays, media servers, and connection
   helpers. They move encrypted traffic and sell capacity under contract. They
   learn as little as possible: not who is in a group, not what a group is
-  called, and never the content.
+  called (except channels a community chooses to make public), and never the
+  content.
 - **Communications operators** run the communities: a company, a school, a
   union, an open-source project. They set membership and policy, hold
   identity, and run compliance archiving where the law requires it.
 
 Either role can be replaced without the other noticing. A community can move
-to new servers without losing members or history. A server operator can carry
-many communities without being able to tell them apart.
+to new servers without losing members or history. A server operator
+carrying a community's traffic learns its communications operator's billing
+identity, but not its members, its channels, or what is said.
 
 Agora covers:
 
@@ -80,20 +83,25 @@ Agora keeps every decision about a community with its operator, and gives the
 servers nothing to decide with.
 
 - **Blind relays.** Relays route encrypted envelopes by an opaque token. They
-  never learn a group's members, name, or content. A relay operator served with
-  a subpoena can truthfully say it holds nothing useful.
+  never learn a group's members or content, or its name unless the community
+  makes the channel public. A relay served with a subpoena can produce
+  connection metadata, routing tokens, and ciphertext, but not who is in a
+  community or what they said.
 - **Door keys instead of member lists.** A communications operator issues each
   channel an admission key and registers only its public half with the relays.
   Relays admit traffic signed with it and know nothing else. Removing a member
   rotates the key.
-- **End-to-end encryption by MLS.** Every channel, DM, and call key lives only
-  on members' devices. MLS gives forward secrecy and recovery after a device
+- **End-to-end encryption by MLS.** Every channel, DM, and call encryption key
+  derived from MLS lives only on members' devices. No infrastructure operator
+  holds any. MLS gives forward secrecy and recovery after a device
   compromise, and scales to large groups.
 - **Portable identity.** Users are identified by decentralized identifiers,
   employer-issued or self-held. No messaging vendor owns a user's identity.
 - **Compliance without a backdoor.** In regulated communities, a disclosed
-  compliance logger joins the group as a visible member. It archives what it is
-  entitled to, and everyone is told it is there. No other party gets access.
+  compliance logger joins the group as a member. Members are told of it through
+  a retention notice and the Space settings, and any member's client can verify
+  it is in the group. It archives what it is entitled to. No other party gets
+  access.
 - **Replaceable everything.** Operators and servers are bound only by published
   contracts and verification keys, so any one can be swapped without changing
   the community.
@@ -137,9 +145,11 @@ them is rising.
   production tooling.
 - **EU identity wallets arrive in December 2026.** Every EU state must offer
   its residents a digital identity wallet. Agora's attribute-bridging profile
-  lets public bodies and firms verify members against EU wallets, US CAC and
-  PIV smartcards, and enterprise directories, then show other members only
-  derived claims, never legal identity, and show infrastructure operators
+  lets a community admit members on derived claims from attesters it lists in
+  its Space state (`trustedAttesters`, spec §3.3). The communications operator
+  may run its own attester or list a third party. Attesters check EU wallets,
+  US CAC and PIV smartcards, and enterprise directories. Other members see only
+  the claims a member chooses to show, and infrastructure operators see
   nothing.
 - **Trust in single-vendor platforms is low.** Communities have watched
   platforms change terms, prices, and moderation rules overnight, and want a
@@ -147,9 +157,10 @@ them is rising.
 
 ## Works with OpenVTC and the Decentralized Trust Graph
 
-Agora already interoperates with OpenVTC, the open-source implementation of
-the Decentralized Trust Graph credential stack, with no change to the core
-protocol. A deployment profile defines four connections:
+Agora is designed to work with OpenVTC, the open-source implementation of the
+Decentralized Trust Graph credential stack, through a deployment profile with
+no change to the core protocol. The profile defines four connections, all on
+the specification as written:
 
 - **Strangers in DMs.** A client can show who sent a message request from the
   sender's trust-graph credentials, checked against a public trust registry.
@@ -165,14 +176,14 @@ to adopt rather than reinvent.
 
 ## Where it stands
 
-The protocol specification is complete. What does not exist yet is production
-software.
+The protocol specification is feature-complete in draft. What does not exist
+yet is production software or external review.
 
 | Piece | Status |
 | --- | --- |
 | Architecture | 9 normative rules for keeping operators separate, with an accepted-costs register and a review test every section must pass |
 | Protocol specification | 14 parts plus appendices: identity, spaces, access control, messaging, calls, compliance, cross-community channels, interoperability, relays, transport, security, encoding, data formats |
-| Independent review | 4 full review rounds covering consistency, operator separation, cryptography, and implementability, with every finding fixed or decided |
+| Internal review | 4 full review rounds covering consistency, operator separation, cryptography, and implementability, with every finding fixed or decided |
 | Test vectors | 11 vector files; every value computed by two independent cryptographic implementations that agree |
 | Deployment profiles | 12, including Microsoft 365, Google Workspace, Microsoft Purview, Discord migration, and radio-mesh gateways |
 | Operator guides | 3: relay operators, financial regulators, legal counsel |
@@ -180,7 +191,7 @@ software.
 
 Two items were deliberately left for the implementation phase:
 
-- test vectors that need a working MLS stack;
+- test vectors that need a working MLS stack or a second HPKE implementation;
 - an external cryptographic review of the admission-key design.
 
 ## What funding buys
@@ -216,12 +227,14 @@ Open question: duration and cost per phase.
 | Network effect: users stay where their contacts are | Start with communities that need what incumbents lack, such as regulated firms and communities leaving a platform; bridge to existing networks through gateways |
 | No one runs the infrastructure | The operator split creates a hosting market; pilots seed it with at least two independent relay operators |
 | Standards move under us (MIMI, DMA rules) | Agora is MLS-native and keeps native MIMI interoperability as a documented next step rather than a rewrite |
+| A modified client evades DM capture | Capture of DMs relies on firm-managed devices, the same boundary regulated firms already rely on; the logger records every capture gap it can detect |
 | Compliance claims are not accepted by examiners | Independent compliance review of the archiving design in the pilot phase; the regulators guide is written for examiners |
 
 ## Why fund it now
 
-The hardest and cheapest part is done. The design is complete and reviewed, so
-funding goes straight to building rather than to research. Every month without
+The hardest and cheapest part is done. The design is feature-complete and
+internally reviewed, so funding goes straight to building rather than to
+research. Every month without
 encrypted, portable, compliant group messaging costs something:
 
 - regulated firms keep paying fines;
