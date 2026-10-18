@@ -4,7 +4,7 @@
 
 **Status:** Draft, 2026-10-17
 **Version:** 0.1 Draft
-**Depends on:** ARCHITECTURE §2.2, §2.3, §2.4, §5; spec §2.1, §2.5, §2.6, §4.1, §4.3, §4.5, §4.6.3, §5.2.1, §5.2.1.1, §5.2.1.5, §6.9, §6.14, §9, §12.13, §13.1, §13.1.1, Appendix C
+**Depends on:** ARCHITECTURE §2.2, §2.3, §2.4, §5; spec §2.1, §2.5, §2.6, §3.3, §3.5, §4.1, §4.3, §4.5, §4.6.3, §5.2.1, §5.2.1.1, §5.2.1.5, §6.9, §6.14, §9, §12.13, §13.1, §13.1.1, Appendix C
 **Sources:** OpenVTC Verifiable Trust Infrastructure (https://github.com/OpenVTC/verifiable-trust-infrastructure, https://github.com/OpenVTC/openvtc, https://openvtc.net/); DTG Credentials, Working Draft 0.6.0 (https://trustoverip.github.io/dtgwg-cred-spec/); Trust Tasks, Working Draft 0.7.0 (https://github.com/trustoverip/dtgwg-trust-tasks-tf, https://trusttasks.org); Trust Registry Query Protocol (TRQP) v2.0 (https://trustoverip.github.io/tswg-trust-registry-protocol/) and https://github.com/affinidi/affinidi-trust-registry-rs; Trust Spanning Protocol (TSP) (https://trustoverip.github.io/tswg-tsp-specification/); ToIP Decentralized Trust Graph Working Group (https://lf-toip.atlassian.net/wiki/spaces/HOME/pages/257785857/Decentralized+Trust+Graph+Working+Group)
 
 ---
@@ -16,7 +16,7 @@ OpenVTC is an open-source (Apache-2.0) Rust implementation of the Decentralized 
 What this profile gives:
 
 - A client can tell a user who a stranger who just sent a DM request is, from DTG credentials in the stranger's leaf, checked against a TRQP trust registry (section 3).
-- A Space can admit members on a Verifiable Trust Community's decision (section 5).
+- A Space can admit members on credentials from a Verifiable Trust Community the CO lists, or make that community a delegated admin that admits members itself (section 5).
 - A user's personal agent has a defined place in Agora's roles (section 6).
 - Both sides already share `did:webvh` identities (section 7).
 
@@ -42,7 +42,7 @@ The primary use case: someone the user has never talked to adds them to a DM. Be
 1. **The adder attaches credentials.** When the stranger's client creates the DM group, it puts chosen DTG credentials in the `agora_credentials` extension of its own leaf (spec §5.2.1.5). This leaf belongs to a group the adder creates, not to a published KeyPackage, so the placement advice of §5.2.1.5 does not discourage it. Each entry carries media type `application/vc` and the credential as issued, with its embedded `eddsa-jcs-2022` proof and the DTG context, as opaque bytes. A Data Integrity credential is usually 1 to 3 KB, so a few fit in the 8 entry, 8192 byte limit (spec Appendix C).
 2. **The request arrives.** The user's client receives the Welcome. The adder is not an accepted sender, so the client holds the group in the message request state (spec §4.6.3). The adder's leaf, with its credentials, is in the Welcome's ratchet tree.
 3. **The client checks each entry.** For each `application/vc` entry it supports, the client verifies the Data Integrity proof by the rules of that cryptosuite, checks that `credentialSubject.id` equals the adder's leaf DID as an exact string (spec §5.2.1.5), and checks expiry and status by the credential's own rules (spec §12.13). An entry that fails any check is ignored, and the leaf stays valid.
-4. **The client asks whether the issuer counts.** Issuer trust is the client's policy (spec §5.2.1.5). Under this profile that policy names one or more TRQP v2.0 registries, and the client asks each whether the credential's issuer is authorized to issue that credential type under the governance authority the policy names. A VMC from a trust community the registry recognizes says "member of that community", backed by the community's governance rather than by the stranger's word.
+4. **The client asks whether the issuer counts.** Issuer trust is the client's policy (spec §5.2.1.5). Under this profile that policy names one or more TRQP v2.0 registries, and the client asks each whether the credential's issuer is authorized to issue that credential type under the governance authority the policy names. A VMC from a trust community the registry recognizes says "member of that community", backed by the community's governance rather than by the stranger's word. A Space's `trustedAttesters` does not apply here, even when the user and the stranger share that Space: a DM group is outside every Space's list (spec §3.3), so only the client's own policy decides.
 5. **The client looks for paths through people the user knows.** A public-scope VEC or VSC about the stranger, issued by a DID the user already knows (a contact, or the counterparty of a relationship credential the user holds), is a path from the user to the stranger. The user's own relationship credentials stay on the user's devices or in the user's VTA (section 6), and the client evaluates the path locally. Nothing about the user's relationships is sent to the stranger or to the registry.
 6. **The user decides.** The client shows what it verified, for example "member of trust community X (registry R)" and "endorsed by Carol, a contact", and the user accepts, declines, or blocks (spec §4.6.3). A rule the user or device manager sets can make verified holders of a named issuer's credential accepted senders automatically, as §4.6.3 already allows. How a client shows this is the user agent's choice.
 
@@ -60,20 +60,19 @@ Why: a credential shown to a stranger in a leaf is public by nature. Every membe
 
 ## 5. Space Admission by a Trust Community
 
-A Space's CO can delegate admission to a trust community. The VTC, or an adapter in front of it, acts as a CO admission component and plugs in at the invite flow (spec §4.3) with no wire change. It is CO-side under the key test: it must know who is being admitted to do its job (ARCHITECTURE §2.3).
+A Space's CO can admit members on credentials from a trust community, and it can also let the community admit members itself. Both paths plug in at the invite flow (spec §4.3) with no wire change.
 
-Either of two triggers leads to an invite:
+**Listing.** The CO lists the trust community's issuing DID in the Space's `trustedAttesters` (spec §3.3), as profiles/attribute-bridging.md §2.5 and §7 describe for a direct issuer. Listing gives the VTC no authority over Space state (profiles/attribute-bridging.md §2.5). With the VTC listed, members' clients MAY trust its VMCs in leaves of the Space's groups (spec §3.3), and in no other group.
 
-- the applicant presents a VMC, through OpenID for Verifiable Presentations or a Trust Task, to the CO's admission endpoint; or
-- the VTC admits the applicant under its own policy and tells the CO.
+**Attester path.** The VTC issues VMCs, and the CO's own admission component admits on them. The applicant presents a VMC, through OpenID for Verifiable Presentations or a Trust Task, to the CO's admission endpoint. The admission component is CO-side under the key test: it must know who is being admitted to do its job (ARCHITECTURE §2.3). The admission component:
 
-The admission component:
-
-- MUST verify a presented VMC's proof, expiry, status, and holder binding before acting on it, because a presentation outside an MLS group has no leaf signature to bind it;
+- MUST accept a presented VMC only if its issuer equals a DID listed in the Space's `trustedAttesters` as an exact string and its proof verifies under a key listed under `assertionMethod` in that DID's document, and MUST verify its expiry, status, and holder binding before acting on it, because a presentation outside an MLS group has no leaf signature to bind it;
 - MUST issue the `SpaceInvite` only with `issuedTo` set to the DID that the VMC names as its subject, and only when that DID is the applicant's Agora DID;
 - MUST sign the `SpaceInvite` per spec §13.1.1 with an admin DID of the Space (spec §4.1, §4.3), held by the CO and distinct from any IO key (ARCHITECTURE §2.4).
 
-Revoking a VMC blocks later admissions. It does not remove anyone from a Space: MLS membership is the only access control, so the CO removes the member by its usual means (spec §4.5). The VTC is never placed on the IO side, so it does not run the Space's relays under the same keys (ARCHITECTURE §2.4).
+**Direct path.** A CO that wants the VTC, or an adapter in front of it, to admit people under the VTC's own policy makes it a delegated admin (spec §4.1): the owner adds the VTC's admin DID to `admins` (spec §3.3). The VTC then holds that admin key itself and signs each `SpaceInvite` under it per spec §13.1.1. It is a CO component by the key test (ARCHITECTURE §2.3), and its admin key is distinct from any IO key (ARCHITECTURE §2.4). Without that grant the VTC is an attester only and cannot admit anyone. The grant cannot be narrowed to admission alone. An admin's scope is a list of channel path patterns (spec §3.3), and the admin powers of spec §4.1 are fixed, including signing Space state mutations and adding or removing members from channel MLS groups within that scope. An admin whose scope is `["*"]` can change every Space-level field not reserved to the owner, `trustedAttesters` included (spec §4.1). A CO that wants the VTC's judgment without granting these powers uses the attester path. On the direct path the VTC MUST set `issuedTo` only to a DID the applicant has proved control of, by MemberAuth (spec §3.5) or a request signed per spec §13.1.1, because no presented VMC binds the applicant.
+
+Revoking a VMC blocks later admissions, and the owner ends the direct path by removing the VTC from `admins` (spec §3.3). Neither removes anyone from a Space: MLS membership is the only access control, so the CO removes the member by its usual means (spec §4.5). The VTC is never placed on the IO side, so it does not run the Space's relays under the same keys (ARCHITECTURE §2.4).
 
 ## 6. Where a VTA Fits
 

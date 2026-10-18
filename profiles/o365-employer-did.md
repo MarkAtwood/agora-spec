@@ -307,7 +307,7 @@ The organization defines one credential type in Verified ID: `EmployeeCredential
 }
 ```
 
-The issuer is the Verified ID authority's own DID, a service identity separate from the employee DIDs and from the sidecar's update key. The CO lists this issuer DID in the Space's `trustedAttesters` (spec §3.3) so members' clients may trust the credential (`profiles/attribute-bridging.md` section 2.5).
+The issuer is the Verified ID authority's own DID, a service identity separate from the employee DIDs and from the sidecar's update key. The CO lists this issuer DID in the Space's `trustedAttesters` (spec §3.3); its Enrollment Service accepts the credential only from a listed issuer, and members' clients may also trust it (`profiles/attribute-bridging.md` section 2.5).
 
 The Enrollment Service reads `agoraRoles`, a custom claim, to assign Space roles at enrollment time. Mover events update this claim by issuing a new VC with revised `agoraRoles` and revoking the previous one.
 
@@ -379,7 +379,7 @@ POST /v1/enroll/register
 
 The Enrollment Service validates:
 
-1. VC issuer DID resolves to the expected org (`did:web:verifiedid.example.com`)
+1. VC issuer DID equals, as an exact string, a DID listed in the Space's `trustedAttesters` (spec §3.3), here `did:web:verifiedid.example.com`
 2. VC `credentialSubject.id` matches the registering DID
 3. VC has not expired
 4. VC status (StatusList2021) shows not revoked
