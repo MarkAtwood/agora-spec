@@ -89,7 +89,7 @@ Before sending media, a participant's client MUST verify that the SFU it connect
 
 ### SFU Discovery
 
-The Space owner (CO) publishes each admitted SFU's DID and WebRTC endpoint in the Space state document:
+The CO, by the owner or an admin whose scope is `["*"]` (§4.1), publishes each admitted SFU's DID and WebRTC endpoint in the Space state document:
 
 ```json
 "sfus": [
