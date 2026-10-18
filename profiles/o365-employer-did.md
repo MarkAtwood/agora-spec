@@ -307,7 +307,7 @@ The organization defines one credential type in Verified ID: `EmployeeCredential
 }
 ```
 
-The issuer is the Verified ID authority's own DID, a service identity separate from the employee DIDs and from the sidecar's update key.
+The issuer is the Verified ID authority's own DID, a service identity separate from the employee DIDs and from the sidecar's update key. The CO lists this issuer DID in the Space's `trustedAttesters` (spec §3.3) so members' clients may trust the credential (`profiles/attribute-bridging.md` section 2.5).
 
 The Enrollment Service reads `agoraRoles`, a custom claim, to assign Space roles at enrollment time. Mover events update this claim by issuing a new VC with revised `agoraRoles` and revoking the previous one.
 

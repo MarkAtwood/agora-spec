@@ -367,6 +367,8 @@ The sidecar issues `EmployeeCredential` VCs directly, signed by the org root DID
 }
 ```
 
+The CO lists the org root DID, the issuer above, in the Space's `trustedAttesters` (spec §3.3) so members' clients may trust the credential (`profiles/attribute-bridging.md` section 2.5).
+
 ### 5.2 Status List
 
 The sidecar maintains a StatusList2021 credential for VC revocation. The status list is a bitstring where each bit corresponds to one VC's revocation status, served publicly at:
