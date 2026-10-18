@@ -109,3 +109,9 @@ says.
 Payments and cryptocurrency are out of scope for the first release.
 
 Work is tracked in Beads (`bd ready`, epic `agora-pozi`).
+
+## License
+
+Copyright (c) 2026 Mark Atwood. All rights reserved. A Creative Commons
+Attribution (CC-BY) license will come later; until then, contact Mark Atwood
+<me@mark.atwood.name>. See [LICENSE](LICENSE).
