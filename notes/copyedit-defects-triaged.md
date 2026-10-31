@@ -40,7 +40,7 @@ Ordered by severity. P2 items can make implementers diverge. P3 items are wordin
 
 11. **WebTransport cited as RFC 9000 (QUIC).** spec/01-overview.md:46, spec/99-appendices.md:17, spec/11-transport.md:15.
     01 and 99: "WebTransport (RFC 9000)" to "WebTransport over HTTP/3 (draft-ietf-webtrans-http3)". 11: "(IETF RFC 9000 / HTTP/3 over QUIC)" to "(WebTransport over HTTP/3, draft-ietf-webtrans-http3; HTTP/3 is RFC 9114 and runs over QUIC, RFC 9000)".
-    Before committing, check the datatracker. Use the RFC number if one has been published; otherwise pin the draft revision, as the corpus does for `draft-ietf-mls-extensions-09`. Do not use RFC 9220 (that covers WebSockets).
+    Before committing, check the datatracker. Use the RFC number if one has been published; otherwise pin the draft revision, as the corpus does for `draft-ietf-mls-extensions-10`. Do not use RFC 9220 (that covers WebSockets).
 12. **TURN cites obsoleted RFC 5766.** spec/99-appendices.md:21: "RFC 5766 / RFC 7065" to "RFC 8656 / RFC 7065".
 13. **DM admission host: "or when they are active" is garbled.** spec/12-security.md:258.
     Replace "except those of its own users whose clients also request keys for the group, or when they are active." with "except those of its own users whose clients also request or confirm keys for the group, and when they do so (§4.6)."

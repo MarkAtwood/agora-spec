@@ -102,7 +102,7 @@ The host MUST make a fetch atomically consume the returned KeyPackage, and MUST 
 
 **Why single-use.** KeyPackages are consumed exactly once. RFC 9420 assumes each KeyPackage's init key is used for one Welcome; reuse lets two groups share HPKE init secrets and lets a replayed Welcome be accepted. A known failure mode is a store that hands out KeyPackages without consuming them, keeps them only while the owning device is connected (so they vanish on disconnect), and keys them to an unstable per-session device identifier, so that adding a user's other devices silently fails. Agora's endpoint avoids this: consumption is atomic and permanent, supply persists independent of connection state, and supply is keyed to the owning DID.
 
-**Last-resort KeyPackages.** A client SHOULD also publish one last-resort KeyPackage (`draft-ietf-mls-extensions-09`, §last-resort-keypackage) per device, which the host returns, without consuming it, only when no single-use KeyPackage remains.
+**Last-resort KeyPackages.** A client SHOULD also publish one last-resort KeyPackage (`draft-ietf-mls-extensions-10`, §last-resort-keypackages) per device, which the host returns, without consuming it, only when no single-use KeyPackage remains.
 
 ##### Endpoint Protocol
 

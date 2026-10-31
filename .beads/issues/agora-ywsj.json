@@ -2,13 +2,17 @@
   "id": "agora-ywsj",
   "title": "mls-extensions-10 published: bump -09 citations, check new component rules",
   "description": "agora pins draft-ietf-mls-extensions-09: spec/05-messaging.md:105, import/agora-protocol-spec-unified.md:1338, and the citation convention in notes/copyedit-defects-triaged.md:43. -10 is current; the last-resort KeyPackage section is still there (now §6.4 'Last-Resort KeyPackages').\n\nIf agora uses app_data_dictionary components, -10 changes:\n- app_components MUST be understood and advertised (-10 §4.6; mlswg/mls-extensions#88, PR #93).\n- Safe AAD is now the entire authenticated_data, no trailing non-safe bytes (-10 §4.9; #95, PR #96).\n- Open issues that may change the rules: mlswg/mls-extensions#102, #103, #105.\n\nagora uses OpenMLS: openmls/openmls#2283 (AppDataUpdate §4.7 checks skipped without a GCE proposal) applies to any AppDataUpdate use.\n\nDetail and line references: mimid bead mimid-1wgh.4.62 (in /home/mark/PROJECT/mimid).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
+  "assignee": "agent",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-18T18:04:21.953919443Z",
   "created_by": "agent",
-  "updated_at": "2026-10-18T18:04:21.953919443Z",
+  "updated_at": "2026-10-31T21:35:06.430066913Z",
+  "started_at": "2026-10-31T21:34:27.987619049Z",
+  "closed_at": "2026-10-31T21:35:06.430066913Z",
+  "close_reason": "Bumped citation to draft-ietf-mls-extensions-10 §last-resort-keypackages (anchor renamed in -10; -10 is current per datatracker, 2026-07-06) in spec/05-messaging.md:105 and the citation convention in notes/copyedit-defects-triaged.md:43. Left import/agora-protocol-spec-unified.md:1338 unchanged: import/ is frozen verbatim source (README, PROVENANCE.md). -10 component rules (app_components advertisement §4.6, Safe AAD §4.9, open issues #102/#103/#105) and openmls#2283 (AppDataUpdate) do not apply: Agora's extensions 0xF0A0-0xF0A5 are plain RFC 9420 private-use extension types, and Agora uses no app_data_dictionary components, AppDataUpdate, or authenticated_data. They become relevant only if native MIMI interop (profiles/gateways.md) is adopted.",
   "labels": [
     "upstream"
   ]
