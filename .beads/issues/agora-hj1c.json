@@ -1,0 +1,12 @@
+{
+  "id": "agora-hj1c",
+  "title": "Profile: DIDComm ciphertext translator (IO)",
+  "description": "Write a non-normative profile for an IO-side translator that carries Agora MLS ciphertext to MLS-capable DIDComm wallets without decrypting.\n\nScope:\n- Map envelopes, Subscribe, and channel tokens onto DIDComm messages; the translator subscribes to relays on the wallet's behalf.\n- Add a ServiceAgreement serviceType for the translator.\n- Add an ARCHITECTURE §5 observation-budget entry (tokens carried, DIDComm endpoint, timing; comparable to a push proxy).\n- Decide whether the wallet's own DIDComm mediator is treated as the user's network choice and kept outside Agora's observation budget (needs Mark's decision).\n- KeyPackage and Welcome delivery stay on HTTPS KeyPackageEndpoint (dtg-openvtc.md §8 unchanged).\n\nRejected alternative: treating DIDComm mediators as relays (Agora cannot bind mediators it does not run). A plaintext DIDComm gateway remains possible under spec §9 / profiles/gateways.md for wallets without MLS.\n\nOrigin: IIW prep Q\u0026A, notes/iiw-index-card.md.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-31T20:55:47.941499369Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-31T20:55:47.941499369Z"
+}

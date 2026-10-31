@@ -1,0 +1,7 @@
+{
+  "id": "1793480311240927835-1",
+  "issue_id": "agora-hj1c",
+  "author": "agent",
+  "text": "Design note (2026-10-31): make the translator independent of the transport so it can target DIDComm v2 or ToIP TSP. Rationale: DIDComm is alive but a niche (DIF approved spec; Aries descendants; Affinidi/OpenVTC prefers TSP, then DIDComm v2); the main credential ecosystem (EUDI: OpenID4VCI/VP, ISO mdoc) uses neither; TSP is a v1.0 Implementor's Draft that ToIP says can carry DIDComm unchanged. Keep at P3; do not invest beyond a profile until a wallet vendor asks. Sources: https://blog.identity.foundation/didcomm-v2/ https://blog.identity.foundation/who-uses-didcomm/ https://www.trustoverip.org/?p=1964 https://lf-toip.atlassian.net/wiki/spaces/HOME/pages/158662657/2025-04-16+TSPTF+Meeting+Notes",
+  "created_at": "2026-10-31T20:58:31.240927835Z"
+}
