@@ -1,12 +1,16 @@
 {
   "id": "agora-hj1c",
-  "title": "Profile: DIDComm ciphertext translator (IO)",
-  "description": "Write a non-normative profile for an IO-side translator that carries Agora MLS ciphertext to MLS-capable DIDComm wallets without decrypting.\n\nScope:\n- Map envelopes, Subscribe, and channel tokens onto DIDComm messages; the translator subscribes to relays on the wallet's behalf.\n- Add a ServiceAgreement serviceType for the translator.\n- Add an ARCHITECTURE §5 observation-budget entry (tokens carried, DIDComm endpoint, timing; comparable to a push proxy).\n- Decide whether the wallet's own DIDComm mediator is treated as the user's network choice and kept outside Agora's observation budget (needs Mark's decision).\n- KeyPackage and Welcome delivery stay on HTTPS KeyPackageEndpoint (dtg-openvtc.md §8 unchanged).\n\nRejected alternative: treating DIDComm mediators as relays (Agora cannot bind mediators it does not run). A plaintext DIDComm gateway remains possible under spec §9 / profiles/gateways.md for wallets without MLS.\n\nOrigin: IIW prep Q\u0026A, notes/iiw-index-card.md.",
-  "status": "open",
+  "title": "Wallet transport: DIDComm/TSP translator (IO)",
+  "description": "Approved design (Mark 2026-10-31): mirror the push-proxy model.\n- New serviceType wallet-transport. Relay-designated translator (relay manifest, agreement with the relay) or CO-designated (Space state walletTransport, agreement with the CO, receives only that CO's channel tokens).\n- Translator carries live-stream messages (spec 11.4) over DIDComm v2 or TSP unchanged; wallet signs every Publish; translator holds no keys, plaintext, or membership.\n- KeyPackages/Welcomes stay on HTTPS KeyPackageEndpoint; history stays on relay sync API.\n- Wallet SHOULD use a pairwise DID per translator (not MUST); budget entry states the linkage if it does not.\n- Wallet's own mediator = user's network, outside budget, accepted limit.\nFiles: profiles/wallet-transport.md (new), ARCHITECTURE 2.3/5/6.1, spec/03-spaces.md, spec/11-transport.md, spec/99-appendices.md, README.md, profiles/dtg-openvtc.md 9.",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
+  "assignee": "agent",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-31T20:55:47.941499369Z",
   "created_by": "agent",
-  "updated_at": "2026-10-31T20:55:47.941499369Z"
+  "updated_at": "2026-11-01T05:12:17.429560371Z",
+  "started_at": "2026-10-31T21:40:18.720972485Z",
+  "closed_at": "2026-11-01T05:12:17.429560371Z",
+  "close_reason": "Specified as core spec/11-transport.md §11.9 Wallet Transport (not a profile: it defines protocol). serviceType wallet-transport; relay-designated (manifest walletTransport, capability wallet-transport-v1, agreement with each CO holding a relay agreement) or CO-designated (Space state walletTransport). WTOpen/WTFrame/WTClose over DIDComm v2 (type urn:agora:type:WalletTransport) or TSP; WebSocket upstream; seq ordering incl. close; wallet transport answers AdmissionChallenge; no PushRegister through it; connectionLogRetentionDays binds all carried traffic. Pairwise DID MUST (Mark 2026-10-31, changed from SHOULD after review: S1/§11.6). Mediator = user's network. Limits recorded: forged relay messages (confirm failover Errors directly), per-address throttling, connection count. ARCHITECTURE 2.3 row, 5 item 10, 6.1; 03-spaces, 10-relays, 99-appendices, dtg-openvtc 9 updated. Pre-existing gap not fixed: pushProxy/walletTransport absent from 10.2.1 manifest schema."
 }

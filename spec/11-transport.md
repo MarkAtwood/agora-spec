@@ -555,4 +555,85 @@ The Space, channel, membership, role, and invite management API is the JMAP Chat
 
 The management API runs in the client (a local daemon serving the user's own devices) or on CO infrastructure. A relay MUST NOT serve it. Its state is derived from CO-signed Space state (ARCHITECTURE S4) and decrypted MLS application messages, and it is the only place a `channelID` (or a DM's MLS group ID) is mapped to a `channelToken`. Clients use it to resolve a channel to its current `channelToken`, which they derive from the channel's current `ChannelAdmissionKey` (ARCHITECTURE §6.2). They then use the relay sync API (§11.8.1–§11.8.8) and the live stream to move ciphertext under that token.
 
+## 11.9 Wallet Transport (Optional)
+
+Some clients, typically wallets and personal agents, are reached through an agent messaging protocol (DIDComm v2 or the Trust Spanning Protocol, TSP) and its mediators rather than through a persistent WebTransport or WebSocket connection. A **wallet transport** is an IO that carries the live stream (§11.4) between such a client and relays. It opens the relay connections the client asks for and moves each live-stream message, unchanged, between a relay connection and the agent messaging protocol.
+
+A wallet transport is a pipe. The client remains an ordinary Agora client: it is a member of its MLS groups, holds its admission keys, and signs every `Publish` and `PinInstruction`. The wallet transport holds no MLS secret, signing key, admission key, or plaintext, and needs no membership or sender identity, so it is an IO component (ARCHITECTURE §2.3). A relay sees a wallet-transport connection as it would the client's own connection, except for the network address.
+
+The following stay on their HTTPS endpoints and do not travel through a wallet transport: KeyPackage fetches and Welcome delivery (§5.2.1.1, `KeyPackageEndpoint`), Space endpoint requests (§3.4), the relay sync API (§11.8), and blob transfer (§10.4.4).
+
+### 11.9.1 Designation and Agreements
+
+A relay MAY designate a wallet transport in its manifest:
+
+```json
+"walletTransport": {
+  "did": "did:web:wt.example.com",
+  "protocols": ["didcomm-v2", "tsp"],
+  "connectionLogRetentionDays": 7
+}
+```
+
+`did` is the wallet transport's DID. Its DID document lists the agent messaging service endpoints at which it accepts messages. `protocols` lists the agent messaging protocols it accepts: `didcomm-v2`, `tsp`, or both. `connectionLogRetentionDays` is the retention of network-layer connection metadata (ARCHITECTURE §5 item 1) for all traffic the wallet transport carries, whichever relay or CO it belongs to. It MUST be no higher than the value in any of its agreements. A relay that designates a wallet transport lists `wallet-transport-v1` in its manifest `capabilities` (§10.2.1).
+
+A CO MAY designate its own wallet transport for its members in the `walletTransport` member of its Space state (§3.3), an object with the same members. A wallet transport that a relay designates MUST hold a `wallet-transport` `ServiceAgreement` with each CO that holds a `relay` agreement with that relay (§10.5.1). A CO-designated wallet transport that is an IO is engaged by a `wallet-transport` agreement.
+
+A client that uses a CO-designated wallet transport subscribes through it only to the `channelToken`s of channels whose home Space's state names it. It carries every other token, including those of DM groups and self-groups, through a relay-designated wallet transport or its own connection.
+
+A wallet transport MAY connect to any relay a client names, not only to the relay that designates it.
+
+### 11.9.2 Message Set
+
+The client and the wallet transport exchange three messages, each a CBOR map encoded as described in §11.4:
+
+```cddl
+wt-msg  = WTOpen / WTFrame / WTClose
+conn-id = uint
+
+WTOpen = {                       ; client to wallet transport only
+  "v": 1, "t": "WTOpen",
+  "conn": conn-id,               ; chosen by the client, never reused with this wallet transport
+  "relay": tstr                  ; the webSocket endpoint from the relay manifest, §10.2.1
+}
+
+WTFrame = {                      ; either direction
+  "v": 1, "t": "WTFrame",
+  "conn": conn-id,
+  "seq": uint,                   ; 0 for the first frame in each direction, then +1
+  "msg": bstr                    ; exact bytes of one live-stream message, §11.4
+}
+
+WTClose = {                      ; either direction, the last message of a conn
+  "v": 1, "t": "WTClose",
+  "conn": conn-id,
+  "seq": uint,                   ; next seq in its direction
+  ? "reason": tstr
+}
+```
+
+On a `WTOpen`, the wallet transport opens a WebSocket connection (§11.2) to `relay`, so no datagrams arise. If it cannot, or refuses by local policy, it answers `WTClose`. It holds `WTFrame`s that arrive before the relay connection is up and writes them once it is. It sends each message the relay sends as a `WTFrame` on that `conn`, and writes the `msg` of each `WTFrame` from the client to the relay connection, in `seq` order. It answers any `AdmissionChallenge` itself (§11.6), because it is the party opening the connection, and does not pass the challenge to the client. Apart from that it does not alter, reorder, or originate live-stream messages. When the relay connection closes, the wallet transport sends `WTClose`. When the client's `WTClose` is processed, the wallet transport closes the relay connection. A receiver ignores messages for a `conn` it has closed or never opened.
+
+A client MUST NOT send `PushRegister` through a wallet transport. Its agent messaging mediator already reaches it while it is offline, and a wallet transport that saw a `pushHandle` would link it to the client's DID.
+
+A receiver processes the `WTFrame`s and the `WTClose` of a connection in `seq` order. Agent messaging protocols do not guarantee ordering, so a receiver holds a frame that arrives early until the frames before it arrive. If a missing message has not arrived after 60 seconds, the receiver sends `WTClose`. A client then opens a new connection and fetches envelopes it may have missed through the relay sync API (§11.8), as after any reconnection (§11.4).
+
+The wallet transport MUST NOT retain a message after passing it on, other than in the connection metadata its agreement allows (ARCHITECTURE §5 item 1). A client that is unreachable is the agent messaging protocol's concern: its mediator may queue messages for it. A wallet transport that cannot deliver a frame to the client sends `WTClose` to the client and closes the relay connection.
+
+### 11.9.3 Agent Messaging Bindings
+
+*DIDComm v2.* Each wallet-transport message is one DIDComm v2 message whose `type` is `urn:agora:type:WalletTransport` and whose `body` is `{"m": <base64url, without padding, of the wallet-transport message bytes>}`. Messages are encrypted to the recipient's DID (DIDComm authcrypt).
+
+*TSP.* Each wallet-transport message is the payload of one TSP message between the client's DID and the wallet transport's DID.
+
+### 11.9.4 Identifiers and Observation
+
+A client MUST address each wallet transport with a pairwise DID that it uses with no other party, and MUST NOT use its Agora DID for this. Otherwise a wallet transport could link the client's DID to the `channelToken`s it subscribes to, which no IO may do (ARCHITECTURE S1, §11.6).
+
+What a wallet transport observes is within the observation budget (ARCHITECTURE §5 item 10). The client's agent messaging mediators are the client's own network choice, like its internet service provider or an overlay network (§11.3). They are outside Agora's observation budget. A mediator observes when the wallet transport sends to the client, and how much.
+
+A wallet transport SHOULD rate-limit `WTOpen` and `WTFrame` per sending DID.
+
+**Limits.** A wallet transport holds one relay connection for each open `conn` of each client, so its connection count grows with clients times relays. It can delay, drop, or withhold messages, as a relay can, but it cannot read the envelopes it carries or alter them undetected: envelope signatures (§5.2.2) and MLS protect them. The client does not see the relay's TLS session, so the wallet transport can forge relay messages such as `RelayHello` and `Error`. A client therefore SHOULD confirm an `Error` that would make it fail over (§10.3.5), such as `token-withdrawn` or `unknown-token`, over a direct connection to the relay before acting on it. Relays apply their per-address limits (§11.6) to the wallet transport's address, which many clients share, so those limits may throttle clients behind a busy wallet transport. A client that cannot reach a mediator receives nothing through the wallet transport until it reconnects, and then catches up through the relay sync API (§11.8).
+
 ---

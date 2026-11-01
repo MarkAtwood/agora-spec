@@ -127,6 +127,7 @@ Each entry in `keys` has a `status` of `active`, `deprecated` (still accepted du
 | `peer-api-v1` | Implements the Peer API v1 (§10.2.2) |
 | `jmap-sync-v1` | Exposes the token-keyed JMAP sync API (§11.8.1–§11.8.8) |
 | `push-proxy-v1` | Operates a push notification proxy (§11.7) |
+| `wallet-transport-v1` | Designates a wallet transport (§11.9) |
 | `sequencer-v1` | Operates a blind sequencer (§14.4) |
 
 **Relay DID and DNS binding.** For relays operating on the public internet (§10.1), `relayDID` SHOULD be a `did:web` anchored to the relay's DNS domain rather than a `did:key`:
@@ -736,6 +737,7 @@ A `ServiceAgreement` is a typed payload envelope (§13.1) of type `urn:agora:typ
 | `sequencer` | Sequencer (§14.4) | Yes |
 | `turn` | TURN server (§6.11) | No |
 | `push-proxy` | Push notification proxy (§11.7) | No |
+| `wallet-transport` | Wallet transport (§11.9) | No |
 
 `provider` is the IO's DID; for a relay it is the manifest's `relayDID`. `endpoint` is the URL at which the IO accepts admission key registrations (§10.5.3); for a relay it equals the manifest's `endpoints.admissionKeys`. It is absent for service types that receive no registrations. `contact` is a `mailto:` or `https:` URI at which the IO reaches the CO about abuse and takedown requests (§10.4.5) and about token suspension, lost registrations, and retirement (§10.4.7); it MUST NOT name a Space.
 

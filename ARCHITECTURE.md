@@ -64,6 +64,7 @@ component when a provider runs it, as with an employer's provisioning service.
 | TURN | IO | |
 | Sequencer | IO | Stamps order on encrypted operations and Commits; members' clients validate the stamps (spec §14.4). Bound like a relay: it holds a `ServiceAgreement`, receives registered admission keys, and learns the CO but not the Space. A CO SHOULD use one sequencer across its Spaces and SHOULD designate a relay it already has an agreement with. |
 | Push proxy | IO | Observation budget includes device push handles (§5); a CO MAY run its own |
+| Wallet transport | IO | Carries the live stream to clients reached through DIDComm or TSP (spec §11.9); holds no keys or plaintext; a CO MAY run its own |
 | Blob / IPFS pinning | IO | |
 | KeyPackage host | CO | Run by whoever runs the user's identity (§8 Q3). Issues the admission key of each direct message (DM) group and self-group whose admission host it is (§6.2), and gives it only to its own user, never to other members. MAY refuse KeyPackage fetches and Welcome deliveries from senders the user has blocked, or by policy. |
 | Admission key registration service | CO | Generates and holds channel admission private keys; registers the public keys with IOs (§6.2) |
@@ -203,6 +204,15 @@ An IO MAY observe the following and nothing else:
    chooses per track (RFC 9605 §5.2). It carries no DID. The SFU can
    therefore tell the senders of one group apart under stable pseudonyms
    and see when the group's MLS epoch changes.
+10. Wallet transport. A wallet transport observes, for each client DID that
+    addresses it, the agent messaging endpoint it sends to, the relays it
+    connects to for that DID, and everything a relay observes on those
+    connections under items 1 to 4, including the set of `channelToken`s the
+    DID subscribes to (spec §11.9). It carries no push registrations. Clients
+    MUST address it with a pairwise DID used with no other party, so it never
+    learns a client's Agora DID.
+    A relay observes the wallet transport's network address in place of the
+    client's.
 
 Agora does not claim network-layer anonymity against an IO. Members who need it
 use an overlay transport (spec §10.1, §11). This matches the privacy
@@ -214,7 +224,8 @@ whitepaper: "Agora is not anonymous."
 
 The CO publishes signed Space state (S4). It engages every IO, whatever the
 service, by a `ServiceAgreement` (spec §10.5.1). The agreement's
-`serviceType` is one of `relay`, `sfu`, `turn`, `sequencer`, or `push-proxy`.
+`serviceType` is one of `relay`, `sfu`, `turn`, `sequencer`, `push-proxy`, or
+`wallet-transport`.
 The IO and the CO's billing DID sign it per spec §13.1.1. It fixes retention,
 quotas, and observation-budget declarations in the same way for every service
 type. Commercial terms are out of band. Enforcement is by selection: a CO that

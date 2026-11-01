@@ -164,11 +164,12 @@ This appendix lists the identifiers this specification allocates. "IANA" names t
 
 | Strings | Use | Defined in |
 |---|---|---|
-| `gossipsub-v1.1`, `gossipsub-quic-v1`, `peer-api-h3`, `tor-hidden-service-v1`, `sfu-v1`, `peer-api-v1`, `jmap-sync-v1`, `push-proxy-v1`, `sequencer-v1` | Relay manifest `capabilities` | §10.2.1 |
+| `gossipsub-v1.1`, `gossipsub-quic-v1`, `peer-api-h3`, `tor-hidden-service-v1`, `sfu-v1`, `peer-api-v1`, `jmap-sync-v1`, `push-proxy-v1`, `sequencer-v1`, `wallet-transport-v1` | Relay manifest `capabilities` | §10.2.1 |
 | `single-author`, `sequenced-v1` | Consistency model identifiers | §14.2.1 |
 | `text/markdown;variant=commonmark`, `text/markdown;variant=gfm`, `text/plain`, `application/jmap-chat-rich` | `bodyType` values | §5.2.7.2 |
 | `co-issued` | TURN `credentialScheme` | §6.11 |
-| `relay`, `sfu`, `sequencer`, `turn`, `push-proxy` | `ServiceAgreement` `serviceType` | §10.5.1 |
+| `relay`, `sfu`, `sequencer`, `turn`, `push-proxy`, `wallet-transport` | `ServiceAgreement` `serviceType` | §10.5.1 |
+| `didcomm-v2`, `tsp` | Wallet transport `protocols` | §11.9.1 |
 | `pow` | Proof-of-work scheme | §10.5.2 |
 
 **DID service types.** Entries in the W3C DID Specification Registries are needed for resolvers outside Agora to recognize them.

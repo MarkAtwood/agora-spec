@@ -98,6 +98,7 @@ Agora's default DID method is `did:webvh` (spec §2.1), and OpenVTC uses `did:we
 
 - **Calls.** An open Trust Tasks proposal (dtgwg-trust-tasks-tf pull request 672) adds a `communications` category for real-time call setup, with no specification yet. Agora's call coordination (spec §6.14), with ringing, lobbies, and policy as MLS messages that no server reads, and SFrame media encryption (spec §6.9), is a worked design the DTG work could reference rather than build again.
 - **Gateways to VTI agents.** A CO could run a gateway that carries chat between an Agora channel and OpenVTC agents over Trust Tasks. It would be an ordinary gateway under spec §9 and `profiles/gateways.md`: a disclosed CO component that holds plaintext.
+- **Agents that speak MLS.** An OpenVTC agent that implements Agora's MLS profile needs no gateway. It can reach relays over TSP or DIDComm v2 through a wallet transport (spec §11.9), an IO that carries ciphertext and holds no keys.
 
 ## 10. Open Questions
 
