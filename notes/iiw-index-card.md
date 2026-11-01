@@ -5,12 +5,14 @@
 **AGORA: The people who carry your messages don't run your community**
 
 **Two roles, kept apart by keys.** Infrastructure Operators (relays, SFUs,
-sequencers, push) carry encrypted bytes. Communications Operators (the
+sequencers, push, wallet transports) carry encrypted bytes. Communications Operators (the
 community or org) hold every decision: who's in, roles, moderation, retention,
 compliance.
 
 **The test:** anything that holds group secrets, signing keys, plaintext, or
 the member list is a CO component. Everything else is IO, whoever runs it.
+A DIDComm wallet transport that moves ciphertext is IO; a gateway that reads
+the messages is CO.
 
 **Swappable:** you can change relays without changing the community's
 identity, members, history, or policy.
