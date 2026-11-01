@@ -1,7 +1,7 @@
 {
   "id": "agora-z4pd",
   "title": "Add pushProxy and walletTransport to 10.2.1 manifest schema",
-  "description": "The relay manifest schema in spec/10-relays.md §10.2.1 lists neither the pushProxy member (defined in spec/11-transport.md §11.7.2) nor the walletTransport member (§11.9.1), though both are relay manifest members and their capability strings push-proxy-v1 and wallet-transport-v1 are listed in the §10.2.1 capabilities table. Add both members to the schema (with types and pointers to §11.7.2 and §11.9.1) so implementers reading §10.2.1 alone see the full manifest. pushProxy gap predates agora-hj1c; found in review of d388ad1.",
+  "description": "The relay manifest schema in spec/10-relays.md §10.2.1 lists neither the pushProxy member (defined in spec/11-transport.md §11.7.2) nor the walletTransport member (§11.9.1), though both are relay manifest members and their capability strings push-proxy-v1 and wallet-transport-v1 are listed in the §10.2.1 capabilities table. Add both members to the schema (with types and pointers to §11.7.2 and §11.9.1) so implementers reading §10.2.1 alone see the full manifest. pushProxy gap predates agora-hj1c; found in review of 3afe8ab.",
   "status": "closed",
   "priority": 3,
   "issue_type": "task",
@@ -9,7 +9,7 @@
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-01T05:17:11.646774289Z",
   "created_by": "agent",
-  "updated_at": "2026-11-01T05:17:53.881080507Z",
+  "updated_at": "2026-11-01T06:14:34.544731387Z",
   "started_at": "2026-11-01T05:17:37.027770057Z",
   "closed_at": "2026-11-01T05:17:53.881080507Z",
   "close_reason": "Added a prose paragraph to spec/10-relays.md §10.2.1 naming the optional pushProxy (§11.7.2) and walletTransport (§11.9.1) members, following the retiresAt precedent (prose, not added to the JSON example). Did not tie push-proxy-v1 to pushProxy: the capability means 'operates a push proxy', and §11.7.2 does not link them."
