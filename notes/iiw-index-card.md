@@ -148,6 +148,17 @@ talks, and the community runs it, not whoever hosts the servers.
   member commits. Same instinct on hosts (replaceable, sees ciphertext), but
   an Agora relay never learns who sent what on any tier, without needing
   zero-knowledge proofs. Rooms have running code (VTI); Agora is a spec.
+- **"Does Agora have a filing cabinet / shared agent memory?"** Yes, and it
+  speaks rooms' language. Every Space already has `FileNode` files and
+  durable encrypted blobs. On top of that, provenance records
+  (`draft-atwood-jmap-graph-provenance-00`, profiled in spec §14.6.15) let a
+  record say *how* its author knows: `basis` is `declared`, `observed`,
+  `verified`, or `inferred` (an agent's guess), with the author's own
+  `confidence`, `validUntil`, and evidence as graph edges to what it rests on.
+  Curators demote, retract (permanent), or pin under a separate `curate`
+  permission. Field names match DTG rooms, so a gateway maps records
+  one-to-one. Differences from rooms: any permitted member writes (no sole
+  owner), records are data never instructions, evidence is never fetched.
 - **Caution:** working drafts, frequent breaking releases, TSP revisions that
   don't interoperate. Agora pins versions in the profile; core references none.
 
