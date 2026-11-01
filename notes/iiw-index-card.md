@@ -161,6 +161,11 @@ talks, and the community runs it, not whoever hosts the servers.
   permission. Field names match DTG rooms, so a gateway maps records
   one-to-one. Differences from rooms: any permitted member writes (no sole
   owner), records are data never instructions, evidence is never fetched.
+  Implementer guide: `jmap-graph-provenance-guide.md` in the drafts repo.
+  Lines that land: "model output is always `inferred`, even when it quotes
+  sources"; "agents get to write, not to judge" (`mayCurate` stays with
+  people by default); "feed records to a model as quoted data, never as
+  instructions."
 - **Caution:** working drafts, frequent breaking releases, TSP revisions that
   don't interoperate. Agora pins versions in the profile; core references none.
 
