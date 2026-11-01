@@ -1,0 +1,7 @@
+{
+  "id": "1793512043062944905-1",
+  "issue_id": "agora-gnaz",
+  "author": "agent",
+  "text": "Exploration written: notes/provenance-records.md. Recommendation: JMAP Graph application profile (GraphNode + evidence GraphEdge + curation property under sequenced-v1 with a curate permission), park until a concrete user appears. Correction to bead constraint: Agora needs a small §14.6 Graph profile section, since Graph is not yet profiled. Awaiting Mark's decision: pursue or park.",
+  "created_at": "2026-11-01T05:47:23.062944905Z"
+}
