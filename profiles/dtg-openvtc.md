@@ -2,16 +2,16 @@
 
 > Non-normative. Capitalized BCP 14 key words (RFC 2119, RFC 8174) in this profile state what a deployment that follows it requires of its own components; they bind only implementations that claim conformance to this profile and are not Agora protocol requirements, except where a sentence cites the spec or ARCHITECTURE.md as their source. Where this profile conflicts with the spec or ARCHITECTURE.md, those govern.
 
-**Status:** Draft, 2026-10-17
+**Status:** Draft, 2026-10-31
 **Version:** 0.1 Draft
 **Depends on:** ARCHITECTURE §2.2, §2.3, §2.4, §5; spec §2.1, §2.5, §2.6, §3.3, §3.5, §4.1, §4.3, §4.5, §4.6.3, §5.2.1, §5.2.1.1, §5.2.1.5, §6.9, §6.14, §9, §12.13, §13.1, §13.1.1, Appendix C
-**Sources:** OpenVTC Verifiable Trust Infrastructure (https://github.com/OpenVTC/verifiable-trust-infrastructure, https://github.com/OpenVTC/openvtc, https://openvtc.net/); DTG Credentials, Working Draft 0.6.0 (https://trustoverip.github.io/dtgwg-cred-spec/); Trust Tasks, Working Draft 0.7.0 (https://github.com/trustoverip/dtgwg-trust-tasks-tf, https://trusttasks.org); Trust Registry Query Protocol (TRQP) v2.0 (https://trustoverip.github.io/tswg-trust-registry-protocol/) and https://github.com/affinidi/affinidi-trust-registry-rs; Trust Spanning Protocol (TSP) (https://trustoverip.github.io/tswg-tsp-specification/); ToIP Decentralized Trust Graph Working Group (https://lf-toip.atlassian.net/wiki/spaces/HOME/pages/257785857/Decentralized+Trust+Graph+Working+Group)
+**Sources:** OpenVTC Verifiable Trust Infrastructure (https://github.com/OpenVTC/verifiable-trust-infrastructure, https://github.com/OpenVTC/openvtc, https://openvtc.net/); DTG Credentials, Working Draft 0.6.0 (https://trustoverip.github.io/dtgwg-cred-spec/); Trust Tasks, Working Draft 0.7.0 (https://github.com/trustoverip/dtgwg-trust-tasks-tf, https://trusttasks.org); Trust Registry Query Protocol (TRQP) v2.0 (https://trustoverip.github.io/tswg-trust-registry-protocol/) and https://github.com/affinidi/affinidi-trust-registry-rs; Trust Spanning Protocol (TSP) (https://trustoverip.github.io/tswg-tsp-specification/); Trust Tasks `rooms/*` (https://github.com/trustoverip/dtgwg-trust-tasks-tf/tree/main/specs/rooms); VTI data rooms (https://github.com/OpenVTC/verifiable-trust-infrastructure, `docs/02-vta/data-rooms.md`); ToIP Decentralized Trust Graph Working Group (https://lf-toip.atlassian.net/wiki/spaces/HOME/pages/257785857/Decentralized+Trust+Graph+Working+Group)
 
 ---
 
 ## 1. Summary
 
-OpenVTC is an open-source (Apache-2.0) Rust implementation of the Decentralized Trust Graph (DTG) stack from the Trust over IP Foundation (ToIP) DTG Working Group, run as a Linux Foundation Decentralized Trust (LFDT) lab. It is a credential, community-membership, and personal-agent stack, not a messaging protocol: it has no chat, no calls, and no group messaging transport. Agora interoperates with it at the credential and DID layer. Everything in this profile works on the spec as written. It needs no core change.
+OpenVTC is an open-source (Apache-2.0) Rust implementation of the Decentralized Trust Graph (DTG) stack from the Trust over IP Foundation (ToIP) DTG Working Group, run as a Linux Foundation Decentralized Trust (LFDT) lab. It is mainly a credential, community-membership, and personal-agent stack. It also has MLS-sealed **data rooms** (section 2), which carry shared records and files and, in the Keyring wallet, room chat. It has no calls. Agora interoperates with it at the credential and DID layer, and section 9 describes how data rooms relate to Agora. Everything in this profile works on the spec as written. It needs no core change.
 
 What this profile gives:
 
@@ -26,14 +26,15 @@ What this profile gives:
 
 | Component | What it is |
 |---|---|
-| Verifiable Trust Agent (VTA) | A per-person, always-on agent holding the user's keys, DIDs, credentials, personas, and policy. Keys derive from one seed into separate "trust contexts". Runs on a server or a small home device. |
+| Verifiable Trust Agent (VTA) | A per-person, always-on agent holding the user's keys, DIDs, credentials, personas, and policy. Keys derive from one seed into separate "trust contexts". Self-hosted on a server, a small home device, or an AWS Nitro Enclave, or provider-hosted (a VTA farm offered for development and testing as of 2026-10-31). |
 | Verifiable Trust Community (VTC) | A community service that keeps a roster, admits members by policy, issues credentials, and publishes its decisions to a trust registry. |
 | DTG credentials | W3C Verifiable Credentials 2.0 secured by a Data Integrity proof with the `eddsa-jcs-2022` cryptosuite. Types: membership (VMC), relationship (VRC), delegation (VDC), invitation (VIC), persona (VPC), authority (VAC), and statement (VSC), with the VSC profiles endorsement (VEC) and witnessed (VWC). Each credential declares an `issuerScope` of `pairwise`, `directed`, or `public`. |
 | TRQP v2.0 | A query protocol for trust registries: is entity X authorized for action Y under governance authority Z. OpenVTC publishes VTC decisions through it. |
 | Trust Tasks | A JSON request envelope (`id`, `type` URI, `payload`, `issuer`, `recipient`, `proof`) used as OpenVTC's API between agents and services. |
 | TSP and DIDComm | The transports between agents. TSP is preferred, then DIDComm v2. Both route through mediators. |
+| Data rooms | Trust Tasks `rooms/*` (added 2026-09-02) and the VTI implementation (since 2026-09-03). A room is a store of versioned records and files, owned through a room DID the owner mints, and its host can be replaced without reissuing anything. Tiers are fixed at creation: `open` (cleartext, no MLS group), `attributed` (sealed in an MLS group, but the host sees which member acted), and `private` (sealed, with membership shown to the host in zero knowledge). The owner is the only committer, and the host orders epochs by compare-and-set. Keyring, the wallet openvtc.net points users to, posts room chat on top of rooms. |
 
-**Maturity.** The DTG credential and Trust Tasks specifications are working drafts, and every Trust Task type is a draft. TSP is an experimental implementer's draft whose revisions do not interoperate. OpenVTC makes frequent breaking releases. TRQP v2.0 is the one approved ToIP deliverable here. A deployment that follows this profile pins the versions it implements, and the Agora spec references none of these artifacts.
+**Maturity.** The DTG credential and Trust Tasks specifications are working drafts, and every Trust Task type is a draft. The TSP specification is labelled Release 1.0 (2026-10-21, with wire-format changes), while OpenVTC implements TSP Rev 2 and plans a flag-day migration, because the revisions do not interoperate. OpenVTC and VTI make frequent breaking releases. TRQP v2.0 is the most stable artifact here (its approval status was not re-checked on 2026-10-31). A deployment that follows this profile pins the versions it implements, and the Agora spec references none of these artifacts.
 
 ## 3. Who Is This Stranger?
 
@@ -79,13 +80,13 @@ Revoking a VMC blocks later admissions, and the owner ends the direct path by re
 ARCHITECTURE §2.3 places a personal agent by what it holds: a personal agent that holds a user's keys, MLS secrets, or plaintext is one of that user's devices when the user runs it, and its host is a CO component when a provider runs it. No new role is needed.
 
 - **Self-hosted VTA.** A VTA the user runs, on a home server or a small device, that takes part in Agora is one of the user's devices. It has its own leaf in each group, joins them by an own-device Add, and is a member of the user's self-group (spec §2.6). There it can hold the user's accepted-sender rules and block list (spec §4.6.3) and evaluate the endorsement paths of section 3 for the user's other devices.
-- **Provider-hosted VTA.** A VTA a provider runs holds the user's keys and, if it takes part in groups, MLS secrets and plaintext. Its host is a CO-side component, trusted as an employer's provisioning service is trusted (spec §2.5). A trusted execution environment narrows what the operator can reach, but it does not change the classification, which depends on what the component holds.
+- **Provider-hosted VTA.** A VTA a provider runs holds the user's keys and, if it takes part in groups, MLS secrets and plaintext. Its host is a CO-side component, trusted as an employer's provisioning service is trusted (spec §2.5). A trusted execution environment, such as the Nitro Enclave deployment OpenVTC offers, narrows what the operator can reach, but it does not change the classification, which depends on what the component holds.
 
 A VTA may also host the user's KeyPackages and receive their Welcomes as the user's `KeyPackageEndpoint` (spec §2.1, §5.2.1.1). That host is CO-side already (ARCHITECTURE §2.3, KeyPackage host), and the endpoint protocol is the one the spec defines, over HTTPS.
 
 ## 7. Identities
 
-Agora's default DID method is `did:webvh` (spec §2.1), and OpenVTC uses `did:webvh` for personas and communities. An Agora client can resolve an OpenVTC `did:webvh` DID, and a VTC can issue credentials to an Agora `did:webvh` DID, with no change on either side. OpenVTC does not support `did:plc`, so a user whose Agora DID is a `did:plc` cannot hold a DTG credential that counts in a leaf.
+Agora's default DID method is `did:webvh` (spec §2.1), and OpenVTC uses `did:webvh` for personas and communities. An Agora client can resolve an OpenVTC `did:webvh` DID, and a VTC can issue credentials to an Agora `did:webvh` DID, with no change on either side. OpenVTC also uses `did:key`, `did:web`, `did:peer`, and `did:scid`. It does not support `did:plc`, so a user whose Agora DID is a `did:plc` cannot hold a DTG credential that counts in a leaf.
 
 ## 8. Out of Scope
 
@@ -96,12 +97,14 @@ Agora's default DID method is `did:webvh` (spec §2.1), and OpenVTC uses `did:we
 
 ## 9. Openings
 
-- **Calls.** An open Trust Tasks proposal (dtgwg-trust-tasks-tf pull request 672) adds a `communications` category for real-time call setup, with no specification yet. Agora's call coordination (spec §6.14), with ringing, lobbies, and policy as MLS messages that no server reads, and SFrame media encryption (spec §6.9), is a worked design the DTG work could reference rather than build again.
-- **Gateways to VTI agents.** A CO could run a gateway that carries chat between an Agora channel and OpenVTC agents over Trust Tasks. It would be an ordinary gateway under spec §9 and `profiles/gateways.md`: a disclosed CO component that holds plaintext.
-- **Agents that speak MLS.** An OpenVTC agent that implements Agora's MLS profile needs no gateway. It can reach relays over TSP or DIDComm v2 through a wallet transport (spec §11.9), an IO that carries ciphertext and holds no keys. `profiles/didcomm.md` walks through it.
+- **Data rooms.** DTG rooms and Agora groups both use MLS with a host or relay that holds only ciphertext, so they solve overlapping problems. They are not the same groups: rooms exchange KeyPackages and Welcomes as Trust Tasks between agents, while Agora uses the `KeyPackageEndpoint` over HTTPS (spec §5.2.1.1). Agora groups also require Agora's own extensions in `required_capabilities` (spec §5.2.1), which a room client does not implement. A room member's client and an Agora client therefore cannot share one MLS group today. Carrying chat between a room and an Agora channel is a gateway (below).
+- **Calls.** DTG has no call specification. A proposal to add a `communications` category for call setup (dtgwg-trust-tasks-tf pull request 672) was closed unmerged on 2026-10-29. Agora's call coordination (spec §6.14), with ringing, lobbies, and policy as MLS messages that no server reads, and SFrame media encryption (spec §6.9), is a worked design the DTG work could reference rather than build again.
+- **Gateways to VTI agents and rooms.** A CO could run a gateway that carries chat between an Agora channel and OpenVTC agents or room chat over Trust Tasks. It would be an ordinary gateway under spec §9 and `profiles/gateways.md`: a disclosed CO component that holds plaintext.
+- **Agents that speak MLS.** VTAs already hold OpenMLS group state for rooms. An OpenVTC agent that also implements Agora's MLS profile needs no gateway. It can reach relays over TSP or DIDComm v2 through a wallet transport (spec §11.9), an IO that carries ciphertext and holds no keys. `profiles/didcomm.md` walks through it.
 
 ## 10. Open Questions
 
 - Which governance authority identifiers and credential types a client's default TRQP policy should name. This is a matter for deployments and trust communities, not this profile.
 - How often trust communities issue public- or directed-scope VMCs to members' own DIDs. If they mostly issue pairwise credentials, section 3 finds little to show until they add a public issuance.
-- Whether a VSC with predicates, proved in zero knowledge, can satisfy the subject check of §5.2.1.5. The DTG zero-knowledge profile is not settled.
+- Whether a VSC with predicates, proved in zero knowledge, can satisfy the subject check of §5.2.1.5. The DTG zero-knowledge profile is not settled; DTG `private` rooms depend on it too.
+- Whether DTG rooms and Agora groups should converge on a shared MLS profile, or stay separate and be bridged by gateways.

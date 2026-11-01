@@ -78,24 +78,25 @@ What to offer (`profiles/dtg-openvtc.md` §6, §9):
 
 Short answer: Two paths. A gateway works with any DIDComm wallet but sees the
 messages. A wallet that runs MLS can take Agora traffic over DIDComm through a
-translator that never decrypts. That translator is just a pipe, the same class
-as our relays.
+wallet transport that never decrypts. It's just a pipe, the same class as our
+relays. Full walkthrough: `profiles/didcomm.md`.
 
 - **Gateway (fits the spec today).** A CO component that is an MLS member,
   decrypts, and re-encrypts to DIDComm. It sees plaintext and must be
   disclosed before messages flow (spec §9). `unencryptedRemote` is `false`
   because DIDComm is encrypted to the agent. Works with wallets that have no
   MLS support.
-- **Ciphertext translator (proposed, not specified).** An IO component at
-  Agora's edge. It subscribes to relays with the channel token for the wallet
-  and repackages MLS ciphertext envelopes as DIDComm messages. It holds no
-  keys or plaintext. The wallet is a real MLS member, so nothing is unwrapped
-  in the middle. Relays see only another subscriber.
+- **Wallet transport (specified, spec §11.9).** An IO that opens relay
+  connections for the wallet and passes live-stream messages through
+  unchanged, over DIDComm v2 or TSP. It holds no keys or plaintext; the
+  wallet signs everything. Engaged like a push proxy (`wallet-transport`
+  service agreement, relay- or CO-designated). The wallet MUST use a pairwise
+  DID with it, never its Agora DID.
 - **Rejected: treating DIDComm mediators as relays.** It would mean fitting
   service agreements and observation limits onto mediators Agora neither runs
   nor binds.
 - **On "DIDComm + MLS demos":** these usually carry MLS inside DIDComm, which
-  is the translator model. The wallet still has to implement Agora's MLS
+  is the wallet transport model. The wallet still has to implement Agora's MLS
   profile, Space state, and extensions.
 
 ### Context: is DIDComm still live? (checked 2026-10-31)
@@ -115,8 +116,40 @@ mixed room.
   Implementor's Draft, independent of the transport. ToIP considers running
   DIDComm over TSP worth trying, with no changes to either spec.
 - **Line for the room:** "DIDComm or TSP, the answer is the same. A wallet
-  that runs MLS can take Agora ciphertext through a translator that sees
-  nothing. Anything else is a gateway, and members are told it's there."
+  that runs MLS can take Agora ciphertext through a wallet transport that
+  sees nothing. Anything else is a gateway, and members are told it's there."
+
+## Q&A: "What about OpenVTC?" (checked 2026-10-31)
+
+Short answer: OpenVTC tells you who someone is. Agora is where the community
+talks, and the community runs it, not whoever hosts the servers.
+
+- **Why people are excited:** LF Decentralized Trust demoed the first
+  open-source Verifiable Trust Community at Open Source Summit EU in Prague
+  (2026-10-15): Linux kernel contributors proving identity with credentials
+  instead of the PGP web of trust. LFDT announced Labs for the DTG credential
+  and Verifiable Trust Infrastructure reference implementations.
+- **Partner, not competitor:** OpenVTC has no chat, calls, or group messaging
+  (`profiles/dtg-openvtc.md` §1). A trust community needs somewhere to talk.
+- **Already fits:** shared `did:webvh` default; a Space can admit members on a
+  trust community's credentials, or make the community a delegated admin; DTG
+  credentials can sit on a member's MLS leaf; OpenVTC agents can reach relays
+  over TSP through a wallet transport (spec §11.9).
+- **Watch (verified 2026-10-31):** DTG Trust Tasks already has an MLS-based
+  `rooms/*` family (~50 task types since 2026-09-02, still active): MLS
+  KeyPackages, Welcomes, epochs, owner add/remove, and a host that sees only
+  opaque epoch data. It overlaps directly with Agora. Expect the question
+  "why not DTG rooms?" Also `chat/message` and ~40 `messaging/*` tasks for
+  mediators and relays. (The `communications`/call proposal, PR 672, was
+  closed unmerged on 2026-10-29.)
+- **"Why not DTG rooms?"** Different jobs. A room is the community's filing
+  cabinet: versioned records and files, owner as sole committer, pull-only
+  sync. Agora is its meeting hall: live chat, DMs, channels, calls, any
+  member commits. Same instinct on hosts (replaceable, sees ciphertext), but
+  an Agora relay never learns who sent what on any tier, without needing
+  zero-knowledge proofs. Rooms have running code (VTI); Agora is a spec.
+- **Caution:** working drafts, frequent breaking releases, TSP revisions that
+  don't interoperate. Agora pins versions in the profile; core references none.
 
 ### If "wallet comm" means OpenID4VP wallet flows instead
 

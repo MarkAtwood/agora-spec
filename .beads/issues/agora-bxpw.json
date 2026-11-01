@@ -1,0 +1,16 @@
+{
+  "id": "agora-bxpw",
+  "title": "Fix stale claims in dtg-openvtc profile",
+  "description": "Research 2026-10-31 found profiles/dtg-openvtc.md stale: OpenVTC/VTI ship MLS data rooms (since 2026-09-03) and Keyring room chat; DTG Trust Tasks has rooms/* (MLS) family; PR 672 closed unmerged 2026-10-29; TSP spec labelled Release 1.0 while OpenVTC runs Rev 2; VTA deployment incl. Nitro Enclave and hosted VTA farm; more DID methods in use.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T05:42:12.246701989Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T05:44:28.217620406Z",
+  "started_at": "2026-11-01T05:42:45.233736378Z",
+  "closed_at": "2026-11-01T05:44:28.217620406Z",
+  "close_reason": "Corrected profiles/dtg-openvtc.md from 2026-10-31 research: data rooms (rooms/*, VTI; open/attributed/private tiers, owner sole committer, host compare-and-set); Keyring room chat; PR 672 closed unmerged; TSP Release 1.0 vs OpenVTC Rev 2; VTA Nitro/VTA farm; extra DID methods; rooms vs Agora groups cannot share an MLS group (Agora required_capabilities, KeyPackageEndpoint); new open questions. Speaker notes updated."
+}
