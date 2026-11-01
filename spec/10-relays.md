@@ -113,6 +113,8 @@ Each entry in `keys` has a `status` of `active`, `deprecated` (still accepted du
 
 `retiresAt` is optional. A relay that will stop serving sets it to the RFC 3339 UTC time at which it stops (§10.4.7); a relay without a planned end omits it.
 
+`pushProxy` and `walletTransport` are optional. A relay that designates a push proxy carries `pushProxy`, an object defined in §11.7.2. A relay that designates a wallet transport carries `walletTransport`, an object defined in §11.9.1, and lists `wallet-transport-v1` in `capabilities`. A relay that designates neither omits both.
+
 `knownPeers` lists the relay's peers, including any peer marked unreachable within the last 7 days (§10.2.6). This serves as a mesh map: a new relay fetching any existing relay's manifest obtains a list of further relays to contact, enabling rapid mesh joining without a central directory server.
 
 `capabilities` is an array of capability strings declaring what features this relay supports:
