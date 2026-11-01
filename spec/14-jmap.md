@@ -64,6 +64,7 @@ The table gives the default model of each type in the family. It also lists the 
 | `Task` | `single-author` | task creator; each assignee for its own progress | Last-writer-wins suffices when only the creator reassigns. A Space that lets any member edit or reassign selects `sequenced-v1`. |
 | `Calendar`, `TaskList` binding (`Space.calendarId`, `Space.taskListId`) | derived | CO-signed Space state | A binding is community structure. |
 | `FileNode` | `sequenced-v1` | any member permitted by Space state | Sibling-name uniqueness and cycle-free moves are not safe under concurrent last-writer-wins. |
+| `Graph`, `GraphNode`, `GraphEdge`, including provenance properties | `sequenced-v1` | members permitted by §14.6.15; curation properties and destroys only by holders of `curate` | Several members write one structure, and curation and retraction must be ordered against edits. |
 | `SceneRegion` (structure) | `single-author` | region creator | Created and edited by one member, usually an admin. |
 | `SceneRegion.worldState` | `single-author` | the region's referee principal | Shared simulation state has one authority (§14.6.11). |
 | `SceneObject` | `single-author` | object owner | The scene draft permits only the owner to edit an object. |
@@ -381,6 +382,16 @@ Forbidden: `VTCCall`, `VTCParticipant`, `VTCRecording`, and `VTCLivestream` as s
 Used: the event vocabulary as ephemeral MLS application messages; media-state events correspond to `ParticipantState` updates (§6.2).
 
 Forbidden: subscription to call events at any server. Every member of the voice channel's group receives them; the draft's rate caps apply per sender.
+
+### 14.6.15 JMAP Graph and Graph Provenance (draft-atwood-jmap-graph-00, draft-atwood-jmap-graph-provenance-00)
+
+Used: `Graph`, `GraphNode`, and `GraphEdge` under `sequenced-v1` (§14.4), and the provenance profile: its `GraphNode` properties, evidence edges, retraction, expiry, `Graph` `retention`, and query filters. A Graph belongs to one channel and travels in that channel's MLS group; it is not shared beyond the group. `createdBy` and `updatedBy` are the DIDs of the MLS senders of the operations, and each store sets them itself. Each member applies, before an operation takes effect, the checks the drafts assign to the server, and ignores an operation that fails them, as for `FileNode` (§14.4.4).
+
+Overridden: the drafts' sharing rights are derived, not stored. `shareWith` is unused, and `myRights` is computed from current signed Space state (§3.3) for each member of the channel's group: `mayRead` is membership of the group; `mayWrite` is holding the `"send"` permission; `mayCurate` is holding the `"curate"` permission; `mayAdmin` is admin authority over the channel (§4.1). The Space owner holds every right. Creating or destroying a `Graph` requires `mayAdmin`. `isSubscribed` is local to each member's store and is never sent.
+
+Retention and `updated`: each record's `created` and `updated` are the stamp `ts` (§14.4.2) of its create and of the last operation applied to it, so that every member computes the same values. A store does not remove records on its own clock. Once a record is eligible under its Graph's `retention`, any member MAY submit a destroy for it; members validate eligibility against `updated` and the stamp `ts` of the destroy, and the destroy needs no `curate`. Expiry (`validUntil`) changes no state. Retention does not shorten what a compliance logger captured (§7.2) or the CO archive's own retention. In DM groups and self-groups, which have no sequencer, Graph types are read-only (§14.4.1).
+
+Forbidden: query, search, or rights evaluation by an IO, which would require plaintext (ARCHITECTURE S3). The `-projection`, `-search`, and `-edit` Graph companions are not profiled by this revision.
 
 ## 14.7 Security Considerations
 

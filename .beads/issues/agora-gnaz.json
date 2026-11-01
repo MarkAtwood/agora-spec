@@ -2,11 +2,15 @@
   "id": "agora-gnaz",
   "title": "Explore provenance record JMAP type",
   "description": "Explore a JMAP-family data type for structured, versioned records with provenance (basis, confidence, evidence, validUntil) plus curation and age-based retention, carried in Agora Spaces as sequenced-v1 like FileNode, for shared agent/community memory. Inspired by DTG rooms SealedRecordBody (records/put, records/curate). Constraints: no Agora core change; exact-bytes signing, not JCS; any permitted member writes; the draft belongs in Mark's jmap drafts (D5: do not edit ~/PROJECT/jmap-chat-spec without Mark). Output: design notes in notes/, decision on whether to pursue.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
+  "assignee": "agent",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-01T05:45:29.405875449Z",
   "created_by": "agent",
-  "updated_at": "2026-11-01T05:45:29.405875449Z"
+  "updated_at": "2026-11-01T05:57:03.307244189Z",
+  "started_at": "2026-11-01T05:54:08.009294739Z",
+  "closed_at": "2026-11-01T05:57:03.307244189Z",
+  "close_reason": "Pursued: draft in jmap-chat-spec (jmap-chat-spec-creb); Agora spec/14-jmap.md §14.6.15 profiles Graph + provenance (derived rights, owner all rights, Graph create/destroy by mayAdmin, deterministic created/updated from stamp ts, retention by sequenced destroy, DM read-only) and §14.2.3 row; spec/03-spaces.md adds curate permission."
 }

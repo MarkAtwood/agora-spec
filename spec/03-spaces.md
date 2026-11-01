@@ -181,7 +181,7 @@ Binary values in Space state (`channelID`, `mlsGroupID`, `assetKey`) are unpadde
 
 `powPolicy` is an optional channel-state field that sets the per-envelope proof-of-work difficulty members' clients enforce in that channel (§10.5.2).
 
-`roles` is defined in §4.2. A role's optional `permissions` list uses the permission names of the JMAP Chat specification (draft-atwood-jmap-chat-00) `SpaceRole`. Holders of the `"pin"` permission may change a channel's pin list (§5.2.6). Clients ignore unrecognized permission names.
+`roles` is defined in §4.2. A role's optional `permissions` list uses the permission names of the JMAP Chat specification (draft-atwood-jmap-chat-00) `SpaceRole`, and `"curate"`. Holders of the `"pin"` permission may change a channel's pin list (§5.2.6). Holders of `"curate"` may demote, retract, and pin records in the channels' Graphs (§14.6.15). Clients ignore unrecognized permission names.
 
 `customEmoji` lists the Space's custom emoji. Each entry is a JMAP Chat `CustomEmoji` object as defined in draft-atwood-jmap-chat-00, with the Agora constraints of §5.2.8.4. This document does not redefine it.
 
