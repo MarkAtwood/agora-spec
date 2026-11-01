@@ -66,6 +66,7 @@ protocol rules.
 | [Attribute bridging](profiles/attribute-bridging.md) | Verifying members against directories, IdPs, CAC/PIV smartcards, and the EU Digital Identity Wallet through listed attesters |
 | [In-person verification](profiles/in-person-verification.md) | Two people confirming each other's identity face to face |
 | [OpenVTC and the Decentralized Trust Graph](profiles/dtg-openvtc.md) | Working with OpenVTC trust communities and credentials |
+| [DIDComm](profiles/didcomm.md) | How DIDComm and TSP agents reach Agora: gateways, wallet transports, and identities |
 | [Microsoft Purview bridge](profiles/purview-bridge.md) | Ingesting compliance records into Exchange Online for Purview review, eDiscovery, and retention |
 | [Compliance chain witnessing](profiles/compliance-chain-witness.md) | Publishing compliance-log chain heads to independent witnesses so examiners can check them |
 | [Gateways to other networks](profiles/gateways.md) | A Matrix gateway, Slack and Teams placeholders, and the path to native MIMI |

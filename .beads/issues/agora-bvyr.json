@@ -1,0 +1,16 @@
+{
+  "id": "agora-bvyr",
+  "title": "Profile: DIDComm (explanatory)",
+  "description": "Non-normative profiles/didcomm.md explaining how DIDComm relates to Agora: transport not format, gateway vs wallet transport (spec 9, 11.9), DIDComm v2 walkthrough, what stays off DIDComm (dtg-openvtc 8), Agora DID vs pairwise DID, TSP, ecosystem status 2026-10-31. Plus README row; dtg-openvtc 8/9 point to it.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "assignee": "agent",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T05:27:43.455213226Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T05:28:35.480901541Z",
+  "started_at": "2026-11-01T05:28:29.659865559Z",
+  "closed_at": "2026-11-01T05:28:35.480901541Z",
+  "close_reason": "Wrote profiles/didcomm.md (non-normative, adds no protocol): DIDComm as transport not format; why not MLS replacement; gateway path (spec 9); wallet transport path with DIDComm v2 walkthrough (11.9); mediators as user's network; pairwise DID MUST (11.9.4); what stays off DIDComm; TSP; ecosystem status 2026-10-31 with unverified items marked. README profiles row; dtg-openvtc 9 pointer. dtg-openvtc 8 left as the cited source."
+}
